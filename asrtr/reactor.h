@@ -42,16 +42,18 @@ enum asrtr_reactor_state
 
 enum asrtr_reactor_flags
 {
-        ASRTR_FLAG_ID  = 0x01,
-        ASRTR_FLAG_VER = 0x02,
-        ASRTR_FLAG_TC  = 0x04,
+        ASRTR_FLAG_DESC = 0x01,
+        ASRTR_FLAG_VER  = 0x02,
+        ASRTR_FLAG_TC   = 0x04,
 };
 
 struct asrtr_reactor
 {
         struct asrtl_node    node;
         struct asrtl_sender* sendr;
-        struct asrtr_test*   first_test;
+        char const*          desc;
+
+        struct asrtr_test* first_test;
 
         enum asrtr_reactor_state state;
         union
@@ -62,7 +64,8 @@ struct asrtr_reactor
         uint8_t buffer[64];
 };
 
-enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender );
+enum asrtr_status
+asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender, char const* desc );
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec );
 
 enum asrtr_status

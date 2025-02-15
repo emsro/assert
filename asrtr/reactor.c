@@ -8,9 +8,10 @@
 #include <stddef.h>
 #include <string.h>
 
-enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender )
+enum asrtr_status
+asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender, char const* desc )
 {
-        if ( !rec || !sender )
+        if ( !rec || !sender || !desc )
                 return ASRTR_REAC_INIT_ERR;
         *rec = ( struct asrtr_reactor ){
             .node =
@@ -21,6 +22,7 @@ enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_se
                     .next      = NULL,
                 },
             .sendr      = sender,
+            .desc       = desc,
             .first_test = NULL,
             .state      = ASRTR_REC_IDLE,
             .flags      = 0,
@@ -31,17 +33,20 @@ enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_se
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
 {
         assert( rec );
+        assert( rec->desc );
         enum asrtr_status res = ASRTR_SUCCESS;
 
         uint8_t* p    = rec->buffer;
         uint32_t size = sizeof rec->buffer;
 
-        if ( rec->flags & ASRTR_FLAG_ID ) {
-                rec->flags &= ~ASRTR_FLAG_ID;
-                // XXX
+        if ( rec->flags & ASRTR_FLAG_DESC ) {
+                rec->flags &= ~ASRTR_FLAG_DESC;
+                if ( asrtl_msg_rtoc_desc( &p, &size, rec->desc, strlen( rec->desc ) ) !=
+                     ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
         } else if ( rec->flags & ASRTR_FLAG_VER ) {
                 rec->flags &= ~ASRTR_FLAG_VER;
-                // XXX: find better source of the id
+                // XXX: find better source of the version
                 if ( asrtl_msg_rtoc_version( &p, &size, 0, 0, 0 ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
 
@@ -84,8 +89,8 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
         case ASRTL_MSG_VERSION:
                 r->flags |= ASRTR_FLAG_VER;
                 break;
-        case ASRTL_MSG_ID:
-                r->flags |= ASRTR_FLAG_ID;
+        case ASRTL_MSG_DESC:
+                r->flags |= ASRTR_FLAG_DESC;
                 break;
         case ASRTL_MSG_TEST_COUNT:
                 r->flags |= ASRTR_FLAG_TC;

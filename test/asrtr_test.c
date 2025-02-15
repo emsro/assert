@@ -65,7 +65,7 @@ void test_cut_u16( void )
         struct asrtl_sender  send;
         setup_sender_collector( &send, &collected );
 
-        asrtr_reactor_init( &rec, &send );
+        asrtr_reactor_init( &rec, &send, "rec1" );
         TEST_ASSERT_NULL( rec.first_test );
         TEST_ASSERT_EQUAL( rec.node.chid, ASRTL_CORE );
         TEST_ASSERT_EQUAL( rec.state, ASRTR_REC_IDLE );
@@ -98,7 +98,7 @@ void test_reactor_version( void )
         struct data_ll*      collected = NULL;
         struct asrtl_sender  send;
         setup_sender_collector( &send, &collected );
-        asrtr_reactor_init( &rec, &send );
+        asrtr_reactor_init( &rec, &send, "rec1" );
 
         uint8_t  buffer[64];
         uint8_t* p    = buffer;
@@ -129,10 +129,82 @@ void test_reactor_version( void )
         free_data_ll( collected );
 }
 
+void test_reactor_desc( void )
+{
+        enum asrtl_status    lst;
+        enum asrtr_status    st;
+        struct asrtr_reactor rec;
+        struct data_ll*      collected = NULL;
+        struct asrtl_sender  send;
+        setup_sender_collector( &send, &collected );
+        asrtr_reactor_init( &rec, &send, "rec1" );
+
+        uint8_t  buffer[64];
+        uint8_t* p    = buffer;
+        uint32_t size = sizeof buffer;
+        lst           = asrtl_msg_ctor_desc( &p, &size );
+        TEST_ASSERT_EQUAL( lst, ASRTL_SUCCESS );
+
+        lst = asrtr_reactor_recv( &rec, buffer, sizeof buffer - size );
+        TEST_ASSERT_EQUAL( lst, ASRTL_SUCCESS );
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_DESC, rec.flags );
+
+        st = asrtr_reactor_tick( &rec );
+        TEST_ASSERT_EQUAL( st, ASRTR_SUCCESS );
+        TEST_ASSERT_EQUAL( 0x00, rec.flags );
+
+        TEST_ASSERT_NOT_NULL( collected );
+        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
+        TEST_ASSERT_EQUAL( 0x06, collected->data_size );
+        TEST_ASSERT_EQUAL( 0x00, collected->data[0] );
+        TEST_ASSERT_EQUAL( ASRTL_MSG_DESC, collected->data[1] );
+        TEST_ASSERT_EQUAL_STRING_LEN( "rec1", &collected->data[2], collected->data_size - 2 );
+        TEST_ASSERT_NULL( collected->next );
+        free_data_ll( collected );
+}
+
+void test_reactor_test_count( void )
+{
+        enum asrtl_status    lst;
+        enum asrtr_status    st;
+        struct asrtr_reactor rec;
+        struct data_ll*      collected = NULL;
+        struct asrtl_sender  send;
+        setup_sender_collector( &send, &collected );
+        asrtr_reactor_init( &rec, &send, "rec1" );
+
+        uint8_t  buffer[64];
+        uint8_t* p    = buffer;
+        uint32_t size = sizeof buffer;
+        lst           = asrtl_msg_ctor_test_count( &p, &size );
+        TEST_ASSERT_EQUAL( lst, ASRTL_SUCCESS );
+
+        lst = asrtr_reactor_recv( &rec, buffer, sizeof buffer - size );
+        TEST_ASSERT_EQUAL( lst, ASRTL_SUCCESS );
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_TC, rec.flags );
+
+        st = asrtr_reactor_tick( &rec );
+        TEST_ASSERT_EQUAL( st, ASRTR_SUCCESS );
+        TEST_ASSERT_EQUAL( 0x00, rec.flags );
+
+        TEST_ASSERT_NOT_NULL( collected );
+        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
+        TEST_ASSERT_EQUAL( 0x04, collected->data_size );
+        TEST_ASSERT_EQUAL( 0x00, collected->data[0] );
+        TEST_ASSERT_EQUAL( ASRTL_MSG_TEST_COUNT, collected->data[1] );
+        TEST_ASSERT_EQUAL( 0x00, collected->data[2] );
+        TEST_ASSERT_EQUAL( 0x00, collected->data[3] );
+        TEST_ASSERT_NULL( collected->next );
+        free_data_ll( collected );
+}
+
+
 int main( void )
 {
         UNITY_BEGIN();
         RUN_TEST( test_cut_u16 );
         RUN_TEST( test_reactor_version );
+        RUN_TEST( test_reactor_desc );
+        RUN_TEST( test_reactor_test_count );
         return UNITY_END();
 }
