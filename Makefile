@@ -1,3 +1,3 @@
 
 clang-tidy:
-	run-clang-tidy -p build -source-filter='.*asrt.*'
+	find ./asrt* \( -iname "*.h" -o -iname "*.c" \) | xargs clang-tidy -p ./_build/
