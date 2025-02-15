@@ -52,7 +52,7 @@ asrtr_send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrt
 
         asrtl_fill_buffer( (uint8_t const*) test->name, strlen( test->name ), &p, &free_space );
 
-        enum asrtl_status r = asrtl_send( sen, chid, p, sizeof data - free_space );
+        enum asrtl_status r = asrtl_send( sen, chid, data, sizeof data - free_space );
         return r == ASRTL_SUCCESS ? ASRTR_SUCCESS : ASRTR_SEND_ERR;
 }
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )

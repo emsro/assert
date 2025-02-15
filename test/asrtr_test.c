@@ -1,3 +1,4 @@
+#include "../asrtl/core_proto.h"
 #include "../asrtr/reactor.h"
 
 #include <stdlib.h>
@@ -130,6 +131,11 @@ void test_reactor_list( void )
         TEST_ASSERT_EQUAL( ASRTR_REC_IDLE, rec.state );
 
         TEST_ASSERT_NOT_NULL( collected );
+        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
+        TEST_ASSERT_EQUAL( 0x00, collected->data[0] );
+        TEST_ASSERT_EQUAL( ASRTL_MSG_LIST, collected->data[1] );
+        TEST_ASSERT_EQUAL_STRING_LEN( "test1", collected->data + 2, collected->data_size - 2 );
+        TEST_ASSERT_NULL( collected->next );
         free_data_ll( collected );
 }
 
