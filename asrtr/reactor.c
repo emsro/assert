@@ -59,6 +59,23 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
 
                 if ( asrtl_msg_rtoc_count( &p, &size, count ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
+        } else if ( rec->flags & ASRTR_FLAG_TI ) {
+                rec->flags &= ~ASRTR_FLAG_TI;
+                struct asrtr_test* t = rec->first_test;
+                uint32_t           i = rec->test_info_id;
+                while ( i-- > 0 && t )
+                        t = t->next;
+                if ( !t ) {
+                        char const* msg = "Failed to find test";
+                        if ( asrtl_msg_rtoc_error( &p, &size, msg, strlen( msg ) ) !=
+                             ASRTL_SUCCESS )
+                                return ASRTR_SEND_ERR;
+                } else {
+                        if ( asrtl_msg_rtoc_test_info(
+                                 &p, &size, rec->test_info_id, t->name, strlen( t->name ) ) !=
+                             ASRTL_SUCCESS )
+                                return ASRTR_SEND_ERR;
+                }
         }
         if ( size != sizeof rec->buffer )
                 if ( asrtl_send( rec->sendr, ASRTL_CORE, rec->buffer, sizeof rec->buffer - size ) !=
@@ -95,8 +112,13 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
         case ASRTL_MSG_TEST_COUNT:
                 r->flags |= ASRTR_FLAG_TC;
                 break;
-        case ASRTL_MSG_TEST_INFO:
+        case ASRTL_MSG_TEST_INFO: {
+                if ( msg_size < sizeof( uint16_t ) )
+                        return ASRTL_RECV_ERR;
+                asrtl_cut_u16( &msg, &msg_size, &r->test_info_id );
+                r->flags |= ASRTR_FLAG_TI;
                 break;
+        }
         default:
                 return ASRTL_UNKNOWN_ID_ERR;
         }

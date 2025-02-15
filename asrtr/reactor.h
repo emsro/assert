@@ -45,6 +45,7 @@ enum asrtr_reactor_flags
         ASRTR_FLAG_DESC = 0x01,
         ASRTR_FLAG_VER  = 0x02,
         ASRTR_FLAG_TC   = 0x04,
+        ASRTR_FLAG_TI   = 0x08,
 };
 
 struct asrtr_reactor
@@ -59,7 +60,9 @@ struct asrtr_reactor
         union
         {
         } state_data;
-        uint16_t flags;
+
+        uint32_t flags;
+        uint16_t test_info_id;
 
         uint8_t buffer[64];
 };

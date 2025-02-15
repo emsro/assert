@@ -9,7 +9,7 @@ void tearDown( void )
 {
 }
 
-void test_cut_u16( void )
+void test_reactor_init( void )
 {
         uint8_t        data[3] = { 0x33, 0x66, 0x99 };
         uint8_t const* p       = data;
@@ -63,7 +63,7 @@ void test_fill_buffer( void )
 int main( void )
 {
         UNITY_BEGIN();
-        RUN_TEST( test_cut_u16 );
+        RUN_TEST( test_reactor_init );
         RUN_TEST( test_add_chann_id );
         RUN_TEST( test_fill_buffer );
         return UNITY_END();
