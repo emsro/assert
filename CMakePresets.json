@@ -4,7 +4,7 @@
     {
       "name": "debug",
       "generator": "Ninja",
-      "binaryDir": "build",
+      "binaryDir": "_build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -14,7 +14,7 @@
     {
       "name": "asan",
       "generator": "Ninja",
-      "binaryDir": "build",
+      "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=address"
@@ -23,7 +23,7 @@
     {
       "name": "ubsan",
       "generator": "Ninja",
-      "binaryDir": "build",
+      "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=undefined"
@@ -32,7 +32,7 @@
     {
       "name": "release",
       "generator": "Ninja",
-      "binaryDir": "build",
+      "binaryDir": "_build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"

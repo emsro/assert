@@ -2,6 +2,7 @@
 #include "./reactor.h"
 
 #include "../asrtl/core_proto.h"
+#include "status.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -35,7 +36,7 @@ enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec )
         return ASRTR_SUCCESS;
 }
 static enum asrtr_status
-send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrtr_test* test )
+asrtr_send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrtr_test* test )
 {
         assert( sen );
         assert( test );
@@ -65,7 +66,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
         case ASRTR_REC_LIST: {
                 struct asrtr_test** p = &rec->state_data.list_next;
                 if ( *p ) {
-                        res = send_test_info( rec->repl, rec->node.chid, *p );
+                        res = asrtr_send_test_info( rec->repl, rec->node.chid, *p );
                         *p  = ( *p )->next;
                 }
                 if ( !*p )
@@ -91,7 +92,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
                 rst = asrtr_reactor_list_event( r );
                 if ( rst == ASRTR_BUSY_ERR )
                         return ASRTL_BUSY_ERR;
-                else
+                if ( rst != ASRTR_SUCCESS )
                         return ASRTL_RECV_ERR;
                 break;
         default:

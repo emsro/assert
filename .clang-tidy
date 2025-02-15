@@ -1,0 +1,27 @@
+---
+Checks: >
+  bugprone*,
+  linuxkernel*,
+  misc*,-misc-include-cleaner,
+  portability*,
+  readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements
+WarningsAsErrors: ''
+HeaderFileExtensions:
+  - h
+ImplementationFileExtensions:
+  - c
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: ''
+FormatStyle:     file
+CheckOptions:
+  readability-identifier-naming.GetConfigPerFile: true
+  readability-identifier-naming.EnumCase: lower_case
+  readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.LocalConstantCase: lower_case
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+SystemHeaders:   false
+...

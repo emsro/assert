@@ -1,0 +1,10 @@
+---
+InheritParentConfig: true
+CheckOptions:
+  readability-identifier-naming.GetConfigPerFile: true
+  readability-identifier-naming.EnumPrefix: asrtr_
+  readability-identifier-naming.TypedefPrefix: asrtr_
+  readability-identifier-naming.StructPrefix: asrtr_
+  readability-identifier-naming.FunctionPrefix: asrtr_
+  readability-identifier-naming.MacroPrefix: ASRTR_
+...
