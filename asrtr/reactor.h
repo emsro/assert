@@ -3,6 +3,7 @@
 #define ASRTR_REACTOR_H
 
 #include "../asrtl/chann.h"
+#include "../asrtl/core_proto.h"
 #include "status.h"
 
 #include <stdint.h>
@@ -37,7 +38,13 @@ struct asrtr_test
 enum asrtr_reactor_state
 {
         ASRTR_REC_IDLE = 1,
-        ASRTR_REC_LIST = 2,
+};
+
+enum asrtr_reactor_flags
+{
+        ASRTR_FLAG_ID  = 0x01,
+        ASRTR_FLAG_VER = 0x02,
+        ASRTR_FLAG_TC  = 0x04,
 };
 
 struct asrtr_reactor
@@ -49,14 +56,14 @@ struct asrtr_reactor
         enum asrtr_reactor_state state;
         union
         {
-                struct asrtr_test* list_next;
         } state_data;
+        uint16_t flags;
+
+        uint8_t buffer[64];
 };
 
 enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender );
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec );
-
-enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec );
 
 enum asrtr_status
 asrtr_test_init( struct asrtr_test* t, char const* name, void* data, asrtr_test_callback start_f );

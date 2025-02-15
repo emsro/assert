@@ -15,8 +15,18 @@ static inline void asrtl_u8d2_to_u16( uint8_t const* data, uint16_t* val )
         *val = ( data[0] << 8 ) + data[1];
 }
 
-enum asrtl_status asrtl_cut_u16( uint8_t const** data, uint32_t* size, uint16_t* id );
-enum asrtl_status asrtl_add_u16( uint8_t** data, uint32_t* size, uint16_t id );
+static inline void asrtl_cut_u16( uint8_t const** data, uint32_t* size, uint16_t* val )
+{
+        asrtl_u8d2_to_u16( *data, val );
+        *data += 2;
+        *size -= 2;
+}
+static inline void asrtl_add_u16( uint8_t** data, uint32_t* size, uint16_t val )
+{
+        asrtl_u16_to_u8d2( val, *data );
+        *data += 2;
+        *size -= 2;
+}
 
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
 // updates to/to_size to reflect filled in data

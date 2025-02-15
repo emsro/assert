@@ -9,30 +9,26 @@ void tearDown( void )
 {
 }
 
-void test_reactor_init( void )
+void test_cut_u16( void )
 {
-        uint8_t           data[3] = { 0x33, 0x66, 0x99 };
-        enum asrtl_status st;
-        uint8_t const*    p    = data;
-        uint32_t          size = sizeof data;
-        asrtl_chann_id    id;
-        st = asrtl_cut_chann_id( &p, &size, &id );
+        uint8_t        data[3] = { 0x33, 0x66, 0x99 };
+        uint8_t const* p       = data;
+        uint32_t       size    = sizeof data;
+        asrtl_chann_id id;
+        asrtl_cut_u16( &p, &size, &id );
         TEST_ASSERT_EQUAL( id, 0x3366 );
-        TEST_ASSERT_EQUAL( st, ASRTL_SUCCESS );
         TEST_ASSERT_EQUAL( p, &data[2] );
         TEST_ASSERT_EQUAL( size, 1 );
 }
 
 void test_add_chann_id( void )
 {
-        uint8_t           data[3] = { 0x33, 0x66, 0x99 };
-        enum asrtl_status st;
-        uint8_t*          p    = data;
-        uint32_t          size = sizeof data;
-        st                     = asrtl_add_chann_id( &p, &size, 0x1122 );
+        uint8_t  data[3] = { 0x33, 0x66, 0x99 };
+        uint8_t* p       = data;
+        uint32_t size    = sizeof data;
+        asrtl_add_u16( &p, &size, 0x1122 );
         TEST_ASSERT_EQUAL( data[0], 0x11 );
         TEST_ASSERT_EQUAL( data[1], 0x22 );
-        TEST_ASSERT_EQUAL( st, ASRTL_SUCCESS );
         TEST_ASSERT_EQUAL( p, &data[2] );
         TEST_ASSERT_EQUAL( size, 1 );
 }
@@ -67,7 +63,7 @@ void test_fill_buffer( void )
 int main( void )
 {
         UNITY_BEGIN();
-        RUN_TEST( test_reactor_init );
+        RUN_TEST( test_cut_u16 );
         RUN_TEST( test_add_chann_id );
         RUN_TEST( test_fill_buffer );
         return UNITY_END();

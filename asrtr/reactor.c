@@ -23,55 +23,46 @@ enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_se
             .sendr      = sender,
             .first_test = NULL,
             .state      = ASRTR_REC_IDLE,
+            .flags      = 0,
         };
         return ASRTR_SUCCESS;
 }
 
-enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec )
-{
-        assert( rec );
-        if ( rec->state != ASRTR_REC_IDLE )
-                return ASRTR_BUSY_ERR;
-
-        rec->state_data.list_next = rec->first_test;
-        rec->state                = ASRTR_REC_LIST;
-
-        return ASRTR_SUCCESS;
-}
-static enum asrtr_status
-asrtr_send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrtr_test* test )
-{
-        assert( sen );
-        assert( test );
-
-        uint8_t  data[42];
-        uint8_t* p          = data;
-        uint32_t free_space = sizeof data;
-        if ( asrtl_add_message_id( &p, &free_space, ASRTL_MSG_LIST ) != ASRTL_SUCCESS )
-                return ASRTR_SEND_ERR;
-
-        asrtl_fill_buffer( (uint8_t const*) test->name, strlen( test->name ), &p, &free_space );
-
-        enum asrtl_status r = asrtl_send( sen, chid, data, sizeof data - free_space );
-        return r == ASRTL_SUCCESS ? ASRTR_SUCCESS : ASRTR_SEND_ERR;
-}
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
 {
         assert( rec );
         enum asrtr_status res = ASRTR_SUCCESS;
+
+        uint8_t* p    = rec->buffer;
+        uint32_t size = sizeof rec->buffer;
+
+        if ( rec->flags & ASRTR_FLAG_ID ) {
+                rec->flags &= ~ASRTR_FLAG_ID;
+                // XXX
+        } else if ( rec->flags & ASRTR_FLAG_VER ) {
+                rec->flags &= ~ASRTR_FLAG_VER;
+                // XXX: find better source of the id
+                if ( asrtl_msg_rtoc_version( &p, &size, 0, 0, 0 ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+
+        } else if ( rec->flags & ASRTR_FLAG_TC ) {
+                rec->flags &= ~ASRTR_FLAG_TC;
+                uint16_t           count = 0;
+                struct asrtr_test* t     = rec->first_test;
+                while ( t )
+                        ++count, t = t->next;
+
+                if ( asrtl_msg_rtoc_count( &p, &size, count ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        }
+        if ( size != sizeof rec->buffer )
+                if ( asrtl_send( rec->sendr, ASRTL_CORE, rec->buffer, sizeof rec->buffer - size ) !=
+                     ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+
         switch ( rec->state ) {
         case ASRTR_REC_IDLE:
         default: {
-                break;
-        }
-        case ASRTR_REC_LIST: {
-                struct asrtr_test** p = &rec->state_data.list_next;
-                if ( *p ) {
-                        res = asrtr_send_test_info( rec->sendr, rec->node.chid, *p );
-                        *p  = ( *p )->next;
-                }
-                if ( !*p )
-                        rec->state = ASRTR_REC_IDLE;
                 break;
         }
         }
@@ -82,24 +73,28 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
         assert( data );
         assert( msg );
         struct asrtr_reactor* r = (struct asrtr_reactor*) data;
-        enum asrtr_status     rst;
         asrtl_message_id      id;
 
-        if ( asrtl_cut_message_id( &msg, &msg_size, &id ) != ASRTL_SUCCESS )
+        if ( msg_size < sizeof( asrtl_message_id ) )
                 return ASRTL_RECV_ERR;
+        asrtl_cut_u16( &msg, &msg_size, &id );
 
-        switch ( (enum asrtl_message_id_e) id ) {
-        case ASRTL_MSG_LIST:
-                rst = asrtr_reactor_list_event( r );
-                if ( rst == ASRTR_BUSY_ERR )
-                        return ASRTL_BUSY_ERR;
-                if ( rst != ASRTR_SUCCESS )
-                        return ASRTL_RECV_ERR;
+        enum asrtl_message_id_e eid = (enum asrtl_message_id_e) id;
+        switch ( eid ) {
+        case ASRTL_MSG_VERSION:
+                r->flags |= ASRTR_FLAG_VER;
+                break;
+        case ASRTL_MSG_ID:
+                r->flags |= ASRTR_FLAG_ID;
+                break;
+        case ASRTL_MSG_TEST_COUNT:
+                r->flags |= ASRTR_FLAG_TC;
+                break;
+        case ASRTL_MSG_TEST_INFO:
                 break;
         default:
                 return ASRTL_UNKNOWN_ID_ERR;
         }
-
         return msg_size == 0 ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
 }
 

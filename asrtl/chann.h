@@ -43,15 +43,4 @@ asrtl_send( struct asrtl_sender* r, asrtl_chann_id chid, uint8_t const* msg, uin
         return r->send_fn( r->send_data, chid, msg, msg_size );
 }
 
-static inline enum asrtl_status
-asrtl_cut_chann_id( uint8_t const** data, uint32_t* size, asrtl_chann_id* id )
-{
-        return asrtl_cut_u16( data, size, id );
-}
-static inline enum asrtl_status
-asrtl_add_chann_id( uint8_t** data, uint32_t* size, asrtl_chann_id id )
-{
-        return asrtl_add_u16( data, size, id );
-}
-
 #endif
