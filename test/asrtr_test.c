@@ -15,11 +15,12 @@ enum asrtr_status dataless_test_fun( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
-void test_fun1( void )
+void test_cut_chann_id( void )
 {
         struct asrtr_reactor rec;
-        asrtr_rec_init( &rec );
+        asrtr_reactor_init( &rec );
         TEST_ASSERT_NULL( rec.first_test );
+        TEST_ASSERT_EQUAL( rec.node.chid, ASRTL_CORE );
         TEST_ASSERT_EQUAL( rec.state, ASRTR_REC_IDLE );
 
         enum asrtr_status st;
@@ -41,17 +42,17 @@ void test_fun1( void )
         TEST_ASSERT_EQUAL_PTR( t1.next, &t2 );
         TEST_ASSERT_EQUAL_PTR( rec.first_test, &t1 );
 
-        st = asrtr_rec_list_event( &rec );
+        st = asrtr_reactor_list_event( &rec );
         TEST_ASSERT_EQUAL( st, ASRTR_SUCCESS );
         TEST_ASSERT_EQUAL( rec.state, ASRTR_REC_LIST );
-        st = asrtr_rec_list_event( &rec );
-        TEST_ASSERT_EQUAL( st, ASRTR_REACTOR_BUSY_ERR );
+        st = asrtr_reactor_list_event( &rec );
+        TEST_ASSERT_EQUAL( st, ASRTR_BUSY_ERR );
         TEST_ASSERT_EQUAL( rec.state, ASRTR_REC_LIST );
 }
 
 int main( void )
 {
         UNITY_BEGIN();
-        RUN_TEST( test_fun1 );
+        RUN_TEST( test_cut_chann_id );
         return UNITY_END();
 }

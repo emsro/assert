@@ -4,4 +4,4 @@ project(asrtl VERSION 0.0)
 
 set(CMAKE_C_STANDARD 99)
 
-add_library(asrtl reactor.c)
+add_library(asrtl util.c)

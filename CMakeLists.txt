@@ -4,6 +4,7 @@ project(assert)
 
 include(cmake/CPM.cmake)
 
+add_subdirectory(asrtl)
 add_subdirectory(asrtc)
 add_subdirectory(asrtr)
 

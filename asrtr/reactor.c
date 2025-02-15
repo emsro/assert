@@ -1,25 +1,33 @@
 
 #include "./reactor.h"
 
-#include "../asrtl/proto.h"
+#include "../asrtl/core_proto.h"
 
 #include <assert.h>
 #include <stddef.h>
+#include <string.h>
 
-void asrtr_rec_init( struct asrtr_reactor* rec )
+void asrtr_reactor_init( struct asrtr_reactor* rec )
 {
         assert( rec );
         *rec = ( struct asrtr_reactor ){
+            .node =
+                ( struct asrtl_node ){
+                    .chid      = ASRTL_CORE,
+                    .recv_data = rec,
+                    .recv_fn   = &asrtr_reactor_recv,
+                    .next      = NULL,
+                },
             .first_test = NULL,
             .state      = ASRTR_REC_IDLE,
         };
 }
 
-enum asrtr_status asrtr_rec_list_event( struct asrtr_reactor* rec )
+enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec )
 {
         assert( rec );
         if ( rec->state != ASRTR_REC_IDLE )
-                return ASRTR_REACTOR_BUSY_ERR;
+                return ASRTR_BUSY_ERR;
 
         rec->state_data.list_next = rec->first_test;
         rec->state                = ASRTR_REC_LIST;
@@ -27,14 +35,25 @@ enum asrtr_status asrtr_rec_list_event( struct asrtr_reactor* rec )
         return ASRTR_SUCCESS;
 }
 static enum asrtr_status
-send_test_info( struct asrtr_reactor_comms* comms, struct asrtr_test* test )
+send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrtr_test* test )
 {
-        assert( comms );
+        assert( sen );
         assert( test );
 
-        return ASRTR_SUCCESS;
+        uint8_t  data[42];
+        uint8_t* p    = data;
+        uint32_t size = sizeof data;
+        if ( asrtl_add_message_id( &p, &size, ASRTL_MSG_LIST ) != ASRTL_SUCCESS )
+                return ASRTR_SEND_ERR;
+
+        strncpy( (char*) p, test->name, size );
+        size = 0;  // XXX: improve
+
+        // XXX: is strlen good idea?
+        enum asrtl_status r = asrtl_send( sen, chid, data, sizeof data );
+        return r == ASRTL_SUCCESS ? ASRTR_SUCCESS : ASRTR_SEND_ERR;
 }
-enum asrtr_status asrtr_rec_tick( struct asrtr_reactor* rec )
+enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
 {
         assert( rec );
         enum asrtr_status res = ASRTR_SUCCESS;
@@ -46,7 +65,7 @@ enum asrtr_status asrtr_rec_tick( struct asrtr_reactor* rec )
         case ASRTR_REC_LIST: {
                 struct asrtr_test** p = &rec->state_data.list_next;
                 if ( *p ) {
-                        res = send_test_info( &rec->comms, *p );
+                        res = send_test_info( rec->repl, rec->node.chid, *p );
                         *p  = ( *p )->next;
                 }
                 if ( !*p )
@@ -55,6 +74,31 @@ enum asrtr_status asrtr_rec_tick( struct asrtr_reactor* rec )
         }
         }
         return res;
+}
+enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t msg_size )
+{
+        assert( data );
+        assert( msg );
+        struct asrtr_reactor* r = (struct asrtr_reactor*) data;
+        enum asrtr_status     rst;
+        asrtl_message_id      id;
+
+        if ( asrtl_cut_message_id( &msg, &msg_size, &id ) != ASRTL_SUCCESS )
+                return ASRTL_RECV_ERR;
+
+        switch ( (enum asrtl_message_id_e) id ) {
+        case ASRTL_MSG_LIST:
+                rst = asrtr_reactor_list_event( r );
+                if ( rst == ASRTR_BUSY_ERR )
+                        return ASRTL_BUSY_ERR;
+                else
+                        return ASRTL_RECV_ERR;
+                break;
+        default:
+                return ASRTL_UNKNOWN_ID_ERR;
+        }
+
+        return msg_size == 0 ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
 }
 
 enum asrtr_status
