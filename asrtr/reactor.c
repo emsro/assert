@@ -8,9 +8,10 @@
 #include <stddef.h>
 #include <string.h>
 
-void asrtr_reactor_init( struct asrtr_reactor* rec )
+enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender )
 {
-        assert( rec );
+        if ( !rec || !sender )
+                return ASRTR_REAC_INIT_ERR;
         *rec = ( struct asrtr_reactor ){
             .node =
                 ( struct asrtl_node ){
@@ -19,9 +20,11 @@ void asrtr_reactor_init( struct asrtr_reactor* rec )
                     .recv_fn   = &asrtr_reactor_recv,
                     .next      = NULL,
                 },
+            .sendr      = sender,
             .first_test = NULL,
             .state      = ASRTR_REC_IDLE,
         };
+        return ASRTR_SUCCESS;
 }
 
 enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec )
@@ -42,16 +45,14 @@ asrtr_send_test_info( struct asrtl_sender* sen, asrtl_chann_id chid, struct asrt
         assert( test );
 
         uint8_t  data[42];
-        uint8_t* p    = data;
-        uint32_t size = sizeof data;
-        if ( asrtl_add_message_id( &p, &size, ASRTL_MSG_LIST ) != ASRTL_SUCCESS )
+        uint8_t* p          = data;
+        uint32_t free_space = sizeof data;
+        if ( asrtl_add_message_id( &p, &free_space, ASRTL_MSG_LIST ) != ASRTL_SUCCESS )
                 return ASRTR_SEND_ERR;
 
-        strncpy( (char*) p, test->name, size );
-        size = 0;  // XXX: improve
+        asrtl_fill_buffer( (uint8_t const*) test->name, strlen( test->name ), &p, &free_space );
 
-        // XXX: is strlen good idea?
-        enum asrtl_status r = asrtl_send( sen, chid, data, sizeof data );
+        enum asrtl_status r = asrtl_send( sen, chid, p, sizeof data - free_space );
         return r == ASRTL_SUCCESS ? ASRTR_SUCCESS : ASRTR_SEND_ERR;
 }
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
@@ -66,7 +67,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
         case ASRTR_REC_LIST: {
                 struct asrtr_test** p = &rec->state_data.list_next;
                 if ( *p ) {
-                        res = asrtr_send_test_info( rec->repl, rec->node.chid, *p );
+                        res = asrtr_send_test_info( rec->sendr, rec->node.chid, *p );
                         *p  = ( *p )->next;
                 }
                 if ( !*p )
@@ -105,8 +106,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
 enum asrtr_status
 asrtr_test_init( struct asrtr_test* t, char const* name, void* data, asrtr_test_callback start_f )
 {
-        assert( t );
-        if ( !name || !start_f )
+        if ( !t || !name || !start_f )
                 return ASRTR_TEST_INIT_ERR;
         *t = ( struct asrtr_test ){
             .name    = name,

@@ -39,6 +39,7 @@ static inline enum asrtl_status
 asrtl_send( struct asrtl_sender* r, asrtl_chann_id chid, uint8_t const* msg, uint32_t msg_size )
 {
         assert( r );
+        assert( r->send_fn );
         return r->send_fn( r->send_data, chid, msg, msg_size );
 }
 

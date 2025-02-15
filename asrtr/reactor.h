@@ -43,7 +43,7 @@ enum asrtr_reactor_state
 struct asrtr_reactor
 {
         struct asrtl_node    node;
-        struct asrtl_sender* repl;
+        struct asrtl_sender* sendr;
         struct asrtr_test*   first_test;
 
         enum asrtr_reactor_state state;
@@ -53,7 +53,7 @@ struct asrtr_reactor
         } state_data;
 };
 
-void              asrtr_reactor_init( struct asrtr_reactor* rec );
+enum asrtr_status asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender );
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec );
 
 enum asrtr_status asrtr_reactor_list_event( struct asrtr_reactor* rec );

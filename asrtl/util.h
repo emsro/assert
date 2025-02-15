@@ -18,4 +18,8 @@ static inline void asrtl_u8d2_to_u16( uint8_t const* data, uint16_t* val )
 enum asrtl_status asrtl_cut_u16( uint8_t const** data, uint32_t* size, uint16_t* id );
 enum asrtl_status asrtl_add_u16( uint8_t** data, uint32_t* size, uint16_t id );
 
+// Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
+// updates to/to_size to reflect filled in data
+void asrtl_fill_buffer( uint8_t const* from, uint32_t from_size, uint8_t** to, uint32_t* to_size );
+
 #endif  // ASRTL_UTIL_H

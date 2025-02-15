@@ -15,7 +15,7 @@
       "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-fsanitize=address"
+        "CMAKE_C_FLAGS": "-fsanitize=address"
       }
     },
     {
@@ -23,7 +23,7 @@
       "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-fsanitize=undefined"
+        "CMAKE_C_FLAGS": "-fsanitize=undefined"
       }
     },
     {
