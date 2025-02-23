@@ -4,7 +4,7 @@ Checks: >
   linuxkernel*,
   misc*,-misc-include-cleaner,
   portability*,
-  readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements
+  readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements,-readability-avoid-nested-conditional-operator
 WarningsAsErrors: ''
 HeaderFileExtensions:
   - h
