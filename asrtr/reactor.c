@@ -30,12 +30,60 @@ asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, cha
         return ASRTR_SUCCESS;
 }
 
-enum asrtr_status
-asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer_size )
+static enum asrtr_status
+asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac, uint8_t** p, uint32_t* size )
+{
+        struct asrtr_test* t = reac->first_test;
+        uint32_t           i = reac->recv_test_info_id;
+        while ( i-- > 0 && t )
+                t = t->next;
+        if ( !t ) {
+                char const* msg = "Failed to find test";
+                if ( asrtl_msg_rtoc_error( p, size, msg, strlen( msg ) ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        } else {
+                if ( asrtl_msg_rtoc_test_info(
+                         p, size, reac->recv_test_info_id, t->name, strlen( t->name ) ) !=
+                     ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        }
+        return ASRTR_SUCCESS;
+}
+
+static enum asrtr_status
+asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, uint8_t** p, uint32_t* size )
+{
+        struct asrtr_test* t = reac->first_test;
+        uint32_t           i = reac->recv_test_start_id;
+        while ( i-- > 0 && t )
+                t = t->next;
+        if ( !t ) {
+                char const* msg = "Failed to find test";
+                if ( asrtl_msg_rtoc_error( p, size, msg, strlen( msg ) ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        } else if ( reac->state != ASRTR_REC_IDLE ) {
+                char const* msg = "Test already running";
+                if ( asrtl_msg_rtoc_error( p, size, msg, strlen( msg ) ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        } else {
+                reac->state_data.record = ( struct asrtr_record ){
+                    .state      = ASRTR_TEST_INIT,
+                    .data       = t->data,
+                    .continue_f = t->start_f,
+                };
+                reac->state = ASRTR_REC_TEST_EXEC;
+                if ( asrtl_msg_rtoc_test_start( p, size, reac->recv_test_start_id ) !=
+                     ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        }
+        return ASRTR_SUCCESS;
+}
+
+static enum asrtr_status
+asrtr_reactor_tick_flags( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer_size )
 {
         assert( reac );
         assert( reac->desc );
-        enum asrtr_status res = ASRTR_SUCCESS;
 
         uint8_t* p    = buffer;
         uint32_t size = buffer_size;
@@ -62,57 +110,39 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
                 reac->flags &= ~ASRTR_FLAG_TI;
-                struct asrtr_test* t = reac->first_test;
-                uint32_t           i = reac->recv_test_info_id;
-                while ( i-- > 0 && t )
-                        t = t->next;
-                if ( !t ) {
-                        char const* msg = "Failed to find test";
-                        if ( asrtl_msg_rtoc_error( &p, &size, msg, strlen( msg ) ) !=
-                             ASRTL_SUCCESS )
-                                return ASRTR_SEND_ERR;
-                } else {
-                        if ( asrtl_msg_rtoc_test_info(
-                                 &p, &size, reac->recv_test_info_id, t->name, strlen( t->name ) ) !=
-                             ASRTL_SUCCESS )
-                                return ASRTR_SEND_ERR;
-                }
+                if ( asrtr_reactor_tick_flag_test_info( reac, &p, &size ) != ASRTR_SUCCESS )
+                        return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TSTART ) {
                 reac->flags &= ~ASRTR_FLAG_TSTART;
-                struct asrtr_test* t = reac->first_test;
-                uint32_t           i = reac->recv_test_start_id;
-                while ( i-- > 0 && t )
-                        t = t->next;
-                if ( !t ) {
-                        char const* msg = "Failed to find test";
-                        if ( asrtl_msg_rtoc_error( &p, &size, msg, strlen( msg ) ) !=
-                             ASRTL_SUCCESS )
-                                return ASRTR_SEND_ERR;
-                } else if ( reac->state != ASRTR_REC_IDLE ) {
-                        char const* msg = "Test already running";
-                        if ( asrtl_msg_rtoc_error( &p, &size, msg, strlen( msg ) ) !=
-                             ASRTL_SUCCESS )
-                                return ASRTR_SEND_ERR;
-                } else {
-                        reac->state_data.record = ( struct asrtr_record ){
-                            .state      = ASRTR_TEST_INIT,
-                            .data       = t->data,
-                            .continue_f = t->start_f,
-                        };
-                        reac->state = ASRTR_REC_TEST_EXEC;
-                        if ( asrtl_msg_rtoc_test_start( &p, &size, reac->recv_test_start_id ) !=
-                             ASRTL_SUCCESS )
-                                return ASRTR_SEND_ERR;
-                }
-        }
-        if ( size != buffer_size ) {
-                if ( asrtl_send( reac->sendr, ASRTL_CORE, buffer, buffer_size - size ) !=
-                     ASRTL_SUCCESS )
+                if ( asrtr_reactor_tick_flag_test_start( reac, &p, &size ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
-                return res;
+        } else {
+                // XXX: report an error?
+                // this is internal error....
+                reac->flags = 0;
         }
 
+        assert( size != buffer_size );
+
+        if ( asrtl_send( reac->sendr, ASRTL_CORE, buffer, buffer_size - size ) != ASRTL_SUCCESS )
+                return ASRTR_SEND_ERR;
+
+        return ASRTR_SUCCESS;
+}
+
+enum asrtr_status
+asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer_size )
+{
+        assert( reac );
+        assert( reac->desc );
+
+        if ( reac->flags != 0x00 )
+                return asrtr_reactor_tick_flags( reac, buffer, buffer_size );
+
+        uint8_t* p    = buffer;
+        uint32_t size = buffer_size;
         switch ( reac->state ) {
+
         case ASRTR_REC_TEST_EXEC: {
                 struct asrtr_record* record = &reac->state_data.record;
                 assert( record->data );
@@ -151,7 +181,14 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
                 break;
         }
         }
-        return res;
+
+        if ( size != buffer_size ) {
+                if ( asrtl_send( reac->sendr, ASRTL_CORE, buffer, buffer_size - size ) !=
+                     ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+        }
+
+        return ASRTR_SUCCESS;
 }
 enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t msg_size )
 {
