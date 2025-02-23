@@ -30,24 +30,25 @@ asrtr_reactor_init( struct asrtr_reactor* rec, struct asrtl_sender* sender, char
         return ASRTR_SUCCESS;
 }
 
-enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
+enum asrtr_status
+asrtr_reactor_tick( struct asrtr_reactor* rec, uint8_t* buffer, uint32_t buffer_size )
 {
         assert( rec );
         assert( rec->desc );
         enum asrtr_status res = ASRTR_SUCCESS;
 
-        uint8_t* p    = rec->buffer;
-        uint32_t size = sizeof rec->buffer;
+        uint8_t* p    = buffer;
+        uint32_t size = buffer_size;
 
         if ( rec->flags & ASRTR_FLAG_DESC ) {
                 rec->flags &= ~ASRTR_FLAG_DESC;
                 if ( asrtl_msg_rtoc_desc( &p, &size, rec->desc, strlen( rec->desc ) ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
-        } else if ( rec->flags & ASRTR_FLAG_VER ) {
-                rec->flags &= ~ASRTR_FLAG_VER;
+        } else if ( rec->flags & ASRTR_FLAG_PROTO_VER ) {
+                rec->flags &= ~ASRTR_FLAG_PROTO_VER;
                 // XXX: find better source of the version
-                if ( asrtl_msg_rtoc_version( &p, &size, 0, 0, 0 ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_proto_version( &p, &size, 0, 0, 0 ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
 
         } else if ( rec->flags & ASRTR_FLAG_TC ) {
@@ -77,8 +78,8 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* rec )
                                 return ASRTR_SEND_ERR;
                 }
         }
-        if ( size != sizeof rec->buffer )
-                if ( asrtl_send( rec->sendr, ASRTL_CORE, rec->buffer, sizeof rec->buffer - size ) !=
+        if ( size != buffer_size )
+                if ( asrtl_send( rec->sendr, ASRTL_CORE, buffer, buffer_size - size ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
 
@@ -103,8 +104,8 @@ enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t m
 
         enum asrtl_message_id_e eid = (enum asrtl_message_id_e) id;
         switch ( eid ) {
-        case ASRTL_MSG_VERSION:
-                r->flags |= ASRTR_FLAG_VER;
+        case ASRTL_MSG_PROTO_VERSION:
+                r->flags |= ASRTR_FLAG_PROTO_VER;
                 break;
         case ASRTL_MSG_DESC:
                 r->flags |= ASRTR_FLAG_DESC;

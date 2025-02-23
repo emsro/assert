@@ -8,11 +8,11 @@
 
 enum asrtl_message_id_e
 {
-        ASRTL_MSG_ERROR      = 1,
-        ASRTL_MSG_VERSION    = 2,
-        ASRTL_MSG_DESC       = 3,
-        ASRTL_MSG_TEST_COUNT = 4,
-        ASRTL_MSG_TEST_INFO  = 5,
+        ASRTL_MSG_ERROR         = 1,
+        ASRTL_MSG_PROTO_VERSION = 2,
+        ASRTL_MSG_DESC          = 3,
+        ASRTL_MSG_TEST_COUNT    = 4,
+        ASRTL_MSG_TEST_INFO     = 5,
 };
 
 typedef uint16_t asrtl_message_id;
@@ -27,7 +27,7 @@ asrtl_msg_rtoc_error( uint8_t** data, uint32_t* size, char const* msg, uint32_t 
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_version(
+static inline enum asrtl_status asrtl_msg_rtoc_proto_version(
     uint8_t** data,
     uint32_t* size,
     uint16_t  major,
@@ -36,17 +36,17 @@ static inline enum asrtl_status asrtl_msg_rtoc_version(
 {
         if ( *size < sizeof( asrtl_message_id ) + 3 * sizeof( uint16_t ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_VERSION );
+        asrtl_add_u16( data, size, ASRTL_MSG_PROTO_VERSION );
         asrtl_add_u16( data, size, major );
         asrtl_add_u16( data, size, minor );
         asrtl_add_u16( data, size, patch );
         return ASRTL_SUCCESS;
 }
-static inline enum asrtl_status asrtl_msg_ctor_version( uint8_t** data, uint32_t* size )
+static inline enum asrtl_status asrtl_msg_ctor_proto_version( uint8_t** data, uint32_t* size )
 {
         if ( *size < sizeof( asrtl_message_id ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_VERSION );
+        asrtl_add_u16( data, size, ASRTL_MSG_PROTO_VERSION );
         return ASRTL_SUCCESS;
 }
 
