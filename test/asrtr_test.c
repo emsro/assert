@@ -102,16 +102,17 @@ void test_reactor_init( void )
 #define COMBINE1( X, Y ) X##Y  // helper macro
 #define COMBINE( X, Y ) COMBINE1( X, Y )
 
-#define DO_REACTOR_RECV_FLAG( rec, buffer, size, flag )                                         \
-        enum asrtl_status COMBINE( st_l, __LINE__ ) = asrtr_reactor_recv( &rec, buffer, size ); \
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, COMBINE( st_l, __LINE__ ) );                          \
-        TEST_ASSERT_EQUAL( flag, rec.flags );
+#define DO_REACTOR_RECV_FLAG( reac, buffer, size, flag )               \
+        enum asrtl_status COMBINE( st_l, __LINE__ ) =                  \
+            asrtr_reactor_recv( ( reac ), buffer, size );              \
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, COMBINE( st_l, __LINE__ ) ); \
+        TEST_ASSERT_EQUAL( flag, ( reac )->flags );
 
-#define DO_REACTOR_TICK_NOFLAG( rec, buffer )                          \
+#define DO_REACTOR_TICK_NOFLAG( reac, buffer )                         \
         enum asrtr_status COMBINE( st_l, __LINE__ ) =                  \
-            asrtr_reactor_tick( &rec, buffer, sizeof buffer );         \
+            asrtr_reactor_tick( ( reac ), buffer, sizeof buffer );     \
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, COMBINE( st_l, __LINE__ ) ); \
-        TEST_ASSERT_EQUAL( 0x00, rec.flags );
+        TEST_ASSERT_EQUAL( 0x00, ( reac )->flags );
 
 #define CHECK_COLLECTED_HDR( collected, size )          \
         TEST_ASSERT_NOT_NULL( collected );              \
@@ -127,6 +128,13 @@ void test_reactor_init( void )
         free_data_ll( collected );           \
         collected = NULL;
 
+#define CLEAR_TOP_COLLECTED( collected )                             \
+        struct data_ll* COMBINE( st_l, __LINE__ ) = collected->next; \
+        collected->next                           = NULL;            \
+        free_data_ll( collected );                                   \
+        collected = COMBINE( st_l, __LINE__ );
+
+
 void test_reactor_version( void )
 {
         struct asrtr_reactor reac;
@@ -140,9 +148,9 @@ void test_reactor_version( void )
         uint32_t size = sizeof buffer;
         asrtl_msg_ctor_proto_version( &p, &size );
 
-        DO_REACTOR_RECV_FLAG( reac, buffer, sizeof buffer - size, ASRTR_FLAG_PROTO_VER );
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_PROTO_VER );
 
-        DO_REACTOR_TICK_NOFLAG( reac, buffer2 );
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
 
         CHECK_COLLECTED_HDR( collected, 0x08 );
         CHECK_U16( ASRTL_MSG_PROTO_VERSION, collected->data );
@@ -166,13 +174,13 @@ void test_reactor_desc( void )
         uint32_t size = sizeof buffer;
         asrtl_msg_ctor_desc( &p, &size );
 
-        DO_REACTOR_RECV_FLAG( reac, buffer, sizeof buffer - size, ASRTR_FLAG_DESC );
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_DESC );
 
-        DO_REACTOR_TICK_NOFLAG( reac, buffer2 );
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
 
         CHECK_COLLECTED_HDR( collected, 0x06 );
         CHECK_U16( ASRTL_MSG_DESC, collected->data );
-        TEST_ASSERT_EQUAL_STRING_LEN( "rec1", &collected->data[2], collected->data_size - 2 );
+        TEST_ASSERT_EQUAL_STRING( "rec1", &collected->data[2] );
 
         CLEAR_SINGLE_COLLECTED( collected );
 }
@@ -190,9 +198,9 @@ void test_reactor_test_count( void )
         uint32_t size = sizeof buffer;
         asrtl_msg_ctor_test_count( &p, &size );
 
-        DO_REACTOR_RECV_FLAG( reac, buffer, sizeof buffer - size, ASRTR_FLAG_TC );
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TC );
 
-        DO_REACTOR_TICK_NOFLAG( reac, buffer2 );
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
 
         CHECK_COLLECTED_HDR( collected, 0x04 );
         CHECK_U16( ASRTL_MSG_TEST_COUNT, collected->data );
@@ -225,9 +233,9 @@ void test_reactor_test_info( void )
         uint32_t size = sizeof buffer;
         asrtl_msg_ctor_test_info( &p, &size, 0 );
 
-        DO_REACTOR_RECV_FLAG( reac, buffer, sizeof buffer - size, ASRTR_FLAG_TI );
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TI );
 
-        DO_REACTOR_TICK_NOFLAG( reac, buffer2 );
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
 
         CHECK_COLLECTED_HDR( collected, 0x15 );
         CHECK_U16( ASRTL_MSG_ERROR, collected->data );
@@ -244,7 +252,7 @@ void test_reactor_test_info( void )
         CHECK_COLLECTED_HDR( collected, 0x09 );
         CHECK_U16( ASRTL_MSG_TEST_INFO, collected->data );
         CHECK_U16( 0x00, collected->data + 2 );
-        TEST_ASSERT_EQUAL_STRING_LEN( "test1", &collected->data[4], collected->data_size - 4 );
+        TEST_ASSERT_EQUAL_STRING( "test1", &collected->data[4] );
         CLEAR_SINGLE_COLLECTED( collected );
 }
 
@@ -256,6 +264,19 @@ enum asrtr_status insta_success_test_fun( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
+void recv_and_spin(
+    struct asrtr_reactor*    reac,
+    uint8_t*                 buffer,
+    uint32_t                 size,
+    enum asrtr_reactor_flags fls )
+{
+        DO_REACTOR_RECV_FLAG( reac, buffer, size, fls );
+        do {
+                uint8_t buffer2[64];
+                DO_REACTOR_TICK_NOFLAG( reac, buffer2 );
+                ;
+        } while ( reac->state != ASRTR_REAC_IDLE );
+}
 
 void test_reactor_start( void )
 {
@@ -269,18 +290,38 @@ void test_reactor_start( void )
         uint64_t          counter = 0;
         setup_test( &reac, &t1, "test1", &counter, &insta_success_test_fun );
 
+        // just run one test
         uint8_t  buffer[64];
         uint8_t* p    = buffer;
         uint32_t size = sizeof buffer;
         asrtl_msg_ctor_test_start( &p, &size, 0 );
 
-        DO_REACTOR_RECV_FLAG( reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
-        do {
-                DO_REACTOR_TICK_NOFLAG( reac, buffer );
-                ;
-        } while ( reac.state != ASRTR_REAC_IDLE );
+        recv_and_spin( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
         TEST_ASSERT_EQUAL( 1, counter );
+        CHECK_COLLECTED_HDR( collected, 0x04 );
+        CHECK_U16( ASRTL_MSG_TEST_RESULT, collected->data );
+        CHECK_U16( ASRTL_TEST_SUCCESS, collected->data + 2 );
+        CLEAR_TOP_COLLECTED( collected );
+
+        TEST_ASSERT_NOT_NULL( collected );
+        CHECK_COLLECTED_HDR( collected, 0x04 );
+        CHECK_U16( ASRTL_MSG_TEST_START, collected->data );
+        CHECK_U16( 0x00, collected->data + 2 );
+        CLEAR_SINGLE_COLLECTED( collected );
+
+        p    = buffer;
+        size = sizeof buffer;
+        asrtl_msg_ctor_test_start( &p, &size, 42 );
+        recv_and_spin( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+
+        TEST_ASSERT_EQUAL( 1, counter );
+        CHECK_COLLECTED_HDR( collected, 0x15 );
+        CHECK_U16( ASRTL_MSG_ERROR, collected->data );
+        TEST_ASSERT_EQUAL_STRING( "Failed to find test", &collected->data[2] );
+        CLEAR_SINGLE_COLLECTED( collected );
 }
+
+// XXX: check test already running
 
 int main( void )
 {
