@@ -24,7 +24,7 @@ asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, cha
             .sendr      = sender,
             .desc       = desc,
             .first_test = NULL,
-            .state      = ASRTR_REC_IDLE,
+            .state      = ASRTR_REAC_IDLE,
             .flags      = 0,
         };
         return ASRTR_SUCCESS;
@@ -61,7 +61,7 @@ asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, uint8_t** p, uin
                 char const* msg = "Failed to find test";
                 if ( asrtl_msg_rtoc_error( p, size, msg, strlen( msg ) ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
-        } else if ( reac->state != ASRTR_REC_IDLE ) {
+        } else if ( reac->state != ASRTR_REAC_IDLE ) {
                 char const* msg = "Test already running";
                 if ( asrtl_msg_rtoc_error( p, size, msg, strlen( msg ) ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
@@ -71,7 +71,7 @@ asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, uint8_t** p, uin
                     .data       = t->data,
                     .continue_f = t->start_f,
                 };
-                reac->state = ASRTR_REC_TEST_EXEC;
+                reac->state = ASRTR_REAC_TEST_EXEC;
                 if ( asrtl_msg_rtoc_test_start( p, size, reac->recv_test_start_id ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
@@ -143,12 +143,12 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
         uint32_t size = buffer_size;
         switch ( reac->state ) {
 
-        case ASRTR_REC_TEST_EXEC: {
+        case ASRTR_REAC_TEST_EXEC: {
                 struct asrtr_record* record = &reac->state_data.record;
-                assert( record->data );
+                assert( record );
                 assert( record->continue_f );
 
-                if ( record->continue_f( record->data ) != ASRTR_SUCCESS )
+                if ( record->continue_f( record ) != ASRTR_SUCCESS )
                         record->state = ASRTR_TEST_ERROR;
 
                 switch ( record->state ) {
@@ -158,13 +158,13 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
                 case ASRTR_TEST_ERROR:
                 case ASRTR_TEST_FAIL:
                 case ASRTR_TEST_PASS: {
-                        reac->state = ASRTR_REC_TEST_REPORT;
+                        reac->state = ASRTR_REAC_TEST_REPORT;
                 }
                 }
 
                 break;
         }
-        case ASRTR_REC_TEST_REPORT: {
+        case ASRTR_REAC_TEST_REPORT: {
                 struct asrtr_record* record = &reac->state_data.record;
                 if ( asrtl_msg_rtoc_test_result(
                          &p,
@@ -173,10 +173,10 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
                                                              ASRTL_TEST_SUCCESS ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
-                reac->state = ASRTR_REC_IDLE;
+                reac->state = ASRTR_REAC_IDLE;
                 break;
         }
-        case ASRTR_REC_IDLE:
+        case ASRTR_REAC_IDLE:
         default: {
                 break;
         }

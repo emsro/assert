@@ -37,9 +37,9 @@ struct asrtr_test
 
 enum asrtr_reactor_state
 {
-        ASRTR_REC_IDLE        = 1,
-        ASRTR_REC_TEST_EXEC   = 2,
-        ASRTR_REC_TEST_REPORT = 3,
+        ASRTR_REAC_IDLE        = 1,
+        ASRTR_REAC_TEST_EXEC   = 2,
+        ASRTR_REAC_TEST_REPORT = 3,
 };
 
 enum asrtr_reactor_flags
