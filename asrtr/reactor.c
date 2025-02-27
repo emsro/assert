@@ -141,8 +141,8 @@ asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer
 
         uint8_t* p    = buffer;
         uint32_t size = buffer_size;
-        switch ( reac->state ) {
 
+        switch ( reac->state ) {
         case ASRTR_REAC_TEST_EXEC: {
                 struct asrtr_record* record = &reac->state_data.record;
                 assert( record );

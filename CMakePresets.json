@@ -11,8 +11,14 @@
       }
     },
     {
+      "name": "coverage",
+      "inherits": "debug",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g"
+      }
+    },
+    {
       "name": "asan",
-      "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fsanitize=address"
@@ -20,7 +26,6 @@
     },
     {
       "name": "ubsan",
-      "binaryDir": "_build",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fsanitize=undefined"
@@ -39,6 +44,10 @@
     {
       "name": "debug",
       "configurePreset": "debug"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     },
     {
       "name": "asan",
@@ -69,6 +78,13 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "environment": {
+        "CTEST_OUTPUT_ON_FAILURE": "ON"
+      }
     }
   ],
   "workflowPresets": [
@@ -85,6 +101,23 @@
         },
         {
           "name": "debug",
+          "type": "test"
+        }
+      ]
+    },
+    {
+      "name": "coverage",
+      "steps": [
+        {
+          "name": "coverage",
+          "type": "configure"
+        },
+        {
+          "name": "coverage",
+          "type": "build"
+        },
+        {
+          "name": "coverage",
           "type": "test"
         }
       ]

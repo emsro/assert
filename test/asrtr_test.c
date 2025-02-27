@@ -74,17 +74,26 @@ enum asrtr_status dataless_test_fun( struct asrtr_record* x )
 
 void test_reactor_init( void )
 {
+        enum asrtr_status    st;
         struct asrtr_reactor rec;
         struct data_ll*      collected = NULL;
         struct asrtl_sender  send;
         setup_sender_collector( &send, &collected );
 
-        asrtr_reactor_init( &rec, &send, "rec1" );
+        st = asrtr_reactor_init( &rec, NULL, "rec1" );
+        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
+
+        st = asrtr_reactor_init( NULL, &send, "rec1" );
+        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
+
+        st = asrtr_reactor_init( &rec, &send, NULL );
+        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
+
+        st = asrtr_reactor_init( &rec, &send, "rec1" );
         TEST_ASSERT_NULL( rec.first_test );
         TEST_ASSERT_EQUAL( rec.node.chid, ASRTL_CORE );
         TEST_ASSERT_EQUAL( rec.state, ASRTR_REAC_IDLE );
 
-        enum asrtr_status st;
         struct asrtr_test t1, t2;
         st = asrtr_test_init( &t1, NULL, NULL, &dataless_test_fun );
         TEST_ASSERT_EQUAL( st, ASRTR_TEST_INIT_ERR );
@@ -321,7 +330,60 @@ void test_reactor_start( void )
         CLEAR_SINGLE_COLLECTED( collected );
 }
 
+enum asrtr_status countdown_test( struct asrtr_record* x )
+{
+        uint64_t* p = (uint64_t*) x->data;
+        *p -= 1;
+        if ( *p == 0 )
+                x->state = ASRTR_TEST_PASS;
+        else
+                x->state = ASRTR_TEST_RUNNING;
+        return ASRTR_SUCCESS;
+}
+
 // XXX: check test already running
+void test_reactor_start_busy( void )
+{
+        struct asrtr_reactor reac;
+        struct data_ll*      collected = NULL;
+        struct asrtl_sender  sender;
+        setup_sender_collector( &sender, &collected );
+        asrtr_reactor_init( &reac, &sender, "rec1" );
+
+        struct asrtr_test t1;
+        uint64_t          counter = 8;
+        setup_test( &reac, &t1, "test1", &counter, &countdown_test );
+
+        uint8_t  buffer[64];
+        uint8_t* p    = buffer;
+        uint32_t size = sizeof buffer;
+        asrtl_msg_ctor_test_start( &p, &size, 0 );
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+
+
+        uint8_t buffer2[64];
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
+        TEST_ASSERT_EQUAL( 8, counter );
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
+        TEST_ASSERT_EQUAL( 7, counter );
+
+        TEST_ASSERT_NOT_NULL( collected );
+        CHECK_COLLECTED_HDR( collected, 0x04 );
+        CHECK_U16( ASRTL_MSG_TEST_START, collected->data );
+        CHECK_U16( 0x00, collected->data + 2 );
+        CLEAR_SINGLE_COLLECTED( collected );
+
+        DO_REACTOR_RECV_FLAG( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+
+        DO_REACTOR_TICK_NOFLAG( &reac, buffer2 );
+        TEST_ASSERT_EQUAL( 7, counter );
+
+        TEST_ASSERT_NOT_NULL( collected );
+        CHECK_COLLECTED_HDR( collected, 0x16 );
+        CHECK_U16( ASRTL_MSG_ERROR, collected->data );
+        TEST_ASSERT_EQUAL_STRING( "Test already running", &collected->data[2] );
+        CLEAR_SINGLE_COLLECTED( collected );
+}
 
 int main( void )
 {
@@ -332,5 +394,6 @@ int main( void )
         RUN_TEST( test_reactor_test_count );
         RUN_TEST( test_reactor_test_info );
         RUN_TEST( test_reactor_start );
+        RUN_TEST( test_reactor_start_busy );
         return UNITY_END();
 }
