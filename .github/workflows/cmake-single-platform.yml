@@ -34,6 +34,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set up Python 3.8 for gcovr
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: install gcovr 5.0
+        run: |
+          pip install gcovr==5.0 # 5.1 is not supported
       - uses: actions/checkout@v4
 
       - run: cmake --workflow --preset coverage

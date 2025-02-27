@@ -14,7 +14,8 @@
       "name": "coverage",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g"
+        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g",
+        "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },
     {
