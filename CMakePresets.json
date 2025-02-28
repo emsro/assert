@@ -15,8 +15,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g",
-        "ASSERT_ENABLE_COVERAGE": "ON",
-        "CMAKE_CTEST_ARGUMENTS": "--output-on-failure"
+        "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },
     {
@@ -84,8 +83,8 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
-      "environment": {
-        "CTEST_OUTPUT_ON_FAILURE": "ON"
+      "output": {
+        "outputOnFailure": true
       }
     }
   ],
