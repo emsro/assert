@@ -13,8 +13,8 @@ enum asrtl_message_id_e
         ASRTL_MSG_DESC          = 0x03,
         ASRTL_MSG_TEST_COUNT    = 0x04,
         ASRTL_MSG_TEST_INFO     = 0x05,
-        ASRTL_MSG_TEST_START    = 0x06,  // XXX: test
-        ASRTL_MSG_TEST_RESULT   = 0x07,  // reactor -> controller only // XXX: test
+        ASRTL_MSG_TEST_START    = 0x06,
+        ASRTL_MSG_TEST_RESULT   = 0x07,
         // XXX: stop running test
 };
 
