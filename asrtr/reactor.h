@@ -45,9 +45,9 @@ enum asrtr_reactor_flags
 
 struct asrtr_reactor
 {
-        struct asrtl_node    node;
-        struct asrtl_sender* sendr;
-        char const*          desc;
+        struct asrtl_node   node;
+        struct asrtl_sender sendr;
+        char const*         desc;
 
         struct asrtr_test* first_test;
 
@@ -64,7 +64,7 @@ struct asrtr_reactor
 };
 
 enum asrtr_status
-asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, char const* desc );
+asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc );
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff );
 
 enum asrtr_status

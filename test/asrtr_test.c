@@ -12,6 +12,7 @@
 
 #include "../asrtl/core_proto.h"
 #include "../asrtr/reactor.h"
+#include "./asrtr_tests.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -129,7 +130,7 @@ void setup_test(
         asrtr_add_test( r, t );
 }
 
-void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, char const* desc )
+void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc )
 {
         enum asrtr_status st = asrtr_reactor_init( reac, sender, desc );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
@@ -239,16 +240,13 @@ void test_reactor_init( struct test_context* ctx )
 {
         enum asrtr_status st;
 
-        st = asrtr_reactor_init( &ctx->reac, NULL, "rec1" );
+        st = asrtr_reactor_init( NULL, ctx->send, "rec1" );
         TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
 
-        st = asrtr_reactor_init( NULL, &ctx->send, "rec1" );
+        st = asrtr_reactor_init( &ctx->reac, ctx->send, NULL );
         TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
 
-        st = asrtr_reactor_init( &ctx->reac, &ctx->send, NULL );
-        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
-
-        st = asrtr_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        st = asrtr_reactor_init( &ctx->reac, ctx->send, "rec1" );
         TEST_ASSERT_NULL( ctx->reac.first_test );
         TEST_ASSERT_EQUAL( ctx->reac.node.chid, ASRTL_CORE );
         TEST_ASSERT_EQUAL( ctx->reac.state, ASRTR_REAC_IDLE );
@@ -269,7 +267,7 @@ void test_reactor_init( struct test_context* ctx )
 
 void test_reactor_version( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
@@ -288,7 +286,7 @@ void test_reactor_version( struct test_context* ctx )
 
 void test_reactor_desc( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
@@ -304,7 +302,7 @@ void test_reactor_desc( struct test_context* ctx )
 
 void test_reactor_test_count( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
@@ -328,7 +326,7 @@ void test_reactor_test_count( struct test_context* ctx )
 
 void test_reactor_test_info( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
@@ -352,22 +350,9 @@ void test_reactor_test_info( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 }
 
-struct insta_test_data
-{
-        enum asrtr_test_state state;
-        uint64_t              counter;
-};
-enum asrtr_status insta_test_fun( struct asrtr_record* x )
-{
-        struct insta_test_data* p = (struct insta_test_data*) x->data;
-        p->counter += 1;
-        x->state = p->state;
-        return ASRTR_SUCCESS;
-}
-
 void test_reactor_start( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         struct asrtr_test      t1;
         struct insta_test_data data = { .state = ASRTR_TEST_PASS, .counter = 0 };
@@ -394,20 +379,9 @@ void test_reactor_start( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 }
 
-enum asrtr_status countdown_test( struct asrtr_record* x )
-{
-        uint64_t* p = (uint64_t*) x->data;
-        *p -= 1;
-        if ( *p == 0 )
-                x->state = ASRTR_TEST_PASS;
-        else
-                x->state = ASRTR_TEST_RUNNING;
-        return ASRTR_SUCCESS;
-}
-
 void test_reactor_start_busy( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         struct asrtr_test t1;
         uint64_t          counter = 8;
@@ -438,20 +412,9 @@ void test_reactor_start_busy( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 }
 
-
-enum asrtr_status check_macro_test( struct asrtr_record* r )
-{
-        uint64_t* p = (uint64_t*) r->data;
-        ASRTR_CHECK( r, 1 == 1 );
-        *p += 1;
-        ASRTR_CHECK( r, 1 == 0 );
-        *p += 1;
-        return ASRTR_SUCCESS;
-}
-
 void test_check_macro( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
         uint64_t          counter = 0;
         setup_test( &ctx->reac, &t1, "test1", &counter, &check_macro_test );
@@ -459,26 +422,16 @@ void test_check_macro( struct test_context* ctx )
         check_run_test( &ctx->reac, 0 );
 
         TEST_ASSERT_EQUAL( 2, counter );
-        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 447 );
+        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 21 );
         clear_top_collected( &ctx->collected );
 
         assert_test_start( ctx->collected, 0, 1 );
         clear_top_collected( &ctx->collected );
 }
 
-enum asrtr_status require_macro_test( struct asrtr_record* r )
-{
-        uint64_t* p = (uint64_t*) r->data;
-        ASRTR_REQUIRE( r, 1 == 1 );
-        *p += 1;
-        ASRTR_REQUIRE( r, 1 == 0 );
-        *p += 1;
-        return ASRTR_SUCCESS;
-}
-
 void test_require_macro( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
         uint64_t          counter = 0;
         setup_test( &ctx->reac, &t1, "test1", &counter, &require_macro_test );
@@ -486,7 +439,7 @@ void test_require_macro( struct test_context* ctx )
         check_run_test( &ctx->reac, 0 );
 
         TEST_ASSERT_EQUAL( 1, counter );
-        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 474 );
+        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 11 );
         clear_top_collected( &ctx->collected );
 
         assert_test_start( ctx->collected, 0, 1 );
@@ -495,7 +448,7 @@ void test_require_macro( struct test_context* ctx )
 
 void test_test_counter( struct test_context* ctx )
 {
-        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         struct asrtr_test t1;
         uint64_t          counter = 0;

@@ -28,9 +28,9 @@ uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line )
 }
 
 enum asrtr_status
-asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, char const* desc )
+asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc )
 {
-        if ( !reac || !sender || !desc )
+        if ( !reac || !desc )
                 return ASRTR_REAC_INIT_ERR;
         *reac = ( struct asrtr_reactor ){
             .node =
@@ -147,7 +147,7 @@ asrtr_reactor_tick_flags( struct asrtr_reactor* reac, struct asrtl_span buff )
                 reac->flags = 0;
         }
 
-        if ( asrtl_send( reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
+        if ( asrtl_send( &reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
              ASRTL_SUCCESS )
                 return ASRTR_SEND_ERR;
 
@@ -207,7 +207,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
 
         if ( subspan.b != buff.b ) {
                 if ( asrtl_send(
-                         reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
+                         &reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         }
