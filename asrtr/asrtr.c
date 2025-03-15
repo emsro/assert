@@ -27,18 +27,20 @@ uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line )
         return 0;
 }
 
-enum asrtr_status
-asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc )
+enum asrtr_status asrtr_reactor_init(
+    struct asrtr_reactor* reac,
+    struct asrtl_sender   sender,
+    char const*           desc )
 {
         if ( !reac || !desc )
                 return ASRTR_REAC_INIT_ERR;
         *reac = ( struct asrtr_reactor ){
             .node =
                 ( struct asrtl_node ){
-                    .chid      = ASRTL_CORE,
-                    .recv_data = reac,
-                    .recv_fn   = &asrtr_reactor_recv,
-                    .next      = NULL,
+                    .chid     = ASRTL_CORE,
+                    .recv_ptr = reac,
+                    .recv_cb  = &asrtr_reactor_recv,
+                    .next     = NULL,
                 },
             .sendr              = sender,
             .desc               = desc,
@@ -52,8 +54,9 @@ asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status
-asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac, struct asrtl_span* buff )
+static enum asrtr_status asrtr_reactor_tick_flag_test_info(
+    struct asrtr_reactor* reac,
+    struct asrtl_span*    buff )
 {
         struct asrtr_test* t = reac->first_test;
         uint32_t           i = reac->recv_test_info_id;
@@ -65,15 +68,16 @@ asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac, struct asrtl_span
                         return ASRTR_SEND_ERR;
         } else {
                 if ( asrtl_msg_rtoc_test_info(
-                         buff, reac->recv_test_info_id, t->name, strlen( t->name ) ) !=
+                         buff, reac->recv_test_info_id, t->desc, strlen( t->desc ) ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         }
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status
-asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, struct asrtl_span* buff )
+static enum asrtr_status asrtr_reactor_tick_flag_test_start(
+    struct asrtr_reactor* reac,
+    struct asrtl_span*    buff )
 {
         struct asrtr_test* t = reac->first_test;
         uint32_t           i = reac->recv_test_start_id;
@@ -91,7 +95,7 @@ asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, struct asrtl_spa
                 reac->run_count += 1;
                 reac->state_data.record = ( struct asrtr_record ){
                     .state      = ASRTR_TEST_INIT,
-                    .data       = t->data,
+                    .test_ptr   = t->ptr,
                     .continue_f = t->start_f,
                     .run_count  = reac->run_count,
                     .line       = 0,
@@ -105,51 +109,58 @@ asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, struct asrtl_spa
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status
-asrtr_reactor_tick_flags( struct asrtr_reactor* reac, struct asrtl_span buff )
+static inline enum asrtl_status asrtr_send( struct asrtr_reactor* r, uint8_t* b, uint8_t* e )
+{
+        assert( r && b && e );
+        return asrtl_send( &r->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
+}
+
+static enum asrtr_status asrtr_reactor_tick_flags(
+    struct asrtr_reactor* reac,
+    struct asrtl_span     buff )
 {
         assert( reac );
         assert( reac->desc );
 
-        struct asrtl_span subspan = buff;
+        struct asrtl_span sp   = buff;
+        uint32_t          mask = 0;
 
         if ( reac->flags & ASRTR_FLAG_DESC ) {
-                reac->flags &= ~ASRTR_FLAG_DESC;
-                if ( asrtl_msg_rtoc_desc( &subspan, reac->desc, strlen( reac->desc ) ) !=
-                     ASRTL_SUCCESS )
+                mask = ~ASRTR_FLAG_DESC;
+                if ( asrtl_msg_rtoc_desc( &sp, reac->desc, strlen( reac->desc ) ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
-                reac->flags &= ~ASRTR_FLAG_PROTO_VER;
+                mask = ~ASRTR_FLAG_PROTO_VER;
                 // XXX: find better source of the version
-                if ( asrtl_msg_rtoc_proto_version( &subspan, 0, 1, 0 ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
-
         } else if ( reac->flags & ASRTR_FLAG_TC ) {
-                reac->flags &= ~ASRTR_FLAG_TC;
+                mask                     = ~ASRTR_FLAG_TC;
                 uint16_t           count = 0;
                 struct asrtr_test* t     = reac->first_test;
                 while ( t )
                         ++count, t = t->next;
 
-                if ( asrtl_msg_rtoc_count( &subspan, count ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_count( &sp, count ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
-                reac->flags &= ~ASRTR_FLAG_TI;
-                if ( asrtr_reactor_tick_flag_test_info( reac, &subspan ) != ASRTR_SUCCESS )
+                mask = ~ASRTR_FLAG_TI;
+                if ( asrtr_reactor_tick_flag_test_info( reac, &sp ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TSTART ) {
-                reac->flags &= ~ASRTR_FLAG_TSTART;
-                if ( asrtr_reactor_tick_flag_test_start( reac, &subspan ) != ASRTR_SUCCESS )
+                mask = ~ASRTR_FLAG_TSTART;
+                if ( asrtr_reactor_tick_flag_test_start( reac, &sp ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
                 // XXX: report an error?
                 // this is internal error....
                 reac->flags = 0;
         }
-
-        if ( asrtl_send( &reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
-             ASRTL_SUCCESS )
+        if ( sp.b != buff.b && asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS )
                 return ASRTR_SEND_ERR;
+
+        if ( mask != 0 )
+                reac->flags &= mask;
 
         return ASRTR_SUCCESS;
 }
@@ -162,7 +173,6 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
         if ( reac->flags != 0x00 )
                 return asrtr_reactor_tick_flags( reac, buff );
 
-        struct asrtl_span subspan = buff;
 
         switch ( reac->state ) {
         case ASRTR_REAC_TEST_EXEC: {
@@ -188,28 +198,23 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
         }
         case ASRTR_REAC_TEST_REPORT: {
                 struct asrtr_record* record = &reac->state_data.record;
+                struct asrtl_span    sp     = buff;
                 if ( asrtl_msg_rtoc_test_result(
-                         &subspan,
+                         &sp,
                          record->run_count,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
                                                              ASRTL_TEST_SUCCESS,
                          record->line ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
-                reac->state = ASRTR_REAC_IDLE;
+                if ( asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS )
+                        reac->state = ASRTR_REAC_IDLE;
                 break;
         }
         case ASRTR_REAC_IDLE:
         default: {
                 break;
         }
-        }
-
-        if ( subspan.b != buff.b ) {
-                if ( asrtl_send(
-                         &reac->sendr, ASRTL_CORE, ( struct asrtl_span ){ buff.b, subspan.b } ) !=
-                     ASRTL_SUCCESS )
-                        return ASRTR_SEND_ERR;
         }
 
         return ASRTR_SUCCESS;
@@ -253,27 +258,31 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 break;
         }
         case ASRTL_MSG_ERROR:
+        case ASRTL_MSG_TEST_RESULT:
         default:
                 return ASRTL_UNKNOWN_ID_ERR;
         }
         return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
 }
 
-enum asrtr_status
-asrtr_test_init( struct asrtr_test* t, char const* name, void* data, asrtr_test_callback start_f )
+enum asrtr_status asrtr_test_init(
+    struct asrtr_test*  t,
+    char const*         desc,
+    void*               ptr,
+    asrtr_test_callback start_f )
 {
-        if ( !t || !name || !start_f )
+        if ( !t || !desc || !start_f )
                 return ASRTR_TEST_INIT_ERR;
         *t = ( struct asrtr_test ){
-            .name    = name,
-            .data    = data,
+            .desc    = desc,
+            .ptr     = ptr,
             .start_f = start_f,
             .next    = NULL,
         };
         return ASRTR_SUCCESS;
 }
 
-void asrtr_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
+void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
 {
         // XXX: disable test registration after ticking starts?
         assert( reac );

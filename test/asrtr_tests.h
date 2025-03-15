@@ -15,7 +15,7 @@
 
 enum asrtr_status require_macro_test( struct asrtr_record* r )
 {
-        uint64_t* p = (uint64_t*) r->data;
+        uint64_t* p = (uint64_t*) r->test_ptr;
         ASRTR_REQUIRE( r, 1 == 1 );
         *p += 1;
         ASRTR_REQUIRE( r, 1 == 0 );
@@ -25,7 +25,7 @@ enum asrtr_status require_macro_test( struct asrtr_record* r )
 
 enum asrtr_status check_macro_test( struct asrtr_record* r )
 {
-        uint64_t* p = (uint64_t*) r->data;
+        uint64_t* p = (uint64_t*) r->test_ptr;
         ASRTR_CHECK( r, 1 == 1 );
         *p += 1;
         ASRTR_CHECK( r, 1 == 0 );
@@ -35,7 +35,7 @@ enum asrtr_status check_macro_test( struct asrtr_record* r )
 
 enum asrtr_status countdown_test( struct asrtr_record* x )
 {
-        uint64_t* p = (uint64_t*) x->data;
+        uint64_t* p = (uint64_t*) x->test_ptr;
         *p -= 1;
         if ( *p == 0 )
                 x->state = ASRTR_TEST_PASS;
@@ -51,7 +51,7 @@ struct insta_test_data
 };
 enum asrtr_status insta_test_fun( struct asrtr_record* x )
 {
-        struct insta_test_data* p = (struct insta_test_data*) x->data;
+        struct insta_test_data* p = (struct insta_test_data*) x->test_ptr;
         p->counter += 1;
         x->state = p->state;
         return ASRTR_SUCCESS;

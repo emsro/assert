@@ -14,6 +14,7 @@
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.h"
+#include "./util.h"
 
 #include <unity.h>
 
@@ -26,18 +27,6 @@ void tearDown()
 
 //---------------------------------------------------------------------
 // lib
-void assert_u16( uint16_t val, uint8_t const* data )
-{
-        uint16_t tmp;
-        asrtl_u8d2_to_u16( data, &tmp );
-        TEST_ASSERT_EQUAL( val, tmp );
-}
-void assert_u32( uint32_t val, uint8_t const* data )
-{
-        uint32_t tmp;
-        asrtl_u8d4_to_u32( data, &tmp );
-        TEST_ASSERT_EQUAL( val, tmp );
-}
 
 void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
 {
@@ -58,7 +47,7 @@ void setup_test(
         assert( t );
         enum asrtr_status st = asrtr_test_init( t, name, data, start_f );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
-        asrtr_add_test( r, t );
+        asrtr_reactor_add_test( r, t );
 }
 
 void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc )

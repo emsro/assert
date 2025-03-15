@@ -59,11 +59,11 @@ enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_sp
         return ASRTL_SUCCESS;
 }
 
-void setup_sender_collector( struct asrtl_sender* s, struct data_ll** data )
+void setup_sender_collector( struct asrtl_sender* s, struct data_ll** ptr )
 {
         *s = ( struct asrtl_sender ){
-            .send_data = (void*) data,
-            .send_fn   = &sender_collect,
+            .ptr = (void*) ptr,
+            .cb  = &sender_collect,
         };
 }
 

@@ -29,7 +29,7 @@ typedef enum asrtr_status ( *asrtr_test_callback )( struct asrtr_record* );
 struct asrtr_record
 {
         enum asrtr_test_state state;
-        void*                 data;
+        void*                 test_ptr;
         asrtr_test_callback   continue_f;
         uint32_t              run_count;
         uint32_t              line;

@@ -30,8 +30,10 @@ enum asrtl_message_id_e
 
 typedef uint16_t asrtl_message_id;
 
-static inline enum asrtl_status
-asrtl_msg_rtoc_error( struct asrtl_span* buff, char const* msg, uint32_t msg_size )
+static inline enum asrtl_status asrtl_msg_rtoc_error(
+    struct asrtl_span* buff,
+    char const*        msg,
+    uint32_t           msg_size )
 {
         if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
@@ -62,8 +64,10 @@ static inline enum asrtl_status asrtl_msg_ctor_proto_version( struct asrtl_span*
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status
-asrtl_msg_rtoc_desc( struct asrtl_span* buff, char const* desc, uint32_t desc_size )
+static inline enum asrtl_status asrtl_msg_rtoc_desc(
+    struct asrtl_span* buff,
+    char const*        desc,
+    uint32_t           desc_size )
 {
         if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
@@ -100,14 +104,14 @@ static inline enum asrtl_status asrtl_msg_ctor_test_count( struct asrtl_span* bu
 static inline enum asrtl_status asrtl_msg_rtoc_test_info(
     struct asrtl_span* buff,
     uint16_t           id,
-    char const*        name,
-    uint32_t           name_size )
+    char const*        desc,
+    uint32_t           desc_size )
 {
         if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_INFO );
         asrtl_add_u16( &buff->b, id );
-        asrtl_fill_buffer( (uint8_t const*) name, name_size, buff );
+        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );
         return ASRTL_SUCCESS;
 }
 
@@ -129,8 +133,10 @@ static inline enum asrtl_status asrtl_msg_ctor_test_start( struct asrtl_span* bu
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status
-asrtl_msg_rtoc_test_start( struct asrtl_span* buff, uint16_t test_id, uint32_t run_id )
+static inline enum asrtl_status asrtl_msg_rtoc_test_start(
+    struct asrtl_span* buff,
+    uint16_t           test_id,
+    uint32_t           run_id )
 {
         if ( asrtl_buffer_unfit(
                  buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) + sizeof( uint32_t ) ) )

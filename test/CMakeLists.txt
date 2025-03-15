@@ -1,5 +1,9 @@
 cpmaddpackage("gh:ThrowTheSwitch/Unity@2.6.1")
 
+add_executable(assertc_test asrtc_test.c)
+target_link_libraries(assertc_test PUBLIC unity asrtc)
+add_test(NAME assrtc_test COMMAND assertc_test)
+
 add_executable(assertr_test asrtr_test.c)
 target_link_libraries(assertr_test PUBLIC unity asrtr)
 add_test(NAME assrtr_test COMMAND assertr_test)

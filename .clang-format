@@ -56,7 +56,7 @@ PenaltyBreakComment: 60
 PenaltyBreakFirstLessLess: 1000
 PenaltyBreakString: 1
 PenaltyExcessCharacter: 1000
-PenaltyReturnTypeOnItsOwnLine: 90
+PenaltyReturnTypeOnItsOwnLine: 900
 PointerAlignment: Left
 PointerBindsToType: false
 ReflowComments: true

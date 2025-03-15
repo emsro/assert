@@ -21,8 +21,8 @@
 
 struct asrtr_test
 {
-        char const*         name;
-        void*               data;
+        char const*         desc;
+        void*               ptr;
         asrtr_test_callback start_f;
         struct asrtr_test*  next;
 };
@@ -63,13 +63,18 @@ struct asrtr_reactor
         uint16_t recv_test_start_id;
 };
 
-enum asrtr_status
-asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc );
+enum asrtr_status asrtr_reactor_init(
+    struct asrtr_reactor* reac,
+    struct asrtl_sender   sender,
+    char const*           desc );
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff );
 
-enum asrtr_status
-asrtr_test_init( struct asrtr_test* t, char const* name, void* data, asrtr_test_callback start_f );
-void asrtr_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
+enum asrtr_status asrtr_test_init(
+    struct asrtr_test*  t,
+    char const*         desc,
+    void*               ptr,
+    asrtr_test_callback start_f );
+void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
 
 enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff );
 
