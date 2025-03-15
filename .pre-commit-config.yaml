@@ -13,6 +13,7 @@ repos:
    hooks:
     - id: clang-format
       name: clang-format
+      files: \.c$|\.h$
       entry: clang-format -i
       language: python
       'types_or': [c++, c, c#, cuda, java, javascript, json, objective-c, proto, textproto, metal]

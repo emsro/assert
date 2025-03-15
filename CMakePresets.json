@@ -70,7 +70,10 @@
     },
     {
       "name": "asan",
-      "configurePreset": "asan"
+      "configurePreset": "asan",
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "ubsan",
