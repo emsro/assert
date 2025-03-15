@@ -35,16 +35,7 @@ struct asrtr_record
         uint32_t              line;
 };
 
-static inline uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line )
-{
-        if ( x != 0 )
-                return 1;
-        rec->state = ASRTR_TEST_FAIL;
-        if ( rec->line == 0 )
-                rec->line = line;
-        return 0;
-}
-
+uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line );
 
 #define ASRTR_CHECK( rec, x )                             \
         do {                                              \
