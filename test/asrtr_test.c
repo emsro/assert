@@ -96,8 +96,15 @@ void clear_single_collected( struct data_ll** data )
 
 void assert_u16( uint16_t val, uint8_t const* data )
 {
-        TEST_ASSERT_EQUAL( ( val >> 8 ) & 0xFF, data[0] );
-        TEST_ASSERT_EQUAL( val & 0xFF, data[1] );
+        uint16_t tmp;
+        asrtl_u8d2_to_u16( data, &tmp );
+        TEST_ASSERT_EQUAL( val, tmp );
+}
+void assert_u32( uint32_t val, uint8_t const* data )
+{
+        uint32_t tmp;
+        asrtl_u8d4_to_u32( data, &tmp );
+        TEST_ASSERT_EQUAL( val, tmp );
 }
 
 void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
@@ -167,6 +174,18 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id )
         enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
         check_recv_and_spin( reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+}
+
+void assert_test_result(
+    struct data_ll*          collected,
+    uint32_t                 id,
+    enum asrtl_test_result_e result,
+    uint32_t                 line )
+{
+        assert_collected_hdr( collected, 0x0C, ASRTL_MSG_TEST_RESULT );
+        assert_u32( id, collected->data + 2 );
+        assert_u16( result, collected->data + 6 );
+        assert_u32( line, collected->data + 8 );
 }
 
 struct test_context
@@ -348,12 +367,12 @@ void test_reactor_start( struct test_context* ctx )
         check_run_test( &ctx->reac, 0 );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_RESULT );
-        assert_u16( ASRTL_TEST_SUCCESS, ctx->collected->data + 2 );
+        assert_test_result( ctx->collected, 1, ASRTL_TEST_SUCCESS, 0 );
         clear_top_collected( &ctx->collected );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_START );
+        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_TEST_START );
         assert_u16( 0x00, ctx->collected->data + 2 );
+        assert_u32( 0x01, ctx->collected->data + 4 );
         clear_single_collected( &ctx->collected );
 
         uint8_t           buffer[64];
@@ -397,7 +416,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_START );
+        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_TEST_START );
         assert_u16( 0x00, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
 
@@ -412,6 +431,71 @@ void test_reactor_start_busy( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 }
 
+
+enum asrtr_status check_macro_test( struct asrtr_record* r )
+{
+        uint64_t* p = (uint64_t*) r->data;
+        ASRTR_CHECK( r, 1 == 1 );
+        *p += 1;
+        ASRTR_CHECK( r, 1 == 0 );
+        *p += 1;
+        return ASRTR_SUCCESS;
+}
+
+void test_check_macro( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        struct asrtr_test t1;
+        uint64_t          counter = 0;
+        setup_test( &ctx->reac, &t1, "test1", &counter, &check_macro_test );
+
+        check_run_test( &ctx->reac, 0 );
+
+        TEST_ASSERT_EQUAL( 2, counter );
+        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 440 );
+        clear_top_collected( &ctx->collected );
+}
+
+enum asrtr_status require_macro_test( struct asrtr_record* r )
+{
+        uint64_t* p = (uint64_t*) r->data;
+        ASRTR_REQUIRE( r, 1 == 1 );
+        *p += 1;
+        ASRTR_REQUIRE( r, 1 == 0 );
+        *p += 1;
+        return ASRTR_SUCCESS;
+}
+
+void test_require_macro( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        struct asrtr_test t1;
+        uint64_t          counter = 0;
+        setup_test( &ctx->reac, &t1, "test1", &counter, &require_macro_test );
+
+        check_run_test( &ctx->reac, 0 );
+
+        TEST_ASSERT_EQUAL( 1, counter );
+        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 464 );
+        clear_top_collected( &ctx->collected );
+}
+
+void test_test_counter( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+
+        struct asrtr_test t1;
+        uint64_t          counter = 0;
+        setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
+
+        for ( uint32_t x = 1; x < 42; x++ ) {
+                counter = 1;
+                check_run_test( &ctx->reac, 0 );
+                assert_test_result( ctx->collected, x, ASRTL_TEST_SUCCESS, 0 );
+                clear_top_collected( &ctx->collected );
+        }
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -422,5 +506,8 @@ int main( void )
         ASRT_RUN_TEST( test_reactor_test_info );
         ASRT_RUN_TEST( test_reactor_start );
         ASRT_RUN_TEST( test_reactor_start_busy );
+        ASRT_RUN_TEST( test_check_macro );
+        ASRT_RUN_TEST( test_require_macro );
+        ASRT_RUN_TEST( test_test_counter );
         return UNITY_END();
 }

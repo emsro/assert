@@ -31,11 +31,14 @@ asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, cha
                     .recv_fn   = &asrtr_reactor_recv,
                     .next      = NULL,
                 },
-            .sendr      = sender,
-            .desc       = desc,
-            .first_test = NULL,
-            .state      = ASRTR_REAC_IDLE,
-            .flags      = 0,
+            .sendr              = sender,
+            .desc               = desc,
+            .first_test         = NULL,
+            .state              = ASRTR_REAC_IDLE,
+            .run_count          = 0,
+            .flags              = 0,
+            .recv_test_info_id  = 0,
+            .recv_test_start_id = 0,
         };
         return ASRTR_SUCCESS;
 }
@@ -76,13 +79,18 @@ asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac, struct asrtl_spa
                 if ( asrtl_msg_rtoc_error( buff, msg, strlen( msg ) ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
+                reac->run_count += 1;
                 reac->state_data.record = ( struct asrtr_record ){
                     .state      = ASRTR_TEST_INIT,
                     .data       = t->data,
                     .continue_f = t->start_f,
+                    .run_count  = reac->run_count,
+                    .line       = 0,
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
-                if ( asrtl_msg_rtoc_test_start( buff, reac->recv_test_start_id ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_test_start(
+                         buff, reac->recv_test_start_id, reac->state_data.record.run_count ) !=
+                     ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         }
         return ASRTR_SUCCESS;
@@ -173,9 +181,11 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
                 struct asrtr_record* record = &reac->state_data.record;
                 if ( asrtl_msg_rtoc_test_result(
                          &subspan,
+                         record->run_count,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
-                                                             ASRTL_TEST_SUCCESS ) != ASRTL_SUCCESS )
+                                                             ASRTL_TEST_SUCCESS,
+                         record->line ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
                 reac->state = ASRTR_REAC_IDLE;
                 break;

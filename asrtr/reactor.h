@@ -14,28 +14,10 @@
 
 #include "../asrtl/chann.h"
 #include "../asrtl/core_proto.h"
+#include "record.h"
 #include "status.h"
 
 #include <stdint.h>
-
-enum asrtr_test_state
-{
-        ASRTR_TEST_INIT    = 1,
-        ASRTR_TEST_RUNNING = 2,
-        ASRTR_TEST_ERROR   = 3,
-        ASRTR_TEST_FAIL    = 4,
-        ASRTR_TEST_PASS    = 5,
-};
-
-struct asrtr_record;
-typedef enum asrtr_status ( *asrtr_test_callback )( struct asrtr_record* );
-
-struct asrtr_record
-{
-        enum asrtr_test_state state;
-        void*                 data;
-        asrtr_test_callback   continue_f;
-};
 
 struct asrtr_test
 {
@@ -70,6 +52,7 @@ struct asrtr_reactor
         struct asrtr_test* first_test;
 
         enum asrtr_reactor_state state;
+        uint32_t                 run_count;
         union
         {
                 struct asrtr_record record;
