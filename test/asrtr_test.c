@@ -71,10 +71,11 @@ void check_reactor_tick( struct asrtr_reactor* reac )
 
 void check_recv_and_spin(
     struct asrtr_reactor*    reac,
-    struct asrtl_span        msg,
+    uint8_t*                 beg,
+    uint8_t*                 end,
     enum asrtr_reactor_flags fls )
 {
-        check_reactor_recv_flags( reac, msg, fls );
+        check_reactor_recv_flags( reac, ( struct asrtl_span ){ beg, end }, fls );
         int       i = 0;
         int const n = 1000;
         for ( ; i < n; i++ ) {
@@ -91,7 +92,7 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id )
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
         enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
-        check_recv_and_spin( reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+        check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
 
 void assert_test_result(
@@ -118,6 +119,8 @@ struct test_context
         struct asrtr_reactor reac;
         struct data_ll*      collected;
         struct asrtl_sender  send;
+        uint8_t              buffer[64];
+        struct asrtl_span    sp;
 };
 
 void test_run(
@@ -131,7 +134,17 @@ void test_run(
         UNITY_CLR_DETAILS();
         UNITY_EXEC_TIME_START();
         if ( TEST_PROTECT() ) {
-                struct test_context ctx = { .reac = {}, .collected = NULL, .send = {} };
+                struct test_context ctx = {
+                    .reac      = {},
+                    .collected = NULL,
+                    .send      = {},
+                    .buffer    = {},
+                    .sp        = {},
+                };
+                ctx.sp = ( struct asrtl_span ){
+                    .b = ctx.buffer,
+                    .e = ctx.buffer + sizeof ctx.buffer,
+                };
                 setup_sender_collector( &ctx.send, &ctx.collected );
                 test_fn( &ctx );
                 TEST_ASSERT_NULL( ctx.collected );
@@ -186,12 +199,9 @@ void test_reactor_version( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_proto_version( &sp );
+        asrtl_msg_ctor_proto_version( &ctx->sp );
 
-        check_recv_and_spin(
-            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_PROTO_VER );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_PROTO_VER );
 
         assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
         assert_u16( 0x00, ctx->collected->data + 2 );
@@ -205,11 +215,9 @@ void test_reactor_desc( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_desc( &sp );
+        asrtl_msg_ctor_desc( &ctx->sp );
 
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_DESC );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_DESC );
 
         assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
         assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
@@ -221,11 +229,9 @@ void test_reactor_test_count( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_test_count( &sp );
+        asrtl_msg_ctor_test_count( &ctx->sp );
 
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TC );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TC );
 
         assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x00, ctx->collected->data + 2 );
@@ -234,7 +240,7 @@ void test_reactor_test_count( struct test_context* ctx )
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TC );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TC );
 
         assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x01, ctx->collected->data + 2 );
@@ -245,11 +251,9 @@ void test_reactor_test_info( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_test_info( &sp, 0 );
+        asrtl_msg_ctor_test_info( &ctx->sp, 0 );
 
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TI );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
         assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
         TEST_ASSERT_EQUAL_STRING_LEN(
@@ -259,7 +263,7 @@ void test_reactor_test_info( struct test_context* ctx )
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TI );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
         assert_collected_hdr( ctx->collected, 0x09, ASRTL_MSG_TEST_INFO );
         assert_u16( 0x00, ctx->collected->data + 2 );
@@ -285,10 +289,8 @@ void test_reactor_start( struct test_context* ctx )
         assert_test_start( ctx->collected, 0, 1 );
         clear_single_collected( &ctx->collected );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_test_start( &sp, 42 );
-        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+        asrtl_msg_ctor_test_start( &ctx->sp, 42 );
+        check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TSTART );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
         assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
@@ -304,11 +306,9 @@ void test_reactor_start_busy( struct test_context* ctx )
         uint64_t          counter = 8;
         setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
 
-        uint8_t           buffer[64];
-        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        asrtl_msg_ctor_test_start( &sp, 0 );
+        asrtl_msg_ctor_test_start( &ctx->sp, 0 );
         check_reactor_recv_flags(
-            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+            &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TSTART );
 
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 8, counter );
@@ -319,7 +319,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 
         check_reactor_recv_flags(
-            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+            &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TSTART );
 
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );

@@ -84,7 +84,7 @@ static inline enum asrtl_status asrtl_msg_ctor_desc( struct asrtl_span* buff )
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_count( struct asrtl_span* buff, uint16_t count )
+static inline enum asrtl_status asrtl_msg_rtoc_test_count( struct asrtl_span* buff, uint16_t count )
 {
         if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof count ) )
                 return ASRTL_SIZE_ERR;

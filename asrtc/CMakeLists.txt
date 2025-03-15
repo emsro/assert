@@ -4,4 +4,5 @@ project(asrtc VERSION 0.0)
 
 set(CMAKE_C_STANDARD 99)
 
-add_library(asrtc controller.c)
+add_library(asrtc controller.c allocator.c)
+target_link_libraries(asrtc PUBLIC asrtl)

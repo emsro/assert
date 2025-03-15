@@ -85,7 +85,7 @@ void clear_single_collected( struct data_ll** data )
         *data = NULL;
 }
 
-void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
+void assert_collected_hdr( struct data_ll* collected, uint32_t size, enum asrtl_message_id_e mid )
 {
         TEST_ASSERT_NOT_NULL( collected );
         TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );

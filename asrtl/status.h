@@ -12,13 +12,16 @@
 #ifndef ASRTL_STATUS_H
 #define ASRTL_STATUS_H
 
+// XXX: check _recv of reactor/controller and revamp error codes
 enum asrtl_status
 {
-        ASRTL_UNKNOWN_ID_ERR = -4,
-        ASRTL_BUSY_ERR       = -3,
-        ASRTL_RECV_ERR       = -2,
-        ASRTL_SIZE_ERR       = -1,
-        ASRTL_SUCCESS        = 1,
+        ASRTL_RECV_INTERNAL_ERR   = -6,
+        ASRTL_RECV_UNEXPECTED_ERR = -5,
+        ASRTL_RECV_UNKNOWN_ID_ERR = -4,
+        ASRTL_BUSY_ERR            = -3,
+        ASRTL_RECV_ERR            = -2,
+        ASRTL_SIZE_ERR            = -1,
+        ASRTL_SUCCESS             = 1,
 };
 
 #endif

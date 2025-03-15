@@ -14,7 +14,7 @@
 #include "./result.h"
 
 // XXX: the defs might be at better place
-typedef void ( *asrtc_test_count_callback )( void* ptr, uint32_t test_count );
+typedef void ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
 typedef void ( *asrtc_test_desc_callback )( void* ptr, char* desc );
 typedef void ( *asrtc_test_info_callback )( void* ptr, char* desc );
 typedef void ( *asrtc_test_result_callback )( void* ptr, struct asrtc_result* res );
@@ -34,7 +34,7 @@ struct asrtc_init_handler
 struct asrtc_tc_handler
 {
         uint32_t                  stage;
-        uint32_t                  count;
+        uint16_t                  count;
         void*                     ptr;
         asrtc_test_count_callback cb;
 };

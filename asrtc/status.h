@@ -14,7 +14,8 @@
 
 enum asrtc_status
 {
-        ASRTC_SEND_ERR      = -2,
+        ASRTC_SEND_ERR      = -3,
+        ASRTC_CNTR_BUSY_ERR = -2,
         ASRTC_CNTR_INIT_ERR = -1,
         ASRTC_SUCCESS       = 1,
 };

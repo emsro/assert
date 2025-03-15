@@ -12,6 +12,8 @@
 
 #include "../asrtl/core_proto.h"
 
+#include <string.h>
+
 enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
@@ -93,6 +95,7 @@ enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c )
                 } else {
                         h->cb( h->ptr, h->desc );
                         asrtc_free( &c->alloc, (void**) &h->desc );
+                        c->state = ASRTC_CNTR_IDLE;
                 }
                 break;
         }
@@ -109,6 +112,7 @@ enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c )
                 } else {
                         h->cb( h->ptr, h->desc );
                         asrtc_free( &c->alloc, (void**) &h->desc );
+                        c->state = ASRTC_CNTR_IDLE;
                 }
                 break;
         }
@@ -124,6 +128,7 @@ enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c )
                         break;
                 } else {
                         h->cb( h->ptr, &h->res );
+                        c->state = ASRTC_CNTR_IDLE;
                 }
                 break;
         }
@@ -137,6 +142,65 @@ enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c )
 uint32_t asrtc_cntr_idle( struct asrtc_controller* c )
 {
         return c->state == ASRTC_CNTR_IDLE;
+}
+
+enum asrtc_status asrtc_cntr_desc(
+    struct asrtc_controller* c,
+    asrtc_test_desc_callback cb,
+    void*                    ptr )
+{
+        assert( c && cb );
+
+        if ( !asrtc_cntr_idle( c ) )
+                return ASRTC_CNTR_BUSY_ERR;
+
+        c->hndl.desc = ( struct asrtc_desc_handler ){
+            .stage = 0,
+            .desc  = NULL,
+            .ptr   = ptr,
+            .cb    = cb,
+        };
+        c->state = ASRTC_CNTR_HNDL_DESC;
+        return ASRTC_SUCCESS;
+}
+
+enum asrtc_status asrtc_cntr_test_count(
+    struct asrtc_controller*  c,
+    asrtc_test_count_callback cb,
+    void*                     ptr )
+{
+        assert( c && cb );
+        if ( !asrtc_cntr_idle( c ) )
+                return ASRTC_CNTR_BUSY_ERR;
+
+        c->hndl.tc = ( struct asrtc_tc_handler ){
+            .stage = 0,
+            .count = 0,
+            .ptr   = ptr,
+            .cb    = cb,
+        };
+        c->state = ASRTC_CNTR_HNDL_TC;
+        return ASRTC_SUCCESS;
+}
+enum asrtc_status asrtc_cntr_test_info(
+    struct asrtc_controller* c,
+    uint16_t                 id,
+    asrtc_test_info_callback cb,
+    void*                    ptr )
+{
+        assert( c && cb );
+        if ( !asrtc_cntr_idle( c ) )
+                return ASRTC_CNTR_BUSY_ERR;
+
+        c->hndl.ti = ( struct asrtc_ti_handler ){
+            .tid   = id,
+            .stage = 0,
+            .desc  = NULL,
+            .ptr   = ptr,
+            .cb    = cb,
+        };
+        c->state = ASRTC_CNTR_HNDL_TI;
+        return ASRTC_SUCCESS;
 }
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
@@ -153,10 +217,12 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
         case ASRTL_MSG_PROTO_VERSION: {
                 if ( asrtl_buffer_unfit( &buff, 3 * sizeof( uint16_t ) ) )
                         return ASRTL_RECV_ERR;
-                // XXX: normal error
-                assert( c->state == ASRTC_CNTR_INIT );
+                if ( c->state != ASRTC_CNTR_INIT )
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+
                 struct asrtc_init_handler* h = &c->hndl.init;
-                assert( h->stage == 1 );
+                if ( h->stage != 1 )
+                        return ASRTL_RECV_INTERNAL_ERR;
 
                 asrtl_cut_u16( &buff.b, &h->ver.major );
                 asrtl_cut_u16( &buff.b, &h->ver.minor );
@@ -165,14 +231,57 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
                 h->stage += 1;
                 break;
         }
-        case ASRTL_MSG_DESC:
-        case ASRTL_MSG_TEST_COUNT:
-        case ASRTL_MSG_TEST_INFO:
+        case ASRTL_MSG_DESC: {
+                if ( c->state != ASRTC_CNTR_HNDL_DESC )
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+
+                struct asrtc_desc_handler* h = &c->hndl.desc;
+                if ( h->stage != 1 )
+                        return ASRTL_RECV_INTERNAL_ERR;
+
+                h->desc = asrtc_realloc_str( &c->alloc, &buff );
+                if ( h->desc == NULL )
+                        return ASRTL_RECV_ERR;
+                h->stage = 2;
+                break;
+        }
+        case ASRTL_MSG_TEST_COUNT: {
+                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) ) )
+                        return ASRTL_RECV_ERR;
+                if ( c->state != ASRTC_CNTR_HNDL_TC )
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+                struct asrtc_tc_handler* h = &c->hndl.tc;
+                if ( h->stage != 1 )
+                        return ASRTL_RECV_INTERNAL_ERR;
+
+                asrtl_cut_u16( &buff.b, &h->count );
+
+                h->stage += 1;
+                break;
+        }
+        case ASRTL_MSG_TEST_INFO: {
+                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) ) )
+                        return ASRTL_RECV_ERR;
+                if ( c->state != ASRTC_CNTR_HNDL_TI )
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+
+                struct asrtc_ti_handler* h = &c->hndl.ti;
+                if ( h->stage != 1 )
+                        return ASRTL_RECV_INTERNAL_ERR;
+                uint16_t tid;  // XXX: unused for now
+                asrtl_cut_u16( &buff.b, &tid );
+
+                h->desc = asrtc_realloc_str( &c->alloc, &buff );
+                if ( h->desc == NULL )
+                        return ASRTL_RECV_ERR;
+                h->stage = 2;
+                break;
+        }
         case ASRTL_MSG_TEST_START:
         case ASRTL_MSG_ERROR:
         case ASRTL_MSG_TEST_RESULT:
         default:
-                return ASRTL_UNKNOWN_ID_ERR;
+                return ASRTL_RECV_UNKNOWN_ID_ERR;
         }
 
         return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;

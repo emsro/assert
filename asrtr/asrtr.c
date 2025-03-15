@@ -141,7 +141,7 @@ static enum asrtr_status asrtr_reactor_tick_flags(
                 while ( t )
                         ++count, t = t->next;
 
-                if ( asrtl_msg_rtoc_count( &sp, count ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_test_count( &sp, count ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
                 mask = ~ASRTR_FLAG_TI;
@@ -261,7 +261,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         case ASRTL_MSG_ERROR:
         case ASRTL_MSG_TEST_RESULT:
         default:
-                return ASRTL_UNKNOWN_ID_ERR;
+                return ASRTL_RECV_UNKNOWN_ID_ERR;
         }
         return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
 }

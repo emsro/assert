@@ -53,14 +53,14 @@ enum asrtc_status asrtc_cntr_init(
 enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c );
 uint32_t          asrtc_cntr_idle( struct asrtc_controller* c );
 
-enum asrtc_status asrtc_cntr_test_count(
-    struct asrtc_controller*  c,
-    asrtc_test_count_callback cb,
-    void*                     ptr );
 enum asrtc_status asrtc_cntr_desc(
     struct asrtc_controller* c,
     asrtc_test_desc_callback cb,
     void*                    ptr );
+enum asrtc_status asrtc_cntr_test_count(
+    struct asrtc_controller*  c,
+    asrtc_test_count_callback cb,
+    void*                     ptr );
 enum asrtc_status asrtc_cntr_test_info(
     struct asrtc_controller* c,
     uint16_t                 id,
