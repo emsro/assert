@@ -121,7 +121,7 @@ asrtr_reactor_tick_flags( struct asrtr_reactor* reac, struct asrtl_span buff )
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
                 reac->flags &= ~ASRTR_FLAG_PROTO_VER;
                 // XXX: find better source of the version
-                if ( asrtl_msg_rtoc_proto_version( &subspan, 0, 0, 0 ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_proto_version( &subspan, 0, 1, 0 ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
 
         } else if ( reac->flags & ASRTR_FLAG_TC ) {

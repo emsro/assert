@@ -280,7 +280,7 @@ void test_reactor_version( struct test_context* ctx )
 
         assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
         assert_u16( 0x00, ctx->collected->data + 2 );
-        assert_u16( 0x00, ctx->collected->data + 4 );
+        assert_u16( 0x01, ctx->collected->data + 4 );
         assert_u16( 0x00, ctx->collected->data + 6 );
 
         clear_single_collected( &ctx->collected );
