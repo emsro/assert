@@ -12,25 +12,21 @@ void tearDown( void )
 void test_reactor_init( void )
 {
         uint8_t        data[3] = { 0x33, 0x66, 0x99 };
-        uint8_t const* p       = data;
-        uint32_t       size    = sizeof data;
+        uint8_t*       p       = data;
         asrtl_chann_id id;
-        asrtl_cut_u16( &p, &size, &id );
+        asrtl_cut_u16( &p, &id );
         TEST_ASSERT_EQUAL( id, 0x3366 );
         TEST_ASSERT_EQUAL( p, &data[2] );
-        TEST_ASSERT_EQUAL( size, 1 );
 }
 
 void test_add_chann_id( void )
 {
         uint8_t  data[3] = { 0x33, 0x66, 0x99 };
         uint8_t* p       = data;
-        uint32_t size    = sizeof data;
-        asrtl_add_u16( &p, &size, 0x1122 );
+        asrtl_add_u16( &p, 0x1122 );
         TEST_ASSERT_EQUAL( data[0], 0x11 );
         TEST_ASSERT_EQUAL( data[1], 0x22 );
         TEST_ASSERT_EQUAL( p, &data[2] );
-        TEST_ASSERT_EQUAL( size, 1 );
 }
 
 void test_fill_buffer( void )
@@ -38,24 +34,20 @@ void test_fill_buffer( void )
         uint8_t data1[2] = { 0x01, 0x01 };
         uint8_t data2[4] = { 0x02, 0x02, 0x02, 0x02 };
 
-        uint8_t* p    = data2;
-        uint32_t size = sizeof data2;
-        asrtl_fill_buffer( data1, sizeof data1, &p, &size );
+        struct asrtl_span sp = { .b = data2, .e = data2 + sizeof data2 };
+        asrtl_fill_buffer( data1, sizeof data1, &sp );
 
-        TEST_ASSERT_EQUAL( 2, size );
-        TEST_ASSERT_EQUAL( &data2[2], p );
+        TEST_ASSERT_EQUAL( &data2[2], sp.b );
         TEST_ASSERT_EQUAL( 0x01, data2[0] );
         TEST_ASSERT_EQUAL( 0x01, data2[1] );
         TEST_ASSERT_EQUAL( 0x02, data2[2] );
         TEST_ASSERT_EQUAL( 0x02, data2[3] );
 
         uint8_t data3[4] = { 0x03, 0x03, 0x03, 0x03 };
-        p                = data1;
-        size             = sizeof data1;
-        asrtl_fill_buffer( data3, sizeof data3, &p, &size );
+        sp               = ( struct asrtl_span ){ .b = data1, .e = data1 + sizeof data1 };
+        asrtl_fill_buffer( data3, sizeof data3, &sp );
 
-        TEST_ASSERT_EQUAL( 0, size );
-        TEST_ASSERT_EQUAL( &data1[2], p );
+        TEST_ASSERT_EQUAL( &data1[2], sp.b );
         TEST_ASSERT_EQUAL( 0x03, data1[0] );
         TEST_ASSERT_EQUAL( 0x03, data1[1] );
 }

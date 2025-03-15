@@ -15,8 +15,7 @@ enum asrtl_chann_id_e
 
 typedef uint16_t asrtl_chann_id;
 
-typedef enum asrtl_status (
-    *asrtl_rec_callback )( void* data, uint8_t const* msg, uint32_t msg_size );
+typedef enum asrtl_status ( *asrtl_rec_callback )( void* data, struct asrtl_span buff );
 
 struct asrtl_node
 {
@@ -27,7 +26,7 @@ struct asrtl_node
 };
 
 typedef enum asrtl_status (
-    *asrtl_send_callback )( void* data, asrtl_chann_id id, uint8_t const* msg, uint32_t msg_size );
+    *asrtl_send_callback )( void* data, asrtl_chann_id id, struct asrtl_span buff );
 
 struct asrtl_sender
 {
@@ -36,11 +35,11 @@ struct asrtl_sender
 };
 
 static inline enum asrtl_status
-asrtl_send( struct asrtl_sender* r, asrtl_chann_id chid, uint8_t const* msg, uint32_t msg_size )
+asrtl_send( struct asrtl_sender* r, asrtl_chann_id chid, struct asrtl_span buff )
 {
         assert( r );
         assert( r->send_fn );
-        return r->send_fn( r->send_data, chid, msg, msg_size );
+        return r->send_fn( r->send_data, chid, buff );
 }
 
 #endif

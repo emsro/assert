@@ -72,13 +72,12 @@ struct asrtr_reactor
 
 enum asrtr_status
 asrtr_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, char const* desc );
-enum asrtr_status
-asrtr_reactor_tick( struct asrtr_reactor* reac, uint8_t* buffer, uint32_t buffer_size );
+enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff );
 
 enum asrtr_status
 asrtr_test_init( struct asrtr_test* t, char const* name, void* data, asrtr_test_callback start_f );
 void asrtr_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
 
-enum asrtl_status asrtr_reactor_recv( void* data, uint8_t const* msg, uint32_t msg_size );
+enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff );
 
 #endif

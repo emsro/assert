@@ -21,116 +21,110 @@ enum asrtl_message_id_e
 typedef uint16_t asrtl_message_id;
 
 static inline enum asrtl_status
-asrtl_msg_rtoc_error( uint8_t** data, uint32_t* size, char const* msg, uint32_t msg_size )
+asrtl_msg_rtoc_error( struct asrtl_span* buff, char const* msg, uint32_t msg_size )
 {
-        if ( *size < sizeof( asrtl_message_id ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_ERROR );
-        asrtl_fill_buffer( (uint8_t const*) msg, msg_size, data, size );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_ERROR );
+        asrtl_fill_buffer( (uint8_t const*) msg, msg_size, buff );
         return ASRTL_SUCCESS;
 }
 
 static inline enum asrtl_status asrtl_msg_rtoc_proto_version(
-    uint8_t** data,
-    uint32_t* size,
-    uint16_t  major,
-    uint16_t  minor,
-    uint16_t  patch )
+    struct asrtl_span* buff,
+    uint16_t           major,
+    uint16_t           minor,
+    uint16_t           patch )
 {
-        if ( *size < sizeof( asrtl_message_id ) + 3 * sizeof( uint16_t ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + 3 * sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_PROTO_VERSION );
-        asrtl_add_u16( data, size, major );
-        asrtl_add_u16( data, size, minor );
-        asrtl_add_u16( data, size, patch );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_PROTO_VERSION );
+        asrtl_add_u16( &buff->b, major );
+        asrtl_add_u16( &buff->b, minor );
+        asrtl_add_u16( &buff->b, patch );
         return ASRTL_SUCCESS;
 }
-static inline enum asrtl_status asrtl_msg_ctor_proto_version( uint8_t** data, uint32_t* size )
+static inline enum asrtl_status asrtl_msg_ctor_proto_version( struct asrtl_span* buff )
 {
-        if ( *size < sizeof( asrtl_message_id ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_PROTO_VERSION );
-        return ASRTL_SUCCESS;
-}
-
-static inline enum asrtl_status
-asrtl_msg_rtoc_desc( uint8_t** data, uint32_t* size, char const* desc, uint32_t desc_size )
-{
-        if ( *size < sizeof( asrtl_message_id ) )
-                return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_DESC );
-        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, data, size );
-        return ASRTL_SUCCESS;
-}
-
-static inline enum asrtl_status asrtl_msg_ctor_desc( uint8_t** data, uint32_t* size )
-{
-        if ( *size < sizeof( asrtl_message_id ) )
-                return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_DESC );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_PROTO_VERSION );
         return ASRTL_SUCCESS;
 }
 
 static inline enum asrtl_status
-asrtl_msg_rtoc_count( uint8_t** data, uint32_t* size, uint16_t count )
+asrtl_msg_rtoc_desc( struct asrtl_span* buff, char const* desc, uint32_t desc_size )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof count )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_COUNT );
-        asrtl_add_u16( data, size, count );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_DESC );
+        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_ctor_test_count( uint8_t** data, uint32_t* size )
+static inline enum asrtl_status asrtl_msg_ctor_desc( struct asrtl_span* buff )
 {
-        if ( *size < sizeof( asrtl_message_id ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_COUNT );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_DESC );
+        return ASRTL_SUCCESS;
+}
+
+static inline enum asrtl_status asrtl_msg_rtoc_count( struct asrtl_span* buff, uint16_t count )
+{
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof count ) )
+                return ASRTL_SIZE_ERR;
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_COUNT );
+        asrtl_add_u16( &buff->b, count );
+        return ASRTL_SUCCESS;
+}
+
+static inline enum asrtl_status asrtl_msg_ctor_test_count( struct asrtl_span* buff )
+{
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
+                return ASRTL_SIZE_ERR;
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_COUNT );
         return ASRTL_SUCCESS;
 }
 
 static inline enum asrtl_status asrtl_msg_rtoc_test_info(
-    uint8_t**   data,
-    uint32_t*   size,
-    uint16_t    id,
-    char const* name,
-    uint32_t    name_size )
+    struct asrtl_span* buff,
+    uint16_t           id,
+    char const*        name,
+    uint32_t           name_size )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof( uint16_t ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_INFO );
-        asrtl_add_u16( data, size, id );
-        asrtl_fill_buffer( (uint8_t const*) name, name_size, data, size );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_INFO );
+        asrtl_add_u16( &buff->b, id );
+        asrtl_fill_buffer( (uint8_t const*) name, name_size, buff );
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status
-asrtl_msg_ctor_test_info( uint8_t** data, uint32_t* size, uint16_t id )
+static inline enum asrtl_status asrtl_msg_ctor_test_info( struct asrtl_span* buff, uint16_t id )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof( uint16_t ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_INFO );
-        asrtl_add_u16( data, size, id );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_INFO );
+        asrtl_add_u16( &buff->b, id );
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status
-asrtl_msg_ctor_test_start( uint8_t** data, uint32_t* size, uint16_t id )
+static inline enum asrtl_status asrtl_msg_ctor_test_start( struct asrtl_span* buff, uint16_t id )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof( uint16_t ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_START );
-        asrtl_add_u16( data, size, id );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_START );
+        asrtl_add_u16( &buff->b, id );
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status
-asrtl_msg_rtoc_test_start( uint8_t** data, uint32_t* size, uint16_t id )
+static inline enum asrtl_status asrtl_msg_rtoc_test_start( struct asrtl_span* buff, uint16_t id )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof( uint16_t ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_START );
-        asrtl_add_u16( data, size, id );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_START );
+        asrtl_add_u16( &buff->b, id );
         return ASRTL_SUCCESS;
 }
 
@@ -143,12 +137,12 @@ enum asrtl_test_result_e
 typedef uint16_t asrtl_test_result;
 
 static inline enum asrtl_status
-asrtl_msg_rtoc_test_result( uint8_t** data, uint32_t* size, asrtl_test_result res )
+asrtl_msg_rtoc_test_result( struct asrtl_span* buff, asrtl_test_result res )
 {
-        if ( *size < sizeof( asrtl_message_id ) + sizeof( asrtl_test_result ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( asrtl_test_result ) ) )
                 return ASRTL_SIZE_ERR;
-        asrtl_add_u16( data, size, ASRTL_MSG_TEST_RESULT );
-        asrtl_add_u16( data, size, res );
+        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_RESULT );
+        asrtl_add_u16( &buff->b, res );
         return ASRTL_SUCCESS;
 }
 

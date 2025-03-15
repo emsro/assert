@@ -15,21 +15,30 @@ static inline void asrtl_u8d2_to_u16( uint8_t const* data, uint16_t* val )
         *val = ( data[0] << 8 ) + data[1];
 }
 
-static inline void asrtl_cut_u16( uint8_t const** data, uint32_t* size, uint16_t* val )
+static inline void asrtl_cut_u16( uint8_t** data, uint16_t* val )
 {
         asrtl_u8d2_to_u16( *data, val );
         *data += 2;
-        *size -= 2;
 }
-static inline void asrtl_add_u16( uint8_t** data, uint32_t* size, uint16_t val )
+static inline void asrtl_add_u16( uint8_t** data, uint16_t val )
 {
         asrtl_u16_to_u8d2( val, *data );
         *data += 2;
-        *size -= 2;
+}
+
+struct asrtl_span
+{
+        uint8_t* b;
+        uint8_t* e;
+};
+
+static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_t size )
+{
+        return ( buff->e - buff->b ) < (int32_t) size;
 }
 
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
 // updates to/to_size to reflect filled in data
-void asrtl_fill_buffer( uint8_t const* from, uint32_t from_size, uint8_t** to, uint32_t* to_size );
+void asrtl_fill_buffer( uint8_t const* from, uint32_t from_size, struct asrtl_span* buff );
 
 #endif  // ASRTL_UTIL_H

@@ -1,3 +1,5 @@
+#define UNITY_SKIP_DEFAULT_RUNNER
+
 #include "../asrtl/core_proto.h"
 #include "../asrtr/reactor.h"
 
@@ -5,12 +7,15 @@
 #include <string.h>
 #include <unity.h>
 
-void setUp( void )
+void setUp()
 {
 }
-void tearDown( void )
+void tearDown()
 {
 }
+
+//---------------------------------------------------------------------
+// lib
 
 struct data_ll
 {
@@ -20,10 +25,10 @@ struct data_ll
         struct data_ll* next;
 };
 
-void free_data_ll( struct data_ll* p )
+void rec_free_data_ll( struct data_ll* p )
 {
         if ( p->next )
-                free_data_ll( p->next );
+                rec_free_data_ll( p->next );
         free( p->data );
         free( p );
 }
@@ -40,19 +45,17 @@ void assert_data_ll_contain_str( char const* expected, struct data_ll* node, uin
 }
 
 
-enum asrtl_status
-sender_collect( void* data, asrtl_chann_id id, uint8_t const* msg, uint32_t msg_size )
+enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_span buff )
 {
         assert( data );
-        assert( msg );
         struct data_ll** lnode = (struct data_ll**) data;
         struct data_ll*  p     = malloc( sizeof( struct data_ll ) );
-        p->data                = malloc( msg_size );
-        memcpy( p->data, msg, msg_size );
-        p->data_size = msg_size;
-        p->id        = id;
-        p->next      = *lnode;
-        *lnode       = p;
+        p->data_size           = buff.e - buff.b;
+        p->data                = malloc( p->data_size );
+        memcpy( p->data, buff.b, p->data_size );
+        p->id   = id;
+        p->next = *lnode;
+        *lnode  = p;
         return ASRTL_SUCCESS;
 }
 
@@ -62,6 +65,37 @@ void setup_sender_collector( struct asrtl_sender* s, struct data_ll** data )
             .send_data = (void*) data,
             .send_fn   = &sender_collect,
         };
+}
+
+void clear_top_collected( struct data_ll** data )
+{
+        assert( data );
+        struct data_ll* next = ( *data )->next;
+        ( *data )->next      = NULL;
+        rec_free_data_ll( *data );
+        ( *data ) = next;
+}
+
+void clear_single_collected( struct data_ll** data )
+{
+        assert( data );
+        TEST_ASSERT_NULL( ( *data )->next );
+        rec_free_data_ll( *data );
+        *data = NULL;
+}
+
+void assert_u16( uint16_t val, uint8_t const* data )
+{
+        TEST_ASSERT_EQUAL( ( val >> 8 ) & 0xFF, data[0] );
+        TEST_ASSERT_EQUAL( val & 0xFF, data[1] );
+}
+
+void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
+{
+        TEST_ASSERT_NOT_NULL( collected );
+        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
+        assert_u16( mid, collected->data );
+        TEST_ASSERT_EQUAL( size, collected->data_size );
 }
 
 void setup_test(
@@ -78,28 +112,83 @@ void setup_test(
         asrtr_add_test( r, t );
 }
 
-void check_reactor_recv( struct asrtr_reactor* reac, uint8_t const* msg, uint32_t msg_size )
+void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender* sender, char const* desc )
 {
-        enum asrtl_status st = asrtr_reactor_recv( reac, msg, msg_size );
+        enum asrtr_status st = asrtr_reactor_init( reac, sender, desc );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
+}
+
+void check_reactor_recv( struct asrtr_reactor* reac, struct asrtl_span msg )
+{
+        enum asrtl_status st = asrtr_reactor_recv( reac, msg );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
 }
 
-void check_reactor_recv_flags(
-    struct asrtr_reactor* reac,
-    uint8_t const*        msg,
-    uint32_t              msg_size,
-    uint32_t              flags )
+void check_reactor_recv_flags( struct asrtr_reactor* reac, struct asrtl_span msg, uint32_t flags )
 {
-        check_reactor_recv( reac, msg, msg_size );
+        check_reactor_recv( reac, msg );
         TEST_ASSERT_EQUAL( flags, reac->flags );
 }
 
-void check_reactor_tick( struct asrtr_reactor* reac, uint8_t* msg, uint32_t msg_size )
+void check_reactor_tick( struct asrtr_reactor* reac )
 {
-        enum asrtr_status st = asrtr_reactor_tick( reac, msg, msg_size );
+        uint8_t           buffer[64];
+        enum asrtr_status st =
+            asrtr_reactor_tick( reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
         TEST_ASSERT_EQUAL( 0x00, reac->flags );
 }
+
+void check_recv_and_spin(
+    struct asrtr_reactor*    reac,
+    struct asrtl_span        msg,
+    enum asrtr_reactor_flags fls )
+{
+        check_reactor_recv_flags( reac, msg, fls );
+        do {
+                check_reactor_tick( reac );
+        } while ( reac->state != ASRTR_REAC_IDLE );
+}
+
+void check_run_test( struct asrtr_reactor* reac, uint32_t test_id )
+{
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id );
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
+        check_recv_and_spin( reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
+}
+
+struct test_context
+{
+        struct asrtr_reactor reac;
+        struct data_ll*      collected;
+        struct asrtl_sender  send;
+};
+
+void test_run(
+    void ( *test_fn )( struct test_context* ),
+    char const* FuncName,
+    int const   FuncLineNum )
+{
+        Unity.CurrentTestName       = FuncName;
+        Unity.CurrentTestLineNumber = (UNITY_LINE_TYPE) FuncLineNum;
+        Unity.NumberOfTests++;
+        UNITY_CLR_DETAILS();
+        UNITY_EXEC_TIME_START();
+        if ( TEST_PROTECT() ) {
+                struct test_context ctx = { .reac = {}, .collected = NULL, .send = {} };
+                setup_sender_collector( &ctx.send, &ctx.collected );
+                test_fn( &ctx );
+        }
+        UNITY_EXEC_TIME_STOP();
+        UnityConcludeTest();
+}
+
+#define ASRT_RUN_TEST( func ) test_run( func, #func, __LINE__ );
+
+//---------------------------------------------------------------------
+// tests
 
 enum asrtr_status dataless_test_fun( struct asrtr_record* x )
 {
@@ -107,27 +196,23 @@ enum asrtr_status dataless_test_fun( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
-void test_reactor_init( void )
+void test_reactor_init( struct test_context* ctx )
 {
-        enum asrtr_status    st;
-        struct asrtr_reactor rec;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  send;
-        setup_sender_collector( &send, &collected );
+        enum asrtr_status st;
 
-        st = asrtr_reactor_init( &rec, NULL, "rec1" );
+        st = asrtr_reactor_init( &ctx->reac, NULL, "rec1" );
         TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
 
-        st = asrtr_reactor_init( NULL, &send, "rec1" );
+        st = asrtr_reactor_init( NULL, &ctx->send, "rec1" );
         TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
 
-        st = asrtr_reactor_init( &rec, &send, NULL );
+        st = asrtr_reactor_init( &ctx->reac, &ctx->send, NULL );
         TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
 
-        st = asrtr_reactor_init( &rec, &send, "rec1" );
-        TEST_ASSERT_NULL( rec.first_test );
-        TEST_ASSERT_EQUAL( rec.node.chid, ASRTL_CORE );
-        TEST_ASSERT_EQUAL( rec.state, ASRTR_REAC_IDLE );
+        st = asrtr_reactor_init( &ctx->reac, &ctx->send, "rec1" );
+        TEST_ASSERT_NULL( ctx->reac.first_test );
+        TEST_ASSERT_EQUAL( ctx->reac.node.chid, ASRTL_CORE );
+        TEST_ASSERT_EQUAL( ctx->reac.state, ASRTR_REAC_IDLE );
 
         struct asrtr_test t1, t2;
         st = asrtr_test_init( &t1, NULL, NULL, &dataless_test_fun );
@@ -135,222 +220,141 @@ void test_reactor_init( void )
         st = asrtr_test_init( &t1, "test1", NULL, NULL );
         TEST_ASSERT_EQUAL( st, ASRTR_TEST_INIT_ERR );
 
-        setup_test( &rec, &t1, "test1", NULL, &dataless_test_fun );
-        setup_test( &rec, &t2, "test2", NULL, &dataless_test_fun );
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
+        setup_test( &ctx->reac, &t2, "test2", NULL, &dataless_test_fun );
 
         TEST_ASSERT_NULL( t2.next );
         TEST_ASSERT_EQUAL_PTR( t1.next, &t2 );
-        TEST_ASSERT_EQUAL_PTR( rec.first_test, &t1 );
+        TEST_ASSERT_EQUAL_PTR( ctx->reac.first_test, &t1 );
 }
 
-#define COMBINE1( X, Y ) X##Y  // helper macro
-#define COMBINE( X, Y ) COMBINE1( X, Y )
-
-#define CHECK_COLLECTED_HDR( collected, size )          \
-        TEST_ASSERT_NOT_NULL( collected );              \
-        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id ); \
-        TEST_ASSERT_EQUAL( size, collected->data_size );
-
-#define CHECK_U16( val, data )                                 \
-        TEST_ASSERT_EQUAL( ( val >> 8 ) & 0xFF, ( data )[0] ); \
-        TEST_ASSERT_EQUAL( val & 0xFF, ( data )[1] );
-
-#define CLEAR_SINGLE_COLLECTED( collected )  \
-        TEST_ASSERT_NULL( collected->next ); \
-        free_data_ll( collected );           \
-        collected = NULL;
-
-#define CLEAR_TOP_COLLECTED( collected )                             \
-        struct data_ll* COMBINE( st_l, __LINE__ ) = collected->next; \
-        collected->next                           = NULL;            \
-        free_data_ll( collected );                                   \
-        collected = COMBINE( st_l, __LINE__ );
-
-
-void test_reactor_version( void )
+void test_reactor_version( struct test_context* ctx )
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  send;
-        setup_sender_collector( &send, &collected );
-        asrtr_reactor_init( &reac, &send, "rec1" );
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
-        uint8_t  buffer[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_proto_version( &p, &size );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_proto_version( &sp );
 
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_PROTO_VER );
+        check_recv_and_spin(
+            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_PROTO_VER );
 
-        check_reactor_tick( &reac, buffer, sizeof buffer );
+        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        assert_u16( 0x00, ctx->collected->data + 4 );
+        assert_u16( 0x00, ctx->collected->data + 6 );
 
-        CHECK_COLLECTED_HDR( collected, 0x08 );
-        CHECK_U16( ASRTL_MSG_PROTO_VERSION, collected->data );
-        CHECK_U16( 0x00, collected->data + 2 );
-        CHECK_U16( 0x00, collected->data + 4 );
-        CHECK_U16( 0x00, collected->data + 6 );
-
-        CLEAR_SINGLE_COLLECTED( collected );
+        clear_single_collected( &ctx->collected );
 }
 
-void test_reactor_desc( void )
+void test_reactor_desc( struct test_context* ctx )
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  send;
-        setup_sender_collector( &send, &collected );
-        asrtr_reactor_init( &reac, &send, "rec1" );
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
-        uint8_t  buffer[64], buffer2[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_desc( &p, &size );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_desc( &sp );
 
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_DESC );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_DESC );
 
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
+        assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
 
-        CHECK_COLLECTED_HDR( collected, 0x06 );
-        CHECK_U16( ASRTL_MSG_DESC, collected->data );
-        assert_data_ll_contain_str( "rec1", collected, 2 );
-
-        CLEAR_SINGLE_COLLECTED( collected );
+        clear_single_collected( &ctx->collected );
 }
 
-void test_reactor_test_count( void )
+void test_reactor_test_count( struct test_context* ctx )
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  send;
-        setup_sender_collector( &send, &collected );
-        asrtr_reactor_init( &reac, &send, "rec1" );
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
-        uint8_t  buffer[64], buffer2[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_test_count( &p, &size );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_test_count( &sp );
 
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TC );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TC );
 
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
-
-        CHECK_COLLECTED_HDR( collected, 0x04 );
-        CHECK_U16( ASRTL_MSG_TEST_COUNT, collected->data );
-        CHECK_U16( 0x00, collected->data + 2 );
-
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        clear_single_collected( &ctx->collected );
 
         struct asrtr_test t1;
-        setup_test( &reac, &t1, "test1", NULL, &dataless_test_fun );
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        asrtr_reactor_recv( &reac, buffer, sizeof buffer - size );
-        asrtr_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TC );
 
-        CHECK_COLLECTED_HDR( collected, 0x04 );
-        CHECK_U16( ASRTL_MSG_TEST_COUNT, collected->data );
-        CHECK_U16( 0x01, collected->data + 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_u16( 0x01, ctx->collected->data + 2 );
+        clear_single_collected( &ctx->collected );
 }
 
-void test_reactor_test_info( void )
+void test_reactor_test_info( struct test_context* ctx )
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  sender;
-        setup_sender_collector( &sender, &collected );
-        asrtr_reactor_init( &reac, &sender, "rec1" );
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
-        uint8_t  buffer[64], buffer2[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_test_info( &p, &size, 0 );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_test_info( &sp, 0 );
 
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TI );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TI );
 
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
-
-        CHECK_COLLECTED_HDR( collected, 0x15 );
-        CHECK_U16( ASRTL_MSG_ERROR, collected->data );
+        assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
         TEST_ASSERT_EQUAL_STRING_LEN(
-            "Failed to find test", &collected->data[2], collected->data_size - 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+            "Failed to find test", &ctx->collected->data[2], ctx->collected->data_size - 2 );
+        clear_single_collected( &ctx->collected );
 
         struct asrtr_test t1;
-        setup_test( &reac, &t1, "test1", NULL, &dataless_test_fun );
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        asrtr_reactor_recv( &reac, buffer, sizeof buffer - size );
-        asrtr_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TI );
 
-        CHECK_COLLECTED_HDR( collected, 0x09 );
-        CHECK_U16( ASRTL_MSG_TEST_INFO, collected->data );
-        CHECK_U16( 0x00, collected->data + 2 );
-        assert_data_ll_contain_str( "test1", collected, 4 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x09, ASRTL_MSG_TEST_INFO );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        assert_data_ll_contain_str( "test1", ctx->collected, 4 );
+        clear_single_collected( &ctx->collected );
 }
 
-enum asrtr_status insta_success_test_fun( struct asrtr_record* x )
+struct insta_test_data
 {
-        uint64_t* p = (uint64_t*) x->data;
-        *p += 1;
-        x->state = ASRTR_TEST_PASS;
+        enum asrtr_test_state state;
+        uint64_t              counter;
+};
+enum asrtr_status insta_test_fun( struct asrtr_record* x )
+{
+        struct insta_test_data* p = (struct insta_test_data*) x->data;
+        p->counter += 1;
+        x->state = p->state;
         return ASRTR_SUCCESS;
 }
 
-void recv_and_spin(
-    struct asrtr_reactor*    reac,
-    uint8_t*                 buffer,
-    uint32_t                 size,
-    enum asrtr_reactor_flags fls )
+void test_reactor_start( struct test_context* ctx )
 {
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
-        check_reactor_recv_flags( reac, buffer, size, fls );
-        do {
-                uint8_t buffer2[64];
-                check_reactor_tick( reac, buffer2, sizeof buffer2 );
-        } while ( reac->state != ASRTR_REAC_IDLE );
-}
-
-void test_reactor_start( void )
-{
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  sender;
-        setup_sender_collector( &sender, &collected );
-        asrtr_reactor_init( &reac, &sender, "rec1" );
-
-        struct asrtr_test t1;
-        uint64_t          counter = 0;
-        setup_test( &reac, &t1, "test1", &counter, &insta_success_test_fun );
+        struct asrtr_test      t1;
+        struct insta_test_data data = { .state = ASRTR_TEST_PASS, .counter = 0 };
+        setup_test( &ctx->reac, &t1, "test1", &data, &insta_test_fun );
 
         // just run one test
-        uint8_t  buffer[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_test_start( &p, &size, 0 );
+        check_run_test( &ctx->reac, 0 );
 
-        recv_and_spin( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
-        TEST_ASSERT_EQUAL( 1, counter );
-        CHECK_COLLECTED_HDR( collected, 0x04 );
-        CHECK_U16( ASRTL_MSG_TEST_RESULT, collected->data );
-        CHECK_U16( ASRTL_TEST_SUCCESS, collected->data + 2 );
-        CLEAR_TOP_COLLECTED( collected );
+        TEST_ASSERT_EQUAL( 1, data.counter );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_RESULT );
+        assert_u16( ASRTL_TEST_SUCCESS, ctx->collected->data + 2 );
+        clear_top_collected( &ctx->collected );
 
-        TEST_ASSERT_NOT_NULL( collected );
-        CHECK_COLLECTED_HDR( collected, 0x04 );
-        CHECK_U16( ASRTL_MSG_TEST_START, collected->data );
-        CHECK_U16( 0x00, collected->data + 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_START );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        clear_single_collected( &ctx->collected );
 
-        p    = buffer;
-        size = sizeof buffer;
-        asrtl_msg_ctor_test_start( &p, &size, 42 );
-        recv_and_spin( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_test_start( &sp, 42 );
+        check_recv_and_spin( &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
-        TEST_ASSERT_EQUAL( 1, counter );
-        CHECK_COLLECTED_HDR( collected, 0x15 );
-        CHECK_U16( ASRTL_MSG_ERROR, collected->data );
-        assert_data_ll_contain_str( "Failed to find test", collected, 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        TEST_ASSERT_EQUAL( 1, data.counter );
+        assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
+        assert_data_ll_contain_str( "Failed to find test", ctx->collected, 2 );
+        clear_single_collected( &ctx->collected );
 }
 
 enum asrtr_status countdown_test( struct asrtr_record* x )
@@ -364,59 +368,49 @@ enum asrtr_status countdown_test( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
-// XXX: check test already running
-void test_reactor_start_busy( void )
+void test_reactor_start_busy( struct test_context* ctx )
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected = NULL;
-        struct asrtl_sender  sender;
-        setup_sender_collector( &sender, &collected );
-        asrtr_reactor_init( &reac, &sender, "rec1" );
+        check_reactor_init( &ctx->reac, &ctx->send, "rec1" );
 
         struct asrtr_test t1;
         uint64_t          counter = 8;
-        setup_test( &reac, &t1, "test1", &counter, &countdown_test );
+        setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
 
-        uint8_t  buffer[64];
-        uint8_t* p    = buffer;
-        uint32_t size = sizeof buffer;
-        asrtl_msg_ctor_test_start( &p, &size, 0 );
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+        uint8_t           buffer[64];
+        struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+        asrtl_msg_ctor_test_start( &sp, 0 );
+        check_reactor_recv_flags(
+            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
-
-        uint8_t buffer2[64];
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 8, counter );
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        TEST_ASSERT_NOT_NULL( collected );
-        CHECK_COLLECTED_HDR( collected, 0x04 );
-        CHECK_U16( ASRTL_MSG_TEST_START, collected->data );
-        CHECK_U16( 0x00, collected->data + 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_START );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        clear_single_collected( &ctx->collected );
 
-        check_reactor_recv_flags( &reac, buffer, sizeof buffer - size, ASRTR_FLAG_TSTART );
+        check_reactor_recv_flags(
+            &ctx->reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
-        check_reactor_tick( &reac, buffer2, sizeof buffer2 );
+        check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        TEST_ASSERT_NOT_NULL( collected );
-        CHECK_COLLECTED_HDR( collected, 0x16 );
-        CHECK_U16( ASRTL_MSG_ERROR, collected->data );
-        assert_data_ll_contain_str( "Test already running", collected, 2 );
-        CLEAR_SINGLE_COLLECTED( collected );
+        assert_collected_hdr( ctx->collected, 0x16, ASRTL_MSG_ERROR );
+        assert_data_ll_contain_str( "Test already running", ctx->collected, 2 );
+        clear_single_collected( &ctx->collected );
 }
 
 int main( void )
 {
         UNITY_BEGIN();
-        RUN_TEST( test_reactor_init );
-        RUN_TEST( test_reactor_version );
-        RUN_TEST( test_reactor_desc );
-        RUN_TEST( test_reactor_test_count );
-        RUN_TEST( test_reactor_test_info );
-        RUN_TEST( test_reactor_start );
-        RUN_TEST( test_reactor_start_busy );
+        ASRT_RUN_TEST( test_reactor_init );
+        ASRT_RUN_TEST( test_reactor_version );
+        ASRT_RUN_TEST( test_reactor_desc );
+        ASRT_RUN_TEST( test_reactor_test_count );
+        ASRT_RUN_TEST( test_reactor_test_info );
+        ASRT_RUN_TEST( test_reactor_start );
+        ASRT_RUN_TEST( test_reactor_start_busy );
         return UNITY_END();
 }
