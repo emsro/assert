@@ -28,11 +28,35 @@ void tearDown()
 //---------------------------------------------------------------------
 // lib
 
+void check_cntr_recv( struct asrtc_controller* c, struct asrtl_span msg )
+{
+        enum asrtl_status st = asrtc_cntr_recv( c, msg );
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
+}
+
+void check_cntr_tick( struct asrtc_controller* c )
+{
+        enum asrtc_status st = asrtc_cntr_tick( c );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+}
+
+void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end )
+{
+        check_cntr_recv( c, ( struct asrtl_span ){ .b = beg, .e = end } );
+        int       i = 0;
+        int const n = 1000;
+        for ( ; i < n && !asrtc_cntr_idle( c ); i++ )
+                check_cntr_tick( c );
+        TEST_ASSERT_NOT_EQUAL( i, n );
+}
+
 struct test_context
 {
         struct asrtc_controller cntr;
         struct data_ll*         collected;
         struct asrtl_sender     send;
+        uint8_t                 buffer[64];
+        struct asrtl_span       sp;
 };
 
 void test_run(
@@ -46,7 +70,17 @@ void test_run(
         UNITY_CLR_DETAILS();
         UNITY_EXEC_TIME_START();
         if ( TEST_PROTECT() ) {
-                struct test_context ctx = { .cntr = {}, .collected = NULL, .send = {} };
+                struct test_context ctx = {
+                    .cntr      = {},
+                    .collected = NULL,
+                    .send      = {},
+                    .buffer    = {},
+                    .sp        = {},
+                };
+                ctx.sp = ( struct asrtl_span ){
+                    .b = ctx.buffer,
+                    .e = ctx.buffer + sizeof ctx.buffer,
+                };
                 setup_sender_collector( &ctx.send, &ctx.collected );
                 test_fn( &ctx );
                 TEST_ASSERT_NULL( ctx.collected );
@@ -72,6 +106,17 @@ void test_cntr_init( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         TEST_ASSERT_EQUAL( ASRTL_CORE, ctx->cntr.node.chid );
         TEST_ASSERT_EQUAL( ASRTC_CNTR_INIT, ctx->cntr.state );
+
+        TEST_ASSERT( !asrtc_cntr_idle( &ctx->cntr ) );
+
+        st = asrtc_cntr_tick( &ctx->cntr );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+
+        assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
+        clear_single_collected( &ctx->collected );
+
+        asrtl_msg_rtoc_proto_version( &ctx->sp, 0, 1, 0 );
+        check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
         TEST_ASSERT( asrtc_cntr_idle( &ctx->cntr ) );
 }

@@ -141,5 +141,39 @@ uint32_t asrtc_cntr_idle( struct asrtc_controller* c )
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
 {
-        return ASRTL_SUCCESS;
+        assert( data );
+        struct asrtc_controller* c = (struct asrtc_controller*) data;
+        asrtl_message_id         id;
+        if ( asrtl_buffer_unfit( &buff, sizeof( asrtl_message_id ) ) )
+                return ASRTL_RECV_ERR;
+        asrtl_cut_u16( &buff.b, &id );
+
+        enum asrtl_message_id_e eid = (enum asrtl_message_id_e) id;
+        switch ( eid ) {
+        case ASRTL_MSG_PROTO_VERSION: {
+                if ( asrtl_buffer_unfit( &buff, 3 * sizeof( uint16_t ) ) )
+                        return ASRTL_RECV_ERR;
+                // XXX: normal error
+                assert( c->state == ASRTC_CNTR_INIT );
+                struct asrtc_init_handler* h = &c->hndl.init;
+                assert( h->stage == 1 );
+
+                asrtl_cut_u16( &buff.b, &h->ver.major );
+                asrtl_cut_u16( &buff.b, &h->ver.minor );
+                asrtl_cut_u16( &buff.b, &h->ver.patch );
+
+                h->stage += 1;
+                break;
+        }
+        case ASRTL_MSG_DESC:
+        case ASRTL_MSG_TEST_COUNT:
+        case ASRTL_MSG_TEST_INFO:
+        case ASRTL_MSG_TEST_START:
+        case ASRTL_MSG_ERROR:
+        case ASRTL_MSG_TEST_RESULT:
+        default:
+                return ASRTL_UNKNOWN_ID_ERR;
+        }
+
+        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
 }

@@ -208,7 +208,8 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
                          record->line ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
                 if ( asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS )
-                        reac->state = ASRTR_REAC_IDLE;
+                        return ASRTR_SEND_ERR;
+                reac->state = ASRTR_REAC_IDLE;
                 break;
         }
         case ASRTR_REAC_IDLE:

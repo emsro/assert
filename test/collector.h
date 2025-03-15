@@ -12,6 +12,7 @@
 #define TEST_COLLECTOR_H
 
 #include "../asrtl/core_proto.h"
+#include "./util.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -83,5 +84,14 @@ void clear_single_collected( struct data_ll** data )
         rec_free_data_ll( *data );
         *data = NULL;
 }
+
+void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
+{
+        TEST_ASSERT_NOT_NULL( collected );
+        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
+        assert_u16( mid, collected->data );
+        TEST_ASSERT_EQUAL( size, collected->data_size );
+}
+
 
 #endif

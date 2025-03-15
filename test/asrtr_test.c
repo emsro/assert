@@ -28,14 +28,6 @@ void tearDown()
 //---------------------------------------------------------------------
 // lib
 
-void assert_collected_hdr( struct data_ll* collected, uint32_t size, asrtl_message_id mid )
-{
-        TEST_ASSERT_NOT_NULL( collected );
-        TEST_ASSERT_EQUAL( ASRTL_CORE, collected->id );
-        assert_u16( mid, collected->data );
-        TEST_ASSERT_EQUAL( size, collected->data_size );
-}
-
 void setup_test(
     struct asrtr_reactor* r,
     struct asrtr_test*    t,
@@ -83,9 +75,14 @@ void check_recv_and_spin(
     enum asrtr_reactor_flags fls )
 {
         check_reactor_recv_flags( reac, msg, fls );
-        do {
+        int       i = 0;
+        int const n = 1000;
+        for ( ; i < n; i++ ) {
                 check_reactor_tick( reac );
-        } while ( reac->state != ASRTR_REAC_IDLE );
+                if ( reac->state == ASRTR_REAC_IDLE )
+                        break;
+        }
+        TEST_ASSERT_NOT_EQUAL( i, n );
 }
 
 void check_run_test( struct asrtr_reactor* reac, uint32_t test_id )
