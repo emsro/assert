@@ -11,7 +11,6 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - c
 HeaderFilterRegex: '.*'
-ExcludeHeaderFilterRegex: ''
 FormatStyle:     file
 CheckOptions:
   readability-identifier-naming.GetConfigPerFile: true

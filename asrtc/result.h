@@ -12,7 +12,7 @@
 #ifndef ASRTC_RESULT_H
 #define ASRTC_RESULT_H
 
-#include <stdlib.h>
+#include <stdint.h>
 
 struct asrtc_result
 {
