@@ -19,9 +19,16 @@ typedef void ( *asrtc_test_desc_callback )( void* ptr, char* desc );
 typedef void ( *asrtc_test_info_callback )( void* ptr, char* desc );
 typedef void ( *asrtc_test_result_callback )( void* ptr, struct asrtc_result* res );
 
+enum asrtc_stage_e
+{
+        ASRTC_STAGE_INIT    = 0x01,
+        ASRTC_STAGE_WAITING = 0x02,
+        ASRTC_STAGE_REPLY   = 0x03,
+};
+
 struct asrtc_init_handler
 {
-        uint32_t stage;
+        enum asrtc_stage_e stage;
         struct
         {
                 uint16_t major;
@@ -33,7 +40,7 @@ struct asrtc_init_handler
 
 struct asrtc_tc_handler
 {
-        uint32_t                  stage;
+        enum asrtc_stage_e        stage;
         uint16_t                  count;
         void*                     ptr;
         asrtc_test_count_callback cb;
@@ -41,7 +48,7 @@ struct asrtc_tc_handler
 
 struct asrtc_desc_handler
 {
-        uint32_t                 stage;
+        enum asrtc_stage_e       stage;
         char*                    desc;
         void*                    ptr;
         asrtc_test_desc_callback cb;
@@ -50,7 +57,7 @@ struct asrtc_desc_handler
 struct asrtc_ti_handler
 {
         uint16_t                 tid;
-        uint32_t                 stage;
+        enum asrtc_stage_e       stage;
         char*                    desc;
         void*                    ptr;
         asrtc_test_info_callback cb;
@@ -58,7 +65,7 @@ struct asrtc_ti_handler
 
 struct asrtc_exec_handler
 {
-        uint32_t                   stage;
+        enum asrtc_stage_e         stage;
         struct asrtc_result        res;
         void*                      ptr;
         asrtc_test_result_callback cb;

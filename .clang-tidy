@@ -1,6 +1,6 @@
 ---
 Checks: >
-  bugprone*,
+  bugprone*,-bugprone-easily-swappable-parameters,
   linuxkernel*,
   misc*,-misc-include-cleaner,
   portability*,

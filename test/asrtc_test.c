@@ -61,7 +61,7 @@ struct test_context
 
 void check_cntr_full_init( struct test_context* ctx )
 {
-        enum asrtc_status st = asrtc_cntr_init( &ctx->cntr, ctx->send, default_allocator() );
+        enum asrtc_status st = asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
@@ -119,10 +119,10 @@ void test_run(
 void test_cntr_init( struct test_context* ctx )
 {
         enum asrtc_status st;
-        st = asrtc_cntr_init( NULL, ctx->send, default_allocator() );
+        st = asrtc_cntr_init( NULL, ctx->send, asrtc_default_allocator() );
         TEST_ASSERT_EQUAL( ASRTC_CNTR_INIT_ERR, st );
 
-        st = asrtc_cntr_init( &ctx->cntr, ctx->send, default_allocator() );
+        st = asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         TEST_ASSERT_EQUAL( ASRTL_CORE, ctx->cntr.node.chid );
         TEST_ASSERT_EQUAL( ASRTC_CNTR_INIT, ctx->cntr.state );
