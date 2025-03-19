@@ -30,15 +30,12 @@ enum asrtl_message_id_e
 
 typedef uint16_t asrtl_message_id;
 
-static inline enum asrtl_status asrtl_msg_rtoc_error(
-    struct asrtl_span* buff,
-    char const*        msg,
-    uint32_t           msg_size )
+static inline enum asrtl_status asrtl_msg_rtoc_error( struct asrtl_span* buff, uint16_t ecode )
 {
-        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) ) )
+        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_ERROR );
-        asrtl_fill_buffer( (uint8_t const*) msg, msg_size, buff );
+        asrtl_add_u16( &buff->b, ecode );
         return ASRTL_SUCCESS;
 }
 
@@ -124,12 +121,17 @@ static inline enum asrtl_status asrtl_msg_ctor_test_info( struct asrtl_span* buf
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_ctor_test_start( struct asrtl_span* buff, uint16_t id )
+static inline enum asrtl_status asrtl_msg_ctor_test_start(
+    struct asrtl_span* buff,
+    uint16_t           test_id,
+    uint32_t           run_id )
 {
-        if ( asrtl_buffer_unfit( buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) ) )
+        if ( asrtl_buffer_unfit(
+                 buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_START );
-        asrtl_add_u16( &buff->b, id );
+        asrtl_add_u16( &buff->b, test_id );
+        asrtl_add_u32( &buff->b, run_id );
         return ASRTL_SUCCESS;
 }
 

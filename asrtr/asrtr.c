@@ -10,6 +10,7 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "../asrtl/core_proto.h"
+#include "../asrtl/ecode.h"
 #include "./reactor.h"
 #include "status.h"
 
@@ -46,7 +47,6 @@ enum asrtr_status asrtr_reactor_init(
             .desc               = desc,
             .first_test         = NULL,
             .state              = ASRTR_REAC_IDLE,
-            .run_count          = 0,
             .flags              = 0,
             .recv_test_info_id  = 0,
             .recv_test_start_id = 0,
@@ -63,8 +63,7 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_info(
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                char const* msg = "Failed to find test";
-                if ( asrtl_msg_rtoc_error( buff, msg, strlen( msg ) ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_MISSING_TEST ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
                 if ( asrtl_msg_rtoc_test_info(
@@ -79,30 +78,29 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
     struct asrtr_reactor* reac,
     struct asrtl_span*    buff )
 {
+        if ( reac->state != ASRTR_REAC_IDLE ) {
+                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_TEST_ALREADY_RUNNING ) != ASRTL_SUCCESS )
+                        return ASRTR_SEND_ERR;
+                return ASRTR_SUCCESS;
+        }
         struct asrtr_test* t = reac->first_test;
         uint32_t           i = reac->recv_test_start_id;
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                char const* msg = "Failed to find test";
-                if ( asrtl_msg_rtoc_error( buff, msg, strlen( msg ) ) != ASRTL_SUCCESS )
-                        return ASRTR_SEND_ERR;
-        } else if ( reac->state != ASRTR_REAC_IDLE ) {
-                char const* msg = "Test already running";
-                if ( asrtl_msg_rtoc_error( buff, msg, strlen( msg ) ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_MISSING_TEST ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
-                reac->run_count += 1;
                 reac->state_data.record = ( struct asrtr_record ){
                     .state      = ASRTR_TEST_INIT,
                     .test_ptr   = t->ptr,
                     .continue_f = t->start_f,
-                    .run_count  = reac->run_count,
+                    .run_id     = reac->recv_test_run_id,
                     .line       = 0,
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
                 if ( asrtl_msg_rtoc_test_start(
-                         buff, reac->recv_test_start_id, reac->state_data.record.run_count ) !=
+                         buff, reac->recv_test_start_id, reac->state_data.record.run_id ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         }
@@ -201,7 +199,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
                 struct asrtl_span    sp     = buff;
                 if ( asrtl_msg_rtoc_test_result(
                          &sp,
-                         record->run_count,
+                         record->run_id,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
                                                              ASRTL_TEST_SUCCESS,
@@ -252,9 +250,10 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         }
         // XXX: what will do fast repeat of this message?
         case ASRTL_MSG_TEST_START: {
-                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) ) )
+                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_start_id );
+                asrtl_cut_u32( &buff.b, &r->recv_test_run_id );
                 r->flags |= ASRTR_FLAG_TSTART;
                 break;
         }

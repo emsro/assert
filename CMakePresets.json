@@ -7,7 +7,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_FLAGS": "-Wall -Wextra"
+        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic"
       }
     },
     {

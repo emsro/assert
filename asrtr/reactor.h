@@ -52,15 +52,16 @@ struct asrtr_reactor
         struct asrtr_test* first_test;
 
         enum asrtr_reactor_state state;
-        uint32_t                 run_count;
         union
         {
                 struct asrtr_record record;
         } state_data;
 
         uint32_t flags;  // values of asrtr_reactor_flags
+
         uint16_t recv_test_info_id;
         uint16_t recv_test_start_id;
+        uint32_t recv_test_run_id;
 };
 
 enum asrtr_status asrtr_reactor_init(

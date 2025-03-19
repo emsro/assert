@@ -12,18 +12,20 @@
 #define ASRTC_HANDLERS_H
 
 #include "./result.h"
+#include "./status.h"
+#include "assert.h"
 
 // XXX: the defs might be at better place
-typedef void ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
-typedef void ( *asrtc_test_desc_callback )( void* ptr, char* desc );
-typedef void ( *asrtc_test_info_callback )( void* ptr, char* desc );
-typedef void ( *asrtc_test_result_callback )( void* ptr, struct asrtc_result* res );
+typedef enum asrtc_status ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
+typedef enum asrtc_status ( *asrtc_desc_callback )( void* ptr, char* desc );
+typedef enum asrtc_status ( *asrtc_test_info_callback )( void* ptr, char* desc );
+typedef enum asrtc_status ( *asrtc_test_result_callback )( void* ptr, struct asrtc_result* res );
 
 enum asrtc_stage_e
 {
         ASRTC_STAGE_INIT    = 0x01,
         ASRTC_STAGE_WAITING = 0x02,
-        ASRTC_STAGE_REPLY   = 0x03,
+        ASRTC_STAGE_END     = 0x03,
 };
 
 struct asrtc_init_handler
@@ -48,10 +50,10 @@ struct asrtc_tc_handler
 
 struct asrtc_desc_handler
 {
-        enum asrtc_stage_e       stage;
-        char*                    desc;
-        void*                    ptr;
-        asrtc_test_desc_callback cb;
+        enum asrtc_stage_e  stage;
+        char*               desc;
+        void*               ptr;
+        asrtc_desc_callback cb;
 };
 
 struct asrtc_ti_handler

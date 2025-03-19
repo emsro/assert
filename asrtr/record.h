@@ -12,6 +12,8 @@
 #ifndef ASRTR_RECORD_H
 #define ASRTR_RECORD_H
 
+#include "./status.h"
+
 #include <stdint.h>
 
 enum asrtr_test_state
@@ -31,7 +33,7 @@ struct asrtr_record
         enum asrtr_test_state state;
         void*                 test_ptr;
         asrtr_test_callback   continue_f;
-        uint32_t              run_count;
+        uint32_t              run_id;
         uint32_t              line;
 };
 

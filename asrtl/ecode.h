@@ -1,4 +1,3 @@
-
 /// Permission to use, copy, modify, and/or distribute this software for any
 /// purpose with or without fee is hereby granted.
 ///
@@ -9,16 +8,15 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTC_RESULT_H
-#define ASRTC_RESULT_H
+#ifndef ASRTL_ECODE_H
+#define ASRTL_ECODE_H
 
-#include <stdint.h>
-
-struct asrtc_result
+enum asrtl_ecode
 {
-        uint16_t test_id;
-        uint32_t run_id;
+        ASRTL_ASE1                     = 1,
+        ASRTL_ASE_MISSING_TEST         = ASRTL_ASE1,
+        ASRTL_ASE2                     = 2,
+        ASRTL_ASE_TEST_ALREADY_RUNNING = ASRTL_ASE2,
 };
-
 
 #endif

@@ -15,6 +15,7 @@
 #include "../asrtl/chann.h"
 #include "../asrtl/util.h"
 #include "./allocator.h"
+#include "./callbacks.h"
 #include "./handlers.h"
 #include "./status.h"
 
@@ -33,7 +34,9 @@ struct asrtc_controller
         struct asrtl_node      node;
         struct asrtl_sender    sendr;
         struct asrtc_allocator alloc;
+        struct asrtc_error_cb  eh;
 
+        uint32_t              run_id;
         enum asrtc_cntr_state state;
         union
         {
@@ -48,15 +51,13 @@ struct asrtc_controller
 enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
-    struct asrtc_allocator   alloc );
+    struct asrtc_allocator   alloc,
+    struct asrtc_error_cb    eh );
 
 enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c );
 uint32_t          asrtc_cntr_idle( struct asrtc_controller* c );
 
-enum asrtc_status asrtc_cntr_desc(
-    struct asrtc_controller* c,
-    asrtc_test_desc_callback cb,
-    void*                    ptr );
+enum asrtc_status asrtc_cntr_desc( struct asrtc_controller* c, asrtc_desc_callback cb, void* ptr );
 enum asrtc_status asrtc_cntr_test_count(
     struct asrtc_controller*  c,
     asrtc_test_count_callback cb,

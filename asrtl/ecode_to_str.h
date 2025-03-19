@@ -1,4 +1,3 @@
-
 /// Permission to use, copy, modify, and/or distribute this software for any
 /// purpose with or without fee is hereby granted.
 ///
@@ -9,16 +8,20 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTC_RESULT_H
-#define ASRTC_RESULT_H
+#ifndef ASRTL_ECODE_TO_STR_H
+#define ASRTL_ECODE_TO_STR_H
 
-#include <stdint.h>
+#include "./ecode.h"
 
-struct asrtc_result
+static inline char* asrtl_ecode_to_str( enum asrtl_ecode ec )
 {
-        uint16_t test_id;
-        uint32_t run_id;
-};
-
+        switch ( ec ) {
+        case ASRTL_ASE1:
+                return "ASE1: Failed to find test";
+        case ASRTL_ASE2:
+                return "ASE2: Test is already running";
+        }
+        return "ASE?: Unknown error code";
+}
 
 #endif

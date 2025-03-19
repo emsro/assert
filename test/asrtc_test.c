@@ -12,6 +12,7 @@
 
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
+#include "../asrtc/default_error_cb.h"
 #include "../asrtl/core_proto.h"
 #include "./collector.h"
 #include "./util.h"
@@ -61,7 +62,8 @@ struct test_context
 
 void check_cntr_full_init( struct test_context* ctx )
 {
-        enum asrtc_status st = asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
+        enum asrtc_status st = asrtc_cntr_init(
+            &ctx->cntr, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
@@ -119,10 +121,12 @@ void test_run(
 void test_cntr_init( struct test_context* ctx )
 {
         enum asrtc_status st;
-        st = asrtc_cntr_init( NULL, ctx->send, asrtc_default_allocator() );
+        st =
+            asrtc_cntr_init( NULL, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
         TEST_ASSERT_EQUAL( ASRTC_CNTR_INIT_ERR, st );
 
-        st = asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
+        st = asrtc_cntr_init(
+            &ctx->cntr, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         TEST_ASSERT_EQUAL( ASRTL_CORE, ctx->cntr.node.chid );
         TEST_ASSERT_EQUAL( ASRTC_CNTR_INIT, ctx->cntr.state );
@@ -141,12 +145,13 @@ void test_cntr_init( struct test_context* ctx )
         TEST_ASSERT( asrtc_cntr_idle( &ctx->cntr ) );
 }
 
-void cpy_desc_cb( void* ptr, char* desc )
+enum asrtc_status cpy_desc_cb( void* ptr, char* desc )
 {
         char**   p = (char**) ptr;
         uint32_t n = strlen( desc ) + 1;
         *p         = malloc( n );
         strncpy( *p, desc, n );
+        return ASRTC_SUCCESS;
 }
 
 void test_cntr_desc( struct test_context* ctx )
@@ -172,10 +177,11 @@ void test_cntr_desc( struct test_context* ctx )
                 free( p );
 }
 
-void cpy_u32_cb( void* ptr, uint16_t x )
+enum asrtc_status cpy_u32_cb( void* ptr, uint16_t x )
 {
         uint32_t* p = (uint32_t*) ptr;
         *p          = x;
+        return ASRTC_SUCCESS;
 }
 
 void test_cntr_test_count( struct test_context* ctx )

@@ -11,6 +11,7 @@
 #define UNITY_SKIP_DEFAULT_RUNNER
 
 #include "../asrtl/core_proto.h"
+#include "../asrtl/ecode.h"
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.h"
@@ -18,10 +19,10 @@
 
 #include <unity.h>
 
-void setUp()
+void setUp( void )
 {
 }
-void tearDown()
+void tearDown( void )
 {
 }
 
@@ -86,11 +87,11 @@ void check_recv_and_spin(
         TEST_ASSERT_NOT_EQUAL( i, n );
 }
 
-void check_run_test( struct asrtr_reactor* reac, uint32_t test_id )
+void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_id )
 {
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id );
+        enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id, run_id );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
@@ -135,11 +136,7 @@ void test_run(
         UNITY_EXEC_TIME_START();
         if ( TEST_PROTECT() ) {
                 struct test_context ctx = {
-                    .reac      = {},
                     .collected = NULL,
-                    .send      = {},
-                    .buffer    = {},
-                    .sp        = {},
                 };
                 ctx.sp = ( struct asrtl_span ){
                     .b = ctx.buffer,
@@ -255,9 +252,8 @@ void test_reactor_test_info( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
-        assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
-        TEST_ASSERT_EQUAL_STRING_LEN(
-            "Failed to find test", &ctx->collected->data[2], ctx->collected->data_size - 2 );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
+        assert_u16( ASRTL_ASE_MISSING_TEST, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 
         struct asrtr_test t1;
@@ -280,21 +276,21 @@ void test_reactor_start( struct test_context* ctx )
         setup_test( &ctx->reac, &t1, "test1", &data, &insta_test_fun );
 
         // just run one test
-        check_run_test( &ctx->reac, 0 );
+        check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
-        assert_test_result( ctx->collected, 1, ASRTL_TEST_SUCCESS, 0 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_SUCCESS, 0 );
         clear_top_collected( &ctx->collected );
 
-        assert_test_start( ctx->collected, 0, 1 );
+        assert_test_start( ctx->collected, 0, 0 );
         clear_single_collected( &ctx->collected );
 
-        asrtl_msg_ctor_test_start( &ctx->sp, 42 );
+        asrtl_msg_ctor_test_start( &ctx->sp, 42, 0 );
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TSTART );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
-        assert_collected_hdr( ctx->collected, 0x15, ASRTL_MSG_ERROR );
-        assert_data_ll_contain_str( "Failed to find test", ctx->collected, 2 );
+        assert_collected_hdr( ctx->collected, 4, ASRTL_MSG_ERROR );
+        assert_u16( ASRTL_ASE_MISSING_TEST, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 }
 
@@ -306,7 +302,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         uint64_t          counter = 8;
         setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
 
-        asrtl_msg_ctor_test_start( &ctx->sp, 0 );
+        asrtl_msg_ctor_test_start( &ctx->sp, 0, 0 );
         check_reactor_recv_flags(
             &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TSTART );
 
@@ -315,7 +311,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        assert_test_start( ctx->collected, 0, 1 );
+        assert_test_start( ctx->collected, 0, 0 );
         clear_single_collected( &ctx->collected );
 
         check_reactor_recv_flags(
@@ -324,8 +320,8 @@ void test_reactor_start_busy( struct test_context* ctx )
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        assert_collected_hdr( ctx->collected, 0x16, ASRTL_MSG_ERROR );
-        assert_data_ll_contain_str( "Test already running", ctx->collected, 2 );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
+        assert_u16( ASRTL_ASE_TEST_ALREADY_RUNNING, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 }
 
@@ -336,13 +332,13 @@ void test_check_macro( struct test_context* ctx )
         uint64_t          counter = 0;
         setup_test( &ctx->reac, &t1, "test1", &counter, &check_macro_test );
 
-        check_run_test( &ctx->reac, 0 );
+        check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 2, counter );
-        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 31 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE, 31 );
         clear_top_collected( &ctx->collected );
 
-        assert_test_start( ctx->collected, 0, 1 );
+        assert_test_start( ctx->collected, 0, 0 );
         clear_top_collected( &ctx->collected );
 }
 
@@ -353,13 +349,13 @@ void test_require_macro( struct test_context* ctx )
         uint64_t          counter = 0;
         setup_test( &ctx->reac, &t1, "test1", &counter, &require_macro_test );
 
-        check_run_test( &ctx->reac, 0 );
+        check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 1, counter );
-        assert_test_result( ctx->collected, 1, ASRTL_TEST_FAILURE, 21 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE, 21 );
         clear_top_collected( &ctx->collected );
 
-        assert_test_start( ctx->collected, 0, 1 );
+        assert_test_start( ctx->collected, 0, 0 );
         clear_top_collected( &ctx->collected );
 }
 
@@ -371,9 +367,9 @@ void test_test_counter( struct test_context* ctx )
         uint64_t          counter = 0;
         setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
 
-        for ( uint32_t x = 1; x < 42; x++ ) {
+        for ( uint32_t x = 0; x < 42; x++ ) {
                 counter = 1;
-                check_run_test( &ctx->reac, 0 );
+                check_run_test( &ctx->reac, 0, x );
                 assert_test_result( ctx->collected, x, ASRTL_TEST_SUCCESS, 0 );
                 clear_top_collected( &ctx->collected );
 
