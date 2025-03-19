@@ -13,6 +13,7 @@
 #define ASRTC_DEFAULT_ERROR_CB_H
 #include "../asrtl/ecode.h"
 #include "../asrtl/ecode_to_str.h"
+#include "./callbacks.h"
 #include "./handlers.h"
 #include "stdio.h"
 
@@ -30,7 +31,7 @@ static inline enum asrtc_status asrtc_default_error_callback(
         return ASRTC_SUCCESS;
 }
 
-static inline struct asrtc_error_cb asrtc_default_error_cb()
+static inline struct asrtc_error_cb asrtc_default_error_cb( void )
 {
         return ( struct asrtc_error_cb ){
             .ptr = NULL,
