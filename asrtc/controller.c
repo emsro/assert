@@ -328,6 +328,7 @@ enum asrtc_status asrtc_cntr_test_exec(
             .ptr = ptr,
             .cb  = cb,
         };
+        c->state = ASRTC_CNTR_HNDL_EXEC;
         return ASRTC_SUCCESS;
 }
 
@@ -363,7 +364,7 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
     struct asrtl_span*       buff )
 {
         assert( c->state == ASRTC_CNTR_HNDL_EXEC );
-        struct asrtc_ti_handler* h = &c->hndl.ti;
+        struct asrtc_exec_handler* h = &c->hndl.exec;
         if ( h->stage != ASRTC_STAGE_WAITING )
                 return ASRTL_RECV_INTERNAL_ERR;
         switch ( eid ) {
@@ -379,10 +380,10 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
         case ASRTL_MSG_TEST_RESULT: {
                 if ( asrtl_buffer_unfit(
                          buff,
-                         sizeof( uint16_t ) + sizeof( asrtl_test_result ) + sizeof( uint32_t ) ) )
+                         sizeof( uint32_t ) + sizeof( asrtl_test_result ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
-                uint16_t rid;  // XXX: unused for now
-                asrtl_cut_u16( &buff->b, &rid );
+                uint32_t rid;  // XXX: unused for now
+                asrtl_cut_u32( &buff->b, &rid );
                 asrtl_test_result res;  // XXX: unused for now
                 asrtl_cut_u16( &buff->b, &res );
                 uint32_t line;  // XXX: unused for now
@@ -474,5 +475,5 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
                 }
         if ( st != ASRTL_SUCCESS )
                 return st;
-        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
+        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;  // XXX: different error code
 }

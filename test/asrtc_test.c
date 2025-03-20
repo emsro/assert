@@ -19,10 +19,10 @@
 
 #include <unity.h>
 
-void setUp()
+void setUp( void )
 {
 }
-void tearDown()
+void tearDown( void )
 {
 }
 
@@ -56,7 +56,7 @@ struct test_context
         struct asrtc_controller cntr;
         struct data_ll*         collected;
         struct asrtl_sender     send;
-        uint8_t                 buffer[64];
+        uint8_t                 buffer[128];
         struct asrtl_span       sp;
 };
 
@@ -93,11 +93,7 @@ void test_run(
         UNITY_EXEC_TIME_START();
         if ( TEST_PROTECT() ) {
                 struct test_context ctx = {
-                    .cntr      = {},
                     .collected = NULL,
-                    .send      = {},
-                    .buffer    = {},
-                    .sp        = {},
                 };
                 ctx.sp = ( struct asrtl_span ){
                     .b = ctx.buffer,
@@ -161,6 +157,7 @@ void test_cntr_desc( struct test_context* ctx )
 
         char* p = NULL;
         st      = asrtc_cntr_desc( &ctx->cntr, &cpy_desc_cb, (void*) &p );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
         assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_DESC );
@@ -191,6 +188,7 @@ void test_cntr_test_count( struct test_context* ctx )
 
         uint32_t p = 0;
         st         = asrtc_cntr_test_count( &ctx->cntr, &cpy_u32_cb, (void*) &p );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
         assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_TEST_COUNT );
@@ -209,6 +207,7 @@ void test_cntr_test_info( struct test_context* ctx )
 
         char* p = NULL;
         st      = asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_desc_cb, (void*) &p );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
         assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_INFO );
@@ -226,6 +225,45 @@ void test_cntr_test_info( struct test_context* ctx )
                 free( p );
 }
 
+enum asrtc_status result_cb( void* ptr, struct asrtc_result* res )
+{
+        struct asrtc_result* r1 = (struct asrtc_result*) ptr;
+        *r1                     = *res;
+        return ASRTC_SUCCESS;
+}
+
+void test_cntr_run_test( struct test_context* ctx )
+{
+        enum asrtc_status st;
+        check_cntr_full_init( ctx );
+
+        struct asrtc_result res;
+        st = asrtc_cntr_test_exec( &ctx->cntr, 42, result_cb, &res );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+
+        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_TEST_START );
+        assert_u16( 42, ctx->collected->data + 2 );
+        assert_u32( 0, ctx->collected->data + 4 );
+        clear_single_collected( &ctx->collected );
+
+        for ( int i = 0; i < 4; i++ )
+                check_cntr_tick( &ctx->cntr );
+
+        asrtl_msg_rtoc_test_start( &ctx->sp, 42, 0 );
+        check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = ctx->buffer, .e = ctx->sp.b } );
+        for ( int i = 0; i < 4; i++ )
+                check_cntr_tick( &ctx->cntr );
+
+        TEST_ASSERT_NULL( ctx->collected );
+
+        uint8_t* b = ctx->sp.b;
+        asrtl_msg_rtoc_test_result( &ctx->sp, 42, ASRTL_TEST_SUCCESS, 0 );
+        check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = b, .e = ctx->sp.b } );
+        for ( int i = 0; i < 4; i++ )
+                check_cntr_tick( &ctx->cntr );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -233,5 +271,6 @@ int main( void )
         ASRT_RUN_TEST( test_cntr_desc );
         ASRT_RUN_TEST( test_cntr_test_count );
         ASRT_RUN_TEST( test_cntr_test_info );
+        ASRT_RUN_TEST( test_cntr_run_test );
         return UNITY_END();
 }
