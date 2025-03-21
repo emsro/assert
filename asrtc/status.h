@@ -12,12 +12,21 @@
 #ifndef ASRTC_STATUS_H
 #define ASRTC_STATUS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum asrtc_status
 {
+        ASRTC_CNTR_CB_ERR   = -4,
         ASRTC_SEND_ERR      = -3,
         ASRTC_CNTR_BUSY_ERR = -2,
         ASRTC_CNTR_INIT_ERR = -1,
         ASRTC_SUCCESS       = 1,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

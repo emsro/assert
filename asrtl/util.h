@@ -11,6 +11,7 @@
 #ifndef ASRTL_UTIL_H
 #define ASRTL_UTIL_H
 
+#include "./span.h"
 #include "status.h"
 
 #include <stdint.h>
@@ -56,17 +57,6 @@ static inline void asrtl_add_u32( uint8_t** data, uint32_t val )
 {
         asrtl_u32_to_u8d4( val, *data );
         *data += 4;
-}
-
-struct asrtl_span
-{
-        uint8_t* b;
-        uint8_t* e;
-};
-
-static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_t size )
-{
-        return ( buff->e - buff->b ) < (int32_t) size;
 }
 
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,

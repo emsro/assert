@@ -11,7 +11,11 @@
 #ifndef ASRTC_ALLOCATOR_H
 #define ASRTC_ALLOCATOR_H
 
-#include "../asrtl/util.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "../asrtl/span.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -40,5 +44,9 @@ static inline void asrtc_free( struct asrtc_allocator* a, void** mem )
 }
 
 char* asrtc_realloc_str( struct asrtc_allocator* a, struct asrtl_span* buff );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

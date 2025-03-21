@@ -12,6 +12,10 @@
 #ifndef ASRTC_RESULT_H
 #define ASRTC_RESULT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 struct asrtc_result
@@ -20,5 +24,8 @@ struct asrtc_result
         uint32_t run_id;
 };
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

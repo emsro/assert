@@ -423,7 +423,7 @@ enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c )
         return ASRTC_SUCCESS;
 }
 
-uint32_t asrtc_cntr_idle( struct asrtc_controller* c )
+uint32_t asrtc_cntr_idle( struct asrtc_controller const* c )
 {
         return c->state == ASRTC_CNTR_IDLE;
 }

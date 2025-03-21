@@ -259,9 +259,9 @@ void test_cntr_run_test( struct test_context* ctx )
 
         uint8_t* b = ctx->sp.b;
         asrtl_msg_rtoc_test_result( &ctx->sp, 42, ASRTL_TEST_SUCCESS, 0 );
-        check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = b, .e = ctx->sp.b } );
-        for ( int i = 0; i < 4; i++ )
-                check_cntr_tick( &ctx->cntr );
+        check_recv_and_spin( &ctx->cntr, b, ctx->sp.b );
+
+        TEST_ASSERT_NULL( ctx->collected );
 }
 
 int main( void )

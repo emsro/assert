@@ -11,6 +11,10 @@
 #ifndef ASRTC_DEFAULT_ALLOCATOR_H
 #define ASRTC_DEFAULT_ALLOCATOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./allocator.h"
 
 static inline void* asrtc_call_malloc( void* ptr, uint32_t size )
@@ -32,5 +36,9 @@ static inline struct asrtc_allocator asrtc_default_allocator( void )
             .free  = &asrtc_call_free,
         };
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

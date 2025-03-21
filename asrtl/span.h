@@ -9,20 +9,20 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_STATUS_H
-#define ASRTL_STATUS_H
+#ifndef ASRTL_SPAN_H
+#define ASRTL_SPAN_H
 
-// XXX: check _recv of reactor/controller and revamp error codes
-enum asrtl_status
+#include <stdint.h>
+
+struct asrtl_span
 {
-        ASRTL_SEND_ERR            = -7,
-        ASRTL_RECV_INTERNAL_ERR   = -6,
-        ASRTL_RECV_UNEXPECTED_ERR = -5,
-        ASRTL_RECV_UNKNOWN_ID_ERR = -4,
-        ASRTL_BUSY_ERR            = -3,
-        ASRTL_RECV_ERR            = -2,
-        ASRTL_SIZE_ERR            = -1,
-        ASRTL_SUCCESS             = 1,
+        uint8_t* b;
+        uint8_t* e;
 };
+
+static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_t size )
+{
+        return ( buff->e - buff->b ) < (int32_t) size;
+}
 
 #endif

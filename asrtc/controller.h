@@ -12,8 +12,12 @@
 #ifndef ASRTC_CONTROLLER_H
 #define ASRTC_CONTROLLER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "../asrtl/chann.h"
-#include "../asrtl/util.h"
+#include "../asrtl/span.h"
 #include "./allocator.h"
 #include "./callbacks.h"
 #include "./handlers.h"
@@ -55,7 +59,7 @@ enum asrtc_status asrtc_cntr_init(
     struct asrtc_error_cb    eh );
 
 enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c );
-uint32_t          asrtc_cntr_idle( struct asrtc_controller* c );
+uint32_t          asrtc_cntr_idle( struct asrtc_controller const* c );
 
 enum asrtc_status asrtc_cntr_desc( struct asrtc_controller* c, asrtc_desc_callback cb, void* ptr );
 enum asrtc_status asrtc_cntr_test_count(
@@ -75,5 +79,9 @@ enum asrtc_status asrtc_cntr_test_exec(
     void*                      ptr );
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -11,11 +11,15 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #ifndef ASRTC_DEFAULT_ERROR_CB_H
 #define ASRTC_DEFAULT_ERROR_CB_H
-#include "../asrtl/ecode.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "../asrtl/ecode_to_str.h"
 #include "./callbacks.h"
-#include "./handlers.h"
-#include "stdio.h"
+
+#include <stdio.h>
 
 static inline enum asrtc_status asrtc_default_error_callback(
     void*             ptr,
@@ -38,5 +42,9 @@ static inline struct asrtc_error_cb asrtc_default_error_cb( void )
             .cb  = &asrtc_default_error_callback,
         };
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

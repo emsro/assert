@@ -9,6 +9,7 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "../asrtl/chann.h"
+#include "../asrtl/util.h"
 
 #include <unity.h>
 

@@ -11,8 +11,8 @@
 #ifndef ASRTL_CHANN_H
 #define ASRTL_CHANN_H
 
+#include "./span.h"
 #include "./status.h"
-#include "util.h"
 
 #include <assert.h>
 #include <stdint.h>

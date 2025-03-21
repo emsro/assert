@@ -11,9 +11,12 @@
 #ifndef ASRTC_HANDLERS_H
 #define ASRTC_HANDLERS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./result.h"
 #include "./status.h"
-#include "assert.h"
 
 // XXX: the defs might be at better place
 typedef enum asrtc_status ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
@@ -72,5 +75,9 @@ struct asrtc_exec_handler
         void*                      ptr;
         asrtc_test_result_callback cb;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

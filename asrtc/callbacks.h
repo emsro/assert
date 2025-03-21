@@ -11,9 +11,14 @@
 #ifndef ASRTC_CALLBACKS_H
 #define ASRTC_CALLBACKS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./status.h"
-#include "assert.h"
-#include "stdint.h"
+
+#include <assert.h>
+#include <stdint.h>
 
 // XXX: might be asrtl thing?
 enum asrtc_source
@@ -38,5 +43,8 @@ static inline enum asrtc_status asrtc_raise_error(
         return h->cb( h->ptr, src, ecode );
 }
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
