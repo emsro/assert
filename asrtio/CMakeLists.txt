@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(asrtl VERSION 0.0)
+project(asrtio VERSION 0.0)
 
 cpmaddpackage("gh:CLIUtils/CLI11@2.5.0")
 cpmaddpackage(

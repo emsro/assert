@@ -12,6 +12,10 @@
 #ifndef ASRTL_SPAN_H
 #define ASRTL_SPAN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 struct asrtl_span
@@ -24,5 +28,9 @@ static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_
 {
         return ( buff->e - buff->b ) < (int32_t) size;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

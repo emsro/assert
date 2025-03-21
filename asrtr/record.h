@@ -12,6 +12,10 @@
 #ifndef ASRTR_RECORD_H
 #define ASRTR_RECORD_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./status.h"
 
 #include <stdint.h>
@@ -49,5 +53,9 @@ uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line );
                 if ( asrtr_assert( ( rec ), ( x ), __LINE__ ) == 0 ) \
                         return ASRTR_SUCCESS;                        \
         } while ( 0 )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -11,6 +11,10 @@
 #ifndef ASRTL_ECODE_H
 #define ASRTL_ECODE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum asrtl_ecode
 {
         ASRTL_ASE1                     = 1,
@@ -18,5 +22,9 @@ enum asrtl_ecode
         ASRTL_ASE2                     = 2,
         ASRTL_ASE_TEST_ALREADY_RUNNING = ASRTL_ASE2,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

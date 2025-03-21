@@ -11,6 +11,10 @@
 #ifndef ASRTL_PROTO_H
 #define ASRTL_PROTO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./status.h"
 #include "util.h"
 
@@ -174,5 +178,9 @@ static inline enum asrtl_status asrtl_msg_rtoc_test_result(
         asrtl_add_u32( &buff->b, line );
         return ASRTL_SUCCESS;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

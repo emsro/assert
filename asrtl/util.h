@@ -11,6 +11,10 @@
 #ifndef ASRTL_UTIL_H
 #define ASRTL_UTIL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./span.h"
 #include "status.h"
 
@@ -62,5 +66,9 @@ static inline void asrtl_add_u32( uint8_t** data, uint32_t val )
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
 // updates to/to_size to reflect filled in data
 void asrtl_fill_buffer( uint8_t const* from, uint32_t from_size, struct asrtl_span* buff );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // ASRTL_UTIL_H

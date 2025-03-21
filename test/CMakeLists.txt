@@ -12,6 +12,9 @@ add_executable(assertl_test asrtl_test.c)
 target_link_libraries(assertl_test PUBLIC unity asrtl)
 add_test(NAME assrtl_test COMMAND assertl_test)
 
+add_executable(rsim rsim.cpp)
+target_link_libraries(rsim PUBLIC asrtrpp CLI11::CLI11 Boost::asio)
+
 if(ASSERT_ENABLE_COVERAGE)
   add_test(
     NAME coverage

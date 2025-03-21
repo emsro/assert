@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../asrtc/callbacks.h"
+#include "../asrtc/result.h"
 #include "../asrtc/status.h"
 #include "../asrtl/chann.h"
 
@@ -20,10 +21,13 @@ using ecode     = uint16_t;
 
 namespace asrtc
 {
-using status   = asrtc_status;
-using source   = asrtc_source;
-using error_cb = std::function< status( source, asrtl::ecode ) >;
-using desc_cb  = std::function< status( std::string_view ) >;
+using status         = asrtc_status;
+using source         = asrtc_source;
+using result         = asrtc_result;
+using error_cb       = std::function< status( source, asrtl::ecode ) >;
+using desc_cb        = std::function< status( std::string_view ) >;
+using tc_cb          = std::function< status( uint32_t ) >;
+using test_result_cb = std::function< status( result const& ) >;
 template < typename T >
 using uptr = std::unique_ptr< T >;
 template < typename T >
@@ -38,9 +42,15 @@ struct controller
 
         asrtc_status tick();
 
+        // XXX: reevaluate this
+        asrtl_node* node();
+
         bool is_idle() const;
 
         asrtc_status query_desc( desc_cb cb );
+        asrtc_status query_test_count( tc_cb cb );
+        asrtc_status query_test_info( uint16_t id, desc_cb cb );
+        asrtc_status exec_test( uint16_t id, test_result_cb cb );
 
         ~controller();
 

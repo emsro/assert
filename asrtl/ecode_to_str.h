@@ -11,6 +11,10 @@
 #ifndef ASRTL_ECODE_TO_STR_H
 #define ASRTL_ECODE_TO_STR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./ecode.h"
 
 static inline char* asrtl_ecode_to_str( enum asrtl_ecode ec )
@@ -23,5 +27,9 @@ static inline char* asrtl_ecode_to_str( enum asrtl_ecode ec )
         }
         return "ASE?: Unknown error code";
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

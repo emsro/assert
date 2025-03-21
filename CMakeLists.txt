@@ -9,6 +9,7 @@ add_subdirectory(asrtc)
 add_subdirectory(asrtr)
 
 add_subdirectory(asrtcpp)
+add_subdirectory(asrtrpp)
 add_subdirectory(asrtio)
 
 include(CTest)

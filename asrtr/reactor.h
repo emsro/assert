@@ -12,6 +12,10 @@
 #ifndef ASRTR_REACTOR_H
 #define ASRTR_REACTOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "../asrtl/chann.h"
 #include "../asrtl/core_proto.h"
 #include "record.h"
@@ -78,5 +82,9 @@ enum asrtr_status asrtr_test_init(
 void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
 
 enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

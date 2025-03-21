@@ -11,6 +11,10 @@
 #ifndef ASRTL_CHANN_H
 #define ASRTL_CHANN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./span.h"
 #include "./status.h"
 
@@ -35,6 +39,9 @@ struct asrtl_node
         struct asrtl_node*  next;
 };
 
+struct asrtl_node* asrtl_chann_find( struct asrtl_node* head, asrtl_chann_id id );
+enum asrtl_status  asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_span buff );
+
 typedef enum asrtl_status (
     *asrtl_send_callback )( void* ptr, asrtl_chann_id id, struct asrtl_span buff );
 
@@ -53,5 +60,9 @@ static inline enum asrtl_status asrtl_send(
         assert( r->cb );
         return r->cb( r->ptr, chid, buff );
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

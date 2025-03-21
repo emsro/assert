@@ -11,6 +11,10 @@
 #ifndef ASRTR_STATUS_H
 #define ASRTR_STATUS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum asrtr_status
 {
         ASRTR_SEND_ERR      = -4,
@@ -19,5 +23,9 @@ enum asrtr_status
         ASRTR_TEST_INIT_ERR = -1,
         ASRTR_SUCCESS       = 1,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
