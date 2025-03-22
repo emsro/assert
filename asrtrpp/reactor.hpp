@@ -12,7 +12,27 @@ template < typename T >
 using opt = std::optional< T >;
 
 using status = asrtr_status;
+using record = asrtr_record;
 
+template < typename D >
+struct unit
+{
+        unit()
+        {
+                asrtr_test_init( &atest, D::desc, static_cast< D* >( this ), D::cb );
+        }
+
+        unit( unit&& )      = delete;
+        unit( unit const& ) = delete;
+
+        static asrtr::status cb( record* rec )
+        {
+                auto* d = static_cast< D* >( rec->test_ptr );
+                return ( *d )();
+        }
+
+        asrtr_test atest;
+};
 
 struct reactor
 {
@@ -34,6 +54,12 @@ struct reactor
         status tick( std::span< std::byte > buff )
         {
                 return asrtr_reactor_tick( &reac, cnv( buff ) );
+        }
+
+        template < typename D >
+        void add_test( D& test )
+        {
+                add_test( &test.atest );
         }
 
         void add_test( asrtr_test* test )

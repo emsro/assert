@@ -8,24 +8,30 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_ECODE_TO_STR_H
-#define ASRTL_ECODE_TO_STR_H
+#ifndef ASRTC_STATUS_TO_STR_H
+#define ASRTC_STATUS_TO_STR_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "./ecode.h"
+#include "./status.h"
 
-static inline char const* asrtl_ecode_to_str( enum asrtl_ecode ec )
+inline static char const* asrtc_status_to_str( enum asrtc_status st )
 {
-        switch ( ec ) {
-        case ASRTL_ASE1:
-                return "ASE1: Failed to find test";
-        case ASRTL_ASE2:
-                return "ASE2: Test is already running";
+        switch ( st ) {
+        case ASRTC_CNTR_CB_ERR:
+                return "controller callback error";
+        case ASRTC_SEND_ERR:
+                return "send error";
+        case ASRTC_CNTR_BUSY_ERR:
+                return "controller busy error";
+        case ASRTC_CNTR_INIT_ERR:
+                return "controller init error";
+        case ASRTC_SUCCESS:
+                return "success";
         }
-        return "ASE?: Unknown error code";
+        return "unknown error";
 }
 
 #ifdef __cplusplus

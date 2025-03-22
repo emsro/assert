@@ -17,6 +17,7 @@ namespace asrtr
 template < typename CB >
 concept send_cb = std::invocable< CB, asrtl::chann_id, std::span< std::byte > >;
 
+// XX: create ASRTLPP package for these
 inline asrtl_span cnv( std::span< std::byte > buff )
 {
         return {

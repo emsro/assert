@@ -40,17 +40,17 @@ struct controller
         controller( uptr< controller_impl > impl );
         controller( controller&& );
 
-        asrtc_status tick();
+        asrtc::status tick();
 
         // XXX: reevaluate this
         asrtl_node* node();
 
         bool is_idle() const;
 
-        asrtc_status query_desc( desc_cb cb );
-        asrtc_status query_test_count( tc_cb cb );
-        asrtc_status query_test_info( uint16_t id, desc_cb cb );
-        asrtc_status exec_test( uint16_t id, test_result_cb cb );
+        asrtc::status query_desc( desc_cb cb );
+        asrtc::status query_test_count( tc_cb cb );
+        asrtc::status query_test_info( uint16_t id, desc_cb cb );
+        asrtc::status exec_test( uint16_t id, test_result_cb cb );
 
         ~controller();
 
