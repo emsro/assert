@@ -27,8 +27,10 @@ struct unit
 
         static asrtr::status cb( record* rec )
         {
-                auto* d = static_cast< D* >( rec->test_ptr );
-                return ( *d )();
+                auto*         d  = static_cast< D* >( rec->test_ptr );
+                asrtr::status st = ( *d )();
+                rec->state       = st == ASRTR_SUCCESS ? ASRTR_TEST_PASS : ASRTR_TEST_FAIL;
+                return st;
         }
 
         asrtr_test atest;

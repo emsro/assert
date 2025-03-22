@@ -32,7 +32,7 @@ inline std::span< std::byte > cnv( asrtl_span buff )
 }
 
 template < send_cb CB >
-inline asrtl::status _send_cb( void* data, asrtl::chann_id id, asrtl_span buff )
+inline asrtl::status sender_cb( void* data, asrtl::chann_id id, asrtl_span buff )
 {
         auto*                  cb = reinterpret_cast< CB* >( data );
         std::span< std::byte > sp = cnv( buff );
@@ -44,7 +44,7 @@ inline asrtl_sender make_sender( CB& cb )
 {
         return {
             .ptr = &cb,
-            .cb  = &_send_cb< CB >,
+            .cb  = &sender_cb< CB >,
         };
 }
 

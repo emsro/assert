@@ -2,14 +2,16 @@
 Checks: >
   bugprone*,-bugprone-easily-swappable-parameters,
   linuxkernel*,
-  misc*,-misc-include-cleaner,
+  misc*,-misc-include-cleaner,-misc-non-private-member-variables-in-classes,
   portability*,
   readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements,-readability-avoid-nested-conditional-operator,-readability-math-missing-parentheses
 WarningsAsErrors: ''
 HeaderFileExtensions:
   - h
+  - hpp
 ImplementationFileExtensions:
   - c
+  - cpp
 HeaderFilterRegex: '.*'
 FormatStyle:     file
 CheckOptions:

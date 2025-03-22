@@ -6,6 +6,7 @@
 #include "../asrtc/status.h"
 #include "../asrtl/chann.h"
 
+#include <functional>
 #include <memory>
 #include <span>
 #include <utility>

@@ -1,4 +1,3 @@
-
 #include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtl/ecode_to_str.h"
@@ -100,15 +99,27 @@ struct _ti
         // test info
 } TI;
 
-struct _e
+struct _ex
 {
         // exec
-} E;
+} EX;
 
-struct _ee
+template < typename T >
+struct _error
 {
-        // end exec
-} Ee;
+        T sub;
+};
+template <>
+struct _error< void >
+{
+};
+_error< void > E;
+
+template < typename T >
+_error< T > operator+( T& x, _error< void > E )
+{
+        return { x };
+}
 
 struct _tick
 {
@@ -127,7 +138,17 @@ struct abort_test
 struct test_case
 {
         std::source_location sl = std::source_location::current();
-        std::vector< std::variant< _d, _tc, _ti, _e, _ee, _tick > > genes;
+        std::vector< std::variant<
+            _d,
+            _tc,
+            _ti,
+            _ex,
+            _tick,
+            _error< _d >,
+            _error< _ti >,
+            _error< _tc >,
+            _error< _ex > > >
+            genes;
 };
 
 struct checker
@@ -196,10 +217,76 @@ struct noop_test : asrtr::unit< noop_test >
         }
 };
 
+struct gene_handler
+{
+        std::ostream&      os;
+        asrtc::controller& c;
+        asrtr::reactor&    r;
+        checker            check{ os };
+
+        void operator()( _tick const& t )
+        {
+                os << "T" << std::endl;
+                for ( int i = 0; i < t.i; i++ ) {
+                        check >> c.tick();
+                        std::byte b[64];
+                        check >> r.tick( b );
+                }
+        }
+
+        void operator()( _d const& )
+        {
+                os << "D" << std::endl;
+                check >> c.query_desc( [&]( std::string_view ) {
+                        return ASRTC_SUCCESS;
+                } );
+        }
+
+        void operator()( _tc const& )
+        {
+                os << "TC" << std::endl;
+                check >> c.query_test_count( [&]( uint32_t ) {
+                        return ASRTC_SUCCESS;
+                } );
+        }
+
+        void operator()( _ti const& )
+        {
+                os << "TI" << std::endl;
+                check >> c.query_test_info( 0, [&]( std::string_view ) {
+                        return ASRTC_SUCCESS;
+                } );
+        }
+
+        void operator()( _ex const& )
+        {
+                os << "EX" << std::endl;
+                check >> c.exec_test( 0, [&]( asrtc::result const& ) {
+                        return ASRTC_SUCCESS;
+                } );
+        }
+
+        template < typename T >
+        void operator()( _error< T > const& e )
+        {
+                os << "E" << std::endl;
+                std::stringstream ss;
+                gene_handler      sub{ ss, c, r };
+                try {
+                        sub( e.sub );
+                }
+                catch ( abort_test const& ) {
+                        return;
+                }
+                os << "Gene passed" << std::endl;
+                throw abort_test{};
+        }
+};
+
 void exec( std::ostream& os, test_case const& tc )
 {
-        checker check{ os };
 
+        checker                  check{ os };
         opt< asrtc::controller > c;
         auto                     r_cb = [&]( asrtl::chann_id, std::span< std::byte > buff ) {
                 print_msg( os, ASRTC_REACTOR, ASRTC_CONTROLLER, buff );
@@ -224,64 +311,25 @@ void exec( std::ostream& os, test_case const& tc )
                        } )
                        .value() );
 
-        for ( auto const& gene : tc.genes ) {
-                match(
-                    gene,
-                    [&]( _tick const& t ) {
-                            os << "T" << std::endl;
-                            for ( int i = 0; i < t.i; i++ ) {
-                                    check >> c->tick();
-                                    std::byte b[64];
-                                    check >> r.tick( b );
-                            }
-                    },
-                    [&]( _d const& ) {
-                            os << "D" << std::endl;
-                            check >> c->query_desc( [&]( std::string_view ) {
-                                    return ASRTC_SUCCESS;
-                            } );
-                    },
-                    [&]( _tc const& ) {
-                            os << "TC" << std::endl;
-                            check >> c->query_test_count( [&]( uint32_t ) {
-                                    return ASRTC_SUCCESS;
-                            } );
-                    },
-                    [&]( _ti const& ) {
-                            os << "TI" << std::endl;
-                            check >> c->query_test_info( 0, [&]( std::string_view ) {
-                                    return ASRTC_SUCCESS;
-                            } );
-                    },
-                    [&]( _e const& ) {
-                            os << "E" << std::endl;
-                            check >> c->exec_test( 0, [&]( asrtc::result const& ) {
-                                    return ASRTC_SUCCESS;
-                            } );
-                    },
-                    [&]( _ee const& ) {
-                            os << "EE" << std::endl;
-                            // XXX: end the test
-                    } );
-        }
+        gene_handler gh{ os, *c, r };
+        for ( auto const& gene : tc.genes )
+                std::visit( gh, gene );
 }
 
 int main( int argc, char* argv[] )
 {
         std::vector< test_case > test_cases = {
+            test_case{ .genes = { T[4], D, T[2], TC, T[2], TI, T[2], EX, T[4] } },
+            test_case{ .genes = { T[2], TC, T[2], EX, T[3], D + E, T[2] } },
+            test_case{ .genes = { TI + E, D + E, T[3], EX, TC + E, T[42], D, T[2], D } },
+            test_case{ .genes = { T[2], EX, TI + E, T[2] } },
+            test_case{ .genes = { T[1], D + E, TC + E, TI + E, EX + E, T[1], D, T[1] } },
+            test_case{ .genes = { EX + E, T[3], TC, T[5], D, T[1], EX + E, TI + E } },
             test_case{
-                .genes = { T[4], D, T[2], TC, T[2], TI, T[2], E, T[4], Ee },
-            },
-            test_case{
-                .genes = { T[2], TC, T[2], E, T[3], D, T[2], Ee },
-            },
-            test_case{
-                .genes = { TI, D, T[3], E, TC, T[42], D, Ee },
-            },
-            test_case{
-                .genes = { E, TI, T[2] },
-            },
-        };
+                .genes = { T[3], D, D + E, TC + E, TC + E, TI + E, TI + E, EX + E, EX + E, T[1] } },
+            test_case{ .genes = { T[10], TC, D + E, TI + E, EX + E, T[5] } },
+            test_case{ .genes = { T[25], D, TI + E, TC + E, D + E, T[15], EX, T[30] } },
+            test_case{ .genes = { D + E, T[4], TC, EX + E, T[69], D, TC + E, D + E, T[3] } } };
 
         for ( test_case const& tc : test_cases ) {
                 std::stringstream ss;
@@ -293,7 +341,7 @@ int main( int argc, char* argv[] )
                 }
                 catch ( abort_test const& ) {
                         std::cout << "Failed test case: " << tc.sl.file_name() << ":"
-                                  << tc.sl.line() - 1 << std::endl;
+                                  << tc.sl.line() << std::endl;
                         std::cout << ss.str();
                         std::abort();
                 }

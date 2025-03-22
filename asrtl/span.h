@@ -26,7 +26,7 @@ struct asrtl_span
 
 static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_t size )
 {
-        return ( buff->e - buff->b ) < (int32_t) size;
+        return ( buff->e - buff->b ) < (int32_t) size ? 1U : 0U;
 }
 
 #ifdef __cplusplus
