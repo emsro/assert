@@ -17,19 +17,21 @@ extern "C" {
 #endif
 
 #include "../asrtl/ecode_to_str.h"
+#include "../asrtl/source.h"
+#include "../asrtl/source_to_str.h"
 #include "./callbacks.h"
 
 #include <stdio.h>
 
 static inline enum asrtc_status asrtc_default_error_callback(
     void*             ptr,
-    enum asrtc_source src,
+    enum asrtl_source src,
     uint16_t          ecode )
 {
         (void) ptr;
         printf(
             "Error reported from %s: %i %s",
-            src == ASRTC_CONTROLLER ? "controller" : "reactor",
+            asrtl_source_to_str( src ),
             ecode,
             asrtl_ecode_to_str( ecode ) );
         return ASRTC_SUCCESS;

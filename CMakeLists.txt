@@ -8,6 +8,7 @@ add_subdirectory(asrtl)
 add_subdirectory(asrtc)
 add_subdirectory(asrtr)
 
+add_subdirectory(asrtlpp)
 add_subdirectory(asrtcpp)
 add_subdirectory(asrtrpp)
 add_subdirectory(asrtio)

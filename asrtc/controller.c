@@ -435,7 +435,7 @@ static enum asrtl_status asrtc_cntr_recv_error( struct asrtc_error_cb* h, struct
         uint16_t ecode;
         asrtl_cut_u16( &buff->b, &ecode );
 
-        if ( asrtc_raise_error( h, ASRTC_REACTOR, ecode ) != ASRTC_SUCCESS )
+        if ( asrtc_raise_error( h, ASRTL_REACTOR, ecode ) != ASRTC_SUCCESS )
                 return ASRTL_RECV_ERR;
         return ASRTL_SUCCESS;
 }

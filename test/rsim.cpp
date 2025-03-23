@@ -1,12 +1,15 @@
+#include "../asrtl/chann.h"
 #include "../asrtrpp/reactor.hpp"
 
 #include <CLI/CLI.hpp>
 #include <boost/asio.hpp>
 #include <iostream>
+#include <list>
 
 namespace asio = boost::asio;
+using tcp      = asio::ip::tcp;
 
-void handle_exception( std::exception_ptr e )
+void h_excp( std::exception_ptr e )
 {
         try {
                 if ( e )
@@ -17,58 +20,39 @@ void handle_exception( std::exception_ptr e )
         }
 }
 
+asio::awaitable< void > handle_sock( tcp::socket sock );
+
+asio::awaitable< void > listen( tcp::acceptor& acceptor )
+{
+        for ( ;; ) {
+                co_spawn(
+                    acceptor.get_executor(),
+                    handle_sock( co_await acceptor.async_accept( asio::use_awaitable ) ),
+                    h_excp );
+        }
+}
+
 static constexpr std::size_t buff_offset = sizeof( asrtl_chann_id );
 
-asio::awaitable< void > ticker( asrtr::reactor& reac )
+asio::awaitable< void > handle_sock( tcp::socket sock )
 {
-        asio::steady_timer timer( co_await asio::this_coro::executor );
-        auto               period = std::chrono::milliseconds( 1 );
-        for ( ;; ) {
-                std::byte buff[64];
-                std::span sp{ buff };
-                reac.tick( sp.subspan( buff_offset ) );
-
-                timer.expires_after( period );
-                co_await timer.async_wait( asio::use_awaitable );
-        }
-}
-
-asio::awaitable< void > reader( asio::ip::tcp::socket& socket, asrtr::reactor& reac )
-{
-        std::vector< std::byte > buff( 128 );
-        for ( ;; ) {
-                std::size_t n =
-                    co_await socket.async_read_some( asio::buffer( buff ), asio::use_awaitable );
-                buff.resize( n );
-
-                std::span sp{ buff };
-                asrtl_chann_dispatch( reac.node(), asrtr::cnv( sp ) );
-        }
-}
-
-int main( int argc, char** argv )
-{
-        CLI::App app{ "Test reactor" };
-
-        unsigned port;
-        app.add_option( "-p,--port", port, "Port to listen on" )->required();
-
-        CLI11_PARSE( app, argc, argv );
-
-        asio::io_context ctx;
-        asio::signal_set signals{ ctx, SIGINT, SIGTERM };
-        signals.async_wait( std::bind( &boost::asio::io_service::stop, &ctx ) );
-
-        asio::ip::tcp::socket socket( ctx, asio::ip::tcp::endpoint( asio::ip::tcp::v4(), port ) );
+        std::list< std::vector< uint8_t > > buffers;
 
         auto cb = [&]( asrtl::chann_id id, std::span< std::byte > buff ) {
                 auto* iter = (uint8_t*) std::prev( buff.data(), buff_offset );
                 auto* p    = iter;
                 asrtl_add_u16( &iter, id );
+                auto* e = (uint8_t*) buff.data() + buff.size();
 
-                socket.async_write_some(
-                    asio::buffer( p, buff.size() + buff_offset ),
-                    []( boost::system::error_code ec, std::size_t ) {
+                auto& b = buffers.emplace_back( p - e, 0U );
+                std::copy( p, e, b.data() );
+                auto buffs_iter = --buffers.end();
+
+                async_write(
+                    sock,
+                    asio::buffer( b ),
+                    [buffs_iter, &buffers]( boost::system::error_code ec, std::size_t ) {
+                            buffers.erase( buffs_iter );
                             if ( ec )
                                     std::cerr << "Error: " << ec.message() << std::endl;
                     } );
@@ -76,15 +60,41 @@ int main( int argc, char** argv )
         };
         asrtr::reactor reac{ cb, "Test reactor" };
 
-        asio::co_spawn( ctx, ticker( reac ), handle_exception );
-        asio::co_spawn( ctx, reader( socket, reac ), handle_exception );
+        while ( sock.is_open() ) {
+                std::byte buff[128];
+                // XXX this might break
+                auto const n =
+                    co_await sock.async_read_some( asio::buffer( buff ), asio::use_awaitable );
 
-        if ( !socket.is_open() ) {
-                std::cerr << "Failed to open socket" << std::endl;
+                // XXX: make C++ wrapper for asrtl_chann_dispatch
+                asrtl_chann_dispatch(
+                    reac.node(), asrtl_span{ .b = (uint8_t*) buff, .e = (uint8_t*) buff + n } );
+        }
+}
+
+int main( int argc, char** argv )
+{
+        CLI::App app{ "Test reactor" };
+
+        uint16_t port;
+        app.add_option( "-p,--port", port, "Port to listen on" )->required();
+
+        CLI11_PARSE( app, argc, argv );
+
+        asio::io_context io_ctx;
+        asio::signal_set signals{ io_ctx, SIGINT, SIGTERM };
+        signals.async_wait( std::bind( &boost::asio::io_service::stop, &io_ctx ) );
+
+        tcp::acceptor acceptor{ io_ctx, tcp::endpoint{ tcp::v4(), port } };
+
+        if ( !acceptor.is_open() ) {
+                std::cerr << "Failed to bind to port" << std::endl;
                 return 1;
         }
 
-        ctx.run();
+        asio::co_spawn( io_ctx, listen( acceptor ), h_excp );
+
+        io_ctx.run();
 
         return 0;
 }

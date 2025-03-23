@@ -1,15 +1,13 @@
 #pragma once
 
+#include "../asrtlpp/sender.hpp"
+#include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
-#include "./util.hpp"
 
 #include <span>
 
 namespace asrtr
 {
-
-template < typename T >
-using opt = std::optional< T >;
 
 using status = asrtr_status;
 using record = asrtr_record;
@@ -38,10 +36,10 @@ struct unit
 
 struct reactor
 {
-        template < send_cb CB >
+        template < typename CB >
         reactor( CB& cb, char const* desc )
         {
-                std::ignore = asrtr_reactor_init( &reac, make_sender( cb ), desc );
+                std::ignore = asrtr_reactor_init( &reac, asrtl::make_sender( cb ), desc );
         }
 
         reactor( reactor&& )      = delete;
@@ -55,7 +53,7 @@ struct reactor
 
         status tick( std::span< std::byte > buff )
         {
-                return asrtr_reactor_tick( &reac, cnv( buff ) );
+                return asrtr_reactor_tick( &reac, asrtl::cnv( buff ) );
         }
 
         template < typename D >

@@ -8,7 +8,7 @@ namespace asrtc
 struct controller_impl
 {
         asrtc_controller asc;
-        asrtl::sender_cb scb;
+        asrtl::send_cb   scb;
         error_cb         ecb;
 
         desc_cb        des_cb;
@@ -38,7 +38,7 @@ asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_span buff 
         return ci->scb( id, sp );
 }
 
-asrtc::status cimpl_error( void* ptr, asrtc::source src, uint16_t ecode )
+asrtc::status cimpl_error( void* ptr, asrtl::source src, uint16_t ecode )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
         return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ecb, src, ecode );
@@ -70,9 +70,18 @@ asrtc::status cimpl_test_result( void* ptr, struct asrtc_result* res )
 
 }  // namespace
 
-controller::controller( uptr< controller_impl > impl )
-  : _impl( std::move( impl ) )
+controller::controller( asrtl::send_cb scb, error_cb ecb )
+  : _impl{ new controller_impl{
+        .scb = std::move( scb ),
+        .ecb = std::move( ecb ),
+    } }
 {
+        auto st = asrtc_cntr_init(
+            &_impl->asc,
+            { .ptr = _impl.get(), .cb = &cimpl_send },
+            asrtc_default_allocator(),
+            { .ptr = _impl.get(), .cb = &cimpl_error } );
+        assert( st == ASRTC_SUCCESS );
 }
 
 controller::controller( controller&& ) = default;
@@ -123,20 +132,6 @@ asrtc::status controller::exec_test( uint16_t id, test_result_cb cb )
         if ( st == ASRTC_SUCCESS )
                 _impl->te_cb = std::move( cb );
         return st;
-}
-
-opt< controller > make_controller( asrtl::sender_cb scb, error_cb ecb )
-{
-        uptr< controller_impl > impl{
-            new controller_impl{ .scb = std::move( scb ), .ecb = std::move( ecb ) } };
-        auto st = asrtc_cntr_init(
-            &impl->asc,
-            { .ptr = impl.get(), .cb = &cimpl_send },
-            asrtc_default_allocator(),
-            { .ptr = impl.get(), .cb = &cimpl_error } );
-        if ( st == ASRTC_SUCCESS )
-                return controller{ std::move( impl ) };
-        return {};
 }
 
 }  // namespace asrtc

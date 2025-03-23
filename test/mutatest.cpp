@@ -1,74 +1,14 @@
-#include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
+#include "../asrtcpp/fmt.hpp"
 #include "../asrtl/ecode_to_str.h"
-#include "../asrtl/status_to_str.h"
-#include "../asrtr/status_to_str.h"
+#include "../asrtlpp/fmt.hpp"
+#include "../asrtrpp/fmt.hpp"
 #include "../asrtrpp/reactor.hpp"
-#include "../asrtrpp/util.hpp"
 
 #include <iostream>
 #include <source_location>
 #include <sstream>
 
-template <>
-struct std::formatter< enum asrtc_source, char >
-{
-        template < class ParseContext >
-        constexpr auto parse( ParseContext& ctx )
-        {
-                return ctx.begin();
-        }
-
-        auto format( enum asrtc_source status, auto& ctx ) const
-        {
-                return std::format_to(
-                    ctx.out(), "{}", status == ASRTC_CONTROLLER ? "cntr" : "reac" );
-        }
-};
-// XXX: maybe move these somewhere
-template <>
-struct std::formatter< enum asrtl_status, char >
-{
-        template < class ParseContext >
-        constexpr auto parse( ParseContext& ctx )
-        {
-                return ctx.begin();
-        }
-
-        auto format( enum asrtl_status status, auto& ctx ) const
-        {
-                return std::format_to( ctx.out(), "{}", asrtl_status_to_str( status ) );
-        }
-};
-template <>
-struct std::formatter< enum asrtc_status, char >
-{
-        template < class ParseContext >
-        constexpr auto parse( ParseContext& ctx )
-        {
-                return ctx.begin();
-        }
-
-        auto format( enum asrtc_status status, auto& ctx ) const
-        {
-                return std::format_to( ctx.out(), "{}", asrtc_status_to_str( status ) );
-        }
-};
-
-template <>
-struct std::formatter< enum asrtr_status, char >
-{
-        template < class ParseContext >
-        constexpr auto parse( ParseContext& ctx )
-        {
-                return ctx.begin();
-        }
-
-        auto format( enum asrtr_status status, auto& ctx ) const
-        {
-                return std::format_to( ctx.out(), "{}", asrtr_status_to_str( status ) );
-        }
-};
 
 // XXX: move
 template < class... Ts >
@@ -82,7 +22,7 @@ decltype( auto ) match( auto&& value, auto&&... lambdas )
         return std::visit( overloads{ lambdas... }, std::forward< decltype( value ) >( value ) );
 }
 
-using asrtc::opt;
+using asrtl::opt;
 
 struct _d
 {
@@ -192,7 +132,7 @@ struct checker
         }
 };
 
-void print_msg( std::ostream& os, asrtc::source s, asrtc::source t, std::span< std::byte > buff )
+void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< std::byte > buff )
 {
         os << std::format( "{} -> {}\t", s, t );
         for ( int i = 0; i < buff.size(); ++i ) {
@@ -289,27 +229,26 @@ void exec( std::ostream& os, test_case const& tc )
         checker                  check{ os };
         opt< asrtc::controller > c;
         auto                     r_cb = [&]( asrtl::chann_id, std::span< std::byte > buff ) {
-                print_msg( os, ASRTC_REACTOR, ASRTC_CONTROLLER, buff );
+                print_msg( os, ASRTL_REACTOR, ASRTL_CONTROLLER, buff );
                 // XXX: maybe create C++ alternative of the dispatch?
-                check >> c->node()->recv_cb( c->node()->recv_ptr, asrtr::cnv( buff ) );
+                check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( buff ) );
                 return ASRTL_SUCCESS;
         };
         asrtr::reactor r{ r_cb, "Test reactor" };
         noop_test      t1;
         r.add_test( t1 );
 
-        c.emplace( asrtc::make_controller(
-                       [&]( asrtl::chann_id, std::span< std::byte > buff ) {
-                               print_msg( os, ASRTC_CONTROLLER, ASRTC_REACTOR, buff );
-                               check >> r.node()->recv_cb( r.node()->recv_ptr, asrtr::cnv( buff ) );
-                               return ASRTL_SUCCESS;
-                       },
-                       [&]( asrtc::source s, asrtl::ecode ec ) {
-                               os << std::format( "({}) ", s );
-                               os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
-                               return ASRTC_SUCCESS;
-                       } )
-                       .value() );
+        c.emplace(
+            [&]( asrtl::chann_id, std::span< std::byte > buff ) {
+                    print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
+                    check >> r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( buff ) );
+                    return ASRTL_SUCCESS;
+            },
+            [&]( asrtl::source s, asrtl::ecode ec ) {
+                    os << std::format( "({}) ", s );
+                    os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
+                    return ASRTC_SUCCESS;
+            } );
 
         gene_handler gh{ os, *c, r };
         for ( auto const& gene : tc.genes )
