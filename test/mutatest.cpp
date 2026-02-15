@@ -1,6 +1,7 @@
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/fmt.hpp"
 #include "../asrtl/ecode_to_str.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtrpp/fmt.hpp"
 #include "../asrtrpp/reactor.hpp"
@@ -8,6 +9,10 @@
 #include <iostream>
 #include <source_location>
 #include <sstream>
+
+extern "C" {
+ASRTL_DEFINE_GPOS_LOG()
+}
 
 
 // XXX: move
@@ -132,7 +137,7 @@ struct checker
         }
 };
 
-void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< std::byte > buff )
+void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< uint8_t > buff )
 {
         os << std::format( "{} -> {}\t", s, t );
         for ( int i = 0; i < buff.size(); ++i ) {
@@ -142,7 +147,7 @@ void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< s
                 else if ( i % 2 == 0 )
                         os << '|';
 
-                os << std::format( "{:02x}", static_cast< uint8_t >( buff[i] ) );
+                os << std::format( "{:02x}", buff[i] );
         }
         os << std::endl;
 }
@@ -169,7 +174,7 @@ struct gene_handler
                 os << "T" << std::endl;
                 for ( int i = 0; i < t.i; i++ ) {
                         check >> c.tick();
-                        std::byte b[64];
+                        uint8_t b[64];
                         check >> r.tick( b );
                 }
         }
@@ -228,7 +233,7 @@ void exec( std::ostream& os, test_case const& tc )
 
         checker                  check{ os };
         opt< asrtc::controller > c;
-        auto                     r_cb = [&]( asrtl::chann_id, std::span< std::byte > buff ) {
+        auto                     r_cb = [&]( asrtl::chann_id, std::span< uint8_t > buff ) {
                 print_msg( os, ASRTL_REACTOR, ASRTL_CONTROLLER, buff );
                 // XXX: maybe create C++ alternative of the dispatch?
                 check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( buff ) );
@@ -239,7 +244,7 @@ void exec( std::ostream& os, test_case const& tc )
         r.add_test( t1 );
 
         c.emplace(
-            [&]( asrtl::chann_id, std::span< std::byte > buff ) {
+            [&]( asrtl::chann_id, std::span< uint8_t > buff ) {
                     print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
                     check >> r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( buff ) );
                     return ASRTL_SUCCESS;

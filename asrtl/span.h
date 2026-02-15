@@ -1,4 +1,3 @@
-
 /// Permission to use, copy, modify, and/or distribute this software for any
 /// purpose with or without fee is hereby granted.
 ///
@@ -9,6 +8,7 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
+
 #ifndef ASRTL_SPAN_H
 #define ASRTL_SPAN_H
 
@@ -24,7 +24,8 @@ struct asrtl_span
         uint8_t* e;
 };
 
-static inline uint8_t asrtl_buffer_unfit( struct asrtl_span const* buff, uint32_t size )
+// Returns 1 if the buffer cannot fit `size` bytes, 0 otherwise.
+static inline uint8_t asrtl_span_unfit( struct asrtl_span const* buff, uint32_t size )
 {
         return ( buff->e - buff->b ) < (int32_t) size ? 1U : 0U;
 }

@@ -14,10 +14,15 @@
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/default_error_cb.h"
 #include "../asrtl/core_proto.h"
+#include "../asrtl/log.h"
 #include "./collector.h"
 #include "./util.h"
 
+#include <stdarg.h>
+#include <time.h>
 #include <unity.h>
+
+ASRTL_DEFINE_GPOS_LOG()
 
 void setUp( void )
 {

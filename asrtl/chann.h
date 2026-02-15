@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+#include "./cobs.h"
 #include "./span.h"
 #include "./status.h"
 
@@ -31,6 +32,7 @@ typedef uint16_t asrtl_chann_id;
 
 typedef enum asrtl_status ( *asrtl_recv_callback )( void* ptr, struct asrtl_span buff );
 
+/// Channel node representing one channel, chid should be unique within existing chain
 struct asrtl_node
 {
         asrtl_chann_id      chid;
@@ -39,18 +41,28 @@ struct asrtl_node
         struct asrtl_node*  next;
 };
 
+/// Finds channel node with given id in linked list starting at head.
 struct asrtl_node* asrtl_chann_find( struct asrtl_node* head, asrtl_chann_id id );
-enum asrtl_status  asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_span buff );
+
+/// Dispatches received buffer to appropriate channel node in linked list starting at head.
+enum asrtl_status asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_span buff );
+
+enum asrtl_status asrtl_chann_cobs_dispatch(
+    struct asrtl_cobs_ibuffer* ibuff,
+    struct asrtl_node*         head,
+    struct asrtl_span          in_buff );
 
 typedef enum asrtl_status (
     *asrtl_send_callback )( void* ptr, asrtl_chann_id id, struct asrtl_span buff );
 
+/// Sender structure holding callback and pointer for send operations.
 struct asrtl_sender
 {
         void*               ptr;
         asrtl_send_callback cb;
 };
 
+/// Sends buffer to channel with given id using sender's callback.
 static inline enum asrtl_status asrtl_send(
     struct asrtl_sender* r,
     asrtl_chann_id       chid,

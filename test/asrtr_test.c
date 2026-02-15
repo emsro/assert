@@ -12,12 +12,17 @@
 
 #include "../asrtl/core_proto.h"
 #include "../asrtl/ecode.h"
+#include "../asrtl/log.h"
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.h"
 #include "./util.h"
 
+#include <stdarg.h>
+#include <time.h>
 #include <unity.h>
+
+ASRTL_DEFINE_GPOS_LOG()
 
 void setUp( void )
 {

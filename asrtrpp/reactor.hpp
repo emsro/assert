@@ -25,6 +25,7 @@ struct unit
 
         static asrtr::status cb( record* rec )
         {
+                // XXX: how to make this async?
                 auto*         d  = static_cast< D* >( rec->test_ptr );
                 asrtr::status st = ( *d )();
                 rec->state       = st == ASRTR_SUCCESS ? ASRTR_TEST_PASS : ASRTR_TEST_FAIL;
@@ -51,7 +52,7 @@ struct reactor
                 return &reac.node;
         }
 
-        status tick( std::span< std::byte > buff )
+        status tick( std::span< uint8_t > buff )
         {
                 return asrtr_reactor_tick( &reac, asrtl::cnv( buff ) );
         }

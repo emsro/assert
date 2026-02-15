@@ -11,6 +11,8 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "../asrtl/core_proto.h"
 #include "../asrtl/ecode.h"
+#include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "./reactor.h"
 #include "status.h"
 
@@ -125,10 +127,12 @@ static enum asrtr_status asrtr_reactor_tick_flags(
 
         if ( reac->flags & ASRTR_FLAG_DESC ) {
                 mask = ~ASRTR_FLAG_DESC;
+                ASRTL_INF_LOG( "asrtr_asrtr", "Sending description" );
                 if ( asrtl_msg_rtoc_desc( &sp, reac->desc, strlen( reac->desc ) ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
                 mask = ~ASRTR_FLAG_PROTO_VER;
+                ASRTL_INF_LOG( "asrtr_asrtr", "Sending protocol version" );
                 // XXX: find better source of the version
                 if ( asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
@@ -139,14 +143,21 @@ static enum asrtr_status asrtr_reactor_tick_flags(
                 while ( t )
                         ++count, t = t->next;
 
+                ASRTL_INF_LOG( "asrtr_asrtr", "Sending test count: %u", count );
                 if ( asrtl_msg_rtoc_test_count( &sp, count ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
                 mask = ~ASRTR_FLAG_TI;
+                ASRTL_INF_LOG( "asrtr_asrtr", "Sending test %u info", reac->recv_test_info_id );
                 if ( asrtr_reactor_tick_flag_test_info( reac, &sp ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TSTART ) {
                 mask = ~ASRTR_FLAG_TSTART;
+                ASRTL_INF_LOG(
+                    "asrtr_asrtr",
+                    "Starting test %u, run ID: %u",
+                    reac->recv_test_start_id,
+                    reac->recv_test_run_id );
                 if ( asrtr_reactor_tick_flag_test_start( reac, &sp ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
@@ -225,44 +236,58 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         struct asrtr_reactor* r = (struct asrtr_reactor*) data;
         asrtl_message_id      id;
 
-        if ( asrtl_buffer_unfit( &buff, sizeof( asrtl_message_id ) ) )
+        if ( asrtl_span_unfit( &buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_RECV_ERR;
         asrtl_cut_u16( &buff.b, &id );
 
         enum asrtl_message_id_e eid = (enum asrtl_message_id_e) id;
         switch ( eid ) {
         case ASRTL_MSG_PROTO_VERSION:
+                ASRTL_INF_LOG( "asrtr_asrtr", "Protocol version requested" );
                 r->flags |= ASRTR_FLAG_PROTO_VER;
                 break;
         case ASRTL_MSG_DESC:
+                ASRTL_INF_LOG( "asrtr_asrtr", "Description requested" );
                 r->flags |= ASRTR_FLAG_DESC;
                 break;
         case ASRTL_MSG_TEST_COUNT:
+                ASRTL_INF_LOG( "asrtr_asrtr", "Test count requested" );
                 r->flags |= ASRTR_FLAG_TC;
                 break;
         // XXX: what will do fast repeat of this message?
         case ASRTL_MSG_TEST_INFO: {
-                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) ) )
+                if ( asrtl_span_unfit( &buff, sizeof( uint16_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_info_id );
+                ASRTL_INF_LOG( "asrtr_asrtr", "Test %i info requested", r->recv_test_info_id );
                 r->flags |= ASRTR_FLAG_TI;
                 break;
         }
         // XXX: what will do fast repeat of this message?
         case ASRTL_MSG_TEST_START: {
-                if ( asrtl_buffer_unfit( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
+                if ( asrtl_span_unfit( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_start_id );
                 asrtl_cut_u32( &buff.b, &r->recv_test_run_id );
+                ASRTL_INF_LOG(
+                    "asrtr_asrtr",
+                    "Test %i start requested, run ID: %u",
+                    r->recv_test_start_id,
+                    r->recv_test_run_id );
                 r->flags |= ASRTR_FLAG_TSTART;
                 break;
         }
         case ASRTL_MSG_ERROR:
         case ASRTL_MSG_TEST_RESULT:
         default:
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Unknown message ID: %u", id );
                 return ASRTL_RECV_UNKNOWN_ID_ERR;
         }
-        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
+        // If not all bytes are consumed - error
+        enum asrtl_status res = buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
+        if ( res == ASRTL_RECV_ERR )
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Unused bytes: %zu", (size_t) ( buff.e - buff.b ) );
+        return res;
 }
 
 enum asrtr_status asrtr_test_init(

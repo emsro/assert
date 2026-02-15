@@ -2,6 +2,8 @@
 
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
+#include "../asrtc/status_to_str.h"
+#include "../asrtl/log.h"
 
 namespace asrtc
 {
@@ -31,8 +33,8 @@ auto cimpl_do( auto& cb, Ts&&... args )
 
 asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_span buff )
 {
-        auto*                  ci = reinterpret_cast< controller_impl* >( ptr );
-        std::span< std::byte > sp{ (std::byte*) buff.b, (std::byte*) buff.e };
+        auto*                ci = reinterpret_cast< controller_impl* >( ptr );
+        std::span< uint8_t > sp{ buff.b, buff.e };
         if ( !ci->scb )
                 return ASRTL_SEND_ERR;
         return ci->scb( id, sp );
@@ -107,6 +109,11 @@ asrtc::status controller::query_desc( desc_cb cb )
         auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get() );
         if ( st == ASRTC_SUCCESS )
                 _impl->des_cb = std::move( cb );
+        else
+                ASRTL_ERR_LOG(
+                    "asrtcpp_controller",
+                    "Query description failed: %s",
+                    asrtc_status_to_str( st ) );
         return st;
 }
 
@@ -115,6 +122,11 @@ asrtc::status controller::query_test_count( tc_cb cb )
         auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get() );
         if ( st == ASRTC_SUCCESS )
                 _impl->tc_cb = std::move( cb );
+        else
+                ASRTL_ERR_LOG(
+                    "asrtcpp_controller",
+                    "Query test count failed: %s",
+                    asrtc_status_to_str( st ) );
         return st;
 }
 
@@ -123,6 +135,9 @@ asrtc::status controller::query_test_info( uint16_t id, desc_cb cb )
         auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get() );
         if ( st == ASRTC_SUCCESS )
                 _impl->ti_cb = std::move( cb );
+        else
+                ASRTL_ERR_LOG(
+                    "asrtcpp_controller", "Query test info failed: %s", asrtc_status_to_str( st ) );
         return st;
 }
 
@@ -131,6 +146,9 @@ asrtc::status controller::exec_test( uint16_t id, test_result_cb cb )
         auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get() );
         if ( st == ASRTC_SUCCESS )
                 _impl->te_cb = std::move( cb );
+        else
+                ASRTL_ERR_LOG(
+                    "asrtcpp_controller", "Execute test failed: %s", asrtc_status_to_str( st ) );
         return st;
 }
 

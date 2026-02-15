@@ -8,8 +8,8 @@ namespace asrtl
 template < typename CB >
 inline status sender_cb( void* data, chann_id id, span buff )
 {
-        auto*                  cb = reinterpret_cast< CB* >( data );
-        std::span< std::byte > sp = cnv( buff );
+        auto*                cb = reinterpret_cast< CB* >( data );
+        std::span< uint8_t > sp = cnv( buff );
         return ( *cb )( id, sp );
 }
 

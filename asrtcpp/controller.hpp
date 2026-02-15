@@ -25,6 +25,7 @@ struct controller
         controller( asrtl::send_cb scb, error_cb ecb );
         controller( controller&& );
 
+        [[nodiscard]]
         asrtc::status tick();
 
         // XXX: reevaluate this
@@ -32,10 +33,10 @@ struct controller
 
         bool is_idle() const;
 
-        asrtc::status query_desc( desc_cb cb );
-        asrtc::status query_test_count( tc_cb cb );
-        asrtc::status query_test_info( uint16_t id, desc_cb cb );
-        asrtc::status exec_test( uint16_t id, test_result_cb cb );
+        [[nodiscard]] asrtc::status query_desc( desc_cb cb );
+        [[nodiscard]] asrtc::status query_test_count( tc_cb cb );
+        [[nodiscard]] asrtc::status query_test_info( uint16_t id, desc_cb cb );
+        [[nodiscard]] asrtc::status exec_test( uint16_t id, test_result_cb cb );
 
         ~controller();
 
