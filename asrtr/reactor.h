@@ -56,10 +56,8 @@ struct asrtr_reactor
         struct asrtr_test* first_test;
 
         enum asrtr_reactor_state state;
-        union
-        {
-                struct asrtr_record record;
-        } state_data;
+        struct asrtr_test_input  test_info;
+        struct asrtr_record      record;
 
         uint32_t flags;  // values of asrtr_reactor_flags
 

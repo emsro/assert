@@ -83,7 +83,7 @@ static enum asrtl_status asrtc_cntr_recv_init(
 
         if ( eid != ASRTL_MSG_PROTO_VERSION )
                 return ASRTL_RECV_UNEXPECTED_ERR;
-        if ( asrtl_span_unfit( buff, 3 * sizeof( uint16_t ) ) )
+        if ( asrtl_span_unfit_for( buff, 3 * sizeof( uint16_t ) ) )
                 return ASRTL_RECV_ERR;
 
         struct asrtc_init_handler* h = &c->hndl.init;
@@ -153,7 +153,7 @@ static enum asrtl_status asrtc_cntr_recv_test_count(
 
         if ( eid != ASRTL_MSG_TEST_COUNT )
                 return ASRTL_RECV_UNEXPECTED_ERR;
-        if ( asrtl_span_unfit( buff, sizeof( uint16_t ) ) )
+        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) ) )
                 return ASRTL_RECV_ERR;
         struct asrtc_tc_handler* h = &c->hndl.tc;
         if ( h->stage != ASRTC_STAGE_WAITING )
@@ -291,7 +291,7 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
         if ( eid != ASRTL_MSG_TEST_INFO )
                 return ASRTL_RECV_UNEXPECTED_ERR;
 
-        if ( asrtl_span_unfit( buff, sizeof( uint16_t ) ) )
+        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) ) )
                 return ASRTL_RECV_ERR;
 
         struct asrtc_ti_handler* h = &c->hndl.ti;
@@ -326,6 +326,7 @@ enum asrtc_status asrtc_cntr_test_exec(
                 ( struct asrtc_result ){
                     .test_id = id,
                     .run_id  = c->run_id++,
+                    .res     = ASRTC_TEST_UNKNOWN,
                 },
             .ptr = ptr,
             .cb  = cb,
@@ -371,25 +372,37 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
                 return ASRTL_RECV_INTERNAL_ERR;
         switch ( eid ) {
         case ASRTL_MSG_TEST_START: {
-                if ( asrtl_span_unfit( buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
+                if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
-                uint16_t tid;  // XXX: unused for now
-                asrtl_cut_u16( &buff->b, &tid );
-                uint32_t rid;  // XXX: unused for now
-                asrtl_cut_u32( &buff->b, &rid );
+                uint16_t* tid = &h->res.test_id;
+                asrtl_cut_u16( &buff->b, tid );
+                uint32_t* rid = &h->res.run_id;
+                asrtl_cut_u32( &buff->b, rid );
                 break;
         }
         case ASRTL_MSG_TEST_RESULT: {
-                if ( asrtl_span_unfit(
+                if ( asrtl_span_unfit_for(
                          buff,
                          sizeof( uint32_t ) + sizeof( asrtl_test_result ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
-                uint32_t rid;  // XXX: unused for now
+                uint32_t rid;
                 asrtl_cut_u32( &buff->b, &rid );
-                asrtl_test_result res;  // XXX: unused for now
+                uint16_t res;
                 asrtl_cut_u16( &buff->b, &res );
                 uint32_t line;  // XXX: unused for now
                 asrtl_cut_u32( &buff->b, &line );
+
+                if ( rid != h->res.test_id ) {
+                        ASRTL_ERR_LOG(
+                            "asrtc_main",
+                            "Received test result for unexpected test: %u (expected %u)",
+                            rid,
+                            h->res.test_id );
+                        h->res.res = ASRTC_TEST_ERROR;
+                } else {
+                        ASRTL_INF_LOG( "asrtc_main", "Received test result: %u", res );
+                        h->res.res = res;
+                }
 
                 h->stage = ASRTC_STAGE_END;
                 break;
@@ -432,7 +445,7 @@ uint32_t asrtc_cntr_idle( struct asrtc_controller const* c )
 
 static enum asrtl_status asrtc_cntr_recv_error( struct asrtc_error_cb* h, struct asrtl_span* buff )
 {
-        if ( asrtl_span_unfit( buff, sizeof( uint16_t ) ) )
+        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) ) )
                 return ASRTL_RECV_ERR;
         uint16_t ecode;
         asrtl_cut_u16( &buff->b, &ecode );
@@ -447,7 +460,7 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
         assert( data );
         struct asrtc_controller* c = (struct asrtc_controller*) data;
         asrtl_message_id         id;
-        if ( asrtl_span_unfit( &buff, sizeof( asrtl_message_id ) ) )
+        if ( asrtl_span_unfit_for( &buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_RECV_ERR;
         asrtl_cut_u16( &buff.b, &id );
 

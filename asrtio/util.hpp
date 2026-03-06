@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../asrtc/status_to_str.h"
+#include "../asrtc/test_result_to_str.h"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
@@ -246,7 +247,7 @@ struct test_pool_task : task
         }
 };
 
-inline void for_each_test(
+inline void schedule_for_each_test(
     uv_tasks&                                                   tasks,
     asrtc::controller&                                          cntr,
     std::function< void( uint32_t id, std::string_view name ) > cb )
@@ -255,5 +256,49 @@ inline void for_each_test(
         tasks.push( std::move( p ) );
 }
 
+struct run_test_task : task
+{
+        asrtc::controller& cntr;
+        uint32_t           id;
+
+        run_test_task( asrtc::controller& cntr, uint32_t id )
+          : cntr( cntr )
+          , id( id )
+        {
+        }
+
+        task::res tick() override
+        {
+                if ( !cntr.is_idle() )
+                        return runnning;
+                if ( id == std::numeric_limits< uint32_t >::max() )
+                        return finished;
+                auto s = cntr.exec_test( id, [this]( asrtc::result const& res ) {
+                        ASRTL_INF_LOG(
+                            "asrtio_main",
+                            "Test result received: %u -> %i %i %s",
+                            this->id,
+                            res.test_id,
+                            res.run_id,
+                            asrtc_test_result_to_str( res.res ) );
+                        this->id = std::numeric_limits< uint32_t >::max();
+                        return ASRTC_SUCCESS;
+                } );
+                if ( s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Failed to start test execution: %s",
+                            asrtc_status_to_str( s ) );
+                        return finished;
+                }
+                return runnning;
+        }
+};
+
+inline void schedule_run_test( uv_tasks& tasks, asrtc::controller& cntr, uint32_t id )
+{
+        auto p = std::make_unique< run_test_task >( cntr, id );
+        tasks.push( std::move( p ) );
+}
 
 }  // namespace asrtio

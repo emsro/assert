@@ -152,11 +152,14 @@ void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< u
         os << std::endl;
 }
 
-struct noop_test : asrtr::unit< noop_test >
+struct noop_test
 {
-        static constexpr char const* desc = "noop";
+        char const* name()
+        {
+                return "noop_test";
+        }
 
-        asrtr::status operator()()
+        asrtr::status operator()( asrtr::record& )
         {
                 return ASRTR_SUCCESS;
         }
@@ -239,8 +242,8 @@ void exec( std::ostream& os, test_case const& tc )
                 check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( buff ) );
                 return ASRTL_SUCCESS;
         };
-        asrtr::reactor r{ r_cb, "Test reactor" };
-        noop_test      t1;
+        asrtr::reactor           r{ r_cb, "Test reactor" };
+        asrtr::unit< noop_test > t1{};
         r.add_test( t1 );
 
         c.emplace(

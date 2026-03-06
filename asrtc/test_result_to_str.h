@@ -9,36 +9,26 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTC_RESULT_H
-#define ASRTC_RESULT_H
+#ifndef ASRTC_TEST_RESULT_TO_STR_H
+#define ASRTC_TEST_RESULT_TO_STR_H
 
-#include "../asrtl/core_proto.h"
+#include "./result.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
-
-typedef asrtl_test_result asrtc_test_result;
-
-enum
+inline char const* asrtc_test_result_to_str( asrtc_test_result res )
 {
-        ASRTC_TEST_SUCCESS = ASRTL_TEST_SUCCESS,
-        ASRTC_TEST_ERROR   = ASRTL_TEST_ERROR,
-        ASRTC_TEST_FAILURE = ASRTL_TEST_FAILURE,
-        ASRTC_TEST_UNKNOWN = 0x04,
-};
-
-struct asrtc_result
-{
-        uint16_t          test_id;
-        uint32_t          run_id;
-        asrtc_test_result res;
-};
-
-#ifdef __cplusplus
+        switch ( res ) {
+        case ASRTC_TEST_SUCCESS:
+                return "success";
+        case ASRTC_TEST_ERROR:
+                return "error";
+        case ASRTC_TEST_FAILURE:
+                return "failure";
+        case ASRTC_TEST_UNKNOWN:
+                return "unknown";
+        default:
+                break;
+        }
+        return "unknown result";
 }
-#endif
 
 #endif

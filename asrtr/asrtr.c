@@ -93,16 +93,19 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
                 if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_MISSING_TEST ) != ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
-                reac->state_data.record = ( struct asrtr_record ){
-                    .state      = ASRTR_TEST_INIT,
+                reac->test_info = ( struct asrtr_test_input ){
                     .test_ptr   = t->ptr,
                     .continue_f = t->start_f,
                     .run_id     = reac->recv_test_run_id,
-                    .line       = 0,
+                };
+                reac->record = ( struct asrtr_record ){
+                    .state = ASRTR_TEST_INIT,
+                    .line  = 0,
+                    .inpt  = &reac->test_info,
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
                 if ( asrtl_msg_rtoc_test_start(
-                         buff, reac->recv_test_start_id, reac->state_data.record.run_id ) !=
+                         buff, reac->recv_test_start_id, reac->record.inpt->run_id ) !=
                      ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         }
@@ -185,11 +188,11 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
 
         switch ( reac->state ) {
         case ASRTR_REAC_TEST_EXEC: {
-                struct asrtr_record* record = &reac->state_data.record;
+                struct asrtr_record* record = &reac->record;
                 assert( record );
-                assert( record->continue_f );
+                assert( record->inpt->continue_f );
 
-                if ( record->continue_f( record ) != ASRTR_SUCCESS )
+                if ( record->inpt->continue_f( record ) != ASRTR_SUCCESS )
                         record->state = ASRTR_TEST_ERROR;
 
                 switch ( record->state ) {
@@ -206,11 +209,11 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
                 break;
         }
         case ASRTR_REAC_TEST_REPORT: {
-                struct asrtr_record* record = &reac->state_data.record;
+                struct asrtr_record* record = &reac->record;
                 struct asrtl_span    sp     = buff;
                 if ( asrtl_msg_rtoc_test_result(
                          &sp,
-                         record->run_id,
+                         record->inpt->run_id,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
                                                              ASRTL_TEST_SUCCESS,
@@ -236,7 +239,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         struct asrtr_reactor* r = (struct asrtr_reactor*) data;
         asrtl_message_id      id;
 
-        if ( asrtl_span_unfit( &buff, sizeof( asrtl_message_id ) ) )
+        if ( asrtl_span_unfit_for( &buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_RECV_ERR;
         asrtl_cut_u16( &buff.b, &id );
 
@@ -256,7 +259,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 break;
         // XXX: what will do fast repeat of this message?
         case ASRTL_MSG_TEST_INFO: {
-                if ( asrtl_span_unfit( &buff, sizeof( uint16_t ) ) )
+                if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_info_id );
                 ASRTL_INF_LOG( "asrtr_asrtr", "Test %i info requested", r->recv_test_info_id );
@@ -265,7 +268,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         }
         // XXX: what will do fast repeat of this message?
         case ASRTL_MSG_TEST_START: {
-                if ( asrtl_span_unfit( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
+                if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_start_id );
                 asrtl_cut_u32( &buff.b, &r->recv_test_run_id );

@@ -21,7 +21,14 @@ namespace asrtio
 using asrtl::opt;
 
 extern "C" {
-ASRTL_DEFINE_GPOS_LOG()
+ASRTL_DEFINE_GPOS_LOG_IMPL
+void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... )
+{
+        va_list args;
+        va_start( args, fmt );
+        asrtl_log_impl( level, module, fmt, args );
+        va_end( args );
+}
 }
 
 struct cntr_tcp_sys
@@ -188,9 +195,10 @@ int main( int argc, char* argv[] )
                 }
                 sys = std::shared_ptr< cntr_tcp_sys >( rsys, rsys->sys.get() );
                 sys->tasks.push( std::make_unique< after_idle >( sys->cntr, [&] {
-                        for_each_test(
+                        schedule_for_each_test(
                             sys->tasks, sys->cntr, [&]( uint32_t id, std::string_view name ) {
                                     ASRTL_INF_LOG( "asrtio_main", "Test %u: %s", id, name.data() );
+                                    schedule_run_test( sys->tasks, sys->cntr, id );
                             } );
                 } ) );
                 sys->tasks.set_on_complete( [rsys] {

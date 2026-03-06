@@ -31,37 +31,45 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 
 #define ASRTL_ERR_LOG( module, ... ) asrtl_log( ASRTL_LOG_ERROR, module, __VA_ARGS__ )
 
+#define ASRTL_DEFINE_GPOS_LOG_IMPL                                                            \
+        void asrtl_log_impl(                                                                  \
+            enum asrtl_log_level level, char const* module, char const* fmt, va_list args )   \
+        {                                                                                     \
+                                                                                              \
+                char const* level_str = "UNK";                                                \
+                switch ( level ) {                                                            \
+                case ASRTL_LOG_DEBUG:                                                         \
+                        level_str = "\033[36mDEBUG\033[0m";                                   \
+                        break;                                                                \
+                case ASRTL_LOG_INFO:                                                          \
+                        level_str = "\033[32mINFO\033[0m";                                    \
+                        break;                                                                \
+                case ASRTL_LOG_ERROR:                                                         \
+                        level_str = "\033[31mERROR\033[0m";                                   \
+                        break;                                                                \
+                default:                                                                      \
+                        break;                                                                \
+                }                                                                             \
+                                                                                              \
+                char      timebuf[32];                                                        \
+                time_t    t = time( NULL );                                                   \
+                struct tm tm;                                                                 \
+                localtime_r( &t, &tm );                                                       \
+                strftime( timebuf, sizeof( timebuf ), "%Y%m%d %H%M%S", &tm );                 \
+                                                                                              \
+                fprintf( stderr, "%s %s %s :: ", timebuf, module ? module : "-", level_str ); \
+                vfprintf( stderr, fmt, args );                                                \
+                fprintf( stderr, "\n" );                                                      \
+        }
+
 #define ASRTL_DEFINE_GPOS_LOG()                                                                \
+        ASRTL_DEFINE_GPOS_LOG_IMPL                                                             \
         void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... ) \
         {                                                                                      \
-                                                                                               \
-                char const* level_str = "UNK";                                                 \
-                switch ( level ) {                                                             \
-                case ASRTL_LOG_DEBUG:                                                          \
-                        level_str = "\033[36mDEBUG\033[0m";                                    \
-                        break;                                                                 \
-                case ASRTL_LOG_INFO:                                                           \
-                        level_str = "\033[32mINFO\033[0m";                                     \
-                        break;                                                                 \
-                case ASRTL_LOG_ERROR:                                                          \
-                        level_str = "\033[31mERROR\033[0m";                                    \
-                        break;                                                                 \
-                default:                                                                       \
-                        break;                                                                 \
-                }                                                                              \
-                                                                                               \
-                char      timebuf[32];                                                         \
-                time_t    t = time( NULL );                                                    \
-                struct tm tm;                                                                  \
-                localtime_r( &t, &tm );                                                        \
-                strftime( timebuf, sizeof( timebuf ), "%Y%m%d %H%M%S", &tm );                  \
-                                                                                               \
-                fprintf( stderr, "%s %s %s :: ", timebuf, module ? module : "-", level_str );  \
                 va_list args;                                                                  \
                 va_start( args, fmt );                                                         \
-                vfprintf( stderr, fmt, args );                                                 \
+                asrtl_log_impl( level, module, fmt, args );                                    \
                 va_end( args );                                                                \
-                fprintf( stderr, "\n" );                                                       \
         }
 
 #ifdef __cplusplus

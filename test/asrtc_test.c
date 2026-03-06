@@ -266,6 +266,9 @@ void test_cntr_run_test( struct test_context* ctx )
         asrtl_msg_rtoc_test_result( &ctx->sp, 42, ASRTL_TEST_SUCCESS, 0 );
         check_recv_and_spin( &ctx->cntr, b, ctx->sp.b );
 
+        TEST_ASSERT_EQUAL( res.test_id, 42 );
+        TEST_ASSERT_EQUAL( res.run_id, 0 );
+        TEST_ASSERT_EQUAL( res.res, ASRTC_TEST_SUCCESS );
         TEST_ASSERT_NULL( ctx->collected );
 }
 

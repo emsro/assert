@@ -14,16 +14,58 @@
 namespace asrtio
 {
 
+struct utest_sim
+{
+
+        int              iter = 3;
+        asrtr_test_state res  = ASRTR_TEST_PASS;
+        std::string      tname;
+
+        char const* name()
+        {
+                return tname.data();
+        }
+
+        asrtr::status operator()( asrtr::record& r )
+        {
+                if ( iter == 0 )
+                        r.state = res;
+                else {
+                        r.state = ASRTR_TEST_RUNNING;
+                        iter--;
+                }
+                return ASRTR_SUCCESS;
+        }
+};
+
+
 struct conn_ctx
 {
-        uv_tcp_t       client;
-        bool           closed = false;
-        asrtr::reactor reac;
+        uv_tcp_t                              client;
+        bool                                  closed = false;
+        asrtr::reactor                        reac;
+        std::list< asrtr::unit< utest_sim > > tests;
 
         conn_ctx()
           : reac( *this, "simulator reactor" )
         {
                 client.data = this;
+
+                reg( utest_sim{ .iter = 3, .res = ASRTR_TEST_PASS, .tname = "utest_sim" } );
+                reg( utest_sim{ .iter = 5, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_fail" } );
+                reg( utest_sim{ .iter = 1, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_error" } );
+                reg( utest_sim{
+                    .iter = 0, .res = ASRTR_TEST_PASS, .tname = "utest_sim_insta_pass" } );
+                reg( utest_sim{
+                    .iter = 0, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_insta_fail" } );
+                reg( utest_sim{
+                    .iter = 0, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_insta_error" } );
+        }
+
+        void reg( utest_sim sim )
+        {
+                auto& t = tests.emplace_back( std::move( sim ) );
+                reac.add_test( t );
         }
 
         asrtl::status operator()( asrtl::chann_id id, std::span< uint8_t > buff )

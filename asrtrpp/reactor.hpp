@@ -12,12 +12,14 @@ namespace asrtr
 using status = asrtr_status;
 using record = asrtr_record;
 
-template < typename D >
+template < typename T >
 struct unit
 {
-        unit()
+        template < typename... Args >
+        unit( Args&&... args )
+          : test( (Args&&) args... )
         {
-                asrtr_test_init( &atest, D::desc, static_cast< D* >( this ), D::cb );
+                asrtr_test_init( &atest, test.name(), static_cast< unit* >( this ), unit::cb );
         }
 
         unit( unit&& )      = delete;
@@ -26,21 +28,22 @@ struct unit
         static asrtr::status cb( record* rec )
         {
                 // XXX: how to make this async?
-                auto*         d  = static_cast< D* >( rec->test_ptr );
-                asrtr::status st = ( *d )();
-                rec->state       = st == ASRTR_SUCCESS ? ASRTR_TEST_PASS : ASRTR_TEST_FAIL;
+                auto*         self = static_cast< unit* >( rec->inpt->test_ptr );
+                asrtr::status st   = self->test( *rec );
+                rec->state         = st == ASRTR_SUCCESS ? ASRTR_TEST_PASS : ASRTR_TEST_FAIL;
                 return st;
         }
 
+        T          test;
         asrtr_test atest;
 };
 
 struct reactor
 {
         template < typename CB >
-        reactor( CB& cb, char const* desc )
+        reactor( CB& send_cb, char const* desc )
         {
-                std::ignore = asrtr_reactor_init( &reac, asrtl::make_sender( cb ), desc );
+                std::ignore = asrtr_reactor_init( &reac, asrtl::make_sender( send_cb ), desc );
         }
 
         reactor( reactor&& )      = delete;

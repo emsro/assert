@@ -28,7 +28,7 @@ enum asrtl_status asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_sp
         if ( !head )
                 return ASRTL_RECV_INTERNAL_ERR;
 
-        if ( asrtl_span_unfit( &buff, sizeof( asrtl_chann_id ) ) )
+        if ( asrtl_span_unfit_for( &buff, sizeof( asrtl_chann_id ) ) )
                 return ASRTL_SIZE_ERR;
 
         asrtl_chann_id id;

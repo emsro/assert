@@ -32,13 +32,19 @@ enum asrtr_test_state
 struct asrtr_record;
 typedef enum asrtr_status ( *asrtr_test_callback )( struct asrtr_record* );
 
+struct asrtr_test_input
+{
+        void*               test_ptr;
+        asrtr_test_callback continue_f;
+        uint32_t            run_id;
+};
+
 struct asrtr_record
 {
-        enum asrtr_test_state state;
-        void*                 test_ptr;
-        asrtr_test_callback   continue_f;
-        uint32_t              run_id;
-        uint32_t              line;
+        enum asrtr_test_state state;  // Current state of the test
+        uint32_t              line;   // signall line of failure, 0 if not failed
+
+        struct asrtr_test_input const* inpt;
 };
 
 uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line );
