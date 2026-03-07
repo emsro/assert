@@ -27,10 +27,10 @@ struct unit
 
         static asrtr::status cb( record* rec )
         {
-                // XXX: how to make this async?
                 auto*         self = static_cast< unit* >( rec->inpt->test_ptr );
                 asrtr::status st   = self->test( *rec );
-                rec->state         = st == ASRTR_SUCCESS ? ASRTR_TEST_PASS : ASRTR_TEST_FAIL;
+                if ( st != ASRTR_SUCCESS )
+                        rec->state = ASRTR_TEST_FAIL;
                 return st;
         }
 

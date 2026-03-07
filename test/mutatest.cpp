@@ -159,8 +159,9 @@ struct noop_test
                 return "noop_test";
         }
 
-        asrtr::status operator()( asrtr::record& )
+        asrtr::status operator()( asrtr::record& rec )
         {
+                rec.state = ASRTR_TEST_PASS;
                 return ASRTR_SUCCESS;
         }
 };

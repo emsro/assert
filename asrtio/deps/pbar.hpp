@@ -106,6 +106,9 @@ public:
         // Finalise: leave cursor below bar, reset ANSI formatting, flush.
         void finish();
 
+        // Update the total (e.g. once test count is known).
+        void set_total( int n );
+
         // Returns terminal column width (falls back to 80)
         [[nodiscard]] static int terminal_width();
 
@@ -452,6 +455,13 @@ inline void terminal_progress::finish()
                 return;
         m_finished = true;
         if ( m_started )
+                redraw_bar();
+}
+
+inline void terminal_progress::set_total( int n )
+{
+        m_cfg.total = n;
+        if ( m_started && !m_finished )
                 redraw_bar();
 }
 

@@ -8,7 +8,10 @@
 #include "../asrtrpp/reactor.hpp"
 #include "./util.hpp"
 
+#include <chrono>
 #include <list>
+#include <optional>
+#include <random>
 #include <uv.h>
 
 namespace asrtio
@@ -16,10 +19,21 @@ namespace asrtio
 
 struct utest_sim
 {
-
-        int              iter = 3;
-        asrtr_test_state res  = ASRTR_TEST_PASS;
+        int              duration_ms = 300;
+        int              variance_ms = 0;
+        asrtr_test_state res         = ASRTR_TEST_PASS;
+        bool             randomize   = false;
         std::string      tname;
+
+        using clock = std::chrono::steady_clock;
+        std::optional< clock::time_point > start;
+        int                                actual_ms = 0;
+
+        static std::mt19937& rng()
+        {
+                static std::mt19937 gen{ std::random_device{}() };
+                return gen;
+        }
 
         char const* name()
         {
@@ -28,12 +42,30 @@ struct utest_sim
 
         asrtr::status operator()( asrtr::record& r )
         {
-                if ( iter == 0 )
-                        r.state = res;
-                else {
-                        r.state = ASRTR_TEST_RUNNING;
-                        iter--;
+                if ( !start ) {
+                        start = clock::now();
+                        if ( variance_ms > 0 ) {
+                                std::uniform_int_distribution< int > jitter(
+                                    -variance_ms, variance_ms );
+                                actual_ms = std::max( 0, duration_ms + jitter( rng() ) );
+                        } else {
+                                actual_ms = duration_ms;
+                        }
+                        if ( randomize ) {
+                                static constexpr asrtr_test_state k_results[] = {
+                                    ASRTR_TEST_PASS, ASRTR_TEST_FAIL, ASRTR_TEST_ERROR };
+                                std::uniform_int_distribution< int > pick( 0, 2 );
+                                res = k_results[pick( rng() )];
+                        }
                 }
+
+                auto elapsed =
+                    std::chrono::duration_cast< std::chrono::milliseconds >( clock::now() - *start )
+                        .count();
+                if ( elapsed >= actual_ms )
+                        r.state = res;
+                else
+                        r.state = ASRTR_TEST_RUNNING;
                 return ASRTR_SUCCESS;
         }
 };
@@ -51,15 +83,30 @@ struct conn_ctx
         {
                 client.data = this;
 
-                reg( utest_sim{ .iter = 3, .res = ASRTR_TEST_PASS, .tname = "utest_sim" } );
-                reg( utest_sim{ .iter = 5, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_fail" } );
-                reg( utest_sim{ .iter = 1, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_error" } );
                 reg( utest_sim{
-                    .iter = 0, .res = ASRTR_TEST_PASS, .tname = "utest_sim_insta_pass" } );
+                    .duration_ms = 300,
+                    .variance_ms = 200,
+                    .res         = ASRTR_TEST_PASS,
+                    .randomize   = true,
+                    .tname       = "utest_sim" } );
                 reg( utest_sim{
-                    .iter = 0, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_insta_fail" } );
+                    .duration_ms = 500,
+                    .variance_ms = 300,
+                    .res         = ASRTR_TEST_FAIL,
+                    .randomize   = true,
+                    .tname       = "utest_sim_fail" } );
                 reg( utest_sim{
-                    .iter = 0, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_insta_error" } );
+                    .duration_ms = 150,
+                    .variance_ms = 100,
+                    .res         = ASRTR_TEST_ERROR,
+                    .randomize   = false,
+                    .tname       = "utest_sim_error" } );
+                reg( utest_sim{
+                    .duration_ms = 0, .res = ASRTR_TEST_PASS, .tname = "utest_sim_insta_pass" } );
+                reg( utest_sim{
+                    .duration_ms = 0, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_insta_fail" } );
+                reg( utest_sim{
+                    .duration_ms = 0, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_insta_error" } );
         }
 
         void reg( utest_sim sim )

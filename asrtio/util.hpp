@@ -196,6 +196,7 @@ struct test_pool_task : task
         uint32_t           idx   = 0;
 
         std::function< void( uint32_t id, std::string_view name ) > cb;
+        std::function< void( uint32_t ) >                           on_count;
 
         test_pool_task(
             asrtc::controller&                                          cntr,
@@ -217,6 +218,8 @@ struct test_pool_task : task
                                     "asrtio_main",
                                     "Test count received: %u",
                                     static_cast< uint32_t >( c ) );
+                                if ( on_count )
+                                        on_count( c );
                                 return ASRTC_SUCCESS;
                         } );
                         if ( s != ASRTC_SUCCESS ) {
@@ -250,20 +253,30 @@ struct test_pool_task : task
 inline void schedule_for_each_test(
     uv_tasks&                                                   tasks,
     asrtc::controller&                                          cntr,
-    std::function< void( uint32_t id, std::string_view name ) > cb )
+    std::function< void( uint32_t id, std::string_view name ) > cb,
+    std::function< void( uint32_t ) >                           on_count = {} )
 {
-        auto p = std::make_unique< test_pool_task >( cntr, std::move( cb ) );
+        auto p      = std::make_unique< test_pool_task >( cntr, std::move( cb ) );
+        p->on_count = std::move( on_count );
         tasks.push( std::move( p ) );
 }
 
 struct run_test_task : task
 {
-        asrtc::controller& cntr;
-        uint32_t           id;
+        asrtc::controller&                            cntr;
+        uint32_t                                      id;
+        std::function< void() >                       on_start;
+        std::function< void( asrtc::result const& ) > on_result;
 
-        run_test_task( asrtc::controller& cntr, uint32_t id )
+        run_test_task(
+            asrtc::controller&                            cntr,
+            uint32_t                                      id,
+            std::function< void() >                       on_start  = {},
+            std::function< void( asrtc::result const& ) > on_result = {} )
           : cntr( cntr )
           , id( id )
+          , on_start( std::move( on_start ) )
+          , on_result( std::move( on_result ) )
         {
         }
 
@@ -273,6 +286,10 @@ struct run_test_task : task
                         return runnning;
                 if ( id == std::numeric_limits< uint32_t >::max() )
                         return finished;
+                if ( on_start ) {
+                        on_start();
+                        on_start = {};
+                }
                 auto s = cntr.exec_test( id, [this]( asrtc::result const& res ) {
                         ASRTL_INF_LOG(
                             "asrtio_main",
@@ -281,6 +298,8 @@ struct run_test_task : task
                             res.test_id,
                             res.run_id,
                             asrtc_test_result_to_str( res.res ) );
+                        if ( on_result )
+                                on_result( res );
                         this->id = std::numeric_limits< uint32_t >::max();
                         return ASRTC_SUCCESS;
                 } );
@@ -295,9 +314,15 @@ struct run_test_task : task
         }
 };
 
-inline void schedule_run_test( uv_tasks& tasks, asrtc::controller& cntr, uint32_t id )
+inline void schedule_run_test(
+    uv_tasks&                                    tasks,
+    asrtc::controller&                           cntr,
+    uint32_t                                     id,
+    std::function< void() >                      on_start  = {},
+    std::function< void( asrtc::result const& ) > on_result = {} )
 {
-        auto p = std::make_unique< run_test_task >( cntr, id );
+        auto p = std::make_unique< run_test_task >(
+            cntr, id, std::move( on_start ), std::move( on_result ) );
         tasks.push( std::move( p ) );
 }
 
