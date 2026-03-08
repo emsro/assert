@@ -8,6 +8,7 @@
 #include "../asrtl/util.h"
 #include "../asrtlpp/util.hpp"
 
+#include <cstring>
 #include <deque>
 #include <functional>
 #include <span>

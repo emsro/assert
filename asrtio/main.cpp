@@ -11,6 +11,7 @@
 
 #include <CLI/CLI.hpp>
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <list>
 #include <uv.h>
