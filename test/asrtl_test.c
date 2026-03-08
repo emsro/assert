@@ -71,6 +71,64 @@ void test_fill_buffer( void )
         TEST_ASSERT_EQUAL( 0x03, data1[1] );
 }
 
+void test_fill_buffer_zero_source( void )
+{
+        uint8_t           dest[4]       = { 0xAA, 0xBB, 0xCC, 0xDD };
+        struct asrtl_span sp            = { .b = dest, .e = dest + sizeof dest };
+        uint8_t*          dest_b_before = sp.b;
+        uint8_t*          dest_e_before = sp.e;
+
+        asrtl_fill_buffer( NULL, 0, &sp );
+
+        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
+        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
+        TEST_ASSERT_EQUAL( 0xAA, dest[0] );
+        TEST_ASSERT_EQUAL( 0xBB, dest[1] );
+        TEST_ASSERT_EQUAL( 0xCC, dest[2] );
+        TEST_ASSERT_EQUAL( 0xDD, dest[3] );
+}
+
+void test_fill_buffer_zero_capacity_dest( void )
+{
+        uint8_t           source[4] = { 0x11, 0x22, 0x33, 0x44 };
+        uint8_t           dest[0];
+        struct asrtl_span sp            = { .b = dest, .e = dest };
+        uint8_t*          dest_b_before = sp.b;
+        uint8_t*          dest_e_before = sp.e;
+
+        asrtl_fill_buffer( source, sizeof source, &sp );
+
+        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
+        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
+}
+
+void test_fill_buffer_both_zero( void )
+{
+        uint8_t           dest[0];
+        struct asrtl_span sp            = { .b = dest, .e = dest };
+        uint8_t*          dest_b_before = sp.b;
+        uint8_t*          dest_e_before = sp.e;
+
+        asrtl_fill_buffer( NULL, 0, &sp );
+
+        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
+        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
+}
+
+void test_fill_buffer_exact_fit( void )
+{
+        uint8_t           source[3] = { 0xDE, 0xAD, 0xBE };
+        uint8_t           dest[3]   = { 0x00, 0x00, 0x00 };
+        struct asrtl_span sp        = { .b = dest, .e = dest + sizeof dest };
+
+        asrtl_fill_buffer( source, sizeof source, &sp );
+
+        TEST_ASSERT_EQUAL_PTR( dest + 3, sp.b );
+        TEST_ASSERT_EQUAL( 0xDE, dest[0] );
+        TEST_ASSERT_EQUAL( 0xAD, dest[1] );
+        TEST_ASSERT_EQUAL( 0xBE, dest[2] );
+}
+
 struct cobs_record
 {
         uint8_t*            raw;
@@ -180,7 +238,6 @@ void test_cobs( void )
 {
         struct cobs_record* head = create_dataset();
 
-        // XXX: test corner cases  // T02
         struct cobs_record* node;
         for ( node = head; node; node = node->next ) {
                 uint8_t                   buffer[512];
@@ -945,6 +1002,10 @@ int main( void )
         RUN_TEST( test_reactor_init );
         RUN_TEST( test_add_chann_id );
         RUN_TEST( test_fill_buffer );
+        RUN_TEST( test_fill_buffer_zero_source );
+        RUN_TEST( test_fill_buffer_zero_capacity_dest );
+        RUN_TEST( test_fill_buffer_both_zero );
+        RUN_TEST( test_fill_buffer_exact_fit );
         RUN_TEST( test_cobs );
         RUN_TEST( test_cobs_ibuffer_iter_no_message );
         RUN_TEST( test_cobs_ibuffer_iter_single_message );
