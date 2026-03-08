@@ -16,6 +16,7 @@
 #include "../asrtc/default_error_cb.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/log.h"
+#include "../asrtl/proto_version.h"
 #include "./collector.h"
 #include "./util.h"
 
@@ -339,6 +340,24 @@ void test_realloc_str_long_string( struct test_context* ctx )
         free( data );
 }
 
+void test_cntr_version_mismatch( struct test_context* ctx )
+{
+        enum asrtc_status st = asrtc_cntr_init(
+            &ctx->cntr, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // reply with a mismatched major version
+        uint8_t           buf[64];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_proto_version( &sp, ASRTL_PROTO_MAJOR + 1, 0, 0 );
+        check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+
+        st = asrtc_cntr_tick( &ctx->cntr );
+        TEST_ASSERT_EQUAL( ASRTC_VERSION_ERR, st );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -349,5 +368,6 @@ int main( void )
         ASRT_RUN_TEST( test_cntr_run_test );
         ASRT_RUN_TEST( test_cntr_desc_alloc_failure );
         ASRT_RUN_TEST( test_realloc_str_long_string );
+        ASRT_RUN_TEST( test_cntr_version_mismatch );
         return UNITY_END();
 }

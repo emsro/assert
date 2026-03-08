@@ -12,6 +12,7 @@
 
 #include "../asrtl/core_proto.h"
 #include "../asrtl/log.h"
+#include "../asrtl/proto_version.h"
 
 #include <string.h>
 
@@ -76,7 +77,16 @@ static enum asrtc_status asrtc_cntr_tick_init( struct asrtc_controller* c, struc
         case ASRTC_STAGE_WAITING:
                 break;
         case ASRTC_STAGE_END:
-                // XXX: check the version  // C03
+                if ( h->ver.major != ASRTL_PROTO_MAJOR ) {
+                        ASRTL_ERR_LOG(
+                            "asrtc",
+                            "Protocol version mismatch: got %u.%u.%u, expected %u.x.x",
+                            h->ver.major,
+                            h->ver.minor,
+                            h->ver.patch,
+                            ASRTL_PROTO_MAJOR );
+                        return ASRTC_VERSION_ERR;
+                }
                 c->state = ASRTC_CNTR_IDLE;
                 ASRTL_INF_LOG( "asrtc", "Controller initialized" );
         }
