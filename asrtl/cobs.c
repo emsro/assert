@@ -18,10 +18,9 @@ enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct a
         assert( out && in.b && in.e && out->b && out->e );
         assert( in.e >= in.b && out->e >= out->b );
         uint8_t* out_end = out->e;
-        uint8_t* out_ptr = out->b;  // L11: out_ptr set but never used after asrtl_cobs_encoder_init
 
         struct asrtl_cobs_encoder enc;
-        asrtl_cobs_encoder_init( &enc, out_ptr );
+        asrtl_cobs_encoder_init( &enc, out->b );
 
         for ( uint8_t* p = in.b; p != in.e; ++p ) {
                 if ( enc.p + 1 >= out_end )  // iter may write 2 bytes when offset resets at 255

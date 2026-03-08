@@ -996,6 +996,27 @@ void test_u8d4_to_u32_high_bit( void )
         TEST_ASSERT_EQUAL_HEX32( 0x80000001, val );
 }
 
+void test_cobs_encode_buffer_l11( void )
+{
+        // L11: Verify asrtl_cobs_encode_buffer works correctly (out_ptr is dead code)
+        uint8_t           input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
+        uint8_t           output[32];
+        struct asrtl_span in  = { .b = input, .e = input + sizeof input };
+        struct asrtl_span out = { .b = output, .e = output + sizeof output };
+
+        enum asrtl_status st = asrtl_cobs_encode_buffer( in, &out );
+
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
+        TEST_ASSERT_EQUAL( 7, (size_t) ( out.e - out.b ) );
+        TEST_ASSERT_EQUAL( 0x03, output[0] );
+        TEST_ASSERT_EQUAL( 0x11, output[1] );
+        TEST_ASSERT_EQUAL( 0x22, output[2] );
+        TEST_ASSERT_EQUAL( 0x03, output[3] );
+        TEST_ASSERT_EQUAL( 0x33, output[4] );
+        TEST_ASSERT_EQUAL( 0x44, output[5] );
+        TEST_ASSERT_EQUAL( 0x00, output[6] );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -1034,5 +1055,6 @@ int main( void )
         RUN_TEST( test_chann_cobs_dispatch_ibuffer_size_err );
         RUN_TEST( test_chann_cobs_dispatch_recv_cb_error );
         RUN_TEST( test_u8d4_to_u32_high_bit );
+        RUN_TEST( test_cobs_encode_buffer_l11 );
         return UNITY_END();
 }
