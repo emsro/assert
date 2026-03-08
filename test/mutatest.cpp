@@ -9,6 +9,8 @@
 #include <iostream>
 #include <source_location>
 #include <sstream>
+#include <string_view>
+#include <variant>
 
 extern "C" {
 ASRTL_DEFINE_GPOS_LOG()

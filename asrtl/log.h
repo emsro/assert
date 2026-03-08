@@ -12,6 +12,10 @@
 #ifndef ASRTL_LOG_H
 #define ASRTL_LOG_H
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <time.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
