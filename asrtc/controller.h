@@ -79,6 +79,7 @@ enum asrtc_status asrtc_cntr_test_exec(
     void*                      ptr );
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff );
+void              asrtc_cntr_deinit( struct asrtc_controller* c );
 
 #ifdef __cplusplus
 }

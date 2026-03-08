@@ -87,7 +87,12 @@ controller::controller( asrtl::send_cb scb, error_cb ecb )
 }
 
 controller::controller( controller&& ) = default;
-controller::~controller()              = default;
+
+controller::~controller()
+{
+        if ( _impl )
+                asrtc_cntr_deinit( &_impl->asc );
+}
 
 asrtl_node* controller::node()
 {

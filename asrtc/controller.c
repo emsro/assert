@@ -51,6 +51,15 @@ enum asrtc_status asrtc_cntr_init(
         return ASRTC_SUCCESS;
 }
 
+void asrtc_cntr_deinit( struct asrtc_controller* c )
+{
+        assert( c );
+        if ( c->state == ASRTC_CNTR_HNDL_DESC && c->hndl.desc.desc )
+                asrtc_free( &c->alloc, (void**) &c->hndl.desc.desc );
+        else if ( c->state == ASRTC_CNTR_HNDL_TI && c->hndl.ti.desc )
+                asrtc_free( &c->alloc, (void**) &c->hndl.ti.desc );
+}
+
 static enum asrtc_status asrtc_cntr_tick_init( struct asrtc_controller* c, struct asrtl_span buff )
 {
         assert( c->state == ASRTC_CNTR_INIT );

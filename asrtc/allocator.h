@@ -40,7 +40,7 @@ static inline void asrtc_free( struct asrtc_allocator* a, void** mem )
         assert( a && a->free );
         assert( *mem );
         a->free( a->ptr, *mem );
-        mem = NULL;
+        *mem = NULL;
 }
 
 char* asrtc_realloc_str( struct asrtc_allocator* a, struct asrtl_span* buff );
