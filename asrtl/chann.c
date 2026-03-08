@@ -47,21 +47,26 @@ enum asrtl_status asrtl_chann_cobs_dispatch(
     struct asrtl_node*         head,
     struct asrtl_span          in_buff )
 {
-        asrtl_cobs_ibuffer_insert( ibuff, in_buff );
+        enum asrtl_status st = asrtl_cobs_ibuffer_insert( ibuff, in_buff );
+        if ( st != ASRTL_SUCCESS )
+                return st;
 
         for ( ;; ) {
                 uint8_t           buffer[1024];
                 struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
                 int8_t            r  = asrtl_cobs_ibuffer_iter( ibuff, &sp );
                 if ( r == -1 ) {
-                        ASRTL_ERR_LOG( "test_rsim", "Received COBS message too large for buffer" );
+                        ASRTL_ERR_LOG(
+                            "asrtl_chann", "Received COBS message too large for buffer" );
                         return ASRTL_SIZE_ERR;
                 }
                 if ( r == 0 )
                         break;
                 if ( sp.b == sp.e )
                         continue;
-                asrtl_chann_dispatch( head, ( struct asrtl_span ){ .b = sp.b, .e = sp.e } );
+                st = asrtl_chann_dispatch( head, ( struct asrtl_span ){ .b = sp.b, .e = sp.e } );
+                if ( st != ASRTL_SUCCESS )
+                        return st;
         }
 
         return ASRTL_SUCCESS;

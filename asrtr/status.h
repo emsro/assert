@@ -17,6 +17,7 @@ extern "C" {
 
 enum asrtr_status
 {
+        ASRTR_INTERNAL_ERR  = -5,
         ASRTR_SEND_ERR      = -4,
         ASRTR_BUSY_ERR      = -3,
         ASRTR_REAC_INIT_ERR = -2,

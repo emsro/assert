@@ -18,13 +18,13 @@ enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct a
         assert( out && in.b && in.e && out->b && out->e );
         assert( in.e >= in.b && out->e >= out->b );
         uint8_t* out_end = out->e;
-        uint8_t* out_ptr = out->b;
+        uint8_t* out_ptr = out->b;  // L11: out_ptr set but never used after asrtl_cobs_encoder_init
 
         struct asrtl_cobs_encoder enc;
         asrtl_cobs_encoder_init( &enc, out_ptr );
 
         for ( uint8_t* p = in.b; p != in.e; ++p ) {
-                if ( enc.p >= out_end )
+                if ( enc.p + 1 >= out_end )  // iter may write 2 bytes when offset resets at 255
                         return ASRTL_SIZE_ERR;
                 asrtl_cobs_encoder_iter( &enc, *p );
         }
@@ -42,24 +42,25 @@ enum asrtl_status asrtl_cobs_ibuffer_insert( struct asrtl_cobs_ibuffer* b, struc
 {
         assert( b && sp.b && sp.e && sp.e >= sp.b );
         assert( b->used.b <= b->used.e && b->buff.b < b->buff.e );
-        int s        = sp.e - sp.b;
-        int capacity = b->buff.e - b->used.e;
-        if ( s <= capacity ) {
-                for ( uint8_t* p = sp.b; p != sp.e; ++p )
-                        *( b->used.e++ ) = *p;
-                return ASRTL_SUCCESS;
+        int s        = sp.e - sp.b;            // L13: should be ptrdiff_t
+        int capacity = b->buff.e - b->used.e;  // L13: should be ptrdiff_t
+        if ( s > capacity ) {
+                if ( b->used.b == b->buff.b )
+                        return ASRTL_SIZE_ERR;
+                // shift the used buffer to the beginning, try again
+                uint8_t* p = b->used.b;
+                uint8_t* q = b->buff.b;
+                for ( ; p != b->used.e; ++p, ++q )
+                        *q = *p;
+                b->used.b = b->buff.b;
+                b->used.e = q;
+                capacity  = b->buff.e - b->used.e;
+                if ( s > capacity )
+                        return ASRTL_SIZE_ERR;
         }
-        if ( b->used.b == b->buff.b )
-                return ASRTL_SIZE_ERR;
-
-        // shift the used buffer to the beginning, try again
-        uint8_t* p = b->used.b;
-        uint8_t* q = b->buff.b;
-        for ( ; p != b->used.e; ++p, ++q )
-                *q = *p;
-        b->used.b = b->buff.b;
-        b->used.e = q;
-        return asrtl_cobs_ibuffer_insert( b, sp );
+        for ( uint8_t* p = sp.b; p != sp.e; ++p )
+                *( b->used.e++ ) = *p;
+        return ASRTL_SUCCESS;
 }
 
 int8_t asrtl_cobs_ibuffer_iter( struct asrtl_cobs_ibuffer* b, struct asrtl_span* buff )
@@ -84,6 +85,7 @@ int8_t asrtl_cobs_ibuffer_iter( struct asrtl_cobs_ibuffer* b, struct asrtl_span*
         asrtl_cobs_decoder_init( &dec );
         for ( ; b->used.b != p; )
                 asrtl_cobs_decoder_iter( &dec, *( b->used.b++ ), &q );
-        buff->e = q;
+        buff->e =
+            q;  // 0-terminator intentionally left in ibuffer; see asrtl_cobs_ibuffer_iter contract
         return 1;
 }

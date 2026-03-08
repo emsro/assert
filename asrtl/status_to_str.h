@@ -22,6 +22,8 @@ inline static char const* asrtl_status_to_str( enum asrtl_status st )
         switch ( st ) {
         case ASRTL_CHANN_NOT_FOUND:
                 return "channel not found";
+        case ASRTL_ALLOC_ERR:
+                return "allocation error";
         case ASRTL_SEND_ERR:
                 return "send error";
         case ASRTL_RECV_INTERNAL_ERR:

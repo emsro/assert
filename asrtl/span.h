@@ -24,7 +24,8 @@ struct asrtl_span
         uint8_t* e;
 };
 
-// Returns 1 if the buffer cannot fit `size` bytes, 0 otherwise.
+// Returns 1 if the buffer cannot fit `size` bytes, 0 otherwise.  // L10: casts uint32_t size to
+// int32_t; UB if size > INT32_MAX
 static inline uint8_t asrtl_span_unfit_for( struct asrtl_span const* buff, uint32_t size )
 {
         return ( buff->e - buff->b ) < (int32_t) size ? 1U : 0U;

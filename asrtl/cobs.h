@@ -39,7 +39,8 @@ static inline void asrtl_cobs_encoder_init( struct asrtl_cobs_encoder* e, uint8_
         e->p++;
 }
 
-/// Encodes a single byte. Buffer must have at least 2 bytes available from `e->p`.
+/// Encodes a single byte. Caller must ensure at least 2 bytes are available from `e->p` (offset
+/// reset + data byte in worst case).
 static inline void asrtl_cobs_encoder_iter( struct asrtl_cobs_encoder* e, uint8_t b )
 {
         assert( e );
@@ -108,8 +109,12 @@ static inline void asrtl_cobs_ibuffer_init( struct asrtl_cobs_ibuffer* b, struct
 /// Appends data to buffer. Shifts existing data to start if needed to make room.
 enum asrtl_status asrtl_cobs_ibuffer_insert( struct asrtl_cobs_ibuffer* b, struct asrtl_span sp );
 
-/// Decodes next COBS message from buffer. Returns: 1 (success, sets `buff->e`), 0 (incomplete or
-/// empty), -1 (too large). buff contains the decoded message on success.
+/// Decodes next COBS message from buffer. Returns: 1 (success, sets `buff->e`),
+/// 0 (no complete message yet), -1 (message too large for buff).
+/// After a successful decode the 0-terminator remains as the next byte in the
+/// ibuffer. Callers must call iter again and discard the resulting empty message
+/// (buff->e == buff->b) before the buffer is ready for the next real message.
+/// asrtl_chann_cobs_dispatch handles this automatically.
 int8_t asrtl_cobs_ibuffer_iter( struct asrtl_cobs_ibuffer* b, struct asrtl_span* buff );
 
 #ifdef __cplusplus

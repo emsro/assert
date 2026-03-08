@@ -12,6 +12,7 @@
 #include "../asrtl/core_proto.h"
 #include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
+#include "../asrtl/proto_version.h"
 #include "../asrtl/status_to_str.h"
 #include "./reactor.h"
 #include "status.h"
@@ -136,8 +137,9 @@ static enum asrtr_status asrtr_reactor_tick_flags(
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
                 mask = ~ASRTR_FLAG_PROTO_VER;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending protocol version" );
-                // XXX: find better source of the version
-                if ( asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 ) != ASRTL_SUCCESS )
+                if ( asrtl_msg_rtoc_proto_version(
+                         &sp, ASRTL_PROTO_MAJOR, ASRTL_PROTO_MINOR, ASRTL_PROTO_PATCH ) !=
+                     ASRTL_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TC ) {
                 mask                     = ~ASRTR_FLAG_TC;
@@ -164,9 +166,9 @@ static enum asrtr_status asrtr_reactor_tick_flags(
                 if ( asrtr_reactor_tick_flag_test_start( reac, &sp ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
-                // XXX: report an error?
-                // this is internal error....
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Unknown flag bits set: 0x%x", reac->flags );
                 reac->flags = 0;
+                return ASRTR_INTERNAL_ERR;
         }
         if ( sp.b != buff.b && asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS )
                 return ASRTR_SEND_ERR;
@@ -257,7 +259,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 ASRTL_INF_LOG( "asrtr_asrtr", "Test count requested" );
                 r->flags |= ASRTR_FLAG_TC;
                 break;
-        // XXX: what will do fast repeat of this message?
+        // XXX: what will do fast repeat of this message?  // R03
         case ASRTL_MSG_TEST_INFO: {
                 if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) ) )
                         return ASRTL_RECV_ERR;
@@ -266,7 +268,7 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 r->flags |= ASRTR_FLAG_TI;
                 break;
         }
-        // XXX: what will do fast repeat of this message?
+        // XXX: what will do fast repeat of this message?  // R03
         case ASRTL_MSG_TEST_START: {
                 if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
@@ -312,7 +314,7 @@ enum asrtr_status asrtr_test_init(
 
 void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
 {
-        // XXX: disable test registration after ticking starts?
+        // XXX: disable test registration after ticking starts?  // R04
         assert( reac );
         assert( test );
         struct asrtr_test** t = &reac->first_test;

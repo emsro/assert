@@ -38,8 +38,8 @@ static inline void asrtl_u8d2_to_u16( uint8_t const* data, uint16_t* val )
 }
 static inline void asrtl_u8d4_to_u32( uint8_t const* data, uint32_t* val )
 {
-        *val = ( data[0] << 8 * 3 ) + ( data[1] << 8 * 2 ) + ( data[2] << 8 * 1 ) +
-               ( data[3] << 8 * 0 );
+        *val = ( (uint32_t) data[0] << 8 * 3 ) + ( (uint32_t) data[1] << 8 * 2 ) +
+               ( (uint32_t) data[2] << 8 * 1 ) + ( (uint32_t) data[3] << 8 * 0 );
 }
 
 static inline void asrtl_cut_u16( uint8_t** data, uint16_t* val )

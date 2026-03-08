@@ -10,6 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #define UNITY_SKIP_DEFAULT_RUNNER
 
+#include "../asrtc/allocator.h"
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/default_error_cb.h"
@@ -225,7 +226,7 @@ void test_cntr_test_info( struct test_context* ctx )
 
         TEST_ASSERT_NOT_NULL( p );
         TEST_ASSERT_EQUAL_STRING( desc, p );
-        // XXX: maybe the callback should get the test id?
+        // XXX: maybe the callback should get the test id?  // T03
         if ( p != NULL )
                 free( p );
 }
@@ -235,6 +236,54 @@ enum asrtc_status result_cb( void* ptr, struct asrtc_result* res )
         struct asrtc_result* r1 = (struct asrtc_result*) ptr;
         *r1                     = *res;
         return ASRTC_SUCCESS;
+}
+
+static void* failing_alloc( void* ptr, uint32_t size )
+{
+        (void) ptr;
+        (void) size;
+        return NULL;
+}
+static void failing_free( void* ptr, void* mem )
+{
+        (void) ptr;
+        (void) mem;
+}
+static struct asrtc_allocator failing_allocator( void )
+{
+        return ( struct asrtc_allocator ){
+            .ptr   = NULL,
+            .alloc = &failing_alloc,
+            .free  = &failing_free,
+        };
+}
+
+void test_cntr_desc_alloc_failure( struct test_context* ctx )
+{
+        enum asrtc_status st =
+            asrtc_cntr_init( &ctx->cntr, ctx->send, failing_allocator(), asrtc_default_error_cb() );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );  // discard PROTO_VERSION request
+
+        // Simulate receiving a proto-version reply to advance to IDLE
+        uint8_t           buf[64];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+
+        st = asrtc_cntr_desc( &ctx->cntr, &cpy_desc_cb, NULL );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );  // discard DESC request
+
+        // Send a DESC reply — alloc will return NULL, recv must return an error
+        sp              = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        char const* msg = "hello";
+        asrtl_msg_rtoc_desc( &sp, msg, strlen( msg ) );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, rst );
 }
 
 void test_cntr_run_test( struct test_context* ctx )
@@ -263,13 +312,31 @@ void test_cntr_run_test( struct test_context* ctx )
         TEST_ASSERT_NULL( ctx->collected );
 
         uint8_t* b = ctx->sp.b;
-        asrtl_msg_rtoc_test_result( &ctx->sp, 42, ASRTL_TEST_SUCCESS, 0 );
+        asrtl_msg_rtoc_test_result( &ctx->sp, 0, ASRTL_TEST_SUCCESS, 0 );
         check_recv_and_spin( &ctx->cntr, b, ctx->sp.b );
 
         TEST_ASSERT_EQUAL( res.test_id, 42 );
         TEST_ASSERT_EQUAL( res.run_id, 0 );
         TEST_ASSERT_EQUAL( res.res, ASRTC_TEST_SUCCESS );
         TEST_ASSERT_NULL( ctx->collected );
+}
+
+void test_realloc_str_long_string( struct test_context* ctx )
+{
+        (void) ctx;
+        // Strings longer than 10000 bytes must be handled — the span bound is sufficient
+        uint32_t len  = 10001;
+        uint8_t* data = malloc( len );
+        TEST_ASSERT_NOT_NULL( data );
+        memset( data, 'x', len );
+        struct asrtl_span      sp    = { .b = data, .e = data + len };
+        struct asrtc_allocator alloc = asrtc_default_allocator();
+        char*                  res   = asrtc_realloc_str( &alloc, &sp );
+        TEST_ASSERT_NOT_NULL( res );
+        TEST_ASSERT_EQUAL( 'x', res[0] );
+        TEST_ASSERT_EQUAL( '\0', res[len] );
+        free( res );
+        free( data );
 }
 
 int main( void )
@@ -280,5 +347,7 @@ int main( void )
         ASRT_RUN_TEST( test_cntr_test_count );
         ASRT_RUN_TEST( test_cntr_test_info );
         ASRT_RUN_TEST( test_cntr_run_test );
+        ASRT_RUN_TEST( test_cntr_desc_alloc_failure );
+        ASRT_RUN_TEST( test_realloc_str_long_string );
         return UNITY_END();
 }

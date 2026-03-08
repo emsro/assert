@@ -180,7 +180,7 @@ void test_cobs( void )
 {
         struct cobs_record* head = create_dataset();
 
-        // XXX: test corner cases
+        // XXX: test corner cases  // T02
         struct cobs_record* node;
         for ( node = head; node; node = node->next ) {
                 uint8_t                   buffer[512];
@@ -360,6 +360,28 @@ void test_cobs_ibuffer_insert_shift_then_fit( void )
         TEST_ASSERT_EQUAL( 0x02, storage[4] );
         TEST_ASSERT_EQUAL( 0x03, storage[5] );
         TEST_ASSERT_EQUAL( 0x04, storage[6] );
+}
+
+void test_cobs_ibuffer_insert_shift_no_fit( void )
+{
+        // After shifting, still not enough room — must return SIZE_ERR, not recurse infinitely
+        uint8_t                   storage[6] = { 0 };
+        struct asrtl_cobs_ibuffer ib;
+        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrtl_cobs_ibuffer_init( &ib, sp );
+
+        // used starts mid-buffer so shift is possible, but even after shift the 5-byte
+        // payload won't fit in a 6-byte buffer that already holds 4 bytes
+        ib.used.b  = storage + 2;
+        ib.used.e  = storage + 6;
+        storage[2] = 0xAA;
+        storage[3] = 0xBB;
+        storage[4] = 0xCC;
+        storage[5] = 0xDD;
+
+        uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+        struct asrtl_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
+        TEST_ASSERT_EQUAL( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
 }
 
 void test_cobs_ibuffer_insert_size_err( void )
@@ -732,8 +754,8 @@ void test_chann_cobs_dispatch_unknown_channel( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        // Should still succeed - dispatch just doesn't find the channel
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        // Channel not found — error propagated
+        TEST_ASSERT_EQUAL( ASRTL_CHANN_NOT_FOUND, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
         TEST_ASSERT_EQUAL( 0, ctx.msg_count );
 }
 
@@ -865,6 +887,58 @@ void test_chann_cobs_dispatch_byte_by_byte( void )
         TEST_ASSERT_EQUAL_MEMORY( payload, ctx.messages[0].data, sizeof payload );
 }
 
+void test_chann_cobs_dispatch_ibuffer_size_err( void )
+{
+        // ibuffer too small for the incoming encoded message — insert must return SIZE_ERR
+        // and cobs_dispatch must propagate it rather than silently succeed
+        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
+        struct asrtl_node       node = {
+                  .chid = 1, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+
+        uint8_t payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+        uint8_t encoded[128];
+        size_t  enc_len =
+            create_channel_message( 1, payload, sizeof payload, encoded, sizeof encoded );
+
+        // ibuffer only 4 bytes — far too small for the encoded message
+        uint8_t                   storage[4];
+        struct asrtl_cobs_ibuffer ib;
+        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrtl_cobs_ibuffer_init( &ib, sp );
+
+        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+}
+
+void test_chann_cobs_dispatch_recv_cb_error( void )
+{
+        // When recv_cb returns an error, cobs_dispatch must propagate it
+        struct test_channel_ctx ctx  = { .return_status = ASRTL_RECV_INTERNAL_ERR };
+        struct asrtl_node       node = {
+                  .chid = 1, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+
+        uint8_t payload[] = { 0xAB };
+        uint8_t encoded[64];
+        size_t  enc_len =
+            create_channel_message( 1, payload, sizeof payload, encoded, sizeof encoded );
+
+        uint8_t                   storage[256];
+        struct asrtl_cobs_ibuffer ib;
+        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrtl_cobs_ibuffer_init( &ib, sp );
+
+        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+}
+
+void test_u8d4_to_u32_high_bit( void )
+{
+        uint8_t  data[4] = { 0x80, 0x00, 0x00, 0x01 };
+        uint32_t val     = 0;
+        asrtl_u8d4_to_u32( data, &val );
+        TEST_ASSERT_EQUAL_HEX32( 0x80000001, val );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -878,6 +952,7 @@ int main( void )
         RUN_TEST( test_cobs_ibuffer_iter_buffer_too_small );
         RUN_TEST( test_cobs_ibuffer_insert_fits_capacity );
         RUN_TEST( test_cobs_ibuffer_insert_shift_then_fit );
+        RUN_TEST( test_cobs_ibuffer_insert_shift_no_fit );
         RUN_TEST( test_cobs_ibuffer_insert_size_err );
         RUN_TEST( test_cobs_ibuffer_partial_then_complete );
         RUN_TEST( test_cobs_encode_buffer_success );
@@ -895,5 +970,8 @@ int main( void )
         RUN_TEST( test_chann_cobs_dispatch_message_too_large );
         RUN_TEST( test_chann_cobs_dispatch_mixed_partial_and_complete );
         RUN_TEST( test_chann_cobs_dispatch_byte_by_byte );
+        RUN_TEST( test_chann_cobs_dispatch_ibuffer_size_err );
+        RUN_TEST( test_chann_cobs_dispatch_recv_cb_error );
+        RUN_TEST( test_u8d4_to_u32_high_bit );
         return UNITY_END();
 }

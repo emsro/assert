@@ -13,6 +13,7 @@
 #include "../asrtl/core_proto.h"
 #include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
+#include "../asrtl/proto_version.h"
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.h"
@@ -206,9 +207,9 @@ void test_reactor_version( struct test_context* ctx )
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_PROTO_VER );
 
         assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
-        assert_u16( 0x00, ctx->collected->data + 2 );
-        assert_u16( 0x01, ctx->collected->data + 4 );
-        assert_u16( 0x00, ctx->collected->data + 6 );
+        assert_u16( ASRTL_PROTO_MAJOR, ctx->collected->data + 2 );
+        assert_u16( ASRTL_PROTO_MINOR, ctx->collected->data + 4 );
+        assert_u16( ASRTL_PROTO_PATCH, ctx->collected->data + 6 );
 
         clear_single_collected( &ctx->collected );
 }
@@ -383,6 +384,16 @@ void test_test_counter( struct test_context* ctx )
         }
 }
 
+void test_reactor_unknown_flag( struct test_context* ctx )
+{
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, asrtr_reactor_init( &ctx->reac, ctx->send, "desc" ) );
+        // set only unknown flag bits (known flags are 0x01..0x10); the else branch must signal an
+        // error
+        ctx->reac.flags      = 0x20;
+        enum asrtr_status st = asrtr_reactor_tick( &ctx->reac, ctx->sp );
+        TEST_ASSERT_NOT_EQUAL( ASRTR_SUCCESS, st );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -396,5 +407,6 @@ int main( void )
         ASRT_RUN_TEST( test_check_macro );
         ASRT_RUN_TEST( test_require_macro );
         ASRT_RUN_TEST( test_test_counter );
+        ASRT_RUN_TEST( test_reactor_unknown_flag );
         return UNITY_END();
 }

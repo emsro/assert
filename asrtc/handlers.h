@@ -18,7 +18,7 @@ extern "C" {
 #include "./result.h"
 #include "./status.h"
 
-// XXX: the defs might be at better place
+// XXX: the defs might be at better place  // C07
 typedef enum asrtc_status ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
 typedef enum asrtc_status ( *asrtc_desc_callback )( void* ptr, char* desc );
 typedef enum asrtc_status ( *asrtc_test_info_callback )( void* ptr, char* desc );

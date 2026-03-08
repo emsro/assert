@@ -16,10 +16,10 @@
 extern "C" {
 #endif
 
-// XXX: check _recv of reactor/controller and revamp error codes
 enum asrtl_status
 {
-        ASRTL_CHANN_NOT_FOUND     = -8,
+        ASRTL_CHANN_NOT_FOUND     = -9,
+        ASRTL_ALLOC_ERR           = -8,
         ASRTL_SEND_ERR            = -7,
         ASRTL_RECV_INTERNAL_ERR   = -6,
         ASRTL_RECV_UNEXPECTED_ERR = -5,

@@ -76,7 +76,7 @@ static enum asrtc_status asrtc_cntr_tick_init( struct asrtc_controller* c, struc
         case ASRTC_STAGE_WAITING:
                 break;
         case ASRTC_STAGE_END:
-                // XXX: check the version
+                // XXX: check the version  // C03
                 c->state = ASRTC_CNTR_IDLE;
                 ASRTL_INF_LOG( "asrtc", "Controller initialized" );
         }
@@ -96,7 +96,7 @@ static enum asrtl_status asrtc_cntr_recv_init(
                 return ASRTL_RECV_ERR;
 
         struct asrtc_init_handler* h = &c->hndl.init;
-        if ( h->stage != ASRTC_STAGE_WAITING )  // XXX: can this get stuck?
+        if ( h->stage != ASRTC_STAGE_WAITING )  // XXX: can this get stuck?  // C02
                 return ASRTL_RECV_INTERNAL_ERR;
 
         asrtl_cut_u16( &buff->b, &h->ver.major );
@@ -234,7 +234,7 @@ static enum asrtl_status asrtc_cntr_recv_desc(
 
         h->desc = asrtc_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
-                return ASRTL_RECV_ERR;
+                return ASRTL_ALLOC_ERR;
         h->stage = ASRTC_STAGE_END;
 
         return ASRTL_SUCCESS;
@@ -306,12 +306,12 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
         struct asrtc_ti_handler* h = &c->hndl.ti;
         if ( h->stage != ASRTC_STAGE_WAITING )
                 return ASRTL_RECV_INTERNAL_ERR;
-        uint16_t tid;  // XXX: unused for now
+        uint16_t tid;  // XXX: unused for now  // C04
         asrtl_cut_u16( &buff->b, &tid );
 
         h->desc = asrtc_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
-                return ASRTL_RECV_ERR;
+                return ASRTL_ALLOC_ERR;
         h->stage = ASRTC_STAGE_END;
 
         return ASRTL_SUCCESS;
@@ -398,15 +398,15 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
                 asrtl_cut_u32( &buff->b, &rid );
                 uint16_t res;
                 asrtl_cut_u16( &buff->b, &res );
-                uint32_t line;  // XXX: unused for now
+                uint32_t line;  // XXX: unused for now  // C05
                 asrtl_cut_u32( &buff->b, &line );
 
-                if ( rid != h->res.test_id ) {
+                if ( rid != h->res.run_id ) {
                         ASRTL_ERR_LOG(
                             "asrtc_main",
-                            "Received test result for unexpected test: %u (expected %u)",
+                            "Received test result for unexpected run: %u (expected %u)",
                             rid,
-                            h->res.test_id );
+                            h->res.run_id );
                         h->res.res = ASRTC_TEST_ERROR;
                 } else {
                         ASRTL_INF_LOG( "asrtc_main", "Received test result: %u", res );
@@ -499,5 +499,6 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
                 }
         if ( st != ASRTL_SUCCESS )
                 return st;
-        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;  // XXX: different error code
+        return buff.b == buff.e ? ASRTL_SUCCESS :
+                                  ASRTL_RECV_ERR;  // XXX: different error code  // C06
 }

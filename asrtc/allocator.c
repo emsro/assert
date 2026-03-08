@@ -13,20 +13,14 @@
 
 char* asrtc_realloc_str( struct asrtc_allocator* a, struct asrtl_span* buff )
 {
-        int      i = 0;
-        int      n = 10000;  // XXX: random constant
         uint8_t* p = buff->b;
-        for ( ;; ) {
-                if ( p == buff->e )
-                        break;
-                if ( i++ == n )
-                        return NULL;
-                if ( *p == 0 )
-                        break;
-                p += 1;
-        }
+        for ( ; p != buff->e && *p != 0; ++p )
+                ;
+        uint32_t i   = p - buff->b;
         uint32_t s   = p == buff->e ? i + 1 : i;
         char*    res = asrtc_alloc( a, s );
+        if ( !res )
+                return NULL;
         memcpy( res, buff->b, i );
         res[s - 1] = '\0';
         buff->b    = p == buff->e ? p : p + 1;

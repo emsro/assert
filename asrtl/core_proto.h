@@ -29,7 +29,7 @@ enum asrtl_message_id_e
         ASRTL_MSG_TEST_INFO     = 0x05,  // reactor <-> controller
         ASRTL_MSG_TEST_START    = 0x06,  // reactor <-> controller
         ASRTL_MSG_TEST_RESULT   = 0x07,  // reactor -> controller
-        // XXX: stop running test
+        // XXX: stop running test  // L05
 };
 
 typedef uint16_t asrtl_message_id;
@@ -74,7 +74,9 @@ static inline enum asrtl_status asrtl_msg_rtoc_desc(
         if ( 0U != asrtl_span_unfit_for( buff, sizeof( asrtl_message_id ) ) )
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_DESC );
-        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );
+        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );  // truncation is intentional:
+                                                                      // description is
+                                                                      // informational only
         return ASRTL_SUCCESS;
 }
 
@@ -113,7 +115,9 @@ static inline enum asrtl_status asrtl_msg_rtoc_test_info(
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_INFO );
         asrtl_add_u16( &buff->b, id );
-        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );
+        asrtl_fill_buffer( (uint8_t const*) desc, desc_size, buff );  // truncation is intentional:
+                                                                      // description is
+                                                                      // informational only
         return ASRTL_SUCCESS;
 }
 
@@ -126,7 +130,8 @@ static inline enum asrtl_status asrtl_msg_ctor_test_info( struct asrtl_span* buf
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_ctor_test_start(
+static inline enum asrtl_status asrtl_msg_ctor_test_start(  // L12: identical impl to
+                                                            // asrtl_msg_rtoc_test_start
     struct asrtl_span* buff,
     uint16_t           test_id,
     uint32_t           run_id )

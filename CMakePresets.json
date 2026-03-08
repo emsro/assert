@@ -66,7 +66,10 @@
   "testPresets": [
     {
       "name": "debug",
-      "configurePreset": "debug"
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "asan",
@@ -77,11 +80,17 @@
     },
     {
       "name": "ubsan",
-      "configurePreset": "ubsan"
+      "configurePreset": "ubsan",
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "release",
-      "configurePreset": "release"
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "coverage",
@@ -156,6 +165,23 @@
         },
         {
           "name": "release",
+          "type": "test"
+        }
+      ]
+    },
+    {
+      "name": "ubsan",
+      "steps": [
+        {
+          "name": "ubsan",
+          "type": "configure"
+        },
+        {
+          "name": "ubsan",
+          "type": "build"
+        },
+        {
+          "name": "ubsan",
           "type": "test"
         }
       ]

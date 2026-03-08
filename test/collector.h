@@ -26,7 +26,9 @@ struct data_ll
         struct data_ll* next;
 };
 
-void rec_free_data_ll( struct data_ll* p )
+// function definitions are static to avoid ODR violations if this header is ever included from
+// multiple TUs
+static void rec_free_data_ll( struct data_ll* p )
 {
         if ( p->next )
                 rec_free_data_ll( p->next );
@@ -34,7 +36,10 @@ void rec_free_data_ll( struct data_ll* p )
         free( p );
 }
 
-void assert_data_ll_contain_str( char const* expected, struct data_ll* node, uint32_t offset )
+static void assert_data_ll_contain_str(
+    char const*     expected,
+    struct data_ll* node,
+    uint32_t        offset )
 {
         TEST_ASSERT( expected && node );
         int32_t node_n = node->data_size - offset;
@@ -46,7 +51,7 @@ void assert_data_ll_contain_str( char const* expected, struct data_ll* node, uin
 }
 
 
-enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_span buff )
+static enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_span buff )
 {
         assert( data );
         struct data_ll** lnode = (struct data_ll**) data;
@@ -60,7 +65,7 @@ enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_sp
         return ASRTL_SUCCESS;
 }
 
-void setup_sender_collector( struct asrtl_sender* s, struct data_ll** ptr )
+static void setup_sender_collector( struct asrtl_sender* s, struct data_ll** ptr )
 {
         *s = ( struct asrtl_sender ){
             .ptr = (void*) ptr,
@@ -68,7 +73,7 @@ void setup_sender_collector( struct asrtl_sender* s, struct data_ll** ptr )
         };
 }
 
-void clear_top_collected( struct data_ll** data )
+static void clear_top_collected( struct data_ll** data )
 {
         assert( data );
         struct data_ll* next = ( *data )->next;
