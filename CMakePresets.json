@@ -110,6 +110,23 @@
       ]
     },
     {
+      "name": "asan",
+      "steps": [
+        {
+          "name": "asan",
+          "type": "configure"
+        },
+        {
+          "name": "asan",
+          "type": "build"
+        },
+        {
+          "name": "asan",
+          "type": "test"
+        }
+      ]
+    },
+    {
       "name": "coverage",
       "steps": [
         {

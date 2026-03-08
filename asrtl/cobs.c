@@ -24,7 +24,7 @@ enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct a
         asrtl_cobs_encoder_init( &enc, out_ptr );
 
         for ( uint8_t* p = in.b; p != in.e; ++p ) {
-                if ( enc.p > out_end )
+                if ( enc.p >= out_end )
                         return ASRTL_SIZE_ERR;
                 asrtl_cobs_encoder_iter( &enc, *p );
         }
