@@ -13,6 +13,8 @@
 
 #include "./log.h"
 
+#include <stddef.h>
+
 enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct asrtl_span* out )
 {
         assert( out && in.b && in.e && out->b && out->e );
@@ -41,8 +43,8 @@ enum asrtl_status asrtl_cobs_ibuffer_insert( struct asrtl_cobs_ibuffer* b, struc
 {
         assert( b && sp.b && sp.e && sp.e >= sp.b );
         assert( b->used.b <= b->used.e && b->buff.b < b->buff.e );
-        int s        = sp.e - sp.b;            // L13: should be ptrdiff_t
-        int capacity = b->buff.e - b->used.e;  // L13: should be ptrdiff_t
+        ptrdiff_t s        = sp.e - sp.b;
+        ptrdiff_t capacity = b->buff.e - b->used.e;
         if ( s > capacity ) {
                 if ( b->used.b == b->buff.b )
                         return ASRTL_SIZE_ERR;

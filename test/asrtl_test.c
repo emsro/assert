@@ -1017,6 +1017,35 @@ void test_cobs_encode_buffer_l11( void )
         TEST_ASSERT_EQUAL( 0x00, output[6] );
 }
 
+void test_cobs_ibuffer_insert_l13( void )
+{
+        // L13: Verify asrtl_cobs_ibuffer_insert works with larger buffers
+        // (uses int instead of ptrdiff_t, but should work for reasonable sizes)
+        size_t   buf_size = 1024 * 1024;  // 1MB buffer
+        uint8_t* storage  = malloc( buf_size );
+        TEST_ASSERT_NOT_NULL( storage );
+
+        struct asrtl_cobs_ibuffer ib;
+        struct asrtl_span         sp = { .b = storage, .e = storage + buf_size };
+        asrtl_cobs_ibuffer_init( &ib, sp );
+
+        // Insert data that's large but fits
+        size_t   insert_size = 100 * 1024;  // 100KB
+        uint8_t* payload     = malloc( insert_size );
+        TEST_ASSERT_NOT_NULL( payload );
+        for ( size_t i = 0; i < insert_size; i++ )
+                payload[i] = (uint8_t) ( i & 0xFF );
+
+        struct asrtl_span payload_span = { .b = payload, .e = payload + insert_size };
+        enum asrtl_status st           = asrtl_cobs_ibuffer_insert( &ib, payload_span );
+
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
+        TEST_ASSERT_EQUAL( insert_size, (size_t) ( ib.used.e - ib.used.b ) );
+
+        free( payload );
+        free( storage );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -1056,5 +1085,6 @@ int main( void )
         RUN_TEST( test_chann_cobs_dispatch_recv_cb_error );
         RUN_TEST( test_u8d4_to_u32_high_bit );
         RUN_TEST( test_cobs_encode_buffer_l11 );
+        RUN_TEST( test_cobs_ibuffer_insert_l13 );
         return UNITY_END();
 }
