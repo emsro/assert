@@ -14,7 +14,7 @@ struct controller_impl
         error_cb         ecb;
 
         desc_cb        des_cb;
-        tc_cb          tc_cb;
+        tc_cb          test_count_cb;
         desc_cb        ti_cb;
         test_result_cb te_cb;
 };
@@ -55,7 +55,7 @@ asrtc::status cimpl_desc( void* ptr, char* data )
 asrtc::status cimpl_test_count( void* ptr, uint16_t count )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->tc_cb, count );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->test_count_cb, count );
 }
 
 asrtc::status cimpl_test_info( void* ptr, char* data )
@@ -121,7 +121,7 @@ asrtc::status controller::query_test_count( tc_cb cb )
 {
         auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get() );
         if ( st == ASRTC_SUCCESS )
-                _impl->tc_cb = std::move( cb );
+                _impl->test_count_cb = std::move( cb );
         else
                 ASRTL_ERR_LOG(
                     "asrtcpp_controller",
