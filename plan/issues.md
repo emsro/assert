@@ -35,7 +35,7 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | R03 | P2 | `asrtr.c:260,269` | Rapid repeat of test-start or test-info messages is unhandled — XXX noted | **fixed** |
 | R04 | P2 | `asrtr.c:315` | Test registration not locked after first tick — XXX noted | **fixed** |
 | R05 | P3 | `asrtr.c: asrtr_reactor_add_test` | Linear scan to find list tail on every `add_test` call — O(n) per registration; a tail pointer in `asrtr_reactor` would make it O(1) | open |
-| R06 | P2 | `asrtr.c` | Error logging audit: scan all error-path `if` branches in `asrtr.c` and ensure every failure return emits an `ASRTL_ERR_LOG` before returning | open |
+| R06 | P2 | `asrtr.c` | Error logging audit: scan all error-path `if` branches in `asrtr.c` and ensure every failure return emits an `ASRTL_ERR_LOG` before returning | **fixed** |
 
 ## asrtc
 
