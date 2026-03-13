@@ -259,8 +259,11 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 ASRTL_INF_LOG( "asrtr_asrtr", "Test count requested" );
                 r->flags |= ASRTR_FLAG_TC;
                 break;
-        // XXX: what will do fast repeat of this message?  // R03
         case ASRTL_MSG_TEST_INFO: {
+                if ( r->flags & ASRTR_FLAG_TI ) {
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "TEST_INFO already pending" );
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+                }
                 if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_info_id );
@@ -268,8 +271,11 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
                 r->flags |= ASRTR_FLAG_TI;
                 break;
         }
-        // XXX: what will do fast repeat of this message?  // R03
         case ASRTL_MSG_TEST_START: {
+                if ( r->flags & ASRTR_FLAG_TSTART ) {
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "TEST_START already pending" );
+                        return ASRTL_RECV_UNEXPECTED_ERR;
+                }
                 if ( asrtl_span_unfit_for( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u16( &buff.b, &r->recv_test_start_id );

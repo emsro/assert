@@ -394,6 +394,52 @@ void test_reactor_unknown_flag( struct test_context* ctx )
         TEST_ASSERT_NOT_EQUAL( ASRTR_SUCCESS, st );
 }
 
+// R03: duplicate TEST_INFO before tick must be rejected
+void test_reactor_test_info_repeat( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        struct asrtr_test t1;
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
+
+        asrtl_msg_ctor_test_info( &ctx->sp, 0 );
+
+        // first recv — flag must be set
+        check_reactor_recv_flags(
+            &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TI );
+
+        // second recv before tick — must be rejected
+        enum asrtl_status st =
+            asrtr_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, st );
+
+        // flag must still be set
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_TI, ctx->reac.flags );
+}
+
+// R03: duplicate TEST_START before tick must be rejected
+void test_reactor_test_start_repeat( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        struct asrtr_test t1;
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
+
+        asrtl_msg_ctor_test_start( &ctx->sp, 0, 42 );
+
+        // first recv — flag must be set
+        check_reactor_recv_flags(
+            &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TSTART );
+
+        // second recv before tick — must be rejected
+        enum asrtl_status st =
+            asrtr_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, st );
+
+        // flag must still be set
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_TSTART, ctx->reac.flags );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -408,5 +454,7 @@ int main( void )
         ASRT_RUN_TEST( test_require_macro );
         ASRT_RUN_TEST( test_test_counter );
         ASRT_RUN_TEST( test_reactor_unknown_flag );
+        ASRT_RUN_TEST( test_reactor_test_info_repeat );
+        ASRT_RUN_TEST( test_reactor_test_start_repeat );
         return UNITY_END();
 }
