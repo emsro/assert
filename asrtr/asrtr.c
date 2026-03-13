@@ -184,7 +184,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
         assert( reac );
         assert( reac->desc );
 
-        if ( reac->flags != 0x00 )
+        if ( reac->flags & ~ASRTR_PASSIVE_FLAGS )
                 return asrtr_reactor_tick_flags( reac, buff );
 
 
@@ -298,6 +298,8 @@ enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
         enum asrtl_status res = buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_ERR;
         if ( res == ASRTL_RECV_ERR )
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Unused bytes: %zu", (size_t) ( buff.e - buff.b ) );
+        else
+                r->flags |= ASRTR_FLAG_LOCKED;
         return res;
 }
 
@@ -318,13 +320,17 @@ enum asrtr_status asrtr_test_init(
         return ASRTR_SUCCESS;
 }
 
-void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
+enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
 {
-        // XXX: disable test registration after ticking starts?  // R04
         assert( reac );
         assert( test );
+        if ( reac->flags & ASRTR_FLAG_LOCKED ) {
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Test registration locked after first recv" );
+                return ASRTR_TEST_REG_ERR;
+        }
         struct asrtr_test** t = &reac->first_test;
         while ( *t )
                 t = &( *t )->next;
         *t = test;
+        return ASRTR_SUCCESS;
 }

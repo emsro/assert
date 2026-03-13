@@ -46,7 +46,8 @@ void setup_test(
         assert( t );
         enum asrtr_status st = asrtr_test_init( t, name, data, start_f );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
-        asrtr_reactor_add_test( r, t );
+        st = asrtr_reactor_add_test( r, t );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
 }
 
 void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender, char const* desc )
@@ -64,7 +65,7 @@ void check_reactor_recv( struct asrtr_reactor* reac, struct asrtl_span msg )
 void check_reactor_recv_flags( struct asrtr_reactor* reac, struct asrtl_span msg, uint32_t flags )
 {
         check_reactor_recv( reac, msg );
-        TEST_ASSERT_EQUAL( flags, reac->flags );
+        TEST_ASSERT_EQUAL( flags, reac->flags & ~ASRTR_PASSIVE_FLAGS );
 }
 
 void check_reactor_tick( struct asrtr_reactor* reac )
@@ -73,7 +74,7 @@ void check_reactor_tick( struct asrtr_reactor* reac )
         enum asrtr_status st =
             asrtr_reactor_tick( reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
-        TEST_ASSERT_EQUAL( 0x00, reac->flags );
+        TEST_ASSERT_EQUAL( 0x00, reac->flags & ~ASRTR_PASSIVE_FLAGS );
 }
 
 void check_recv_and_spin(
@@ -240,6 +241,8 @@ void test_reactor_test_count( struct test_context* ctx )
         assert_u16( 0x00, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
 
+        // re-init to add a test before any recv
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
@@ -262,6 +265,8 @@ void test_reactor_test_info( struct test_context* ctx )
         assert_u16( ASRTL_ASE_MISSING_TEST, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 
+        // re-init to add a test before any recv
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
@@ -387,9 +392,9 @@ void test_test_counter( struct test_context* ctx )
 void test_reactor_unknown_flag( struct test_context* ctx )
 {
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, asrtr_reactor_init( &ctx->reac, ctx->send, "desc" ) );
-        // set only unknown flag bits (known flags are 0x01..0x10); the else branch must signal an
+        // set only unknown flag bits (known flags are 0x01..0x20); the else branch must signal an
         // error
-        ctx->reac.flags      = 0x20;
+        ctx->reac.flags      = 0x40;
         enum asrtr_status st = asrtr_reactor_tick( &ctx->reac, ctx->sp );
         TEST_ASSERT_NOT_EQUAL( ASRTR_SUCCESS, st );
 }
@@ -414,7 +419,7 @@ void test_reactor_test_info_repeat( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
-        TEST_ASSERT_EQUAL( ASRTR_FLAG_TI, ctx->reac.flags );
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_TI, ctx->reac.flags & ~ASRTR_PASSIVE_FLAGS );
 }
 
 // R03: duplicate TEST_START before tick must be rejected
@@ -437,7 +442,29 @@ void test_reactor_test_start_repeat( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
-        TEST_ASSERT_EQUAL( ASRTR_FLAG_TSTART, ctx->reac.flags );
+        TEST_ASSERT_EQUAL( ASRTR_FLAG_TSTART, ctx->reac.flags & ~ASRTR_PASSIVE_FLAGS );
+}
+
+// R04: add_test must be rejected after the first recv call
+void test_reactor_add_test_after_recv( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        struct asrtr_test t1, t2;
+        setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
+
+        // any valid recv locks registration
+        asrtl_msg_ctor_proto_version( &ctx->sp );
+        check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b } );
+
+        // adding a test after recv must be rejected
+        enum asrtr_status st = asrtr_test_init( &t2, "test2", NULL, &dataless_test_fun );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
+        st = asrtr_reactor_add_test( &ctx->reac, &t2 );
+        TEST_ASSERT_EQUAL( ASRTR_TEST_REG_ERR, st );
+
+        // test list must not have grown
+        TEST_ASSERT_NULL( t1.next );
 }
 
 int main( void )
@@ -456,5 +483,6 @@ int main( void )
         ASRT_RUN_TEST( test_reactor_unknown_flag );
         ASRT_RUN_TEST( test_reactor_test_info_repeat );
         ASRT_RUN_TEST( test_reactor_test_start_repeat );
+        ASRT_RUN_TEST( test_reactor_add_test_after_recv );
         return UNITY_END();
 }

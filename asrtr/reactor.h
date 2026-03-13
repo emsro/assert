@@ -45,7 +45,12 @@ enum asrtr_reactor_flags
         ASRTR_FLAG_TC        = 0x04,
         ASRTR_FLAG_TI        = 0x08,
         ASRTR_FLAG_TSTART    = 0x10,
+        ASRTR_FLAG_LOCKED    = 0x20,
 };
+
+// Mask of flags that carry persistent state (not pending work).
+// Used to strip passive bits when checking for actionable flags.
+#define ASRTR_PASSIVE_FLAGS ( ASRTR_FLAG_LOCKED )
 
 struct asrtr_reactor
 {
@@ -77,7 +82,7 @@ enum asrtr_status asrtr_test_init(
     char const*         desc,
     void*               ptr,
     asrtr_test_callback start_f );
-void asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
+enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
 
 enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff );
 
