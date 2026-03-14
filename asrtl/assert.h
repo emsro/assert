@@ -8,38 +8,16 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTC_CALLBACKS_H
-#define ASRTC_CALLBACKS_H
+#ifndef ASRTL_ASSERT_H
+#define ASRTL_ASSERT_H
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef ASRTL_ASSERT
+#ifdef ASRTL_DEFAULT_ASSERT
+#include <assert.h>
+#define ASRTL_ASSERT( x ) assert( x )
+#else
+#define ASRTL_ASSERT( x ) ( (void) 0 )
 #endif
-
-#include "../asrtl/assert.h"
-#include "../asrtl/source.h"
-#include "./status.h"
-
-#include <stdint.h>
-
-typedef enum asrtc_status (
-    *asrtc_error_callback )( void* ptr, enum asrtl_source src, uint16_t ecode );
-struct asrtc_error_cb
-{
-        void*                ptr;
-        asrtc_error_callback cb;
-};
-
-static inline enum asrtc_status asrtc_raise_error(
-    struct asrtc_error_cb* h,
-    enum asrtl_source      src,
-    uint16_t               ecode )
-{
-        ASRTL_ASSERT( h && h->cb );
-        return h->cb( h->ptr, src, ecode );
-}
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif

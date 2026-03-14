@@ -15,9 +15,9 @@
 extern "C" {
 #endif
 
+#include "../asrtl/assert.h"
 #include "../asrtl/span.h"
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,14 +31,14 @@ struct asrtc_allocator
 
 static inline void* asrtc_alloc( struct asrtc_allocator* a, uint32_t size )
 {
-        assert( a && a->free );
+        ASRTL_ASSERT( a && a->free );
         return a->alloc( a->ptr, size );
 }
 
 static inline void asrtc_free( struct asrtc_allocator* a, void** mem )
 {
-        assert( a && a->free );
-        assert( *mem );
+        ASRTL_ASSERT( a && a->free );
+        ASRTL_ASSERT( *mem );
         a->free( a->ptr, *mem );
         *mem = NULL;
 }

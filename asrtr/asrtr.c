@@ -9,6 +9,7 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
+#include "../asrtl/assert.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
@@ -17,7 +18,6 @@
 #include "./reactor.h"
 #include "status.h"
 
-#include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -124,7 +124,7 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
 
 static inline enum asrtl_status asrtr_send( struct asrtr_reactor* r, uint8_t* b, uint8_t* e )
 {
-        assert( r && b && e );
+        ASRTL_ASSERT( r && b && e );
         return asrtl_send( &r->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
 }
 
@@ -132,8 +132,8 @@ static enum asrtr_status asrtr_reactor_tick_flags(
     struct asrtr_reactor* reac,
     struct asrtl_span     buff )
 {
-        assert( reac );
-        assert( reac->desc );
+        ASRTL_ASSERT( reac );
+        ASRTL_ASSERT( reac->desc );
 
         struct asrtl_span sp   = buff;
         uint32_t          mask = 0;
@@ -199,8 +199,8 @@ static enum asrtr_status asrtr_reactor_tick_flags(
 
 enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff )
 {
-        assert( reac );
-        assert( reac->desc );
+        ASRTL_ASSERT( reac );
+        ASRTL_ASSERT( reac->desc );
 
         if ( reac->flags & ~ASRTR_PASSIVE_FLAGS )
                 return asrtr_reactor_tick_flags( reac, buff );
@@ -209,8 +209,8 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
         switch ( reac->state ) {
         case ASRTR_REAC_TEST_EXEC: {
                 struct asrtr_record* record = &reac->record;
-                assert( record );
-                assert( record->inpt->continue_f );
+                ASRTL_ASSERT( record );
+                ASRTL_ASSERT( record->inpt->continue_f );
 
                 if ( record->inpt->continue_f( record ) != ASRTR_SUCCESS )
                         record->state = ASRTR_TEST_ERROR;
@@ -259,7 +259,7 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
 
 enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
 {
-        assert( data );
+        ASRTL_ASSERT( data );
         struct asrtr_reactor* r = (struct asrtr_reactor*) data;
         asrtl_message_id      id;
 
@@ -352,8 +352,8 @@ enum asrtr_status asrtr_test_init(
 
 enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test )
 {
-        assert( reac );
-        assert( test );
+        ASRTL_ASSERT( reac );
+        ASRTL_ASSERT( test );
         if ( reac->flags & ASRTR_FLAG_LOCKED ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Test registration locked after first recv" );
                 return ASRTR_TEST_REG_ERR;

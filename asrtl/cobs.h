@@ -16,10 +16,10 @@
 extern "C" {
 #endif
 
+#include "./assert.h"
 #include "./span.h"
 #include "./status.h"
 
-#include <assert.h>
 #include <stdint.h>
 
 /// Stateful COBS encoder.
@@ -32,7 +32,7 @@ struct asrtl_cobs_encoder
 /// Initializes COBS encoding state. Must be called before `asrtl_cobs_encoder_iter`.
 static inline void asrtl_cobs_encoder_init( struct asrtl_cobs_encoder* e, uint8_t* buffer )
 {
-        assert( e );
+        ASRTL_ASSERT( e );
         e->offset  = buffer;
         e->p       = buffer;
         *e->offset = 1;
@@ -43,7 +43,7 @@ static inline void asrtl_cobs_encoder_init( struct asrtl_cobs_encoder* e, uint8_
 /// reset + data byte in worst case).
 static inline void asrtl_cobs_encoder_iter( struct asrtl_cobs_encoder* e, uint8_t b )
 {
-        assert( e );
+        ASRTL_ASSERT( e );
         if ( *e->offset == 255 ) {
                 *e->offset = 255;
                 e->offset  = e->p++;
@@ -72,7 +72,7 @@ struct asrtl_cobs_decoder
 
 static inline void asrtl_cobs_decoder_init( struct asrtl_cobs_decoder* d )
 {
-        assert( d );
+        ASRTL_ASSERT( d );
         d->iszero = 0;
         d->offset = 1;
 }
@@ -80,7 +80,7 @@ static inline void asrtl_cobs_decoder_init( struct asrtl_cobs_decoder* d )
 /// Decodes one COBS-encoded byte. May write zero or one byte to `*p`.
 static inline void asrtl_cobs_decoder_iter( struct asrtl_cobs_decoder* d, uint8_t b, uint8_t** p )
 {
-        assert( d );
+        ASRTL_ASSERT( d );
         if ( d->offset == 1 ) {
                 if ( d->iszero )
                         *( *p )++ = 0U;
@@ -101,7 +101,7 @@ struct asrtl_cobs_ibuffer
 
 static inline void asrtl_cobs_ibuffer_init( struct asrtl_cobs_ibuffer* b, struct asrtl_span sp )
 {
-        assert( b );
+        ASRTL_ASSERT( b );
         b->buff = sp;
         b->used = ( struct asrtl_span ){ .b = sp.b, .e = sp.b };
 }

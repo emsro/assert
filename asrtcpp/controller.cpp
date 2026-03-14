@@ -3,6 +3,7 @@
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/status_to_str.h"
+#include "../asrtl/assert.h"
 #include "../asrtl/log.h"
 
 namespace asrtc
@@ -94,7 +95,7 @@ controller::controller( asrtl::send_cb scb, error_cb ecb, init_cb icb )
             &cimpl_init,
             _impl.get(),
             0 );
-        assert( st == ASRTC_SUCCESS );
+        ASRTL_ASSERT( st == ASRTC_SUCCESS );
 }
 
 controller::controller( controller&& ) = default;

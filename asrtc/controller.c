@@ -10,6 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./controller.h"
 
+#include "../asrtl/assert.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
@@ -19,7 +20,7 @@
 
 static inline enum asrtl_status asrtc_send( struct asrtc_controller* c, uint8_t* b, uint8_t* e )
 {
-        assert( c && b && e );
+        ASRTL_ASSERT( c && b && e );
         return asrtl_send( &c->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
 }
 
@@ -71,7 +72,7 @@ enum asrtc_status asrtc_cntr_init(
 
 void asrtc_cntr_deinit( struct asrtc_controller* c )
 {
-        assert( c );
+        ASRTL_ASSERT( c );
         if ( c->state == ASRTC_CNTR_HNDL_DESC && c->hndl.desc.desc )
                 asrtc_free( &c->alloc, (void**) &c->hndl.desc.desc );
         else if ( c->state == ASRTC_CNTR_HNDL_TI && c->hndl.ti.desc )
@@ -80,7 +81,7 @@ void asrtc_cntr_deinit( struct asrtc_controller* c )
 
 static enum asrtc_status asrtc_cntr_tick_init( struct asrtc_controller* c, struct asrtl_span buff )
 {
-        assert( c->state == ASRTC_CNTR_INIT );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_INIT );
         struct asrtl_span          sp = buff;
         struct asrtc_init_handler* h  = &c->hndl.init;
         switch ( c->stage ) {
@@ -123,7 +124,7 @@ static enum asrtl_status asrtc_cntr_recv_init(
     enum asrtl_message_id_e  eid,
     struct asrtl_span*       buff )
 {
-        assert( c->state == ASRTC_CNTR_INIT );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_INIT );
 
         if ( eid != ASRTL_MSG_PROTO_VERSION )
                 return ASRTL_RECV_UNEXPECTED_ERR;
@@ -151,7 +152,7 @@ enum asrtc_status asrtc_cntr_test_count(
     void*                     ptr,
     uint32_t                  timeout_ticks )
 {
-        assert( c && cb );
+        ASRTL_ASSERT( c && cb );
         if ( !asrtc_cntr_idle( c ) )
                 return ASRTC_CNTR_BUSY_ERR;
 
@@ -170,7 +171,7 @@ static enum asrtc_status asrtc_cntr_tick_test_count(
     struct asrtc_controller* c,
     struct asrtl_span        buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_TC );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_TC );
         struct asrtl_span        sp = buff;
         struct asrtc_tc_handler* h  = &c->hndl.tc;
         switch ( c->stage ) {
@@ -198,7 +199,7 @@ static enum asrtl_status asrtc_cntr_recv_test_count(
     enum asrtl_message_id_e  eid,
     struct asrtl_span*       buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_TC );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_TC );
 
         if ( eid != ASRTL_MSG_TEST_COUNT )
                 return ASRTL_RECV_UNEXPECTED_ERR;
@@ -223,7 +224,7 @@ enum asrtc_status asrtc_cntr_desc(
     void*                    ptr,
     uint32_t                 timeout_ticks )
 {
-        assert( c && cb );
+        ASRTL_ASSERT( c && cb );
 
         if ( !asrtc_cntr_idle( c ) )
                 return ASRTC_CNTR_BUSY_ERR;
@@ -241,7 +242,7 @@ enum asrtc_status asrtc_cntr_desc(
 
 static enum asrtc_status asrtc_cntr_tick_desc( struct asrtc_controller* c, struct asrtl_span buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_DESC );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_DESC );
         struct asrtl_span          sp = buff;
         struct asrtc_desc_handler* h  = &c->hndl.desc;
         switch ( c->stage ) {
@@ -272,7 +273,7 @@ static enum asrtl_status asrtc_cntr_recv_desc(
     enum asrtl_message_id_e  e,
     struct asrtl_span*       buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_DESC );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_DESC );
         if ( e != ASRTL_MSG_DESC )
                 return ASRTL_RECV_UNEXPECTED_ERR;
 
@@ -298,7 +299,7 @@ enum asrtc_status asrtc_cntr_test_info(
     void*                    ptr,
     uint32_t                 timeout_ticks )
 {
-        assert( c && cb );
+        ASRTL_ASSERT( c && cb );
         if ( !asrtc_cntr_idle( c ) )
                 return ASRTC_CNTR_BUSY_ERR;
 
@@ -318,7 +319,7 @@ static enum asrtc_status asrtc_cntr_tick_test_info(
     struct asrtc_controller* c,
     struct asrtl_span        buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_TI );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_TI );
         struct asrtl_span        sp = buff;
         struct asrtc_ti_handler* h  = &c->hndl.ti;
         switch ( c->stage ) {
@@ -349,7 +350,7 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
     enum asrtl_message_id_e  eid,
     struct asrtl_span*       buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_TI );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_TI );
         if ( eid != ASRTL_MSG_TEST_INFO )
                 return ASRTL_RECV_UNEXPECTED_ERR;
 
@@ -385,7 +386,7 @@ enum asrtc_status asrtc_cntr_test_exec(
     void*                      ptr,
     uint32_t                   timeout_ticks )
 {
-        assert( c && cb );
+        ASRTL_ASSERT( c && cb );
         if ( !asrtc_cntr_idle( c ) )
                 return ASRTC_CNTR_BUSY_ERR;
         c->hndl.exec = ( struct asrtc_exec_handler ){
@@ -438,7 +439,7 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
     enum asrtl_message_id_e  eid,
     struct asrtl_span*       buff )
 {
-        assert( c->state == ASRTC_CNTR_HNDL_EXEC );
+        ASRTL_ASSERT( c->state == ASRTC_CNTR_HNDL_EXEC );
         struct asrtc_exec_handler* h = &c->hndl.exec;
         if ( c->stage != ASRTC_STAGE_WAITING )
                 return ASRTL_RECV_INTERNAL_ERR;
@@ -530,7 +531,7 @@ static enum asrtl_status asrtc_cntr_recv_error( struct asrtc_error_cb* h, struct
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
 {
-        assert( data );
+        ASRTL_ASSERT( data );
         struct asrtc_controller* c = (struct asrtc_controller*) data;
         asrtl_message_id         id;
         if ( asrtl_span_unfit_for( &buff, sizeof( asrtl_message_id ) ) )

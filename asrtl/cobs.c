@@ -15,10 +15,11 @@
 
 #include <stddef.h>
 
+
 enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct asrtl_span* out )
 {
-        assert( out && in.b && in.e && out->b && out->e );
-        assert( in.e >= in.b && out->e >= out->b );
+        ASRTL_ASSERT( out && in.b && in.e && out->b && out->e );
+        ASRTL_ASSERT( in.e >= in.b && out->e >= out->b );
         uint8_t* out_end = out->e;
 
         struct asrtl_cobs_encoder enc;
@@ -41,8 +42,8 @@ enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct a
 
 enum asrtl_status asrtl_cobs_ibuffer_insert( struct asrtl_cobs_ibuffer* b, struct asrtl_span sp )
 {
-        assert( b && sp.b && sp.e && sp.e >= sp.b );
-        assert( b->used.b <= b->used.e && b->buff.b < b->buff.e );
+        ASRTL_ASSERT( b && sp.b && sp.e && sp.e >= sp.b );
+        ASRTL_ASSERT( b->used.b <= b->used.e && b->buff.b < b->buff.e );
         ptrdiff_t s        = sp.e - sp.b;
         ptrdiff_t capacity = b->buff.e - b->used.e;
         if ( s > capacity ) {

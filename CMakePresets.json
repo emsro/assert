@@ -7,14 +7,14 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic"
+        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic -DASRTL_DEFAULT_ASSERT"
       }
     },
     {
       "name": "coverage",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g",
+        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRTL_DEFAULT_ASSERT",
         "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },
@@ -22,14 +22,14 @@
       "name": "asan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=address"
+        "CMAKE_C_FLAGS": "-fsanitize=address -DASRTL_DEFAULT_ASSERT"
       }
     },
     {
       "name": "ubsan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=undefined"
+        "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRTL_DEFAULT_ASSERT"
       }
     },
     {

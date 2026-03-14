@@ -15,11 +15,11 @@
 extern "C" {
 #endif
 
+#include "./assert.h"
 #include "./cobs.h"
 #include "./span.h"
 #include "./status.h"
 
-#include <assert.h>
 #include <stdint.h>
 
 enum asrtl_chann_id_e
@@ -68,8 +68,8 @@ static inline enum asrtl_status asrtl_send(
     asrtl_chann_id       chid,
     struct asrtl_span    buff )
 {
-        assert( r );
-        assert( r->cb );
+        ASRTL_ASSERT( r );
+        ASRTL_ASSERT( r->cb );
         return r->cb( r->ptr, chid, buff );
 }
 

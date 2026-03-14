@@ -14,6 +14,7 @@
 #include "../asrtl/core_proto.h"
 #include "./util.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unity.h>
