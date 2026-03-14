@@ -172,18 +172,16 @@ typedef uint16_t asrtl_test_result;
 static inline enum asrtl_status asrtl_msg_rtoc_test_result(
     struct asrtl_span* buff,
     uint32_t           run_id,
-    asrtl_test_result  res,
-    uint32_t           line )
+    asrtl_test_result  res )
 {
-        if ( 0U != asrtl_span_unfit_for(
-                       buff,
-                       sizeof( asrtl_message_id ) + sizeof( run_id ) + sizeof( asrtl_test_result ) +
-                           sizeof( line ) ) )
+        if ( 0U !=
+             asrtl_span_unfit_for(
+                 buff,
+                 sizeof( asrtl_message_id ) + sizeof( run_id ) + sizeof( asrtl_test_result ) ) )
                 return ASRTL_SIZE_ERR;
         asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_RESULT );
         asrtl_add_u32( &buff->b, run_id );
         asrtl_add_u16( &buff->b, res );
-        asrtl_add_u32( &buff->b, line );
         return ASRTL_SUCCESS;
 }
 

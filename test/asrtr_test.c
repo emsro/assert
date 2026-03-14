@@ -103,16 +103,11 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
 
-void assert_test_result(
-    struct data_ll*          collected,
-    uint32_t                 id,
-    enum asrtl_test_result_e result,
-    uint32_t                 line )
+void assert_test_result( struct data_ll* collected, uint32_t id, enum asrtl_test_result_e result )
 {
-        assert_collected_hdr( collected, 0x0C, ASRTL_MSG_TEST_RESULT );
+        assert_collected_hdr( collected, 0x08, ASRTL_MSG_TEST_RESULT );
         assert_u32( id, collected->data + 2 );
         assert_u16( result, collected->data + 6 );
-        assert_u32( line, collected->data + 8 );
 }
 
 void assert_test_start( struct data_ll* collected, uint16_t test_id, uint32_t run_id )
@@ -290,7 +285,7 @@ void test_reactor_start( struct test_context* ctx )
         check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
-        assert_test_result( ctx->collected, 0, ASRTL_TEST_SUCCESS, 0 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_SUCCESS );
         clear_top_collected( &ctx->collected );
 
         assert_test_start( ctx->collected, 0, 0 );
@@ -346,7 +341,7 @@ void test_check_macro( struct test_context* ctx )
         check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 2, counter );
-        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE, 31 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE );
         clear_top_collected( &ctx->collected );
 
         assert_test_start( ctx->collected, 0, 0 );
@@ -363,7 +358,7 @@ void test_require_macro( struct test_context* ctx )
         check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 1, counter );
-        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE, 21 );
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE );
         clear_top_collected( &ctx->collected );
 
         assert_test_start( ctx->collected, 0, 0 );
@@ -381,7 +376,7 @@ void test_test_counter( struct test_context* ctx )
         for ( uint32_t x = 0; x < 42; x++ ) {
                 counter = 1;
                 check_run_test( &ctx->reac, 0, x );
-                assert_test_result( ctx->collected, x, ASRTL_TEST_SUCCESS, 0 );
+                assert_test_result( ctx->collected, x, ASRTL_TEST_SUCCESS );
                 clear_top_collected( &ctx->collected );
 
                 assert_test_start( ctx->collected, 0, x );

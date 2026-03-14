@@ -21,13 +21,11 @@
 #include <stddef.h>
 #include <string.h>
 
-uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line )
+uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x )
 {
         if ( x != 0 )
                 return 1;
         rec->state = ASRTR_TEST_FAIL;
-        if ( rec->line == 0 )
-                rec->line = line;
         return 0;
 }
 
@@ -111,7 +109,6 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
                 };
                 reac->record = ( struct asrtr_record ){
                     .state = ASRTR_TEST_INIT,
-                    .line  = 0,
                     .inpt  = &reac->test_info,
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
@@ -239,8 +236,8 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
                          record->inpt->run_id,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
-                                                             ASRTL_TEST_SUCCESS,
-                         record->line ) != ASRTL_SUCCESS ) {
+                                                             ASRTL_TEST_SUCCESS ) !=
+                     ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode test result" );
                         return ASRTR_SEND_ERR;
                 }

@@ -47,7 +47,8 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | C02 | P2 | `controller.c: ASRTC_STAGE_WAITING` | All five handlers (`init`, `test_count`, `desc`, `test_info`, `test_exec`) can get stuck in `ASRTC_STAGE_WAITING` indefinitely if the remote never replies — no timeout or escape path exists anywhere in the controller | **fixed** |
 | C03 | P2 | `controller.c:79` | Protocol version is received but never validated — XXX noted | **fixed** |
 | C04 | P3 | `controller.c:309` | Received `tid` in test-info response is parsed but unused | **fixed** |
-| C05 | P3 | `controller.c:401` | Received `line` in test-result is parsed but unused | open |
+| C05 | P3 | `controller.c:401` | Received `line` in test-result is parsed but unused | **wontfix: C10 drops `line` from the protocol** |
+| C10 | P3 | `core_proto.h`, `asrtr.c`, `controller.c` | Drop `line` from `TEST_RESULT` protocol message — field is never consumed by the controller; remove from encoder, record struct, `asrtr_assert`, and parser | open |
 | C06 | P3 | `controller.c:502` | Error code comment: different code should be used for trailing bytes — XXX noted | open |
 | C07 | P3 | `handlers.h:21` | Callback typedef location XXX — belongs in a dedicated `callbacks.h` or `handlers.h`, already split but comment remains | open |
 | C08 | P3 | `controller.c` | Uses bare `assert()` for precondition checks — replace with a custom `ASRTC_ASSERT(x)` macro that can be overridden at compile time | open |

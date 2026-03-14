@@ -42,22 +42,21 @@ struct asrtr_test_input
 struct asrtr_record
 {
         enum asrtr_test_state state;  // Current state of the test
-        uint32_t              line;   // signall line of failure, 0 if not failed
 
         struct asrtr_test_input const* inpt;
 };
 
-uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x, uint32_t line );
+uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x );
 
-#define ASRTR_CHECK( rec, x )                             \
-        do {                                              \
-                asrtr_assert( ( rec ), ( x ), __LINE__ ); \
+#define ASRTR_CHECK( rec, x )                   \
+        do {                                    \
+                asrtr_assert( ( rec ), ( x ) ); \
         } while ( 0 )
 
-#define ASRTR_REQUIRE( rec, x )                                      \
-        do {                                                         \
-                if ( asrtr_assert( ( rec ), ( x ), __LINE__ ) == 0 ) \
-                        return ASRTR_SUCCESS;                        \
+#define ASRTR_REQUIRE( rec, x )                            \
+        do {                                               \
+                if ( asrtr_assert( ( rec ), ( x ) ) == 0 ) \
+                        return ASRTR_SUCCESS;              \
         } while ( 0 )
 
 #ifdef __cplusplus

@@ -446,23 +446,24 @@ static enum asrtl_status asrtc_cntr_recv_test_exec(
         case ASRTL_MSG_TEST_START: {
                 if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRTL_RECV_ERR;
+                // XXX should not be ignored
                 uint16_t* tid = &h->res.test_id;
                 asrtl_cut_u16( &buff->b, tid );
+                // XXX: should not be ignored
                 uint32_t* rid = &h->res.run_id;
                 asrtl_cut_u32( &buff->b, rid );
                 break;
         }
         case ASRTL_MSG_TEST_RESULT: {
                 if ( asrtl_span_unfit_for(
-                         buff,
-                         sizeof( uint32_t ) + sizeof( asrtl_test_result ) + sizeof( uint32_t ) ) )
+                         buff, sizeof( uint32_t ) + sizeof( asrtl_test_result ) ) )
                         return ASRTL_RECV_ERR;
                 uint32_t rid;
+                // XXX: should not be ignored
                 asrtl_cut_u32( &buff->b, &rid );
                 uint16_t res;
+                // XXX: should not be ignored
                 asrtl_cut_u16( &buff->b, &res );
-                uint32_t line;  // XXX: unused for now  // C05
-                asrtl_cut_u32( &buff->b, &line );
 
                 if ( rid != h->res.run_id ) {
                         ASRTL_ERR_LOG(

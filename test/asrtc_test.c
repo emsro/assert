@@ -373,7 +373,7 @@ void test_cntr_run_test( struct test_context* ctx )
         TEST_ASSERT_NULL( ctx->collected );
 
         uint8_t* b = ctx->sp.b;
-        asrtl_msg_rtoc_test_result( &ctx->sp, 0, ASRTL_TEST_SUCCESS, 0 );
+        asrtl_msg_rtoc_test_result( &ctx->sp, 0, ASRTL_TEST_SUCCESS );
         check_recv_and_spin( &ctx->cntr, b, ctx->sp.b );
 
         TEST_ASSERT_EQUAL( res.test_id, 42 );
