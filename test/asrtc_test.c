@@ -186,6 +186,23 @@ enum asrtc_status cpy_desc_cb( void* ptr, enum asrtc_status s, char* desc )
         return ASRTC_SUCCESS;
 }
 
+struct test_info_result
+{
+        uint16_t tid;
+        char*    desc;
+};
+
+enum asrtc_status cpy_test_info_cb( void* ptr, enum asrtc_status s, uint16_t tid, char* desc )
+{
+        (void) s;
+        struct test_info_result* r = (struct test_info_result*) ptr;
+        r->tid                     = tid;
+        uint32_t n                 = strlen( desc ) + 1;
+        r->desc                    = malloc( n );
+        strncpy( r->desc, desc, n );
+        return ASRTC_SUCCESS;
+}
+
 void test_cntr_desc( struct test_context* ctx )
 {
         enum asrtc_status st;
@@ -242,8 +259,8 @@ void test_cntr_test_info( struct test_context* ctx )
         enum asrtc_status st;
         check_cntr_full_init( ctx );
 
-        char* p = NULL;
-        st      = asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_desc_cb, (void*) &p, 0 );
+        struct test_info_result p = { 0 };
+        st = asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_test_info_cb, (void*) &p, 0 );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
@@ -255,19 +272,20 @@ void test_cntr_test_info( struct test_context* ctx )
         asrtl_msg_rtoc_test_info( &ctx->sp, 42, desc, strlen( desc ) );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
-        TEST_ASSERT_NOT_NULL( p );
-        TEST_ASSERT_EQUAL_STRING( desc, p );
-        // XXX: maybe the callback should get the test id?  // T03
-        if ( p != NULL )
-                free( p );
+        TEST_ASSERT_NOT_NULL( p.desc );
+        TEST_ASSERT_EQUAL_STRING( desc, p.desc );
+        TEST_ASSERT_EQUAL( 42, p.tid );
+        if ( p.desc != NULL )
+                free( p.desc );
 }
 
 void test_cntr_test_info_tid_mismatch( struct test_context* ctx )
 {
         check_cntr_full_init( ctx );
 
-        char*             p  = NULL;
-        enum asrtc_status st = asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_desc_cb, (void*) &p, 0 );
+        struct test_info_result p = { 0 };
+        enum asrtc_status       st =
+            asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_test_info_cb, (void*) &p, 0 );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
         clear_single_collected( &ctx->collected );
@@ -281,7 +299,9 @@ void test_cntr_test_info_tid_mismatch( struct test_context* ctx )
             asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, rst );
 
-        TEST_ASSERT_NULL( p );
+        TEST_ASSERT_NULL( p.desc );
+        if ( p.desc != NULL )
+                free( p.desc );
 }
 
 enum asrtc_status result_cb( void* ptr, enum asrtc_status s, struct asrtc_result* res )
@@ -448,6 +468,17 @@ static enum asrtc_status record_desc_cb( void* ptr, enum asrtc_status s, char* d
         return record_status_cb( ptr, s );
 }
 
+static enum asrtc_status record_test_info_cb(
+    void*             ptr,
+    enum asrtc_status s,
+    uint16_t          tid,
+    char*             desc )
+{
+        (void) tid;
+        (void) desc;
+        return record_status_cb( ptr, s );
+}
+
 static enum asrtc_status record_result_cb(
     void*                ptr,
     enum asrtc_status    s,
@@ -533,7 +564,7 @@ void test_cntr_timeout_test_info( struct test_context* ctx )
 
         enum asrtc_status cb_status = ASRTC_SUCCESS;
         enum asrtc_status st =
-            asrtc_cntr_test_info( &ctx->cntr, 0, &record_desc_cb, &cb_status, 3 );
+            asrtc_cntr_test_info( &ctx->cntr, 0, &record_test_info_cb, &cb_status, 3 );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
 
         check_cntr_tick( &ctx->cntr );

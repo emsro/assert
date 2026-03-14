@@ -17,6 +17,7 @@ using error_cb       = std::function< status( asrtl::source, asrtl::ecode ) >;
 using init_cb        = std::function< status( status ) >;
 using desc_cb        = std::function< status( status, std::string_view ) >;
 using tc_cb          = std::function< status( status, uint32_t ) >;
+using test_info_cb   = std::function< status( status, uint16_t, std::string_view ) >;
 using test_result_cb = std::function< status( status, result const& ) >;
 
 struct controller_impl;
@@ -36,7 +37,7 @@ struct controller
 
         [[nodiscard]] asrtc::status query_desc( desc_cb cb );
         [[nodiscard]] asrtc::status query_test_count( tc_cb cb );
-        [[nodiscard]] asrtc::status query_test_info( uint16_t id, desc_cb cb );
+        [[nodiscard]] asrtc::status query_test_info( uint16_t id, test_info_cb cb );
         [[nodiscard]] asrtc::status exec_test( uint16_t id, test_result_cb cb );
 
         ~controller();

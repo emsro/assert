@@ -333,10 +333,10 @@ static enum asrtc_status asrtc_cntr_tick_test_info(
                 break;
         case ASRTC_STAGE_WAITING:
                 if ( asrtc_check_timeout( c, h->timeout_ticks ) )
-                        return h->cb( h->ptr, ASRTC_TIMEOUT_ERR, NULL );
+                        return h->cb( h->ptr, ASRTC_TIMEOUT_ERR, h->tid, NULL );
                 break;
         case ASRTC_STAGE_END: {
-                enum asrtc_status res = h->cb( h->ptr, ASRTC_SUCCESS, h->desc );
+                enum asrtc_status res = h->cb( h->ptr, ASRTC_SUCCESS, h->tid, h->desc );
                 asrtc_free( &c->alloc, (void**) &h->desc );
                 c->state = ASRTC_CNTR_IDLE;
                 return res;

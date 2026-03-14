@@ -29,7 +29,6 @@ enum asrtl_message_id_e
         ASRTL_MSG_TEST_INFO     = 0x05,  // reactor <-> controller
         ASRTL_MSG_TEST_START    = 0x06,  // reactor <-> controller
         ASRTL_MSG_TEST_RESULT   = 0x07,  // reactor -> controller
-        // XXX: stop running test  // L05
 };
 
 typedef uint16_t asrtl_message_id;

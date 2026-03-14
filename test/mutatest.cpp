@@ -206,7 +206,7 @@ struct gene_handler
         void operator()( _ti const& )
         {
                 os << "TI" << std::endl;
-                check >> c.query_test_info( 0, [&]( asrtc::status s, std::string_view ) {
+                check >> c.query_test_info( 0, [&]( asrtc::status s, uint16_t, std::string_view ) {
                         check >> s;
                         return ASRTC_SUCCESS;
                 } );

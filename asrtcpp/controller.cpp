@@ -17,7 +17,7 @@ struct controller_impl
 
         desc_cb        des_cb;
         tc_cb          test_count_cb;
-        desc_cb        ti_cb;
+        test_info_cb   ti_cb;
         test_result_cb te_cb;
 };
 namespace
@@ -66,10 +66,10 @@ asrtc::status cimpl_test_count( void* ptr, asrtc::status s, uint16_t count )
         return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->test_count_cb, s, count );
 }
 
-asrtc::status cimpl_test_info( void* ptr, asrtc::status s, char* data )
+asrtc::status cimpl_test_info( void* ptr, asrtc::status s, uint16_t tid, char* data )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ti_cb, s, data );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ti_cb, s, tid, std::string_view{ data } );
 }
 
 asrtc::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result* res )
@@ -147,7 +147,7 @@ asrtc::status controller::query_test_count( tc_cb cb )
         return st;
 }
 
-asrtc::status controller::query_test_info( uint16_t id, desc_cb cb )
+asrtc::status controller::query_test_info( uint16_t id, test_info_cb cb )
 {
         auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get(), 0 );
         if ( st == ASRTC_SUCCESS )
