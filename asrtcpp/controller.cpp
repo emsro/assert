@@ -12,6 +12,7 @@ struct controller_impl
         asrtc_controller asc;
         asrtl::send_cb   scb;
         error_cb         ecb;
+        init_cb          ini_cb;
 
         desc_cb        des_cb;
         tc_cb          test_count_cb;
@@ -40,49 +41,59 @@ asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_span buff 
         return ci->scb( id, sp );
 }
 
+asrtc::status cimpl_init( void* ptr, asrtc::status s )
+{
+        auto* ci = reinterpret_cast< controller_impl* >( ptr );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ini_cb, s );
+}
+
 asrtc::status cimpl_error( void* ptr, asrtl::source src, uint16_t ecode )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
         return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ecb, src, ecode );
 }
 
-asrtc::status cimpl_desc( void* ptr, char* data )
+asrtc::status cimpl_desc( void* ptr, asrtc::status s, char* data )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->des_cb, std::string_view{ data } );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->des_cb, s, std::string_view{ data } );
 }
 
-asrtc::status cimpl_test_count( void* ptr, uint16_t count )
+asrtc::status cimpl_test_count( void* ptr, asrtc::status s, uint16_t count )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->test_count_cb, count );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->test_count_cb, s, count );
 }
 
-asrtc::status cimpl_test_info( void* ptr, char* data )
+asrtc::status cimpl_test_info( void* ptr, asrtc::status s, char* data )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ti_cb, data );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ti_cb, s, data );
 }
 
-asrtc::status cimpl_test_result( void* ptr, struct asrtc_result* res )
+asrtc::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result* res )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->te_cb, *res );
+        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->te_cb, s, *res );
 }
 
 }  // namespace
 
-controller::controller( asrtl::send_cb scb, error_cb ecb )
+controller::controller( asrtl::send_cb scb, error_cb ecb, init_cb icb )
   : _impl{ new controller_impl{
-        .scb = std::move( scb ),
-        .ecb = std::move( ecb ),
+        .scb    = std::move( scb ),
+        .ecb    = std::move( ecb ),
+        .ini_cb = std::move( icb ),
     } }
 {
         auto st = asrtc_cntr_init(
             &_impl->asc,
             { .ptr = _impl.get(), .cb = &cimpl_send },
             asrtc_default_allocator(),
-            { .ptr = _impl.get(), .cb = &cimpl_error } );
+            { .ptr = _impl.get(), .cb = &cimpl_error },
+            &cimpl_init,
+            _impl.get(),
+            0 );
         assert( st == ASRTC_SUCCESS );
 }
 
@@ -111,7 +122,7 @@ bool controller::is_idle() const
 
 asrtc::status controller::query_desc( desc_cb cb )
 {
-        auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get() );
+        auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get(), 0 );
         if ( st == ASRTC_SUCCESS )
                 _impl->des_cb = std::move( cb );
         else
@@ -124,7 +135,7 @@ asrtc::status controller::query_desc( desc_cb cb )
 
 asrtc::status controller::query_test_count( tc_cb cb )
 {
-        auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get() );
+        auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get(), 0 );
         if ( st == ASRTC_SUCCESS )
                 _impl->test_count_cb = std::move( cb );
         else
@@ -137,7 +148,7 @@ asrtc::status controller::query_test_count( tc_cb cb )
 
 asrtc::status controller::query_test_info( uint16_t id, desc_cb cb )
 {
-        auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get() );
+        auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get(), 0 );
         if ( st == ASRTC_SUCCESS )
                 _impl->ti_cb = std::move( cb );
         else
@@ -148,7 +159,7 @@ asrtc::status controller::query_test_info( uint16_t id, desc_cb cb )
 
 asrtc::status controller::exec_test( uint16_t id, test_result_cb cb )
 {
-        auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get() );
+        auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get(), 0 );
         if ( st == ASRTC_SUCCESS )
                 _impl->te_cb = std::move( cb );
         else
