@@ -81,6 +81,14 @@ struct cntr_tcp_sys
                     auto s = std::format( "Source: {}, code: {}", sr, ec );
                     ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
                     std::abort();  // XXX: improve
+            },
+            []( asrtc::status s ) -> asrtc::status {
+                    if ( s != ASRTC_SUCCESS )
+                            ASRTL_ERR_LOG(
+                                "asrtio_main",
+                                "Controller init failed: %s",
+                                asrtc_status_to_str( s ) );
+                    return s;
             } };
 
         uv_tasks tasks;

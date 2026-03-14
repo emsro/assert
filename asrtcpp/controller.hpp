@@ -14,15 +14,16 @@ using asrtl::uptr;
 using status         = asrtc_status;
 using result         = asrtc_result;
 using error_cb       = std::function< status( asrtl::source, asrtl::ecode ) >;
-using desc_cb        = std::function< status( std::string_view ) >;
-using tc_cb          = std::function< status( uint32_t ) >;
-using test_result_cb = std::function< status( result const& ) >;
+using init_cb        = std::function< status( status ) >;
+using desc_cb        = std::function< status( status, std::string_view ) >;
+using tc_cb          = std::function< status( status, uint32_t ) >;
+using test_result_cb = std::function< status( status, result const& ) >;
 
 struct controller_impl;
 
 struct controller
 {
-        controller( asrtl::send_cb scb, error_cb ecb );
+        controller( asrtl::send_cb scb, error_cb ecb, init_cb icb );
         controller( controller&& );
 
         [[nodiscard]]

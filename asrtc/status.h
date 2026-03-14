@@ -18,6 +18,7 @@ extern "C" {
 
 enum asrtc_status
 {
+        ASRTC_TIMEOUT_ERR   = -6,
         ASRTC_VERSION_ERR   = -5,
         ASRTC_CNTR_CB_ERR   = -4,
         ASRTC_SEND_ERR      = -3,

@@ -19,10 +19,14 @@ extern "C" {
 #include "./status.h"
 
 // XXX: the defs might be at better place  // C07
-typedef enum asrtc_status ( *asrtc_test_count_callback )( void* ptr, uint16_t test_count );
-typedef enum asrtc_status ( *asrtc_desc_callback )( void* ptr, char* desc );
-typedef enum asrtc_status ( *asrtc_test_info_callback )( void* ptr, char* desc );
-typedef enum asrtc_status ( *asrtc_test_result_callback )( void* ptr, struct asrtc_result* res );
+typedef enum asrtc_status ( *asrtc_init_callback )( void* ptr, enum asrtc_status s );
+typedef enum asrtc_status (
+    *asrtc_test_count_callback )( void* ptr, enum asrtc_status s, uint16_t test_count );
+typedef enum asrtc_status ( *asrtc_desc_callback )( void* ptr, enum asrtc_status s, char* desc );
+typedef enum asrtc_status (
+    *asrtc_test_info_callback )( void* ptr, enum asrtc_status s, char* desc );
+typedef enum asrtc_status (
+    *asrtc_test_result_callback )( void* ptr, enum asrtc_status s, struct asrtc_result* res );
 
 enum asrtc_stage_e
 {
@@ -33,7 +37,9 @@ enum asrtc_stage_e
 
 struct asrtc_init_handler
 {
-        enum asrtc_stage_e stage;
+        asrtc_init_callback cb;
+        void*               ptr;
+        uint32_t            timeout_ticks;
         struct
         {
                 uint16_t major;
@@ -45,35 +51,35 @@ struct asrtc_init_handler
 
 struct asrtc_tc_handler
 {
-        enum asrtc_stage_e        stage;
         uint16_t                  count;
         void*                     ptr;
         asrtc_test_count_callback cb;
+        uint32_t                  timeout_ticks;
 };
 
 struct asrtc_desc_handler
 {
-        enum asrtc_stage_e  stage;
         char*               desc;
         void*               ptr;
         asrtc_desc_callback cb;
+        uint32_t            timeout_ticks;
 };
 
 struct asrtc_ti_handler
 {
         uint16_t                 tid;
-        enum asrtc_stage_e       stage;
         char*                    desc;
         void*                    ptr;
         asrtc_test_info_callback cb;
+        uint32_t                 timeout_ticks;
 };
 
 struct asrtc_exec_handler
 {
-        enum asrtc_stage_e         stage;
         struct asrtc_result        res;
         void*                      ptr;
         asrtc_test_result_callback cb;
+        uint32_t                   timeout_ticks;
 };
 
 #ifdef __cplusplus

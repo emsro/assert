@@ -20,6 +20,8 @@ extern "C" {
 inline static char const* asrtr_status_to_str( enum asrtr_status st )
 {
         switch ( st ) {
+        case ASRTR_TEST_REG_ERR:
+                return "test registration error";
         case ASRTR_INTERNAL_ERR:
                 return "internal error";
         case ASRTR_SEND_ERR:

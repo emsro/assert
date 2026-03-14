@@ -20,6 +20,10 @@ extern "C" {
 inline static char const* asrtc_status_to_str( enum asrtc_status st )
 {
         switch ( st ) {
+        case ASRTC_TIMEOUT_ERR:
+                return "timeout error";
+        case ASRTC_VERSION_ERR:
+                return "version error";
         case ASRTC_CNTR_CB_ERR:
                 return "controller callback error";
         case ASRTC_SEND_ERR:

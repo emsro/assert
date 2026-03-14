@@ -188,7 +188,8 @@ struct gene_handler
         void operator()( _d const& )
         {
                 os << "D" << std::endl;
-                check >> c.query_desc( [&]( std::string_view ) {
+                check >> c.query_desc( [&]( asrtc::status s, std::string_view ) {
+                        check >> s;
                         return ASRTC_SUCCESS;
                 } );
         }
@@ -196,7 +197,8 @@ struct gene_handler
         void operator()( _tc const& )
         {
                 os << "TC" << std::endl;
-                check >> c.query_test_count( [&]( uint32_t ) {
+                check >> c.query_test_count( [&]( asrtc::status s, uint32_t ) {
+                        check >> s;
                         return ASRTC_SUCCESS;
                 } );
         }
@@ -204,7 +206,8 @@ struct gene_handler
         void operator()( _ti const& )
         {
                 os << "TI" << std::endl;
-                check >> c.query_test_info( 0, [&]( std::string_view ) {
+                check >> c.query_test_info( 0, [&]( asrtc::status s, std::string_view ) {
+                        check >> s;
                         return ASRTC_SUCCESS;
                 } );
         }
@@ -212,7 +215,8 @@ struct gene_handler
         void operator()( _ex const& )
         {
                 os << "EX" << std::endl;
-                check >> c.exec_test( 0, [&]( asrtc::result const& ) {
+                check >> c.exec_test( 0, [&]( asrtc::status s, asrtc::result const& ) {
+                        check >> s;
                         return ASRTC_SUCCESS;
                 } );
         }
@@ -258,6 +262,10 @@ void exec( std::ostream& os, test_case const& tc )
             [&]( asrtl::source s, asrtl::ecode ec ) {
                     os << std::format( "({}) ", s );
                     os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
+                    return ASRTC_SUCCESS;
+            },
+            [&]( asrtc::status s ) {
+                    check >> s;
                     return ASRTC_SUCCESS;
             } );
 

@@ -213,7 +213,15 @@ struct test_pool_task : task
                 if ( !cntr.is_idle() )
                         return runnning;
                 if ( count == -1 ) {
-                        auto s = cntr.query_test_count( [this]( uint32_t c ) {
+                        auto s = cntr.query_test_count( [this]( asrtc::status s, uint32_t c ) {
+                                if ( s != ASRTC_SUCCESS ) {
+                                        ASRTL_ERR_LOG(
+                                            "asrtio_main",
+                                            "Query test count failed in callback: %s",
+                                            asrtc_status_to_str( s ) );
+                                        this->count = 0;
+                                        return ASRTC_SUCCESS;
+                                }
                                 this->count = static_cast< int32_t >( c );
                                 ASRTL_INF_LOG(
                                     "asrtio_main",
@@ -230,16 +238,25 @@ struct test_pool_task : task
                                     asrtc_status_to_str( s ) );
                         }
                 } else if ( idx < count ) {
-                        auto s = cntr.query_test_info( idx, [this]( std::string_view desc ) {
-                                ASRTL_INF_LOG(
-                                    "asrtio_main",
-                                    "Test info received: %u -> %s",
-                                    this->idx,
-                                    desc.data() );
-                                this->cb( this->idx, desc );
-                                ++idx;
-                                return ASRTC_SUCCESS;
-                        } );
+                        auto s = cntr.query_test_info(
+                            idx, [this]( asrtc::status s, std::string_view desc ) {
+                                    if ( s != ASRTC_SUCCESS ) {
+                                            ASRTL_ERR_LOG(
+                                                "asrtio_main",
+                                                "Query test info failed in callback: %s",
+                                                asrtc_status_to_str( s ) );
+                                            this->count = this->idx;
+                                            return ASRTC_SUCCESS;
+                                    }
+                                    ASRTL_INF_LOG(
+                                        "asrtio_main",
+                                        "Test info received: %u -> %s",
+                                        this->idx,
+                                        desc.data() );
+                                    this->cb( this->idx, desc );
+                                    ++idx;
+                                    return ASRTC_SUCCESS;
+                            } );
                         if ( s != ASRTC_SUCCESS ) {
                                 ASRTL_ERR_LOG(
                                     "asrtio_main",
@@ -291,7 +308,15 @@ struct run_test_task : task
                         on_start();
                         on_start = {};
                 }
-                auto s = cntr.exec_test( id, [this]( asrtc::result const& res ) {
+                auto s = cntr.exec_test( id, [this]( asrtc::status s, asrtc::result const& res ) {
+                        if ( s != ASRTC_SUCCESS ) {
+                                ASRTL_ERR_LOG(
+                                    "asrtio_main",
+                                    "Exec test failed in callback: %s",
+                                    asrtc_status_to_str( s ) );
+                                this->id = std::numeric_limits< uint32_t >::max();
+                                return ASRTC_SUCCESS;
+                        }
                         ASRTL_INF_LOG(
                             "asrtio_main",
                             "Test result received: %u -> %i %i %s",
