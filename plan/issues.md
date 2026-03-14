@@ -35,7 +35,7 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | R02 | P2 | `asrtr.c:167` | Flag fallthrough branch (`else` at end of chain) silently zeroes flags without reporting error | **fixed** |
 | R03 | P2 | `asrtr.c:260,269` | Rapid repeat of test-start or test-info messages is unhandled — XXX noted | **fixed** |
 | R04 | P2 | `asrtr.c:315` | Test registration not locked after first tick — XXX noted | **fixed** |
-| R05 | P3 | `asrtr.c: asrtr_reactor_add_test` | Linear scan to find list tail on every `add_test` call — O(n) per registration; a tail pointer in `asrtr_reactor` would make it O(1) | open |
+| R05 | P3 | `asrtr.c: asrtr_reactor_add_test` | Linear scan to find list tail on every `add_test` call — O(n) per registration; a tail pointer in `asrtr_reactor` would make it O(1) | **fixed** |
 | R06 | P2 | `asrtr.c` | Error logging audit: scan all error-path `if` branches in `asrtr.c` and ensure every failure return emits an `ASRTL_ERR_LOG` before returning | **fixed** |
 | R07 | P3 | `asrtr.c` | Uses bare `assert()` for precondition checks — replace with a custom `ASRTR_ASSERT(x)` macro that can be overridden at compile time | open |
 
@@ -44,7 +44,7 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | ID | Pri | Location | Issue | Status |
 |----|-----|----------|-------|--------|
 | C01 | P2 | `allocator.c:17` | Magic upper-bound constant `10000` in `asrtc_realloc_str` — no rationale | **fixed** |
-| C02 | P2 | `controller.c: ASRTC_STAGE_WAITING` | All five handlers (`init`, `test_count`, `desc`, `test_info`, `test_exec`) can get stuck in `ASRTC_STAGE_WAITING` indefinitely if the remote never replies — no timeout or escape path exists anywhere in the controller | open |
+| C02 | P2 | `controller.c: ASRTC_STAGE_WAITING` | All five handlers (`init`, `test_count`, `desc`, `test_info`, `test_exec`) can get stuck in `ASRTC_STAGE_WAITING` indefinitely if the remote never replies — no timeout or escape path exists anywhere in the controller | **fixed** |
 | C03 | P2 | `controller.c:79` | Protocol version is received but never validated — XXX noted | **fixed** |
 | C04 | P3 | `controller.c:309` | Received `tid` in test-info response is parsed but unused | open |
 | C05 | P3 | `controller.c:401` | Received `line` in test-result is parsed but unused | open |

@@ -59,6 +59,7 @@ struct asrtr_reactor
         char const*         desc;
 
         struct asrtr_test* first_test;
+        struct asrtr_test* last_test;
 
         enum asrtr_reactor_state state;
         struct asrtr_test_input  test_info;

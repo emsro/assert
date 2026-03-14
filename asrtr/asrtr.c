@@ -51,6 +51,7 @@ enum asrtr_status asrtr_reactor_init(
             .sendr              = sender,
             .desc               = desc,
             .first_test         = NULL,
+            .last_test          = NULL,
             .state              = ASRTR_REAC_IDLE,
             .flags              = 0,
             .recv_test_info_id  = 0,
@@ -360,9 +361,11 @@ enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asr
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Test registration locked after first recv" );
                 return ASRTR_TEST_REG_ERR;
         }
-        struct asrtr_test** t = &reac->first_test;
-        while ( *t )
-                t = &( *t )->next;
-        *t = test;
+        test->next = NULL;
+        if ( reac->last_test )
+                reac->last_test->next = test;
+        else
+                reac->first_test = test;
+        reac->last_test = test;
         return ASRTR_SUCCESS;
 }
