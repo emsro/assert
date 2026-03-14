@@ -15,7 +15,6 @@
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 
-#include <stdbool.h>
 #include <string.h>
 
 static inline enum asrtl_status asrtc_send( struct asrtc_controller* c, uint8_t* b, uint8_t* e )
@@ -24,13 +23,13 @@ static inline enum asrtl_status asrtc_send( struct asrtc_controller* c, uint8_t*
         return asrtl_send( &c->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
 }
 
-static bool asrtc_check_timeout( struct asrtc_controller* c, uint32_t timeout_ticks )
+static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t timeout_ticks )
 {
         if ( timeout_ticks > 0 && ++c->waiting_ticks >= timeout_ticks ) {
                 c->state = ASRTC_CNTR_IDLE;
-                return true;
+                return 1;
         }
-        return false;
+        return 0;
 }
 
 //---------------------------------------------------------------------
