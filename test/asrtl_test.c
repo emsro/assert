@@ -1046,6 +1046,31 @@ void test_cobs_ibuffer_insert_l13( void )
         free( storage );
 }
 
+// L-cov2: asrtl_span_unfit_for direct tests
+void test_span_unfit_for( void )
+{
+        uint8_t buf[8];
+
+        struct asrtl_span full = { .b = buf, .e = buf + 8 };
+        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 0 ) );
+        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 1 ) );
+        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 8 ) );
+        TEST_ASSERT_NOT_EQUAL( 0, asrtl_span_unfit_for( &full, 9 ) );
+
+        struct asrtl_span empty = { .b = buf, .e = buf };
+        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &empty, 0 ) );
+        TEST_ASSERT_NOT_EQUAL( 0, asrtl_span_unfit_for( &empty, 1 ) );
+}
+
+// L-cov3: asrtl_u8d2_to_u16 with high bit set
+void test_u8d2_to_u16_high_bit( void )
+{
+        uint8_t  data[2] = { 0x80, 0x01 };
+        uint16_t val     = 0;
+        asrtl_u8d2_to_u16( data, &val );
+        TEST_ASSERT_EQUAL_HEX16( 0x8001, val );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -1086,5 +1111,7 @@ int main( void )
         RUN_TEST( test_u8d4_to_u32_high_bit );
         RUN_TEST( test_cobs_encode_buffer_l11 );
         RUN_TEST( test_cobs_ibuffer_insert_l13 );
+        RUN_TEST( test_span_unfit_for );
+        RUN_TEST( test_u8d2_to_u16_high_bit );
         return UNITY_END();
 }

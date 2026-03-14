@@ -57,4 +57,11 @@ enum asrtr_status insta_test_fun( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
+// R-cov1: continue_f returns non-SUCCESS → record->state forced to ASRTR_TEST_ERROR
+enum asrtr_status error_continue_fun( struct asrtr_record* x )
+{
+        (void) x;
+        return ASRTR_INTERNAL_ERR;
+}
+
 #endif

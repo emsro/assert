@@ -462,6 +462,95 @@ void test_reactor_add_test_after_recv( struct test_context* ctx )
         TEST_ASSERT_NULL( t1.next );
 }
 
+// R-cov1: continue_f returning an error sets ASRTR_TEST_ERROR → sends ASRTL_TEST_ERROR result
+void test_reactor_test_error( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        struct asrtr_test t1;
+        setup_test( &ctx->reac, &t1, "test1", NULL, &error_continue_fun );
+
+        check_run_test( &ctx->reac, 0, 0 );
+
+        assert_test_result( ctx->collected, 0, ASRTL_TEST_ERROR );
+        clear_top_collected( &ctx->collected );
+
+        assert_test_start( ctx->collected, 0, 0 );
+        clear_top_collected( &ctx->collected );
+}
+
+// R-cov2: two requests received before any tick — both flags set simultaneously
+void test_reactor_multi_flag( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        // First request: test count
+        asrtl_msg_ctor_test_count( &ctx->sp );
+        uint8_t* end1 = ctx->sp.b;
+        check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, end1 } );
+
+        // Second request: description (no tick between)
+        ctx->sp.b = ctx->buffer;
+        asrtl_msg_ctor_desc( &ctx->sp );
+        uint8_t* end2 = ctx->sp.b;
+        check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, end2 } );
+
+        // Both flags must be set at the same time
+        TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_TC );
+        TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_DESC );
+
+        uint8_t buffer[64];
+
+        // First tick: DESC handled (highest priority in if-else chain)
+        enum asrtr_status st = asrtr_reactor_tick(
+            &ctx->reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
+        assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
+        assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
+        clear_single_collected( &ctx->collected );
+        TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_TC );
+        TEST_ASSERT( !( ctx->reac.flags & ASRTR_FLAG_DESC ) );
+
+        // Second tick: TC handled
+        st = asrtr_reactor_tick(
+            &ctx->reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
+        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_u16( 0x00, ctx->collected->data + 2 );
+        clear_single_collected( &ctx->collected );
+        TEST_ASSERT( !( ctx->reac.flags & ASRTR_FLAG_TC ) );
+}
+
+// R-cov3: truncated and trailing-byte recv errors in asrtr_reactor_recv
+void test_reactor_recv_truncated( struct test_context* ctx )
+{
+        check_reactor_init( &ctx->reac, ctx->send, "rec1" );
+
+        uint8_t           buf[16];
+        struct asrtl_span sp;
+        enum asrtl_status rst;
+
+        // Truncated TEST_INFO: only message ID, no u16 tid
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
+        rst = asrtr_reactor_recv( &ctx->reac, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Truncated TEST_START: only ID + partial tid(2), missing run_id(4)
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_START );
+        asrtl_add_u16( &sp.b, 0 );  // tid only, no run_id
+        rst = asrtr_reactor_recv( &ctx->reac, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Trailing bytes: PROTO_VERSION request + extra bytes
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
+        asrtl_add_u16( &sp.b, 0xFFFF );  // extra bytes after a no-payload message
+        rst = asrtr_reactor_recv( &ctx->reac, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -479,5 +568,8 @@ int main( void )
         ASRT_RUN_TEST( test_reactor_test_info_repeat );
         ASRT_RUN_TEST( test_reactor_test_start_repeat );
         ASRT_RUN_TEST( test_reactor_add_test_after_recv );
+        ASRT_RUN_TEST( test_reactor_test_error );
+        ASRT_RUN_TEST( test_reactor_multi_flag );
+        ASRT_RUN_TEST( test_reactor_recv_truncated );
         return UNITY_END();
 }

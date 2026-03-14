@@ -602,6 +602,254 @@ void test_cntr_timeout_exec( struct test_context* ctx )
         TEST_ASSERT( asrtc_cntr_idle( &ctx->cntr ) );
 }
 
+void test_cntr_busy_err( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        // Start an operation to put the controller into a non-idle state
+        char*             p  = NULL;
+        enum asrtc_status st = asrtc_cntr_desc( &ctx->cntr, &cpy_desc_cb, (void*) &p, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        TEST_ASSERT( !asrtc_cntr_idle( &ctx->cntr ) );
+
+        // Any subsequent operation while busy must return BUSY_ERR
+        st = asrtc_cntr_desc( &ctx->cntr, &cpy_desc_cb, (void*) &p, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_CNTR_BUSY_ERR, st );
+
+        st = asrtc_cntr_test_count( &ctx->cntr, &cpy_u32_cb, (void*) NULL, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_CNTR_BUSY_ERR, st );
+
+        st = asrtc_cntr_test_info( &ctx->cntr, 0, &cpy_test_info_cb, (void*) NULL, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_CNTR_BUSY_ERR, st );
+
+        // Drain the pending operation so the context is clean
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+        char* desc = "x";
+        asrtl_msg_rtoc_desc( &ctx->sp, desc, strlen( desc ) );
+        check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
+        if ( p != NULL )
+                free( p );
+}
+
+struct error_result
+{
+        enum asrtl_source src;
+        uint16_t          ecode;
+};
+
+static enum asrtc_status record_error_cb( void* ptr, enum asrtl_source src, uint16_t ecode )
+{
+        struct error_result* r = (struct error_result*) ptr;
+        r->src                 = src;
+        r->ecode               = ecode;
+        return ASRTC_SUCCESS;
+}
+
+void test_cntr_recv_error( struct test_context* ctx )
+{
+        // Init with a custom error callback that records what it receives
+        struct error_result   err = { 0 };
+        struct asrtc_error_cb ecb = { .ptr = &err, .cb = &record_error_cb };
+
+        enum asrtc_status st = asrtc_cntr_init(
+            &ctx->cntr,
+            ctx->send,
+            asrtc_default_allocator(),
+            ecb,
+            &record_init_cb,
+            &ctx->init_status,
+            0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // Send an error message while the controller is waiting for a response
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_error( &sp, 42 );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, rst );
+        TEST_ASSERT_EQUAL( ASRTL_REACTOR, err.src );
+        TEST_ASSERT_EQUAL( 42, err.ecode );
+}
+
+// C-cov3 + C-cov4: wrong run_id in TEST_RESULT → ASRTC_TEST_ERROR in callback
+void test_cntr_test_exec_wrong_run_id( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        struct asrtc_result res = { 0 };
+        enum asrtc_status   st  = asrtc_cntr_test_exec( &ctx->cntr, 42, result_cb, &res, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );  // sends TEST_START request
+        clear_single_collected( &ctx->collected );
+
+        // Send TEST_RESULT with wrong run_id (controller expects 0, send 99)
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_test_result( &sp, 99, ASRTL_TEST_SUCCESS );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+
+        TEST_ASSERT_EQUAL( ASRTC_TEST_ERROR, res.res );
+        TEST_ASSERT_NULL( ctx->collected );
+}
+
+// C-cov5: recv while controller is IDLE → ASRTL_RECV_UNEXPECTED_ERR
+void test_cntr_recv_idle( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, rst );
+        TEST_ASSERT( asrtc_cntr_idle( &ctx->cntr ) );
+}
+
+// C-cov6: empty buffer — top-level header truncation
+void test_cntr_recv_truncated_hdr( struct test_context* ctx )
+{
+        enum asrtc_status st = asrtc_cntr_init(
+            &ctx->cntr,
+            ctx->send,
+            asrtc_default_allocator(),
+            asrtc_default_error_cb(),
+            &record_init_cb,
+            &ctx->init_status,
+            0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+
+        uint8_t           buf[1];
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = buf } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Drain: tick to send request then satisfy it
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+        uint8_t           vbuf[16];
+        struct asrtl_span vsp = { .b = vbuf, .e = vbuf + sizeof vbuf };
+        asrtl_msg_rtoc_proto_version( &vsp, 0, 1, 0 );
+        check_recv_and_spin( &ctx->cntr, vbuf, vsp.b );
+}
+
+// C-cov6: truncated proto-version reply while in INIT/WAITING
+void test_cntr_recv_truncated_init( struct test_context* ctx )
+{
+        enum asrtc_status st = asrtc_cntr_init(
+            &ctx->cntr,
+            ctx->send,
+            asrtc_default_allocator(),
+            asrtc_default_error_cb(),
+            &record_init_cb,
+            &ctx->init_status,
+            0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // ID + only major(2) — missing minor(2) + patch(2) = too short
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
+        asrtl_add_u16( &sp.b, 0 );  // major only, 4 bytes total
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Satisfy properly to clean up
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+}
+
+// C-cov6: truncated test-count reply while in HNDL_TC/WAITING
+void test_cntr_recv_truncated_test_count( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        enum asrtc_status cb_st = ASRTC_SUCCESS;
+        enum asrtc_status st    = asrtc_cntr_test_count( &ctx->cntr, &record_tc_cb, &cb_st, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // Just the message ID, no u16 count
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_COUNT );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Satisfy properly to clean up
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_test_count( &sp, 0 );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+}
+
+// C-cov6: truncated test-info reply while in HNDL_TI/WAITING
+void test_cntr_recv_truncated_test_info( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        struct test_info_result p = { 0 };
+        enum asrtc_status st      = asrtc_cntr_test_info( &ctx->cntr, 7, &cpy_test_info_cb, &p, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // Just the message ID, no u16 tid
+        uint8_t           buf[16];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Satisfy properly to clean up
+        char const* desc = "x";
+        sp               = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_test_info( &sp, 7, desc, strlen( desc ) );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+        if ( p.desc != NULL )
+                free( p.desc );
+}
+
+// C-cov6: truncated exec messages while in HNDL_EXEC/WAITING
+void test_cntr_recv_truncated_exec( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        struct asrtc_result res = { 0 };
+        enum asrtc_status   st  = asrtc_cntr_test_exec( &ctx->cntr, 1, result_cb, &res, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        uint8_t           buf[16];
+        struct asrtl_span sp;
+
+        // Truncated TEST_RESULT: ID + run_id(4) only — missing res(2)
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_RESULT );
+        asrtl_add_u32( &sp.b, 0 );  // run_id, but no res u16
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_ERR, rst );
+
+        // Satisfy properly to clean up
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_test_result( &sp, 0, ASRTL_TEST_SUCCESS );
+        check_recv_and_spin( &ctx->cntr, buf, sp.b );
+        TEST_ASSERT_EQUAL( ASRTC_TEST_SUCCESS, res.res );
+        TEST_ASSERT_NULL( ctx->collected );
+}
+
 int main( void )
 {
         UNITY_BEGIN();
@@ -619,5 +867,14 @@ int main( void )
         ASRT_RUN_TEST( test_cntr_timeout_desc );
         ASRT_RUN_TEST( test_cntr_timeout_test_info );
         ASRT_RUN_TEST( test_cntr_timeout_exec );
+        ASRT_RUN_TEST( test_cntr_busy_err );
+        ASRT_RUN_TEST( test_cntr_recv_error );
+        ASRT_RUN_TEST( test_cntr_test_exec_wrong_run_id );
+        ASRT_RUN_TEST( test_cntr_recv_idle );
+        ASRT_RUN_TEST( test_cntr_recv_truncated_hdr );
+        ASRT_RUN_TEST( test_cntr_recv_truncated_init );
+        ASRT_RUN_TEST( test_cntr_recv_truncated_test_count );
+        ASRT_RUN_TEST( test_cntr_recv_truncated_test_info );
+        ASRT_RUN_TEST( test_cntr_recv_truncated_exec );
         return UNITY_END();
 }
