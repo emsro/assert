@@ -359,8 +359,13 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
         struct asrtc_ti_handler* h = &c->hndl.ti;
         if ( c->stage != ASRTC_STAGE_WAITING )
                 return ASRTL_RECV_INTERNAL_ERR;
-        uint16_t tid;  // XXX: unused for now  // C04
+        uint16_t tid;
         asrtl_cut_u16( &buff->b, &tid );
+        if ( tid != h->tid ) {
+                ASRTL_ERR_LOG(
+                    "asrtc", "Test info response tid mismatch: got %u, expected %u", tid, h->tid );
+                return ASRTL_RECV_UNEXPECTED_ERR;
+        }
 
         h->desc = asrtc_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )

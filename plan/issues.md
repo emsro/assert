@@ -46,7 +46,7 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | C01 | P2 | `allocator.c:17` | Magic upper-bound constant `10000` in `asrtc_realloc_str` — no rationale | **fixed** |
 | C02 | P2 | `controller.c: ASRTC_STAGE_WAITING` | All five handlers (`init`, `test_count`, `desc`, `test_info`, `test_exec`) can get stuck in `ASRTC_STAGE_WAITING` indefinitely if the remote never replies — no timeout or escape path exists anywhere in the controller | **fixed** |
 | C03 | P2 | `controller.c:79` | Protocol version is received but never validated — XXX noted | **fixed** |
-| C04 | P3 | `controller.c:309` | Received `tid` in test-info response is parsed but unused | open |
+| C04 | P3 | `controller.c:309` | Received `tid` in test-info response is parsed but unused | **fixed** |
 | C05 | P3 | `controller.c:401` | Received `line` in test-result is parsed but unused | open |
 | C06 | P3 | `controller.c:502` | Error code comment: different code should be used for trailing bytes — XXX noted | open |
 | C07 | P3 | `handlers.h:21` | Callback typedef location XXX — belongs in a dedicated `callbacks.h` or `handlers.h`, already split but comment remains | open |

@@ -262,6 +262,28 @@ void test_cntr_test_info( struct test_context* ctx )
                 free( p );
 }
 
+void test_cntr_test_info_tid_mismatch( struct test_context* ctx )
+{
+        check_cntr_full_init( ctx );
+
+        char*             p  = NULL;
+        enum asrtc_status st = asrtc_cntr_test_info( &ctx->cntr, 42, &cpy_desc_cb, (void*) &p, 0 );
+        TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
+        check_cntr_tick( &ctx->cntr );
+        clear_single_collected( &ctx->collected );
+
+        // Reply with a different tid (99 instead of 42)
+        uint8_t           buf[64];
+        struct asrtl_span sp   = { .b = buf, .e = buf + sizeof buf };
+        char const*       desc = "barbaz";
+        asrtl_msg_rtoc_test_info( &sp, 99, desc, strlen( desc ) );
+        enum asrtl_status rst =
+            asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
+        TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, rst );
+
+        TEST_ASSERT_NULL( p );
+}
+
 enum asrtc_status result_cb( void* ptr, enum asrtc_status s, struct asrtc_result* res )
 {
         (void) s;
@@ -556,6 +578,7 @@ int main( void )
         ASRT_RUN_TEST( test_cntr_desc );
         ASRT_RUN_TEST( test_cntr_test_count );
         ASRT_RUN_TEST( test_cntr_test_info );
+        ASRT_RUN_TEST( test_cntr_test_info_tid_mismatch );
         ASRT_RUN_TEST( test_cntr_run_test );
         ASRT_RUN_TEST( test_cntr_desc_alloc_failure );
         ASRT_RUN_TEST( test_realloc_str_long_string );
