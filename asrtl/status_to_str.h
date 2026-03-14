@@ -20,6 +20,8 @@ extern "C" {
 inline static char const* asrtl_status_to_str( enum asrtl_status st )
 {
         switch ( st ) {
+        case ASRTL_RECV_TRAILING_ERR:
+                return "receive trailing bytes error";
         case ASRTL_CHANN_NOT_FOUND:
                 return "channel not found";
         case ASRTL_ALLOC_ERR:
@@ -28,10 +30,10 @@ inline static char const* asrtl_status_to_str( enum asrtl_status st )
                 return "send error";
         case ASRTL_RECV_INTERNAL_ERR:
                 return "receive internal error";
-        case ASRTL_RECV_UNKNOWN_ID_ERR:
-                return "receive unknown id error";
         case ASRTL_RECV_UNEXPECTED_ERR:
                 return "receive unexpected message error";
+        case ASRTL_RECV_UNKNOWN_ID_ERR:
+                return "receive unknown id error";
         case ASRTL_BUSY_ERR:
                 return "busy error";
         case ASRTL_RECV_ERR:

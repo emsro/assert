@@ -563,6 +563,5 @@ enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
                 }
         if ( st != ASRTL_SUCCESS )
                 return st;
-        return buff.b == buff.e ? ASRTL_SUCCESS :
-                                  ASRTL_RECV_ERR;  // XXX: different error code  // C06
+        return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_TRAILING_ERR;
 }
