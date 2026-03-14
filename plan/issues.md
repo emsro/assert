@@ -21,10 +21,11 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | L07 | P1 | `util.h: asrtl_u8d4_to_u32` | `uint8_t` shifted left as `int` — UB when high bit set (`data[0] << 24` overflows `int32_t` when `data[0] >= 0x80`). `u8d2_to_u16` is fine (`0xFF << 8 = 65280` fits in `int32_t`). Must cast to `uint32_t` before shifting in the `u32` variant. | **fixed** |
 | L08 | P2 | `core_proto.h: asrtl_msg_rtoc_desc`, `asrtl_msg_rtoc_test_info` | Only check buffer has room for the 2-byte header, then silently truncate payload via `asrtl_fill_buffer` — no SIZE_ERR when description is truncated | **wontfix: truncation intentional — description is informational only** |
 | L09 | P2 | `cobs.c: asrtl_cobs_ibuffer_iter` | Does not consume the 0-terminator after decoding; leaves it as a subsequent empty-message result. Surprising API: every message produces two iter calls. Callers must discard empty results. | **wontfix: intentional — documented in header** |
-| L10 | P3 | `span.h: asrtl_span_unfit_for` | Casts `uint32_t size` to `int32_t` — technically UB if size > INT32_MAX. Also `ptrdiff_t` result implicitly compared as `int32_t`. | open |
+| L10 | P3 | `span.h: asrtl_span_unfit_for` | Casts `uint32_t size` to `int32_t` — technically UB if size > INT32_MAX. Also `ptrdiff_t` result implicitly compared as `int32_t`. | **fixed** |
 | L11 | P3 | `cobs.c: asrtl_cobs_encode_buffer` | `out_ptr` variable is set but never used after `asrtl_cobs_encoder_init` | **fixed** |
-| L12 | P3 | `core_proto.h` | `asrtl_msg_ctor_test_start` and `asrtl_msg_rtoc_test_start` have identical implementations — one appears to be an accidental duplicate | open |
+| L12 | P3 | `core_proto.h` | `asrtl_msg_ctor_test_start` and `asrtl_msg_rtoc_test_start` have identical implementations — one appears to be an accidental duplicate | **fixed** |
 | L13 | P3 | `cobs.c: asrtl_cobs_ibuffer_insert` | Uses `int` for byte counts (`s`, `capacity`) instead of `ptrdiff_t` — silently wrong for spans > 2 GB (theoretical but incorrect type) | **fixed** |
+| L14 | P3 | `cobs.c`, `cobs.h`, `chann.h` | Uses bare `assert()` for precondition checks — callers on embedded targets cannot opt out or redirect failures; replace with a custom `ASRTL_ASSERT(x)` macro that defaults to `assert(x)` but can be overridden at compile time | open |
 
 ## asrtr
 
@@ -36,18 +37,20 @@ Status: `open` | `fixed` | `wontfix(reason)`
 | R04 | P2 | `asrtr.c:315` | Test registration not locked after first tick — XXX noted | **fixed** |
 | R05 | P3 | `asrtr.c: asrtr_reactor_add_test` | Linear scan to find list tail on every `add_test` call — O(n) per registration; a tail pointer in `asrtr_reactor` would make it O(1) | open |
 | R06 | P2 | `asrtr.c` | Error logging audit: scan all error-path `if` branches in `asrtr.c` and ensure every failure return emits an `ASRTL_ERR_LOG` before returning | **fixed** |
+| R07 | P3 | `asrtr.c` | Uses bare `assert()` for precondition checks — replace with a custom `ASRTR_ASSERT(x)` macro that can be overridden at compile time | open |
 
 ## asrtc
 
 | ID | Pri | Location | Issue | Status |
 |----|-----|----------|-------|--------|
 | C01 | P2 | `allocator.c:17` | Magic upper-bound constant `10000` in `asrtc_realloc_str` — no rationale | **fixed** |
-| C02 | P2 | `controller.c:99` | WAITING stage can get stuck indefinitely; no timeout or escape — XXX noted | open |
+| C02 | P2 | `controller.c: ASRTC_STAGE_WAITING` | All five handlers (`init`, `test_count`, `desc`, `test_info`, `test_exec`) can get stuck in `ASRTC_STAGE_WAITING` indefinitely if the remote never replies — no timeout or escape path exists anywhere in the controller | open |
 | C03 | P2 | `controller.c:79` | Protocol version is received but never validated — XXX noted | **fixed** |
 | C04 | P3 | `controller.c:309` | Received `tid` in test-info response is parsed but unused | open |
 | C05 | P3 | `controller.c:401` | Received `line` in test-result is parsed but unused | open |
 | C06 | P3 | `controller.c:502` | Error code comment: different code should be used for trailing bytes — XXX noted | open |
 | C07 | P3 | `handlers.h:21` | Callback typedef location XXX — belongs in a dedicated `callbacks.h` or `handlers.h`, already split but comment remains | open |
+| C08 | P3 | `controller.c` | Uses bare `assert()` for precondition checks — replace with a custom `ASRTC_ASSERT(x)` macro that can be overridden at compile time | open |
 | C08 | P1 | `controller.c: asrtc_cntr_recv_test_exec` | `TEST_RESULT` handler compares `rid` (run_id from message) against `h->res.test_id` instead of `h->res.run_id` — wrong field, test passes coincidentally because test uses equal values | **fixed** |
 | C09 | P1 | `allocator.c: asrtc_realloc_str` | No null check after `asrtc_alloc` — if allocator returns NULL (OOM), `memcpy(NULL, …)` and `res[s-1]='\\0'` will crash | **fixed** |
 

@@ -130,8 +130,7 @@ static inline enum asrtl_status asrtl_msg_ctor_test_info( struct asrtl_span* buf
         return ASRTL_SUCCESS;
 }
 
-static inline enum asrtl_status asrtl_msg_ctor_test_start(  // L12: identical impl to
-                                                            // asrtl_msg_rtoc_test_start
+static inline enum asrtl_status asrtl_msg_test_start(
     struct asrtl_span* buff,
     uint16_t           test_id,
     uint32_t           run_id )
@@ -151,14 +150,15 @@ static inline enum asrtl_status asrtl_msg_rtoc_test_start(
     uint16_t           test_id,
     uint32_t           run_id )
 {
-        if ( 0U !=
-             asrtl_span_unfit_for(
-                 buff, sizeof( asrtl_message_id ) + sizeof( uint16_t ) + sizeof( uint32_t ) ) )
-                return ASRTL_SIZE_ERR;
-        asrtl_add_u16( &buff->b, ASRTL_MSG_TEST_START );
-        asrtl_add_u16( &buff->b, test_id );
-        asrtl_add_u32( &buff->b, run_id );
-        return ASRTL_SUCCESS;
+        return asrtl_msg_test_start( buff, test_id, run_id );
+}
+
+static inline enum asrtl_status asrtl_msg_ctor_test_start(
+    struct asrtl_span* buff,
+    uint16_t           test_id,
+    uint32_t           run_id )
+{
+        return asrtl_msg_test_start( buff, test_id, run_id );
 }
 
 enum asrtl_test_result_e
