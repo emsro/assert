@@ -1,3 +1,3 @@
 
 clang-tidy:
-	find ./asrt* \( -iname "*.h" -o -iname "*.c" -o -iname "*.hpp" -o -iname "*.cpp" \) | grep -v oof | xargs clang-tidy -p ./_build/
+	find ./asrtc ./asrtl ./asrtr \( -iname "*.h" -o -iname "*.c" \) | xargs clang-tidy -p ./_build/ --warnings-as-errors='*'

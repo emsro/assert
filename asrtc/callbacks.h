@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#include "../asrtl/assert.h"
+#include "../asrtl/asrtl_assert.h"
 #include "../asrtl/source.h"
 #include "./status.h"
 

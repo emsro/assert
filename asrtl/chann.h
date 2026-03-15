@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#include "./assert.h"
+#include "./asrtl_assert.h"
 #include "./cobs.h"
 #include "./span.h"
 #include "./status.h"

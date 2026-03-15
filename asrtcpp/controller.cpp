@@ -3,7 +3,7 @@
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/status_to_str.h"
-#include "../asrtl/assert.h"
+#include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
 
 namespace asrtc

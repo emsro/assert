@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./controller.h"
 
-#include "../asrtl/assert.h"
+#include "../asrtl/asrtl_assert.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
