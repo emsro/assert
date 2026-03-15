@@ -19,11 +19,8 @@ extern "C" {
 
 #include "../asrtl/chann.h"
 #include "../asrtl/log.h"
-#include "../asrtl/status_to_str.h"
 #include "../asrtl/util.h"
 #include "./status.h"
-
-#include <string.h>
 
 struct asrtr_diag
 {
@@ -31,57 +28,12 @@ struct asrtr_diag
         struct asrtl_sender sendr;
 };
 
-inline static enum asrtl_status asrtr_diag_recv( void* data, struct asrtl_span buff )
-{
-        (void) data;
-        (void) buff;
-        ASRTL_ERR_LOG( "asrtr_diag", "Received unexpected message on diag channel" );
-        return ASRTL_SUCCESS;
-}
-
-inline static enum asrtr_status asrtr_diag_init(
+enum asrtr_status asrtr_diag_init(
     struct asrtr_diag*  diag,
     struct asrtl_node*  prev,
-    struct asrtl_sender sender )
-{
-        if ( !diag || !prev ) {
-                ASRTL_ERR_LOG( "asrtr_diag", "Invalid arguments to diag init" );
-                return ASRTR_INIT_ERR;
-        }
-        *diag = ( struct asrtr_diag ){
-            .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_DIAG,
-                    .recv_ptr = diag,
-                    .recv_cb  = asrtr_diag_recv,
-                    .next     = NULL,
-                },
-            .sendr = sender,
-        };
-        prev->next = &diag->node;
-        return ASRTR_SUCCESS;
-}
-inline static void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line )
-{
-        ASRTL_ASSERT( diag );
-        ASRTL_ASSERT( file );
+    struct asrtl_sender sender );
 
-        uint8_t  prefix[4];
-        uint8_t* p = prefix;
-        asrtl_add_u32( &p, line );
-        struct asrtl_rec_span line_buff = {
-            .b = prefix, .e = prefix + sizeof prefix, .next = NULL };
-        struct asrtl_rec_span file_buff = {
-            .b = (uint8_t*) file, .e = (uint8_t*) file + strlen( file ), .next = NULL };
-        line_buff.next = &file_buff;
-
-        ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
-
-        enum asrtl_status st = asrtl_send( &diag->sendr, ASRTL_DIAG, &line_buff );
-        if ( st != ASRTL_SUCCESS )
-                ASRTL_ERR_LOG(
-                    "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );
-}
+void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line );
 
 // Helper macro to record filename, if the method in question does not work, alternatives are:
 // - -DASRTR_FILENAME=__FILE__ directly (but it is long and includes path)

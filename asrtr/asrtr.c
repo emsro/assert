@@ -15,6 +15,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 #include "../asrtl/status_to_str.h"
+#include "./diag.h"
 #include "./reactor.h"
 #include "status.h"
 
@@ -24,6 +25,59 @@
 void asrtr_fail( struct asrtr_record* rec )
 {
         rec->state = ASRTR_TEST_FAIL;
+}
+
+static enum asrtl_status asrtr_diag_recv( void* data, struct asrtl_span buff )
+{
+        (void) data;
+        (void) buff;
+        ASRTL_ERR_LOG( "asrtr_diag", "Received unexpected message on diag channel" );
+        return ASRTL_SUCCESS;
+}
+
+enum asrtr_status asrtr_diag_init(
+    struct asrtr_diag*  diag,
+    struct asrtl_node*  prev,
+    struct asrtl_sender sender )
+{
+        if ( !diag || !prev ) {
+                ASRTL_ERR_LOG( "asrtr_diag", "Invalid arguments to diag init" );
+                return ASRTR_INIT_ERR;
+        }
+        *diag = ( struct asrtr_diag ){
+            .node =
+                ( struct asrtl_node ){
+                    .chid     = ASRTL_DIAG,
+                    .recv_ptr = diag,
+                    .recv_cb  = asrtr_diag_recv,
+                    .next     = NULL,
+                },
+            .sendr = sender,
+        };
+        prev->next = &diag->node;
+        return ASRTR_SUCCESS;
+}
+
+void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line )
+{
+        ASRTL_ASSERT( diag );
+        ASRTL_ASSERT( file );
+
+        uint8_t  prefix[4];
+        uint8_t* p = prefix;
+        asrtl_add_u32( &p, line );
+        struct asrtl_rec_span line_buff = {
+            .b = prefix, .e = prefix + sizeof prefix, .next = NULL };
+        struct asrtl_rec_span file_buff = {
+            .b = (uint8_t*) file, .e = (uint8_t*) file + strlen( file ), .next = NULL };
+        line_buff.next = &file_buff;
+
+        ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
+
+        enum asrtl_status st = asrtl_send( &diag->sendr, ASRTL_DIAG, &line_buff );
+        if ( st != ASRTL_SUCCESS )
+                ASRTL_ERR_LOG(
+                    "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );
 }
 
 static inline enum asrtl_status asrtr_send( void* r, struct asrtl_rec_span* sp )
