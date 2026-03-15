@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
-#include "../asrtc/allocator.h"
+#include "../asrtl/allocator.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -41,9 +41,9 @@ static inline void stub_free_fn( void* ptr, void* mem )
         std::free( mem );
 }
 
-static inline asrtc_allocator asrtc_stub_allocator( stub_allocator_ctx* ctx )
+static inline asrtl_allocator asrtl_stub_allocator( stub_allocator_ctx* ctx )
 {
-        return asrtc_allocator{
+        return asrtl_allocator{
             .ptr   = ctx,
             .alloc = &stub_alloc_fn,
             .free  = &stub_free_fn,

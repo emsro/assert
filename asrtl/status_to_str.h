@@ -20,6 +20,12 @@ extern "C" {
 inline static char const* asrtl_status_to_str( enum asrtl_status st )
 {
         switch ( st ) {
+        case ASRTL_INTERNAL_ERR:
+                return "internal error";
+        case ASRTL_ARG_ERR:
+                return "argument error";
+        case ASRTL_INIT_ERR:
+                return "initialization error";
         case ASRTL_RECV_TRAILING_ERR:
                 return "receive trailing bytes error";
         case ASRTL_CHANN_NOT_FOUND:

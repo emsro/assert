@@ -18,6 +18,9 @@ extern "C" {
 
 enum asrtl_status
 {
+        ASRTL_INTERNAL_ERR        = -13,
+        ASRTL_ARG_ERR             = -12,
+        ASRTL_INIT_ERR            = -11,
         ASRTL_RECV_TRAILING_ERR   = -10,
         ASRTL_CHANN_NOT_FOUND     = -9,
         ASRTL_ALLOC_ERR           = -8,

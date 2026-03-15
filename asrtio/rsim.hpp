@@ -110,7 +110,7 @@ struct conn_ctx
         void reg( utest_sim sim )
         {
                 sim.rng_ptr = &rng;
-                auto& t    = tests.emplace_back( std::move( sim ) );
+                auto& t     = tests.emplace_back( std::move( sim ) );
                 reac.add_test( t );
         }
 
@@ -141,8 +141,8 @@ struct conn_ctx
 
         void close()
         {
-                ASRTL_INF_LOG( "asrtio", "Closing rsim reactor connection" );
                 if ( !closed ) {
+                        ASRTL_INF_LOG( "asrtio", "Closing rsim reactor connection" );
                         uv_close( (uv_handle_t*) &client, []( uv_handle_t* h ) {
                                 static_cast< conn_ctx* >( h->data )->closed = true;
                         } );
@@ -154,7 +154,8 @@ struct rsim_ctx
 {
         uv_tcp_t              server;
         uv_idle_t             idle;
-        uint32_t              seed = 0;
+        uint32_t              seed   = 0;
+        bool                  closed = false;
         std::list< conn_ctx > conns;
 
         uint16_t port()
@@ -210,6 +211,9 @@ struct rsim_ctx
 
         void close()
         {
+                if ( closed )
+                        return;
+                closed = true;
                 uv_idle_stop( &idle );
                 uv_close( (uv_handle_t*) &idle, nullptr );
                 for ( auto& c : conns )
@@ -222,7 +226,7 @@ inline std::shared_ptr< asrtio::rsim_ctx > make_rsim( uv_loop_t* loop, uint32_t 
 {
         std::shared_ptr< rsim_ctx > ctx = std::make_shared< rsim_ctx >();
         ctx->seed                       = seed;
-        struct sockaddr_in          addr;
+        struct sockaddr_in addr;
         uv_ip4_addr( "127.0.0.1", 0, &addr );
 
         int r = uv_tcp_init( loop, &ctx->server );

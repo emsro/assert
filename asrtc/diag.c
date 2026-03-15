@@ -12,11 +12,11 @@
 
 #include "../asrtl/log.h"
 
-void asrtc_diag_free_record( struct asrtc_allocator* alloc, struct asrtc_diag_record* rec )
+void asrtc_diag_free_record( struct asrtl_allocator* alloc, struct asrtc_diag_record* rec )
 {
         if ( rec->file )
-                asrtc_free( alloc, (void**) &rec->file );
-        asrtc_free( alloc, (void**) &rec );
+                asrtl_free( alloc, (void**) &rec->file );
+        asrtl_free( alloc, (void**) &rec );
 }
 
 static enum asrtl_status asrtc_diag_recv_record( struct asrtc_diag* d, struct asrtl_span* buff )
@@ -27,7 +27,7 @@ static enum asrtl_status asrtc_diag_recv_record( struct asrtc_diag* d, struct as
         uint32_t line;
         asrtl_cut_u32( &buff->b, &line );
 
-        struct asrtc_diag_record* rec = asrtc_alloc( &d->alloc, sizeof( *rec ) );
+        struct asrtc_diag_record* rec = asrtl_alloc( &d->alloc, sizeof( *rec ) );
         if ( !rec )
                 return ASRTL_ALLOC_ERR;
         *rec = ( struct asrtc_diag_record ){
@@ -35,9 +35,9 @@ static enum asrtl_status asrtc_diag_recv_record( struct asrtc_diag* d, struct as
             .line = line,
             .next = NULL,
         };
-        rec->file = asrtc_realloc_str( &d->alloc, buff );
+        rec->file = asrtl_realloc_str( &d->alloc, buff );
         if ( !rec->file ) {
-                asrtc_free( &d->alloc, (void**) &rec );
+                asrtl_free( &d->alloc, (void**) &rec );
                 return ASRTL_ALLOC_ERR;
         }
         if ( !d->first_rec ) {
@@ -77,7 +77,7 @@ enum asrtc_status asrtc_diag_init(
     struct asrtc_diag*     diag,
     struct asrtl_node*     prev,
     struct asrtl_sender    sender,
-    struct asrtc_allocator alloc )
+    struct asrtl_allocator alloc )
 {
         if ( !diag || !prev )
                 return ASRTC_CNTR_INIT_ERR;

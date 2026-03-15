@@ -39,7 +39,7 @@ static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t timeou
 enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
-    struct asrtc_allocator   alloc,
+    struct asrtl_allocator   alloc,
     struct asrtc_error_cb    eh,
     asrtc_init_callback      cb,
     void*                    ptr,
@@ -74,9 +74,9 @@ void asrtc_cntr_deinit( struct asrtc_controller* c )
 {
         ASRTL_ASSERT( c );
         if ( c->state == ASRTC_CNTR_HNDL_DESC && c->hndl.desc.desc )
-                asrtc_free( &c->alloc, (void**) &c->hndl.desc.desc );
+                asrtl_free( &c->alloc, (void**) &c->hndl.desc.desc );
         else if ( c->state == ASRTC_CNTR_HNDL_TI && c->hndl.ti.desc )
-                asrtc_free( &c->alloc, (void**) &c->hndl.ti.desc );
+                asrtl_free( &c->alloc, (void**) &c->hndl.ti.desc );
 }
 
 static enum asrtc_status asrtc_cntr_tick_init( struct asrtc_controller* c )
@@ -249,7 +249,7 @@ static enum asrtc_status asrtc_cntr_tick_desc( struct asrtc_controller* c )
                 break;
         case ASRTC_STAGE_END: {
                 enum asrtc_status res = h->cb( h->ptr, ASRTC_SUCCESS, h->desc );
-                asrtc_free( &c->alloc, (void**) &h->desc );
+                asrtl_free( &c->alloc, (void**) &h->desc );
                 c->state = ASRTC_CNTR_IDLE;
                 return res;
         }
@@ -270,7 +270,7 @@ static enum asrtl_status asrtc_cntr_recv_desc(
         if ( c->stage != ASRTC_STAGE_WAITING )
                 return ASRTL_RECV_INTERNAL_ERR;
 
-        h->desc = asrtc_realloc_str( &c->alloc, buff );
+        h->desc = asrtl_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
                 return ASRTL_ALLOC_ERR;
         c->stage = ASRTC_STAGE_END;
@@ -321,7 +321,7 @@ static enum asrtc_status asrtc_cntr_tick_test_info( struct asrtc_controller* c )
                 break;
         case ASRTC_STAGE_END: {
                 enum asrtc_status res = h->cb( h->ptr, ASRTC_SUCCESS, h->tid, h->desc );
-                asrtc_free( &c->alloc, (void**) &h->desc );
+                asrtl_free( &c->alloc, (void**) &h->desc );
                 c->state = ASRTC_CNTR_IDLE;
                 return res;
         }
@@ -352,7 +352,7 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
                 return ASRTL_RECV_UNEXPECTED_ERR;
         }
 
-        h->desc = asrtc_realloc_str( &c->alloc, buff );
+        h->desc = asrtl_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
                 return ASRTL_ALLOC_ERR;
         c->stage = ASRTC_STAGE_END;

@@ -16,9 +16,9 @@
 extern "C" {
 #endif
 
+#include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/span.h"
-#include "./allocator.h"
 #include "./callbacks.h"
 #include "./handlers.h"
 #include "./status.h"
@@ -37,7 +37,7 @@ struct asrtc_controller
 {
         struct asrtl_node      node;
         struct asrtl_sender    sendr;
-        struct asrtc_allocator alloc;
+        struct asrtl_allocator alloc;
         struct asrtc_error_cb  eh;
 
         uint32_t              run_id;
@@ -57,7 +57,7 @@ struct asrtc_controller
 enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
-    struct asrtc_allocator   alloc,
+    struct asrtl_allocator   alloc,
     struct asrtc_error_cb    eh,
     asrtc_init_callback      cb,
     void*                    ptr,

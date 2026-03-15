@@ -9,7 +9,6 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../asrtc/allocator.h"
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/default_error_cb.h"
@@ -283,9 +282,9 @@ static void failing_free( void* ptr, void* mem )
         (void) ptr;
         (void) mem;
 }
-static struct asrtc_allocator failing_allocator( void )
+static struct asrtl_allocator failing_allocator( void )
 {
-        return (struct asrtc_allocator) {
+        return (struct asrtl_allocator) {
             .ptr   = NULL,
             .alloc = &failing_alloc,
             .free  = &failing_free,
@@ -371,8 +370,8 @@ TEST_CASE_FIXTURE( controller_ctx, "realloc_str_long_string" )
         CHECK_NE( data, nullptr );
         memset( data, 'x', len );
         struct asrtl_span      sp    = { .b = data, .e = data + len };
-        struct asrtc_allocator alloc = asrtc_default_allocator();
-        char*                  res   = asrtc_realloc_str( &alloc, &sp );
+        struct asrtl_allocator alloc = asrtc_default_allocator();
+        char*                  res   = asrtl_realloc_str( &alloc, &sp );
         CHECK_NE( res, nullptr );
         CHECK_EQ( 'x', res[0] );
         CHECK_EQ( '\0', res[len] );
@@ -775,14 +774,14 @@ struct diag_ctx
 {
         struct asrtl_node  head      = {};
         stub_allocator_ctx alloc_ctx = {};
-        asrtc_allocator    alloc     = {};
+        asrtl_allocator    alloc     = {};
         asrtc_diag         diag      = {};
         asrtl_sender       null_send = {};
 
         diag_ctx()
         {
                 head.chid = ASRTL_CORE;
-                alloc     = asrtc_stub_allocator( &alloc_ctx );
+                alloc     = asrtl_stub_allocator( &alloc_ctx );
                 REQUIRE_EQ( ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
         }
 };
@@ -1012,7 +1011,7 @@ TEST_CASE( "diag_free_record" )
         struct asrtl_node head       = {};
         head.chid                    = ASRTL_CORE;
         stub_allocator_ctx sctx      = {};
-        asrtc_allocator    alloc     = asrtc_stub_allocator( &sctx );
+        asrtl_allocator    alloc     = asrtl_stub_allocator( &sctx );
         asrtl_sender       null_send = {};
         struct asrtc_diag  diag      = {};
         REQUIRE_EQ( ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
@@ -1035,7 +1034,7 @@ TEST_CASE( "diag_free_record" )
 
         // record with file == NULL → one free call
         auto* rec2 =
-            static_cast< asrtc_diag_record* >( asrtc_alloc( &alloc, sizeof( asrtc_diag_record ) ) );
+            static_cast< asrtc_diag_record* >( asrtl_alloc( &alloc, sizeof( asrtc_diag_record ) ) );
         REQUIRE_NE( nullptr, rec2 );
         *rec2           = { .file = nullptr, .line = 0, .next = nullptr };
         sctx.free_calls = 0;
@@ -1069,7 +1068,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 struct asrtl_node head3       = {};
                 head3.chid                    = ASRTL_CORE;
                 stub_allocator_ctx sctx3      = {};
-                asrtc_allocator    a3         = asrtc_stub_allocator( &sctx3 );
+                asrtl_allocator    a3         = asrtl_stub_allocator( &sctx3 );
                 asrtl_sender       null_send3 = {};
                 struct asrtc_diag  d3         = {};
                 asrtc_diag_init( &d3, &head3, null_send3, a3 );
@@ -1088,7 +1087,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 struct asrtl_node head4       = {};
                 head4.chid                    = ASRTL_CORE;
                 stub_allocator_ctx sctx4      = {};
-                asrtc_allocator    a4         = asrtc_stub_allocator( &sctx4 );
+                asrtl_allocator    a4         = asrtl_stub_allocator( &sctx4 );
                 asrtl_sender       null_send4 = {};
                 struct asrtc_diag  d4         = {};
                 asrtc_diag_init( &d4, &head4, null_send4, a4 );

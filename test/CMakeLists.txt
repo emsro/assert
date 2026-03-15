@@ -25,6 +25,11 @@ target_link_libraries(asrtrpp_test PRIVATE doctest::doctest asrtrpp)
 target_compile_features(asrtrpp_test PUBLIC cxx_std_20)
 add_test(NAME asrtrpp_test COMMAND asrtrpp_test)
 
+add_executable(asrtio_test asrtio_test.cpp)
+target_link_libraries(asrtio_test PRIVATE doctest::doctest asrtrpp asrtcpp uv)
+target_compile_features(asrtio_test PUBLIC cxx_std_20)
+add_test(NAME asrtio_test COMMAND asrtio_test)
+
 add_executable(mutatest mutatest.cpp)
 target_link_libraries(mutatest PUBLIC asrtrpp asrtcpp CLI11::CLI11)
 target_compile_features(mutatest PUBLIC cxx_std_20)

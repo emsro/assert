@@ -6,5 +6,5 @@ set(CMAKE_C_STANDARD 99)
 
 configure_file(proto_version.h.in proto_version.h)
 
-add_library(asrtl util.c chann.c cobs.c)
+add_library(asrtl util.c chann.c cobs.c flat_tree.c allocator.c)
 target_include_directories(asrtl PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")

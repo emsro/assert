@@ -130,9 +130,7 @@ struct task
 
 struct uv_tasks
 {
-        uv_loop_t* loop;
-
-        uv_idle_t                             idle_handle;
+        uv_loop_t*                            loop;
         std::deque< std::unique_ptr< task > > tasks;
 
         uv_tasks( uv_loop_t* loop )
@@ -155,6 +153,12 @@ struct uv_tasks
                 } );
         }
 
+        void stop()
+        {
+                uv_idle_stop( &idle_handle );
+                uv_close( (uv_handle_t*) &idle_handle, nullptr );
+        }
+
         void on_idle()
         {
                 if ( !tasks.empty() ) {
@@ -163,6 +167,9 @@ struct uv_tasks
                                 tasks.pop_front();
                 }
         }
+
+private:
+        uv_idle_t idle_handle;
 };
 
 struct test_pool_task : task
@@ -254,6 +261,7 @@ struct run_test_task : task
 {
         asrtc::controller&                            cntr;
         uint32_t                                      id;
+        bool                                          done_ = false;
         std::function< void() >                       on_start;
         std::function< void( asrtc::result const& ) > on_result;
 
@@ -273,7 +281,7 @@ struct run_test_task : task
         {
                 if ( !cntr.is_idle() )
                         return runnning;
-                if ( id == std::numeric_limits< uint32_t >::max() )
+                if ( done_ )
                         return finished;
                 if ( on_start ) {
                         on_start();
@@ -285,7 +293,7 @@ struct run_test_task : task
                                     "asrtio_main",
                                     "Exec test failed in callback: %s",
                                     asrtc_status_to_str( s ) );
-                                this->id = std::numeric_limits< uint32_t >::max();
+                                done_ = true;
                                 return ASRTC_SUCCESS;
                         }
                         ASRTL_INF_LOG(
@@ -297,7 +305,7 @@ struct run_test_task : task
                             asrtc_test_result_to_str( res.res ) );
                         if ( on_result )
                                 on_result( res );
-                        this->id = std::numeric_limits< uint32_t >::max();
+                        done_ = true;
                         return ASRTC_SUCCESS;
                 } );
                 if ( s != ASRTC_SUCCESS ) {

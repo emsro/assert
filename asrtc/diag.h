@@ -16,9 +16,9 @@
 extern "C" {
 #endif
 
+#include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/diag_proto.h"
-#include "./allocator.h"
 #include "./status.h"
 
 struct asrtc_diag_record
@@ -29,13 +29,13 @@ struct asrtc_diag_record
         struct asrtc_diag_record* next;
 };
 
-void asrtc_diag_free_record( struct asrtc_allocator* alloc, struct asrtc_diag_record* rec );
+void asrtc_diag_free_record( struct asrtl_allocator* alloc, struct asrtc_diag_record* rec );
 
 struct asrtc_diag
 {
         struct asrtl_node      node;
         struct asrtl_sender    sendr;
-        struct asrtc_allocator alloc;
+        struct asrtl_allocator alloc;
 
         struct asrtc_diag_record* first_rec;
         struct asrtc_diag_record* last_rec;
@@ -45,7 +45,7 @@ enum asrtc_status asrtc_diag_init(
     struct asrtc_diag*     diag,
     struct asrtl_node*     prev,
     struct asrtl_sender    sender,
-    struct asrtc_allocator alloc );
+    struct asrtl_allocator alloc );
 
 struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag );
 

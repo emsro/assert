@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#include "./allocator.h"
+#include "../asrtl/allocator.h"
 
 static inline void* asrtc_call_malloc( void* ptr, uint32_t size )
 {
@@ -28,9 +28,9 @@ static inline void asrtc_call_free( void* ptr, void* mem )
         free( mem );
 }
 
-static inline struct asrtc_allocator asrtc_default_allocator( void )
+static inline struct asrtl_allocator asrtc_default_allocator( void )
 {
-        return ( struct asrtc_allocator ){
+        return ( struct asrtl_allocator ){
             .ptr   = NULL,
             .alloc = &asrtc_call_malloc,
             .free  = &asrtc_call_free,

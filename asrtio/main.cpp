@@ -159,9 +159,10 @@ int main( int argc, char* argv[] )
                 }
                 g_bar         = std::make_shared< pbar::terminal_progress >();
                 auto reporter = std::make_shared< pbar_reporter >( *g_bar );
-                run_test_suite( *sys, *reporter, [reporter] {
+                run_test_suite( *sys, *reporter, [reporter, sys] {
                         g_bar->finish();
                         g_bar.reset();
+                        sys->close();
                 } );
         } );
 
@@ -178,9 +179,10 @@ int main( int argc, char* argv[] )
                 sys           = std::shared_ptr< cntr_tcp_sys >( rsys, rsys->sys.get() );
                 g_bar         = std::make_shared< pbar::terminal_progress >();
                 auto reporter = std::make_shared< pbar_reporter >( *g_bar );
-                run_test_suite( *sys, *reporter, [reporter, sim = rsys->sim] {
+                run_test_suite( *sys, *reporter, [reporter, sys, sim = rsys->sim] {
                         g_bar->finish();
                         g_bar.reset();
+                        sys->close();
                         sim->close();
                 } );
         } );

@@ -3,9 +3,11 @@
 #include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtl/log.h"
+#include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
 #include "./util.hpp"
 
+#include <chrono>
 #include <uv.h>
 
 namespace asrtio
@@ -84,21 +86,31 @@ struct cntr_tcp_sys
                 uv_idle_start( &idle_handle, []( uv_idle_t* h ) {
                         static_cast< cntr_tcp_sys* >( h->data )->tick();
                 } );
-                rx.start( (uv_stream_t*) &client, cntr.node(), [&]( ssize_t nread ) {
-                        std::ignore = nread;
-                        std::abort();
+                rx.start( (uv_stream_t*) &client, cntr.node(), [this]( ssize_t nread ) {
+                        if ( nread == UV_EOF )
+                                ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
+                        else
+                                ASRTL_ERR_LOG(
+                                    "asrtio_main",
+                                    "Read error: %s",
+                                    uv_strerror( static_cast< int >( nread ) ) );
+                        close();
                 } );
         }
 
         void close()
         {
+                if ( closed )
+                        return;
+                closed = true;
                 uv_idle_stop( &idle_handle );
                 uv_close( (uv_handle_t*) &idle_handle, nullptr );
-                uv_close( (uv_handle_t*) &tasks.idle_handle, nullptr );
+                tasks.stop();
                 uv_close( (uv_handle_t*) &client, nullptr );
         }
 
 private:
+        bool              closed = false;
         uv_loop_t*        loop;
         uv_connect_t      connect_req;
         uv_idle_t         idle_handle;
@@ -107,10 +119,11 @@ private:
             [&]( asrtl::chann_id id, asrtl::rec_span& buff ) -> asrtl::status {
                     return rx.write( (uv_stream_t*) &client, id, buff );
             },
-            [&]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
+            [this]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
                     auto s = std::format( "Source: {}, code: {}", sr, ec );
                     ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
-                    std::abort();  // XXX: improve
+                    close();
+                    return ASRTC_SUCCESS;
             },
             [this]( asrtc::status s ) -> asrtc::status {
                     if ( s != ASRTC_SUCCESS )
@@ -157,7 +170,6 @@ void run_test_suite(
         struct state_t
         {
                 uint32_t                                             total  = 0;
-                uint32_t                                             done   = 0;
                 int                                                  failed = 0;
                 std::vector< std::chrono::steady_clock::time_point > starts;
                 std::function< void() >                              on_done_cb;
@@ -192,9 +204,8 @@ void run_test_suite(
                     reporter.on_count( count );
             },
             [state, &cntr] {
-                    cntr.schedule_call( [state, &cntr] {
+                    cntr.schedule_call( [state] {
                             ASRTL_INF_LOG( "asrtio_main", "All tasks completed, shutting down" );
-                            cntr.close();
                             if ( state->on_done_cb )
                                     state->on_done_cb();
                     } );
