@@ -48,3 +48,24 @@ sequenceDiagram
     Host->>Target: TEST_START (id=0, run_id)
     Target->>Host: TEST_RESULT (run_id, pass/fail/error)
 ```
+
+## Channel abstraction
+
+The byte stream is multiplexed into independent **channels**, each identified by a 16-bit ID. Two channels are defined by the library:
+
+| ID | Name   | Purpose                          |
+|----|--------|----------------------------------|
+|  2 | `CORE` | test enumeration and execution   |
+|  3 | `DIAG` | diagnostic records from the target |
+
+On each side — reactor (target) and controller (host) — functionality is composed from **modules**, one per channel. A module is a node in a linked list: it owns a channel ID and a receive callback, and can send messages back through a shared sender handle.
+
+```
+reactor side                     controller side
+────────────────────────────     ────────────────────────────
+asrtr_reactor  (CORE channel)    asrtc_controller  (CORE channel)
+asrtr_diag     (DIAG channel)    asrtc_diag        (DIAG channel)
+   …                                …
+```
+
+Modules are opt-in: if a feature is not needed, its module is simply not initialised and has zero runtime cost. The same mechanism allows adding custom modules for application-specific channels without modifying the library.
