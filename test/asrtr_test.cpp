@@ -532,7 +532,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_add_test_after_recv" )
         CHECK_EQ( t1.next, nullptr );
 }
 
-// R-cov1: continue_f returning an error sets ASRTR_TEST_ERROR → sends ASRTL_TEST_ERROR result
+// continue_f returning an error sets ASRTR_TEST_ERROR → sends ASRTL_TEST_ERROR result
 TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_error" )
 {
         check_reactor_init( &reac, send, "rec1" );
@@ -555,7 +555,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_error" )
         }
 }
 
-// R-cov2: two requests received before any tick — both flags set simultaneously
+// two requests received before any tick — both flags set simultaneously
 TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
 {
         check_reactor_init( &reac, send, "rec1" );
@@ -599,33 +599,31 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
         CHECK( !( reac.flags & ASRTR_FLAG_TC ) );
 }
 
-// R-INIT-1..4
 TEST_CASE_FIXTURE( reactor_ctx, "diag_init" )
 {
         struct asrtr_diag diag = {};
 
-        // R-INIT-1: NULL diag
+        // NULL diag
         CHECK_EQ( ASRTR_INIT_ERR, asrtr_diag_init( NULL, &reac.node, send ) );
 
-        // R-INIT-2: NULL prev
+        // NULL prev
         CHECK_EQ( ASRTR_INIT_ERR, asrtr_diag_init( &diag, NULL, send ) );
 
-        // R-INIT-3 / R-INIT-4: valid init
+        // valid init
         check_reactor_init( &reac, send, "rec1" );
         CHECK_EQ( ASRTR_SUCCESS, asrtr_diag_init( &diag, &reac.node, send ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
         CHECK_EQ( &diag.node, reac.node.next );  // node appended after prev
-        CHECK_EQ( nullptr, diag.node.next );      // chain-terminal
+        CHECK_EQ( nullptr, diag.node.next );     // chain-terminal
 }
 
-// R-REC-1..3  (R-REC-4 is verified inside assert_diag_record via size > 5 + no-null)
 TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
 {
         check_reactor_init( &reac, send, "rec1" );
         struct asrtr_diag diag = {};
         check_diag_init( &diag, &reac.node, send );
 
-        // R-REC-1: normal call — verify full byte content
+        // normal call — verify full byte content
         asrtr_diag_record( &diag, "test.c", 42 );
         {
                 auto& collected = coll.data.back();
@@ -635,7 +633,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
                 coll.data.pop_back();
         }
 
-        // R-REC-2: line = 0
+        // line = 0
         asrtr_diag_record( &diag, "f.c", 0 );
         {
                 auto& collected = coll.data.back();
@@ -643,7 +641,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
                 coll.data.pop_back();
         }
 
-        // R-REC-3: line = UINT32_MAX
+        // line = UINT32_MAX
         asrtr_diag_record( &diag, "f.c", UINT32_MAX );
         {
                 auto& collected = coll.data.back();
@@ -652,12 +650,12 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         }
 }
 
-// R-CHK-3: two consecutive CHECK failures → two diag messages, counter incremented twice
+// two consecutive CHECK failures → two diag messages, counter incremented twice
 TEST_CASE_FIXTURE( reactor_ctx, "check_macro_two_fails" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test      t1;
-        struct asrtr_diag      diag;
+        struct asrtr_test t1;
+        struct asrtr_diag diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_two_fails );
@@ -687,12 +685,12 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro_two_fails" )
         }
 }
 
-// R-CHK-4: one CHECK failure then one pass → one diag message, counter = 2
+// one CHECK failure then one pass → one diag message, counter = 2
 TEST_CASE_FIXTURE( reactor_ctx, "check_macro_fail_pass" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test      t1;
-        struct asrtr_diag      diag;
+        struct asrtr_test t1;
+        struct asrtr_diag diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_fail_pass );
@@ -717,12 +715,12 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro_fail_pass" )
         }
 }
 
-// R-REQ-4: failing REQUIRE → code after it unreachable
+// failing REQUIRE → code after it unreachable
 TEST_CASE_FIXTURE( reactor_ctx, "require_fail_then_check" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test      t1;
-        struct asrtr_diag      diag;
+        struct asrtr_test t1;
+        struct asrtr_diag diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &require_then_check );
@@ -747,12 +745,12 @@ TEST_CASE_FIXTURE( reactor_ctx, "require_fail_then_check" )
         }
 }
 
-// R-MIX-1: CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
+// CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
 TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_check" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test      t1;
-        struct asrtr_diag      diag;
+        struct asrtr_test t1;
+        struct asrtr_diag diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_check );
@@ -782,12 +780,12 @@ TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_check" )
         }
 }
 
-// R-MIX-2: CHECK fails, REQUIRE fails → two diag messages, counter = 1
+// CHECK fails, REQUIRE fails → two diag messages, counter = 1
 TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_fail" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test      t1;
-        struct asrtr_diag      diag;
+        struct asrtr_test t1;
+        struct asrtr_diag diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_fail );
@@ -817,7 +815,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_fail" )
         }
 }
 
-// R-cov3: truncated and trailing-byte recv errors in asrtr_reactor_recv
+// truncated and trailing-byte recv errors in asrtr_reactor_recv
 TEST_CASE_FIXTURE( reactor_ctx, "reactor_recv_truncated" )
 {
         check_reactor_init( &reac, send, "rec1" );

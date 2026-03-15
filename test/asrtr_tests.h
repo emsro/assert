@@ -64,14 +64,14 @@ enum asrtr_status insta_test_fun( struct asrtr_record* x )
         return ASRTR_SUCCESS;
 }
 
-// R-cov1: continue_f returns non-SUCCESS → record->state forced to ASRTR_TEST_ERROR
+// continue_f returns non-SUCCESS → record->state forced to ASRTR_TEST_ERROR
 enum asrtr_status error_continue_fun( struct asrtr_record* x )
 {
         (void) x;
         return ASRTR_INTERNAL_ERR;
 }
 
-// R-CHK-3: two consecutive CHECK failures → two diag messages, counter = 2
+// two consecutive CHECK failures → two diag messages, counter = 2
 enum asrtr_status check_macro_two_fails( struct asrtr_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
@@ -82,7 +82,7 @@ enum asrtr_status check_macro_two_fails( struct asrtr_record* r )
         return ASRTR_SUCCESS;
 }
 
-// R-CHK-4: one failure then one pass → one diag message, counter = 2
+// one CHECK failure then one pass → one diag message, counter = 2
 enum asrtr_status check_macro_fail_pass( struct asrtr_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
@@ -93,7 +93,7 @@ enum asrtr_status check_macro_fail_pass( struct asrtr_record* r )
         return ASRTR_SUCCESS;
 }
 
-// R-REQ-4: failing REQUIRE → CHECK and counter after it unreachable
+// failing REQUIRE → CHECK and counter after it unreachable
 enum asrtr_status require_then_check( struct asrtr_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
@@ -103,7 +103,7 @@ enum asrtr_status require_then_check( struct asrtr_record* r )
         return ASRTR_SUCCESS;
 }
 
-// R-MIX-1: CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
+// CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
 enum asrtr_status mix_check_require_check( struct asrtr_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
@@ -116,7 +116,7 @@ enum asrtr_status mix_check_require_check( struct asrtr_record* r )
         return ASRTR_SUCCESS;
 }
 
-// R-MIX-2: CHECK fails, REQUIRE fails → two diag messages, counter = 1
+// CHECK fails, REQUIRE fails → two diag messages, counter = 1
 enum asrtr_status mix_check_require_fail( struct asrtr_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;

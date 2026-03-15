@@ -620,7 +620,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
         CHECK_EQ( 42, err.ecode );
 }
 
-// C-cov3 + C-cov4: wrong run_id in TEST_RESULT → ASRTC_TEST_ERROR in callback
+// wrong run_id in TEST_RESULT → ASRTC_TEST_ERROR in callback
 TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
 {
         check_cntr_full_init( this );
@@ -641,7 +641,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         CHECK_EQ( coll.data.empty(), true );
 }
 
-// C-cov5: recv while controller is IDLE → ASRTL_RECV_UNEXPECTED_ERR
+// recv while controller is IDLE → ASRTL_RECV_UNEXPECTED_ERR
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 {
         check_cntr_full_init( this );
@@ -655,7 +655,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
-// C-cov6: empty buffer — top-level header truncation
+// empty buffer — top-level header truncation
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 {
         enum asrtc_status st = asrtc_cntr_init(
@@ -682,7 +682,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
         check_recv_and_spin( &cntr, vbuf, vsp.b );
 }
 
-// C-cov6: truncated proto-version reply while in INIT/WAITING
+// truncated proto-version reply while in INIT/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
 {
         enum asrtc_status st = asrtc_cntr_init(
@@ -712,7 +712,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         check_recv_and_spin( &cntr, buf, sp.b );
 }
 
-// C-cov6: truncated test-count reply while in HNDL_TC/WAITING
+// truncated test-count reply while in HNDL_TC/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
 {
         check_cntr_full_init( this );
@@ -737,7 +737,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         check_recv_and_spin( &cntr, buf, sp.b );
 }
 
-// C-cov6: truncated test-info reply while in HNDL_TI/WAITING
+// truncated test-info reply while in HNDL_TI/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
 {
         check_cntr_full_init( this );
@@ -764,7 +764,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
 }
 
 //---------------------------------------------------------------------
-// diag channel — controller side  (§2 of plan)
+// diag channel — controller side
 
 static inline enum asrtl_status call_diag_recv( struct asrtc_diag* d, uint8_t* b, uint8_t* e )
 {
@@ -787,25 +787,24 @@ struct diag_ctx
         }
 };
 
-// C-INIT-1..3
 TEST_CASE( "diag_init" )
 {
         struct asrtl_node head = {};
         head.chid              = ASRTL_CORE;
         asrtl_sender null_send = {};
 
-        // C-INIT-1: diag = NULL
+        // diag = NULL
         CHECK_EQ(
             ASRTC_CNTR_INIT_ERR,
             asrtc_diag_init( NULL, &head, null_send, asrtc_default_allocator() ) );
 
-        // C-INIT-2: prev = NULL
+        // prev = NULL
         struct asrtc_diag diag = {};
         CHECK_EQ(
             ASRTC_CNTR_INIT_ERR,
             asrtc_diag_init( &diag, NULL, null_send, asrtc_default_allocator() ) );
 
-        // C-INIT-3: valid
+        // valid
         CHECK_EQ(
             ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, asrtc_default_allocator() ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
@@ -817,17 +816,16 @@ TEST_CASE( "diag_init" )
         asrtc_diag_deinit( &diag );
 }
 
-// C-RECV-1,3,4,8: happy-path recv
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
 {
         uint8_t  buf[64];
         uint8_t* p;
 
-        // C-RECV-1: empty buffer → SUCCESS, no record queued
+        // empty buffer → SUCCESS, no record queued
         CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, buf ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
-        // C-RECV-3: valid RECORD line=7, file="foo"
+        // valid RECORD line=7, file="foo"
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 7 );
@@ -844,7 +842,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
                 asrtc_diag_free_record( &diag.alloc, rec );
         }
 
-        // C-RECV-4: empty filename (5 bytes total) → file is empty string
+        // empty filename (5 bytes total) → file is empty string
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 42 );
@@ -858,7 +856,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
                 asrtc_diag_free_record( &diag.alloc, rec );
         }
 
-        // C-RECV-8: two RECORDs → FIFO order
+        // two RECORDs → FIFO order
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 1 );
@@ -883,12 +881,11 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         asrtc_diag_deinit( &diag );
 }
 
-// C-RECV-2,5,6: error cases
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
 {
         uint8_t buf[8];
 
-        // C-RECV-2: msgid present but line is truncated (only 3 of 4 bytes)
+        // msgid present but line is truncated (only 3 of 4 bytes)
         uint8_t* p = buf;
         *p++       = ASRTL_DIAG_MSG_RECORD;
         *p++       = 0x00;
@@ -897,12 +894,12 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
         CHECK_EQ( ASRTL_RECV_ERR, call_diag_recv( &diag, buf, p ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
-        // C-RECV-5: unknown ID 0x00
+        // unknown ID 0x00
         buf[0] = 0x00;
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, call_diag_recv( &diag, buf, buf + 1 ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
-        // C-RECV-6: unknown ID 0xFF
+        // unknown ID 0xFF
         buf[0] = 0xFF;
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, call_diag_recv( &diag, buf, buf + 1 ) );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -910,13 +907,12 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
         asrtc_diag_deinit( &diag );
 }
 
-// C-ALLOC-1,2: allocation failures during recv
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
 {
         uint8_t  buf[8];
         uint8_t* p;
 
-        // C-ALLOC-1: first alloc (rec struct) fails
+        // first alloc (rec struct) fails
         alloc_ctx.fail_at_call = 1;
         p                      = buf;
         *p++                   = ASRTL_DIAG_MSG_RECORD;
@@ -926,7 +922,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( 0u, alloc_ctx.free_calls );
 
-        // C-ALLOC-2: second alloc (file string) fails; rec is freed
+        // second alloc (file string) fails; rec is freed
         alloc_ctx.alloc_calls  = 0;
         alloc_ctx.free_calls   = 0;
         alloc_ctx.fail_at_call = 2;
@@ -942,19 +938,18 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         asrtc_diag_deinit( &diag );
 }
 
-// C-TAKE-1..7
 TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
 {
         uint8_t  buf[8];
         uint8_t* p;
 
-        // C-TAKE-1: NULL diag
+        // NULL diag
         CHECK_EQ( nullptr, asrtc_diag_take_record( NULL ) );
 
-        // C-TAKE-2: empty queue
+        // empty queue
         CHECK_EQ( nullptr, asrtc_diag_take_record( &diag ) );
 
-        // C-TAKE-3: one record → returned, queue empty after
+        // one record → returned, queue empty after
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 99 );
@@ -984,10 +979,10 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
                 asrtc_diag_free_record( &diag.alloc, rec );
         }
 
-        // C-TAKE-6: queue empty; take returns NULL
+        // queue empty; take returns NULL
         CHECK_EQ( nullptr, asrtc_diag_take_record( &diag ) );
 
-        // C-TAKE-7: take, insert, take → last_rec stays consistent
+        // take, insert, take → last_rec stays consistent
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 10 );
@@ -1030,7 +1025,7 @@ TEST_CASE( "diag_free_record" )
         *p++ = 'i';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
 
-        // C-FREE-1: record with non-NULL file → two free calls
+        // record with non-NULL file → two free calls
         auto* rec = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
         REQUIRE_NE( nullptr, rec->file );
@@ -1038,7 +1033,7 @@ TEST_CASE( "diag_free_record" )
         asrtc_diag_free_record( &alloc, rec );
         CHECK_EQ( 2u, sctx.free_calls );
 
-        // C-FREE-2: record with file == NULL → one free call
+        // record with file == NULL → one free call
         auto* rec2 =
             static_cast< asrtc_diag_record* >( asrtc_alloc( &alloc, sizeof( asrtc_diag_record ) ) );
         REQUIRE_NE( nullptr, rec2 );
@@ -1056,10 +1051,10 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         uint8_t  buf[8];
         uint8_t* p;
 
-        // C-DEINIT-1: NULL → error
+        // NULL → error
         CHECK_EQ( ASRTC_CNTR_INIT_ERR, asrtc_diag_deinit( NULL ) );
 
-        // C-DEINIT-2: empty queue → success
+        // empty queue → success
         {
                 struct asrtl_node head2      = {};
                 head2.chid                   = ASRTL_CORE;
@@ -1069,7 +1064,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d2 ) );
         }
 
-        // C-DEINIT-3: one record → freed
+        // one record → freed
         {
                 struct asrtl_node head3       = {};
                 head3.chid                    = ASRTL_CORE;
@@ -1088,7 +1083,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 CHECK_EQ( 2u, sctx3.free_calls );  // file + rec
         }
 
-        // C-DEINIT-4: three records → all freed
+        // three records → all freed
         {
                 struct asrtl_node head4       = {};
                 head4.chid                    = ASRTL_CORE;
@@ -1109,7 +1104,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 CHECK_EQ( 6u, sctx4.free_calls );  // 3 × (file + rec)
         }
 
-        // C-DEINIT-5: partial take then deinit frees remaining
+        // partial take then deinit frees remaining
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 1 );
@@ -1127,7 +1122,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         CHECK_EQ( nullptr, diag.first_rec );
 }
 
-// C-cov6: truncated exec messages while in HNDL_EXEC/WAITING
+// truncated exec messages while in HNDL_EXEC/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
 {
         check_cntr_full_init( this );

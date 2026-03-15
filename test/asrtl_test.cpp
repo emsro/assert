@@ -1022,7 +1022,7 @@ TEST_CASE( "cobs_ibuffer_insert_l13" )
         CHECK_EQ( insert_size, (size_t) ( ib.used.e - ib.used.b ) );
 }
 
-// L-cov2: asrtl_span_unfit_for direct tests
+// asrtl_span_unfit_for direct tests
 TEST_CASE( "span_unfit_for" )
 {
         uint8_t buf[8];
@@ -1038,7 +1038,7 @@ TEST_CASE( "span_unfit_for" )
         CHECK_NE( 0, asrtl_span_unfit_for( &empty, 1 ) );
 }
 
-// L-cov3: asrtl_u8d2_to_u16 with high bit set
+// asrtl_u8d2_to_u16 with high bit set
 TEST_CASE( "u8d2_to_u16_high_bit" )
 {
         uint8_t  data[2] = { 0x80, 0x01 };
