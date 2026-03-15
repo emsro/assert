@@ -78,8 +78,8 @@ int8_t asrtl_cobs_ibuffer_iter( struct asrtl_cobs_ibuffer* b, struct asrtl_span*
                 buff->e = buff->b;
                 return 1;
         }
-        int capacity = buff->e - buff->b;
-        int size     = p - b->used.b;
+        int capacity = (int) ( buff->e - buff->b );
+        int size     = (int) ( p - b->used.b );
         if ( size > capacity )
                 return -1;
         uint8_t*                  q = buff->b;

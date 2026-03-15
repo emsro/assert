@@ -72,8 +72,8 @@ static inline enum asrtl_status asrtl_rec_span_to_span(
     struct asrtl_span*     sp,
     struct asrtl_rec_span* rec )
 {
-        for ( ; rec; rec = rec->next ) {
-                size_t n = (size_t) ( rec->e - rec->b );
+        for ( ; rec != NULL; rec = rec->next ) {
+                size_t const n = (size_t) ( rec->e - rec->b );
                 memcpy( sp->b, rec->b, n );
                 sp->b += n;
         }

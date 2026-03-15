@@ -61,7 +61,7 @@ static inline void asrtl_cobs_encoder_iter( struct asrtl_cobs_encoder* e, uint8_
 
 /// Encodes entire buffer with COBS. Returns encoded length in `out->e - out->b`, or error status.
 /// Returns ASRTL_SIZE_ERR if output buffer is insufficient during encoding.
-enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span const in, struct asrtl_span* out );
+enum asrtl_status asrtl_cobs_encode_buffer( struct asrtl_span in, struct asrtl_span* out );
 
 /// Stateful COBS decoder. Maintains position within current code block.
 struct asrtl_cobs_decoder
@@ -82,7 +82,7 @@ static inline void asrtl_cobs_decoder_iter( struct asrtl_cobs_decoder* d, uint8_
 {
         ASRTL_ASSERT( d );
         if ( d->offset == 1 ) {
-                if ( d->iszero )
+                if ( d->iszero != 0 )
                         *( *p )++ = 0U;
                 d->offset = b;
                 d->iszero = b != 255U ? 1U : 0U;
