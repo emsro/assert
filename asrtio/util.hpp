@@ -24,15 +24,23 @@ struct cobs_node
         uint8_t                          ibuffer[1024];
         std::function< void( ssize_t ) > on_error;
 
-        asrtl::status write( uv_stream_t* client, asrtl::chann_id id, std::span< uint8_t > buff )
+        asrtl::status write( uv_stream_t* client, asrtl::chann_id id, asrtl::rec_span& buff )
         {
                 uint8_t  buffer[1024];
                 uint8_t* p  = buffer + 8;  // offset for COBS encoding
                 uint8_t* pp = p;
 
-                size_t size = sizeof( asrtl_chann_id ) + buff.size();
+                size_t size = sizeof( asrtl_chann_id );
                 asrtl_add_u16( &pp, id );
-                memcpy( pp, buff.data(), buff.size() );
+                for ( asrtl::rec_span* sp = &buff; sp != nullptr; sp = sp->next ) {
+                        if ( size + ( sp->e - sp->b ) > sizeof( buffer ) - 8 ) {
+                                ASRTL_ERR_LOG( "asrtio", "Buffer overflow in COBS encoding" );
+                                return ASRTL_SEND_ERR;
+                        }
+                        memcpy( pp, sp->b, sp->e - sp->b );
+                        pp += sp->e - sp->b;
+                        size += sp->e - sp->b;
+                }
                 struct asrtl_span sp{ .b = buffer, .e = buffer + sizeof buffer };
                 auto              s = asrtl_cobs_encode_buffer( { .b = p, .e = p + size }, &sp );
                 if ( s != ASRTL_SUCCESS ) {
@@ -44,11 +52,7 @@ struct cobs_node
                 auto* data = new uint8_t[sp.e - sp.b];
                 memcpy( data, sp.b, sp.e - sp.b );
                 ASRTL_DBG_LOG(
-                    "asrtio",
-                    "Sending to channel %u: %u bytes, total: %u",
-                    id,
-                    buff.size(),
-                    sp.e - sp.b );
+                    "asrtio", "Sending to channel %u: %u bytes, total: %u", id, size, sp.e - sp.b );
 
                 auto* req      = new uv_write_t{};
                 req->data      = data;

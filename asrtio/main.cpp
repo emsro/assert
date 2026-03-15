@@ -74,7 +74,7 @@ struct cntr_tcp_sys
         uv_idle_t         idle_handle;
         uv_tcp_t          client;
         asrtc::controller cntr{
-            [&]( asrtl::chann_id id, std::span< uint8_t > buff ) -> asrtl::status {
+            [&]( asrtl::chann_id id, asrtl::rec_span& buff ) -> asrtl::status {
                     return rx.write( (uv_stream_t*) &client, id, buff );
             },
             [&]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {

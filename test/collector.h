@@ -52,14 +52,26 @@ static void assert_data_ll_contain_str(
 }
 
 
-static enum asrtl_status sender_collect( void* data, asrtl_chann_id id, struct asrtl_span buff )
+static enum asrtl_status sender_collect(
+    void*                  data,
+    asrtl_chann_id         id,
+    struct asrtl_rec_span* buff )
 {
         assert( data );
+        uint32_t total = 0;
+        for ( struct asrtl_rec_span* seg = buff; seg; seg = seg->next )
+                total += (uint32_t) ( seg->e - seg->b );
+
         struct data_ll** lnode = (struct data_ll**) data;
         struct data_ll*  p     = malloc( sizeof( struct data_ll ) );
-        p->data_size           = buff.e - buff.b;
-        p->data                = malloc( p->data_size );
-        memcpy( p->data, buff.b, p->data_size );
+        p->data_size           = total;
+        p->data                = malloc( total );
+        uint8_t* dst           = p->data;
+        for ( struct asrtl_rec_span* seg = buff; seg; seg = seg->next ) {
+                uint32_t n = (uint32_t) ( seg->e - seg->b );
+                memcpy( dst, seg->b, n );
+                dst += n;
+        }
         p->id   = id;
         p->next = *lnode;
         *lnode  = p;

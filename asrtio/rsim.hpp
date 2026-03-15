@@ -115,15 +115,14 @@ struct conn_ctx
                 reac.add_test( t );
         }
 
-        asrtl::status operator()( asrtl::chann_id id, std::span< uint8_t > buff )
+        asrtl::status operator()( asrtl::chann_id id, asrtl::rec_span* buff )
         {
-                return rx.write( (uv_stream_t*) &client, id, buff );
+                return rx.write( (uv_stream_t*) &client, id, *buff );
         }
 
         void tick()
         {
-                uint8_t buffer[256];
-                auto    s = reac.tick( buffer );
+                auto s = reac.tick();
                 if ( s != ASRTR_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "test_rsim", "Reactor tick failed: %s", asrtr_status_to_str( s ) );

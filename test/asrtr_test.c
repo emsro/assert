@@ -14,6 +14,7 @@
 #include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
+#include "../asrtr/diag.h"
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.h"
@@ -56,6 +57,12 @@ void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender,
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
 }
 
+void check_diag_init( struct asrtr_diag* diag, struct asrtl_node* prev, struct asrtl_sender sender )
+{
+        enum asrtr_status st = asrtr_diag_init( diag, prev, sender );
+        TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
+}
+
 void check_reactor_recv( struct asrtr_reactor* reac, struct asrtl_span msg )
 {
         enum asrtl_status st = asrtr_reactor_recv( reac, msg );
@@ -70,9 +77,7 @@ void check_reactor_recv_flags( struct asrtr_reactor* reac, struct asrtl_span msg
 
 void check_reactor_tick( struct asrtr_reactor* reac )
 {
-        uint8_t           buffer[64];
-        enum asrtr_status st =
-            asrtr_reactor_tick( reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
+        enum asrtr_status st = asrtr_reactor_tick( reac );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
         TEST_ASSERT_EQUAL( 0x00, reac->flags & ~ASRTR_PASSIVE_FLAGS );
 }
@@ -122,8 +127,9 @@ struct test_context
         struct asrtr_reactor reac;
         struct data_ll*      collected;
         struct asrtl_sender  send;
-        uint8_t              buffer[64];
-        struct asrtl_span    sp;
+        // XXX: are these necessary anymore?
+        uint8_t           buffer[64];
+        struct asrtl_span sp;
 };
 
 void test_run(
@@ -170,10 +176,10 @@ void test_reactor_init( struct test_context* ctx )
         enum asrtr_status st;
 
         st = asrtr_reactor_init( NULL, ctx->send, "rec1" );
-        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
+        TEST_ASSERT_EQUAL( ASRTR_INIT_ERR, st );
 
         st = asrtr_reactor_init( &ctx->reac, ctx->send, NULL );
-        TEST_ASSERT_EQUAL( ASRTR_REAC_INIT_ERR, st );
+        TEST_ASSERT_EQUAL( ASRTR_INIT_ERR, st );
 
         st = asrtr_reactor_init( &ctx->reac, ctx->send, "rec1" );
         TEST_ASSERT_NULL( ctx->reac.first_test );
@@ -335,12 +341,17 @@ void test_check_macro( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
-        uint64_t          counter = 0;
-        setup_test( &ctx->reac, &t1, "test1", &counter, &check_macro_test );
+        struct asrtr_diag diag;
+        check_diag_init( &diag, &ctx->reac.node, ctx->send );
+        struct astrt_check_ctx check_ctx = {
+            .diag    = &diag,
+            .counter = 0,
+        };
+        setup_test( &ctx->reac, &t1, "test1", &check_ctx, &check_macro_test );
 
         check_run_test( &ctx->reac, 0, 0 );
 
-        TEST_ASSERT_EQUAL( 2, counter );
+        TEST_ASSERT_EQUAL( 2, check_ctx.counter );
         assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE );
         clear_top_collected( &ctx->collected );
 
@@ -352,12 +363,17 @@ void test_require_macro( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
         struct asrtr_test t1;
-        uint64_t          counter = 0;
-        setup_test( &ctx->reac, &t1, "test1", &counter, &require_macro_test );
+        struct asrtr_diag diag;
+        check_diag_init( &diag, &ctx->reac.node, ctx->send );
+        struct astrt_check_ctx check_ctx = {
+            .diag    = &diag,
+            .counter = 0,
+        };
+        setup_test( &ctx->reac, &t1, "test1", &check_ctx, &require_macro_test );
 
         check_run_test( &ctx->reac, 0, 0 );
 
-        TEST_ASSERT_EQUAL( 1, counter );
+        TEST_ASSERT_EQUAL( 1, check_ctx.counter );
         assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE );
         clear_top_collected( &ctx->collected );
 
@@ -390,7 +406,7 @@ void test_reactor_unknown_flag( struct test_context* ctx )
         // set only unknown flag bits (known flags are 0x01..0x20); the else branch must signal an
         // error
         ctx->reac.flags      = 0x40;
-        enum asrtr_status st = asrtr_reactor_tick( &ctx->reac, ctx->sp );
+        enum asrtr_status st = asrtr_reactor_tick( &ctx->reac );
         TEST_ASSERT_NOT_EQUAL( ASRTR_SUCCESS, st );
 }
 
@@ -499,11 +515,8 @@ void test_reactor_multi_flag( struct test_context* ctx )
         TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_TC );
         TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_DESC );
 
-        uint8_t buffer[64];
-
         // First tick: DESC handled (highest priority in if-else chain)
-        enum asrtr_status st = asrtr_reactor_tick(
-            &ctx->reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
+        enum asrtr_status st = asrtr_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
         assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
         assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
@@ -512,8 +525,7 @@ void test_reactor_multi_flag( struct test_context* ctx )
         TEST_ASSERT( !( ctx->reac.flags & ASRTR_FLAG_DESC ) );
 
         // Second tick: TC handled
-        st = asrtr_reactor_tick(
-            &ctx->reac, ( struct asrtl_span ){ buffer, buffer + sizeof buffer } );
+        st = asrtr_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
         assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x00, ctx->collected->data + 2 );

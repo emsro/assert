@@ -30,6 +30,13 @@ static inline uint8_t asrtl_span_unfit_for( struct asrtl_span const* buff, uint3
         return (uint32_t) ( buff->e - buff->b ) < size ? 1U : 0U;
 }
 
+struct asrtl_rec_span
+{
+        uint8_t*               b;
+        uint8_t*               e;
+        struct asrtl_rec_span* next;
+};
+
 #ifdef __cplusplus
 }
 #endif

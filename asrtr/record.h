@@ -46,17 +46,20 @@ struct asrtr_record
         struct asrtr_test_input const* inpt;
 };
 
-uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x );
+void asrtr_fail( struct asrtr_record* rec );
 
-#define ASRTR_CHECK( rec, x )                   \
-        do {                                    \
-                asrtr_assert( ( rec ), ( x ) ); \
+#define ASRTR_RECORD_CHECK( rec, x )           \
+        do {                                   \
+                if ( !( x ) )                  \
+                        asrtr_fail( ( rec ) ); \
         } while ( 0 )
 
-#define ASRTR_REQUIRE( rec, x )                            \
-        do {                                               \
-                if ( asrtr_assert( ( rec ), ( x ) ) == 0 ) \
-                        return ASRTR_SUCCESS;              \
+#define ASRTR_RECORD_REQUIRE( rec, x )         \
+        do {                                   \
+                if ( !( x ) ) {                \
+                        asrtr_fail( ( rec ) ); \
+                        return ASRTR_SUCCESS;  \
+                }                              \
         } while ( 0 )
 
 #ifdef __cplusplus

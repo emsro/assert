@@ -21,12 +21,15 @@
 #include <stddef.h>
 #include <string.h>
 
-uint32_t asrtr_assert( struct asrtr_record* rec, uint32_t x )
+void asrtr_fail( struct asrtr_record* rec )
 {
-        if ( x != 0 )
-                return 1;
         rec->state = ASRTR_TEST_FAIL;
-        return 0;
+}
+
+static inline enum asrtl_status asrtr_send( void* r, struct asrtl_rec_span* sp )
+{
+        ASRTL_ASSERT( r && sp );
+        return asrtl_send( &( (struct asrtr_reactor*) r )->sendr, ASRTL_CORE, sp );
 }
 
 enum asrtr_status asrtr_reactor_init(
@@ -36,7 +39,7 @@ enum asrtr_status asrtr_reactor_init(
 {
         if ( !reac || !desc ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Invalid arguments to reactor init" );
-                return ASRTR_REAC_INIT_ERR;
+                return ASRTR_INIT_ERR;
         }
         *reac = ( struct asrtr_reactor ){
             .node =
@@ -58,34 +61,32 @@ enum asrtr_status asrtr_reactor_init(
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status asrtr_reactor_tick_flag_test_info(
-    struct asrtr_reactor* reac,
-    struct asrtl_span*    buff )
+static enum asrtr_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac )
 {
         struct asrtr_test* t = reac->first_test;
         uint32_t           i = reac->recv_test_info_id;
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_MISSING_TEST ) != ASRTL_SUCCESS ) {
+                if ( asrtl_msg_rtoc_error( ASRTL_ASE_MISSING_TEST, asrtr_send, reac ) !=
+                     ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send MISSING_TEST error" );
                         return ASRTR_SEND_ERR;
                 }
         } else if (
-            asrtl_msg_rtoc_test_info( buff, reac->recv_test_info_id, t->desc, strlen( t->desc ) ) !=
+            asrtl_msg_rtoc_test_info(
+                reac->recv_test_info_id, t->desc, strlen( t->desc ), asrtr_send, reac ) !=
             ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode test info" );
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test info" );
                 return ASRTR_SEND_ERR;
         }
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status asrtr_reactor_tick_flag_test_start(
-    struct asrtr_reactor* reac,
-    struct asrtl_span*    buff )
+static enum asrtr_status asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac )
 {
         if ( reac->state != ASRTR_REAC_IDLE ) {
-                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_TEST_ALREADY_RUNNING ) !=
+                if ( asrtl_msg_rtoc_error( ASRTL_ASE_TEST_ALREADY_RUNNING, asrtr_send, reac ) !=
                      ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send TEST_ALREADY_RUNNING error" );
                         return ASRTR_SEND_ERR;
@@ -97,7 +98,8 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrtl_msg_rtoc_error( buff, ASRTL_ASE_MISSING_TEST ) != ASRTL_SUCCESS ) {
+                if ( asrtl_msg_rtoc_error( ASRTL_ASE_MISSING_TEST, asrtr_send, reac ) !=
+                     ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send MISSING_TEST error" );
                         return ASRTR_SEND_ERR;
                 }
@@ -113,46 +115,40 @@ static enum asrtr_status asrtr_reactor_tick_flag_test_start(
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
                 if ( asrtl_msg_rtoc_test_start(
-                         buff, reac->recv_test_start_id, reac->record.inpt->run_id ) !=
+                         reac->recv_test_start_id, reac->record.inpt->run_id, asrtr_send, reac ) !=
                      ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode test start" );
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test start" );
                         return ASRTR_SEND_ERR;
                 }
         }
         return ASRTR_SUCCESS;
 }
 
-static inline enum asrtl_status asrtr_send( struct asrtr_reactor* r, uint8_t* b, uint8_t* e )
-{
-        ASRTL_ASSERT( r && b && e );
-        return asrtl_send( &r->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
-}
-
-static enum asrtr_status asrtr_reactor_tick_flags(
-    struct asrtr_reactor* reac,
-    struct asrtl_span     buff )
+static enum asrtr_status asrtr_reactor_tick_flags( struct asrtr_reactor* reac )
 {
         ASRTL_ASSERT( reac );
         ASRTL_ASSERT( reac->desc );
 
-        struct asrtl_span sp   = buff;
-        uint32_t          mask = 0;
+        uint32_t mask = 0;
 
         if ( reac->flags & ASRTR_FLAG_DESC ) {
                 mask = ~ASRTR_FLAG_DESC;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending description" );
-                if ( asrtl_msg_rtoc_desc( &sp, reac->desc, strlen( reac->desc ) ) !=
+                if ( asrtl_msg_rtoc_desc( reac->desc, strlen( reac->desc ), asrtr_send, reac ) !=
                      ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode description" );
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send description" );
                         return ASRTR_SEND_ERR;
                 }
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
                 mask = ~ASRTR_FLAG_PROTO_VER;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending protocol version" );
                 if ( asrtl_msg_rtoc_proto_version(
-                         &sp, ASRTL_PROTO_MAJOR, ASRTL_PROTO_MINOR, ASRTL_PROTO_PATCH ) !=
-                     ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode protocol version" );
+                         ASRTL_PROTO_MAJOR,
+                         ASRTL_PROTO_MINOR,
+                         ASRTL_PROTO_PATCH,
+                         asrtr_send,
+                         reac ) != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send protocol version" );
                         return ASRTR_SEND_ERR;
                 }
         } else if ( reac->flags & ASRTR_FLAG_TC ) {
@@ -163,14 +159,14 @@ static enum asrtr_status asrtr_reactor_tick_flags(
                         ++count, t = t->next;
 
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending test count: %u", count );
-                if ( asrtl_msg_rtoc_test_count( &sp, count ) != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode test count" );
+                if ( asrtl_msg_rtoc_test_count( count, asrtr_send, reac ) != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test count" );
                         return ASRTR_SEND_ERR;
                 }
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
                 mask = ~ASRTR_FLAG_TI;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending test %u info", reac->recv_test_info_id );
-                if ( asrtr_reactor_tick_flag_test_info( reac, &sp ) != ASRTR_SUCCESS )
+                if ( asrtr_reactor_tick_flag_test_info( reac ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TSTART ) {
                 mask = ~ASRTR_FLAG_TSTART;
@@ -179,16 +175,12 @@ static enum asrtr_status asrtr_reactor_tick_flags(
                     "Starting test %u, run ID: %u",
                     reac->recv_test_start_id,
                     reac->recv_test_run_id );
-                if ( asrtr_reactor_tick_flag_test_start( reac, &sp ) != ASRTR_SUCCESS )
+                if ( asrtr_reactor_tick_flag_test_start( reac ) != ASRTR_SUCCESS )
                         return ASRTR_SEND_ERR;
         } else {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Unknown flag bits set: 0x%x", reac->flags );
                 reac->flags = 0;
                 return ASRTR_INTERNAL_ERR;
-        }
-        if ( sp.b != buff.b && asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send response" );
-                return ASRTR_SEND_ERR;
         }
 
         if ( mask != 0 )
@@ -197,13 +189,13 @@ static enum asrtr_status asrtr_reactor_tick_flags(
         return ASRTR_SUCCESS;
 }
 
-enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff )
+enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac )
 {
         ASRTL_ASSERT( reac );
         ASRTL_ASSERT( reac->desc );
 
         if ( reac->flags & ~ASRTR_PASSIVE_FLAGS )
-                return asrtr_reactor_tick_flags( reac, buff );
+                return asrtr_reactor_tick_flags( reac );
 
 
         switch ( reac->state ) {
@@ -230,18 +222,13 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_s
         }
         case ASRTR_REAC_TEST_REPORT: {
                 struct asrtr_record* record = &reac->record;
-                struct asrtl_span    sp     = buff;
                 if ( asrtl_msg_rtoc_test_result(
-                         &sp,
                          record->inpt->run_id,
                          record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                          record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
-                                                             ASRTL_TEST_SUCCESS ) !=
-                     ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to encode test result" );
-                        return ASRTR_SEND_ERR;
-                }
-                if ( asrtr_send( reac, buff.b, sp.b ) != ASRTL_SUCCESS ) {
+                                                             ASRTL_TEST_SUCCESS,
+                         asrtr_send,
+                         reac ) != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test result" );
                         return ASRTR_SEND_ERR;
                 }

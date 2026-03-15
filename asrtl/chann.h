@@ -26,6 +26,7 @@ enum asrtl_chann_id_e
 {
         ASRTL_META = 1,
         ASRTL_CORE = 2,
+        ASRTL_DIAG = 3,
 };
 
 typedef uint16_t asrtl_chann_id;
@@ -53,7 +54,7 @@ enum asrtl_status asrtl_chann_cobs_dispatch(
     struct asrtl_span          in_buff );
 
 typedef enum asrtl_status (
-    *asrtl_send_callback )( void* ptr, asrtl_chann_id id, struct asrtl_span buff );
+    *asrtl_send_callback )( void* ptr, asrtl_chann_id id, struct asrtl_rec_span* buff );
 
 /// Sender structure holding callback and pointer for send operations.
 struct asrtl_sender
@@ -64,9 +65,9 @@ struct asrtl_sender
 
 /// Sends buffer to channel with given id using sender's callback.
 static inline enum asrtl_status asrtl_send(
-    struct asrtl_sender* r,
-    asrtl_chann_id       chid,
-    struct asrtl_span    buff )
+    struct asrtl_sender*   r,
+    asrtl_chann_id         chid,
+    struct asrtl_rec_span* buff )
 {
         ASRTL_ASSERT( r );
         ASRTL_ASSERT( r->cb );

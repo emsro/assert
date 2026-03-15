@@ -20,7 +20,13 @@
 static inline enum asrtl_status asrtc_send( struct asrtc_controller* c, uint8_t* b, uint8_t* e )
 {
         ASRTL_ASSERT( c && b && e );
-        return asrtl_send( &c->sendr, ASRTL_CORE, ( struct asrtl_span ){ b, e } );
+        /// XXX: refactor for recursive span instead
+        struct asrtl_rec_span buff = {
+            .b    = b,
+            .e    = e,
+            .next = NULL,
+        };
+        return asrtl_send( &c->sendr, ASRTL_CORE, &buff );
 }
 
 static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t timeout_ticks )

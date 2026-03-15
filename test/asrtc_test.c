@@ -36,6 +36,15 @@ void tearDown( void )
 //---------------------------------------------------------------------
 // lib
 
+static enum asrtl_status write_msg_to_span( void* ptr, struct asrtl_rec_span* rec )
+{
+        struct asrtl_span* sp = (struct asrtl_span*) ptr;
+        for ( ; rec; rec = rec->next )
+                for ( uint8_t* b = rec->b; b < rec->e; )
+                        *sp->b++ = *b++;
+        return ASRTL_SUCCESS;
+}
+
 void check_cntr_recv( struct asrtc_controller* c, struct asrtl_span msg )
 {
         enum asrtl_status st = asrtc_cntr_recv( c, msg );
@@ -97,7 +106,7 @@ void check_cntr_full_init( struct test_context* ctx )
             .e = buffer + sizeof buffer,
         };
 
-        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buffer, sp.b );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, ctx->init_status );
 }
@@ -169,7 +178,7 @@ void test_cntr_init( struct test_context* ctx )
         assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
         clear_single_collected( &ctx->collected );
 
-        asrtl_msg_rtoc_proto_version( &ctx->sp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
         TEST_ASSERT( asrtc_cntr_idle( &ctx->cntr ) );
@@ -217,7 +226,7 @@ void test_cntr_desc( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 
         char const* msg = "wololo1";
-        asrtl_msg_rtoc_desc( &ctx->sp, msg, strlen( msg ) );
+        asrtl_msg_rtoc_desc( msg, strlen( msg ), write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
         TEST_ASSERT_NOT_NULL( p );
@@ -248,7 +257,7 @@ void test_cntr_test_count( struct test_context* ctx )
         assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_TEST_COUNT );
         clear_single_collected( &ctx->collected );
 
-        asrtl_msg_rtoc_test_count( &ctx->sp, 42 );
+        asrtl_msg_rtoc_test_count( 42, write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
         TEST_ASSERT_EQUAL( 42, p );
@@ -269,7 +278,7 @@ void test_cntr_test_info( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
 
         char* desc = "barbaz";
-        asrtl_msg_rtoc_test_info( &ctx->sp, 42, desc, strlen( desc ) );
+        asrtl_msg_rtoc_test_info( 42, desc, strlen( desc ), write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
 
         TEST_ASSERT_NOT_NULL( p.desc );
@@ -294,7 +303,7 @@ void test_cntr_test_info_tid_mismatch( struct test_context* ctx )
         uint8_t           buf[64];
         struct asrtl_span sp   = { .b = buf, .e = buf + sizeof buf };
         char const*       desc = "barbaz";
-        asrtl_msg_rtoc_test_info( &sp, 99, desc, strlen( desc ) );
+        asrtl_msg_rtoc_test_info( 99, desc, strlen( desc ), write_msg_to_span, &sp );
         enum asrtl_status rst =
             asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, rst );
@@ -349,7 +358,7 @@ void test_cntr_desc_alloc_failure( struct test_context* ctx )
         // Simulate receiving a proto-version reply to advance to IDLE
         uint8_t           buf[64];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, ctx->init_status );
 
@@ -361,7 +370,7 @@ void test_cntr_desc_alloc_failure( struct test_context* ctx )
         // Send a DESC reply — alloc will return NULL, recv must return an error
         sp              = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         char const* msg = "hello";
-        asrtl_msg_rtoc_desc( &sp, msg, strlen( msg ) );
+        asrtl_msg_rtoc_desc( msg, strlen( msg ), write_msg_to_span, &sp );
         enum asrtl_status rst =
             asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, rst );
@@ -385,7 +394,7 @@ void test_cntr_run_test( struct test_context* ctx )
         for ( int i = 0; i < 4; i++ )
                 check_cntr_tick( &ctx->cntr );
 
-        asrtl_msg_rtoc_test_start( &ctx->sp, 42, 0 );
+        asrtl_msg_rtoc_test_start( 42, 0, write_msg_to_span, &ctx->sp );
         check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = ctx->buffer, .e = ctx->sp.b } );
         for ( int i = 0; i < 4; i++ )
                 check_cntr_tick( &ctx->cntr );
@@ -393,7 +402,7 @@ void test_cntr_run_test( struct test_context* ctx )
         TEST_ASSERT_NULL( ctx->collected );
 
         uint8_t* b = ctx->sp.b;
-        asrtl_msg_rtoc_test_result( &ctx->sp, 0, ASRTL_TEST_SUCCESS );
+        asrtl_msg_rtoc_test_result( 0, ASRTL_TEST_SUCCESS, write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, b, ctx->sp.b );
 
         TEST_ASSERT_EQUAL( res.test_id, 42 );
@@ -437,7 +446,7 @@ void test_cntr_version_mismatch( struct test_context* ctx )
         // reply with a mismatched major version
         uint8_t           buf[64];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_proto_version( &sp, ASRTL_PROTO_MAJOR + 1, 0, 0 );
+        asrtl_msg_rtoc_proto_version( ASRTL_PROTO_MAJOR + 1, 0, 0, write_msg_to_span, &sp );
         check_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
         st = asrtc_cntr_tick( &ctx->cntr );
@@ -626,7 +635,7 @@ void test_cntr_busy_err( struct test_context* ctx )
         check_cntr_tick( &ctx->cntr );
         clear_single_collected( &ctx->collected );
         char* desc = "x";
-        asrtl_msg_rtoc_desc( &ctx->sp, desc, strlen( desc ) );
+        asrtl_msg_rtoc_desc( desc, strlen( desc ), write_msg_to_span, &ctx->sp );
         check_recv_and_spin( &ctx->cntr, ctx->buffer, ctx->sp.b );
         if ( p != NULL )
                 free( p );
@@ -667,7 +676,7 @@ void test_cntr_recv_error( struct test_context* ctx )
         // Send an error message while the controller is waiting for a response
         uint8_t           buf[16];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_error( &sp, 42 );
+        asrtl_msg_rtoc_error( 42, write_msg_to_span, &sp );
         enum asrtl_status rst =
             asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, rst );
@@ -689,7 +698,7 @@ void test_cntr_test_exec_wrong_run_id( struct test_context* ctx )
         // Send TEST_RESULT with wrong run_id (controller expects 0, send 99)
         uint8_t           buf[16];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_test_result( &sp, 99, ASRTL_TEST_SUCCESS );
+        asrtl_msg_rtoc_test_result( 99, ASRTL_TEST_SUCCESS, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
 
         TEST_ASSERT_EQUAL( ASRTC_TEST_ERROR, res.res );
@@ -703,7 +712,7 @@ void test_cntr_recv_idle( struct test_context* ctx )
 
         uint8_t           buf[16];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &sp );
         enum asrtl_status rst =
             asrtc_cntr_recv( &ctx->cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         TEST_ASSERT_EQUAL( ASRTL_RECV_UNEXPECTED_ERR, rst );
@@ -733,7 +742,7 @@ void test_cntr_recv_truncated_hdr( struct test_context* ctx )
         clear_single_collected( &ctx->collected );
         uint8_t           vbuf[16];
         struct asrtl_span vsp = { .b = vbuf, .e = vbuf + sizeof vbuf };
-        asrtl_msg_rtoc_proto_version( &vsp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &vsp );
         check_recv_and_spin( &ctx->cntr, vbuf, vsp.b );
 }
 
@@ -763,7 +772,7 @@ void test_cntr_recv_truncated_init( struct test_context* ctx )
 
         // Satisfy properly to clean up
         sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_proto_version( &sp, 0, 1, 0 );
+        asrtl_msg_rtoc_proto_version( 0, 1, 0, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
 }
 
@@ -788,7 +797,7 @@ void test_cntr_recv_truncated_test_count( struct test_context* ctx )
 
         // Satisfy properly to clean up
         sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_test_count( &sp, 0 );
+        asrtl_msg_rtoc_test_count( 0, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
 }
 
@@ -814,7 +823,7 @@ void test_cntr_recv_truncated_test_info( struct test_context* ctx )
         // Satisfy properly to clean up
         char const* desc = "x";
         sp               = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_test_info( &sp, 7, desc, strlen( desc ) );
+        asrtl_msg_rtoc_test_info( 7, desc, strlen( desc ), write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
         if ( p.desc != NULL )
                 free( p.desc );
@@ -844,7 +853,7 @@ void test_cntr_recv_truncated_exec( struct test_context* ctx )
 
         // Satisfy properly to clean up
         sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
-        asrtl_msg_rtoc_test_result( &sp, 0, ASRTL_TEST_SUCCESS );
+        asrtl_msg_rtoc_test_result( 0, ASRTL_TEST_SUCCESS, write_msg_to_span, &sp );
         check_recv_and_spin( &ctx->cntr, buf, sp.b );
         TEST_ASSERT_EQUAL( ASRTC_TEST_SUCCESS, res.res );
         TEST_ASSERT_NULL( ctx->collected );

@@ -55,9 +55,9 @@ struct reactor
                 return &reac.node;
         }
 
-        status tick( std::span< uint8_t > buff )
+        status tick()
         {
-                return asrtr_reactor_tick( &reac, asrtl::cnv( buff ) );
+                return asrtr_reactor_tick( &reac );
         }
 
         template < typename D >

@@ -14,7 +14,8 @@ using source   = asrtl_source;
 using chann_id = asrtl_chann_id;
 using status   = asrtl_status;
 using span     = asrtl_span;
-using send_cb  = std::function< asrtl_status( chann_id, std::span< uint8_t > ) >;
+using rec_span = asrtl_rec_span;
+using send_cb  = std::function< asrtl_status( chann_id, rec_span& ) >;
 using ecode    = uint16_t;
 template < typename T >
 using uptr = std::unique_ptr< T >;

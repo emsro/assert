@@ -11,25 +11,32 @@
 #ifndef ASRTR_TESTS_H
 #define ASRTR_TESTS_H
 
+#include "../asrtr/diag.h"
 #include "../asrtr/record.h"
+
+struct astrt_check_ctx
+{
+        struct asrtr_diag* diag;
+        uint64_t           counter;
+};
 
 enum asrtr_status require_macro_test( struct asrtr_record* r )
 {
-        uint64_t* p = (uint64_t*) r->inpt->test_ptr;
-        ASRTR_REQUIRE( r, 1 == 1 );
-        *p += 1;
-        ASRTR_REQUIRE( r, 1 == 0 );
-        *p += 1;
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_REQUIRE( ctx->diag, r, 1 == 1 );
+        ctx->counter += 1;
+        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
         return ASRTR_SUCCESS;
 }
 
 enum asrtr_status check_macro_test( struct asrtr_record* r )
 {
-        uint64_t* p = (uint64_t*) r->inpt->test_ptr;
-        ASRTR_CHECK( r, 1 == 1 );
-        *p += 1;
-        ASRTR_CHECK( r, 1 == 0 );
-        *p += 1;
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_CHECK( ctx->diag, r, 1 == 1 );
+        ctx->counter += 1;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
         return ASRTR_SUCCESS;
 }
 

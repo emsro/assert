@@ -20,7 +20,7 @@ enum asrtr_status
         ASRTR_INTERNAL_ERR  = -6,
         ASRTR_SEND_ERR      = -5,
         ASRTR_BUSY_ERR      = -4,
-        ASRTR_REAC_INIT_ERR = -3,
+        ASRTR_INIT_ERR      = -3,
         ASRTR_TEST_INIT_ERR = -2,
         ASRTR_TEST_REG_ERR  = -1,
         ASRTR_SUCCESS       = 1,

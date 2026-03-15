@@ -76,7 +76,7 @@ enum asrtr_status asrtr_reactor_init(
     struct asrtr_reactor* reac,
     struct asrtl_sender   sender,
     char const*           desc );
-enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac, struct asrtl_span buff );
+enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac );
 
 enum asrtr_status asrtr_test_init(
     struct asrtr_test*  t,

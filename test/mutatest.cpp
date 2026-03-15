@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 extern "C" {
 ASRTL_DEFINE_GPOS_LOG()
@@ -139,18 +140,19 @@ struct checker
         }
 };
 
-void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, std::span< uint8_t > buff )
+void print_msg( std::ostream& os, asrtl::source s, asrtl::source t, asrtl::rec_span const* buff )
 {
         os << std::format( "{} -> {}\t", s, t );
-        for ( int i = 0; i < buff.size(); ++i ) {
-                if ( i == 0 ) {
-                } else if ( i % 2 == 1 )
-                        os << ':';
-                else if ( i % 2 == 0 )
-                        os << '|';
-
-                os << std::format( "{:02x}", buff[i] );
-        }
+        int i = 0;
+        for ( asrtl::rec_span const* seg = buff; seg; seg = seg->next )
+                for ( uint8_t const* b = seg->b; b < seg->e; ++b, ++i ) {
+                        if ( i == 0 ) {
+                        } else if ( i % 2 == 1 )
+                                os << ':';
+                        else if ( i % 2 == 0 )
+                                os << '|';
+                        os << std::format( "{:02x}", *b );
+                }
         os << std::endl;
 }
 
@@ -180,8 +182,7 @@ struct gene_handler
                 os << "T" << std::endl;
                 for ( int i = 0; i < t.i; i++ ) {
                         check >> c.tick();
-                        uint8_t b[64];
-                        check >> r.tick( b );
+                        check >> r.tick();
                 }
         }
 
@@ -243,10 +244,18 @@ void exec( std::ostream& os, test_case const& tc )
 
         checker                  check{ os };
         opt< asrtc::controller > c;
-        auto                     r_cb = [&]( asrtl::chann_id, std::span< uint8_t > buff ) {
+
+        auto flatten = []( asrtl::rec_span const* buff ) {
+                std::vector< uint8_t > flat;
+                for ( auto const* seg = buff; seg; seg = seg->next )
+                        flat.insert( flat.end(), seg->b, seg->e );
+                return flat;
+        };
+
+        auto r_cb = [&]( asrtl::chann_id, asrtl::rec_span* buff ) {
                 print_msg( os, ASRTL_REACTOR, ASRTL_CONTROLLER, buff );
-                // XXX: maybe create C++ alternative of the dispatch?
-                check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( buff ) );
+                auto flat = flatten( buff );
+                check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
                 return ASRTL_SUCCESS;
         };
         asrtr::reactor           r{ r_cb, "Test reactor" };
@@ -254,9 +263,11 @@ void exec( std::ostream& os, test_case const& tc )
         r.add_test( t1 );
 
         c.emplace(
-            [&]( asrtl::chann_id, std::span< uint8_t > buff ) {
-                    print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
-                    check >> r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( buff ) );
+            [&]( asrtl::chann_id, asrtl::rec_span& buff ) {
+                    print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, &buff );
+                    auto flat = flatten( &buff );
+                    check >>
+                        r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
                     return ASRTL_SUCCESS;
             },
             [&]( asrtl::source s, asrtl::ecode ec ) {

@@ -33,13 +33,12 @@ auto cimpl_do( auto& cb, Ts&&... args )
         return st;
 }
 
-asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_span buff )
+asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_rec_span* buff )
 {
-        auto*                ci = reinterpret_cast< controller_impl* >( ptr );
-        std::span< uint8_t > sp{ buff.b, buff.e };
+        auto* ci = reinterpret_cast< controller_impl* >( ptr );
         if ( !ci->scb )
                 return ASRTL_SEND_ERR;
-        return ci->scb( id, sp );
+        return ci->scb( id, *buff );
 }
 
 asrtc::status cimpl_init( void* ptr, asrtc::status s )
@@ -89,7 +88,7 @@ controller::controller( asrtl::send_cb scb, error_cb ecb, init_cb icb )
 {
         auto st = asrtc_cntr_init(
             &_impl->asc,
-            { .ptr = _impl.get(), .cb = &cimpl_send },
+            asrtl_sender{ .ptr = _impl.get(), .cb = &cimpl_send },
             asrtc_default_allocator(),
             { .ptr = _impl.get(), .cb = &cimpl_error },
             &cimpl_init,

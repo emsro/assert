@@ -28,8 +28,8 @@ inline static char const* asrtr_status_to_str( enum asrtr_status st )
                 return "send error";
         case ASRTR_BUSY_ERR:
                 return "busy error";
-        case ASRTR_REAC_INIT_ERR:
-                return "reactor init error";
+        case ASRTR_INIT_ERR:
+                return "init error";
         case ASRTR_TEST_INIT_ERR:
                 return "test init error";
         case ASRTR_SUCCESS:
