@@ -15,8 +15,10 @@
 #include "./util.h"
 
 #include <assert.h>
+#include <deque>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 struct collected_data
 {
