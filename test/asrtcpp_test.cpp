@@ -1,0 +1,284 @@
+/// Permission to use, copy, modify, and/or distribute this software for any
+/// purpose with or without fee is hereby granted.
+///
+/// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+/// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+/// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+/// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+/// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+/// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+/// PERFORMANCE OF THIS SOFTWARE.
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "../asrtc/result.h"
+#include "../asrtc/status_to_str.h"
+#include "../asrtcpp/controller.hpp"
+#include "../asrtcpp/fmt.hpp"
+#include "../asrtl/log.h"
+#include "../asrtlpp/util.hpp"
+#include "../asrtrpp/reactor.hpp"
+
+#include <doctest/doctest.h>
+#include <format>
+#include <string>
+#include <vector>
+
+ASRTL_DEFINE_GPOS_LOG()
+
+// ---------------------------------------------------------------------------
+// helpers
+
+static std::vector< uint8_t > flatten( asrtl::rec_span const* buff )
+{
+        std::vector< uint8_t > v;
+        for ( auto const* seg = buff; seg; seg = seg->next )
+                v.insert( v.end(), seg->b, seg->e );
+        return v;
+}
+
+// ---------------------------------------------------------------------------
+// test callables for the reactor side
+
+struct passing_test
+{
+        char const* name() const
+        {
+                return "passing_test";
+        }
+        asrtr::status operator()( asrtr::record& rec )
+        {
+                rec.state = ASRTR_TEST_PASS;
+                return ASRTR_SUCCESS;
+        }
+};
+
+struct failing_test
+{
+        char const* name() const
+        {
+                return "failing_test";
+        }
+        asrtr::status operator()( asrtr::record& rec )
+        {
+                rec.state = ASRTR_TEST_FAIL;
+                return ASRTR_SUCCESS;
+        }
+};
+
+// ---------------------------------------------------------------------------
+// paired fixture: asrtc::controller <-> asrtr::reactor wired in-process
+//
+// Member declaration order governs construction:
+//   counters / status first, then the optional controller (starts empty),
+//   then the reactor unit stubs, then the reactor itself.
+// The constructor body emplaces the controller and completes the handshake.
+
+struct paired_ctx
+{
+        int           init_cb_count = 0;
+        asrtc::status init_status   = ASRTC_SUCCESS;
+
+        asrtl::opt< asrtc::controller > c;
+
+        asrtr::unit< passing_test > t0;
+        asrtr::unit< failing_test > t1;
+
+        // Must be declared before `r` so it is constructed (and valid) before the reactor
+        // captures &r_send as its sender pointer.  asrtlpp/sender.hpp stores &CB, so the
+        // lambda object must outlive the reactor.
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_send;
+
+        asrtr::reactor r;
+
+        paired_ctx()
+          : r_send( [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                  auto  flat = flatten( buff );
+                  auto  sp   = asrtl::cnv( std::span{ flat } );
+                  auto* cn   = ( *c ).node();
+                  cn->recv_cb( cn->recv_ptr, sp );
+                  return ASRTL_SUCCESS;
+          } )
+          , r( r_send, "paired_reactor" )
+        {
+                r.add_test( t0 );
+                r.add_test( t1 );
+
+                c.emplace(
+                    // controller sends → flatten + forward to reactor's recv_cb
+                    asrtl::send_cb{ [this]( asrtl::chann_id, asrtl::rec_span& buff ) {
+                            auto  flat = flatten( &buff );
+                            auto  sp   = asrtl::cnv( std::span{ flat } );
+                            auto* rn   = r.node();
+                            rn->recv_cb( rn->recv_ptr, sp );
+                            return ASRTL_SUCCESS;
+                    } },
+                    // error callback
+                    []( asrtl::source, asrtl::ecode ) -> asrtc::status {
+                            return ASRTC_SUCCESS;
+                    },
+                    // init callback — single-use via cimpl_do
+                    [this]( asrtc::status s ) -> asrtc::status {
+                            init_cb_count++;
+                            init_status = s;
+                            return ASRTC_SUCCESS;
+                    } );
+
+                // complete PROTO_VERSION handshake
+                for ( int i = 0; i < 100 && !c->is_idle(); i++ ) {
+                        (void) c->tick();
+                        r.tick();
+                }
+                CHECK( c->is_idle() );
+        }
+
+        // tick both sides until controller is idle again
+        void spin()
+        {
+                for ( int i = 0; i < 100 && !c->is_idle(); i++ ) {
+                        (void) c->tick();
+                        r.tick();
+                }
+                CHECK( c->is_idle() );
+        }
+};
+
+// ---------------------------------------------------------------------------
+// fmt
+
+TEST_CASE( "fmt_success" )
+{
+        std::string s = std::format( "{}", ASRTC_SUCCESS );
+        CHECK_EQ( s, asrtc_status_to_str( ASRTC_SUCCESS ) );
+}
+
+TEST_CASE( "fmt_error" )
+{
+        std::string s = std::format( "{}", ASRTC_CNTR_INIT_ERR );
+        CHECK_EQ( s, asrtc_status_to_str( ASRTC_CNTR_INIT_ERR ) );
+}
+
+// ---------------------------------------------------------------------------
+// controller init
+
+TEST_CASE_FIXTURE( paired_ctx, "controller_init" )
+{
+        CHECK( c->is_idle() );
+        CHECK_NE( nullptr, c->node() );
+        CHECK_EQ( ASRTL_CORE, c->node()->chid );
+        CHECK_EQ( ASRTC_SUCCESS, init_status );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "init_cb_fires_once" )
+{
+        // cimpl_do clears init_cb after first call; verify it was called exactly once
+        CHECK_EQ( 1, init_cb_count );
+}
+
+// ---------------------------------------------------------------------------
+// query_desc
+
+TEST_CASE_FIXTURE( paired_ctx, "query_desc" )
+{
+        std::string   received;
+        asrtc::status st = c->query_desc( [&]( asrtc::status s, std::string_view sv ) {
+                CHECK_EQ( ASRTC_SUCCESS, s );
+                received = std::string{ sv };
+                return ASRTC_SUCCESS;
+        } );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        spin();
+        CHECK_EQ( "paired_reactor", received );
+}
+
+// ---------------------------------------------------------------------------
+// query_test_count
+
+TEST_CASE_FIXTURE( paired_ctx, "query_test_count" )
+{
+        // tc_cb receives uint32_t; the C layer produces uint16_t (silent widening in
+        // cimpl_test_count)
+        uint32_t      count = 0;
+        asrtc::status st    = c->query_test_count( [&]( asrtc::status s, uint32_t n ) {
+                CHECK_EQ( ASRTC_SUCCESS, s );
+                count = n;
+                return ASRTC_SUCCESS;
+        } );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        spin();
+        CHECK_EQ( 2u, count );
+}
+
+// ---------------------------------------------------------------------------
+// query_test_info
+
+TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
+{
+        uint16_t      tid = 0xFFFF;
+        std::string   name;
+        asrtc::status st =
+            c->query_test_info( 0, [&]( asrtc::status s, uint16_t t, std::string_view sv ) {
+                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    tid  = t;
+                    name = std::string{ sv };
+                    return ASRTC_SUCCESS;
+            } );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        spin();
+        CHECK_EQ( 0u, tid );
+        CHECK_EQ( "passing_test", name );
+}
+
+// ---------------------------------------------------------------------------
+// exec_test
+
+TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
+{
+        asrtc_test_result res = ASRTC_TEST_UNKNOWN;
+        asrtc::status     st  = c->exec_test( 0, [&]( asrtc::status s, asrtc::result const& r ) {
+                CHECK_EQ( ASRTC_SUCCESS, s );
+                res = r.res;
+                return ASRTC_SUCCESS;
+        } );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        spin();
+        CHECK_EQ( ASRTC_TEST_SUCCESS, res );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
+{
+        asrtc_test_result res = ASRTC_TEST_UNKNOWN;
+        asrtc::status     st  = c->exec_test( 1, [&]( asrtc::status s, asrtc::result const& r ) {
+                CHECK_EQ( ASRTC_SUCCESS, s );
+                res = r.res;
+                return ASRTC_SUCCESS;
+        } );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        spin();
+        CHECK_EQ( ASRTC_TEST_FAILURE, res );
+}
+
+// ---------------------------------------------------------------------------
+// busy_error: second query while controller is busy must fail and NOT store its callback
+
+TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
+{
+        bool first_called  = false;
+        bool second_called = false;
+
+        // start the first query — succeeds, callback stored
+        CHECK_EQ( ASRTC_SUCCESS, c->query_desc( [&]( asrtc::status, std::string_view ) {
+                first_called = true;
+                return ASRTC_SUCCESS;
+        } ) );
+
+        // controller is now busy — second query must be rejected; its callback must NOT be stored
+        CHECK_EQ( ASRTC_CNTR_BUSY_ERR, c->query_test_count( [&]( asrtc::status, uint32_t ) {
+                second_called = true;
+                return ASRTC_SUCCESS;
+        } ) );
+
+        // complete the first query
+        spin();
+
+        CHECK( first_called );
+        CHECK_FALSE( second_called );
+}
