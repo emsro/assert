@@ -103,7 +103,8 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_
 {
         uint8_t           buffer[64];
         struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-        enum asrtl_status st = asrtl_msg_ctor_test_start( &sp, test_id, run_id );
+        enum asrtl_status st =
+            asrtl_msg_ctor_test_start( test_id, run_id, asrtl_rec_span_to_span_cb, &sp );
         TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
@@ -204,7 +205,7 @@ void test_reactor_version( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        asrtl_msg_ctor_proto_version( &ctx->sp );
+        asrtl_msg_ctor_proto_version( asrtl_rec_span_to_span_cb, &ctx->sp );
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_PROTO_VER );
 
@@ -220,7 +221,7 @@ void test_reactor_desc( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        asrtl_msg_ctor_desc( &ctx->sp );
+        asrtl_msg_ctor_desc( asrtl_rec_span_to_span_cb, &ctx->sp );
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_DESC );
 
@@ -234,7 +235,7 @@ void test_reactor_test_count( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        asrtl_msg_ctor_test_count( &ctx->sp );
+        asrtl_msg_ctor_test_count( asrtl_rec_span_to_span_cb, &ctx->sp );
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TC );
 
@@ -258,7 +259,7 @@ void test_reactor_test_info( struct test_context* ctx )
 {
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
-        asrtl_msg_ctor_test_info( &ctx->sp, 0 );
+        asrtl_msg_ctor_test_info( 0, asrtl_rec_span_to_span_cb, &ctx->sp );
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
@@ -297,7 +298,7 @@ void test_reactor_start( struct test_context* ctx )
         assert_test_start( ctx->collected, 0, 0 );
         clear_single_collected( &ctx->collected );
 
-        asrtl_msg_ctor_test_start( &ctx->sp, 42, 0 );
+        asrtl_msg_ctor_test_start( 42, 0, asrtl_rec_span_to_span_cb, &ctx->sp );
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TSTART );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
@@ -314,7 +315,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         uint64_t          counter = 8;
         setup_test( &ctx->reac, &t1, "test1", &counter, &countdown_test );
 
-        asrtl_msg_ctor_test_start( &ctx->sp, 0, 0 );
+        asrtl_msg_ctor_test_start( 0, 0, asrtl_rec_span_to_span_cb, &ctx->sp );
         check_reactor_recv_flags(
             &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b }, ASRTR_FLAG_TSTART );
 
@@ -418,7 +419,7 @@ void test_reactor_test_info_repeat( struct test_context* ctx )
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        asrtl_msg_ctor_test_info( &ctx->sp, 0 );
+        asrtl_msg_ctor_test_info( 0, asrtl_rec_span_to_span_cb, &ctx->sp );
 
         // first recv — flag must be set
         check_reactor_recv_flags(
@@ -441,7 +442,7 @@ void test_reactor_test_start_repeat( struct test_context* ctx )
         struct asrtr_test t1;
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
-        asrtl_msg_ctor_test_start( &ctx->sp, 0, 42 );
+        asrtl_msg_ctor_test_start( 0, 42, asrtl_rec_span_to_span_cb, &ctx->sp );
 
         // first recv — flag must be set
         check_reactor_recv_flags(
@@ -465,7 +466,7 @@ void test_reactor_add_test_after_recv( struct test_context* ctx )
         setup_test( &ctx->reac, &t1, "test1", NULL, &dataless_test_fun );
 
         // any valid recv locks registration
-        asrtl_msg_ctor_proto_version( &ctx->sp );
+        asrtl_msg_ctor_proto_version( asrtl_rec_span_to_span_cb, &ctx->sp );
         check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, ctx->sp.b } );
 
         // adding a test after recv must be rejected
@@ -501,13 +502,13 @@ void test_reactor_multi_flag( struct test_context* ctx )
         check_reactor_init( &ctx->reac, ctx->send, "rec1" );
 
         // First request: test count
-        asrtl_msg_ctor_test_count( &ctx->sp );
+        asrtl_msg_ctor_test_count( asrtl_rec_span_to_span_cb, &ctx->sp );
         uint8_t* end1 = ctx->sp.b;
         check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, end1 } );
 
         // Second request: description (no tick between)
         ctx->sp.b = ctx->buffer;
-        asrtl_msg_ctor_desc( &ctx->sp );
+        asrtl_msg_ctor_desc( asrtl_rec_span_to_span_cb, &ctx->sp );
         uint8_t* end2 = ctx->sp.b;
         check_reactor_recv( &ctx->reac, ( struct asrtl_span ){ ctx->buffer, end2 } );
 

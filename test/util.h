@@ -16,6 +16,11 @@
 #include <stdlib.h>
 #include <unity.h>
 
+static inline enum asrtl_status asrtl_rec_span_to_span_cb( void* ptr, struct asrtl_rec_span* rec )
+{
+        return asrtl_rec_span_to_span( (struct asrtl_span*) ptr, rec );
+}
+
 void assert_u16( uint16_t val, uint8_t const* data )
 {
         uint16_t tmp;

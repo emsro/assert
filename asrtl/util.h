@@ -19,6 +19,7 @@ extern "C" {
 #include "status.h"
 
 #include <stdint.h>
+#include <string.h>
 
 static inline void asrtl_u16_to_u8d2( uint16_t val, uint8_t* data )
 {
@@ -66,6 +67,18 @@ static inline void asrtl_add_u32( uint8_t** data, uint32_t val )
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
 // updates to/to_size to reflect filled in data
 void asrtl_fill_buffer( uint8_t const* from, uint32_t from_size, struct asrtl_span* buff );
+
+static inline enum asrtl_status asrtl_rec_span_to_span(
+    struct asrtl_span*     sp,
+    struct asrtl_rec_span* rec )
+{
+        for ( ; rec; rec = rec->next ) {
+                size_t n = (size_t) ( rec->e - rec->b );
+                memcpy( sp->b, rec->b, n );
+                sp->b += n;
+        }
+        return ASRTL_SUCCESS;
+}
 
 #ifdef __cplusplus
 }
