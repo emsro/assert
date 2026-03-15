@@ -61,7 +61,7 @@ void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end
 struct test_context
 {
         struct asrtc_controller cntr;
-        struct data_ll*         collected;
+        struct collected_data*  collected;
         struct asrtl_sender     send;
         uint8_t                 buffer[128];
         struct asrtl_span       sp;
@@ -88,7 +88,7 @@ void check_cntr_full_init( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
-        assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
+        assert_collected_core_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
         clear_single_collected( &ctx->collected );
 
         uint8_t           buffer[64];
@@ -166,7 +166,7 @@ void test_cntr_init( struct test_context* ctx )
         st = asrtc_cntr_tick( &ctx->cntr );
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
 
-        assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
+        assert_collected_core_hdr( ctx->collected, 0x02, ASRTL_MSG_PROTO_VERSION );
         clear_single_collected( &ctx->collected );
 
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &ctx->sp );
@@ -213,7 +213,7 @@ void test_cntr_desc( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
-        assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_DESC );
+        assert_collected_core_hdr( ctx->collected, 0x02, ASRTL_MSG_DESC );
         clear_single_collected( &ctx->collected );
 
         char const* msg = "wololo1";
@@ -245,7 +245,7 @@ void test_cntr_test_count( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
-        assert_collected_hdr( ctx->collected, 0x02, ASRTL_MSG_TEST_COUNT );
+        assert_collected_core_hdr( ctx->collected, 0x02, ASRTL_MSG_TEST_COUNT );
         clear_single_collected( &ctx->collected );
 
         asrtl_msg_rtoc_test_count( 42, asrtl_rec_span_to_span_cb, &ctx->sp );
@@ -264,7 +264,7 @@ void test_cntr_test_info( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_INFO );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_INFO );
         assert_u16( 42, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
 
@@ -377,7 +377,7 @@ void test_cntr_run_test( struct test_context* ctx )
         TEST_ASSERT_EQUAL( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
-        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_TEST_START );
+        assert_collected_core_hdr( ctx->collected, 0x08, ASRTL_MSG_TEST_START );
         assert_u16( 42, ctx->collected->data + 2 );
         assert_u32( 0, ctx->collected->data + 4 );
         clear_single_collected( &ctx->collected );

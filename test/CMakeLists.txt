@@ -1,15 +1,15 @@
-cpmaddpackage("gh:ThrowTheSwitch/Unity@2.6.1")
+cpmaddpackage("gh:doctest/doctest@2.4.12")
 
-add_executable(assertc_test asrtc_test.c)
-target_link_libraries(assertc_test PUBLIC unity asrtc)
+add_executable(assertc_test asrtc_test.cpp)
+target_link_libraries(assertc_test PRIVATE doctest::doctest asrtc)
 add_test(NAME assrtc_test COMMAND assertc_test)
 
-add_executable(assertr_test asrtr_test.c)
-target_link_libraries(assertr_test PUBLIC unity asrtr)
+add_executable(assertr_test asrtr_test.cpp)
+target_link_libraries(assertr_test PRIVATE doctest::doctest asrtr)
 add_test(NAME assrtr_test COMMAND assertr_test)
 
-add_executable(assertl_test asrtl_test.c)
-target_link_libraries(assertl_test PUBLIC unity asrtl)
+add_executable(assertl_test asrtl_test.cpp)
+target_link_libraries(assertl_test PRIVATE doctest::doctest asrtl)
 add_test(NAME assrtl_test COMMAND assertl_test)
 
 add_executable(mutatest mutatest.cpp)

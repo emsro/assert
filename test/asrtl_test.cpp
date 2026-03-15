@@ -13,42 +13,35 @@
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unity.h>
+
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
 
 ASRTL_DEFINE_GPOS_LOG()
 
-void setUp( void )
-{
-}
-void tearDown( void )
-{
-}
-
-void test_reactor_init( void )
+TEST_CASE( "reactor_init" )
 {
         uint8_t        data[3] = { 0x33, 0x66, 0x99 };
         uint8_t*       p       = data;
         asrtl_chann_id id;
         asrtl_cut_u16( &p, &id );
-        TEST_ASSERT_EQUAL( id, 0x3366 );
-        TEST_ASSERT_EQUAL( p, &data[2] );
+        CHECK_EQ( id, 0x3366 );
+        CHECK_EQ( p, &data[2] );
 }
 
-void test_add_chann_id( void )
+TEST_CASE( "add_chann_id" )
 {
         uint8_t  data[3] = { 0x33, 0x66, 0x99 };
         uint8_t* p       = data;
         asrtl_add_u16( &p, 0x1122 );
-        TEST_ASSERT_EQUAL( data[0], 0x11 );
-        TEST_ASSERT_EQUAL( data[1], 0x22 );
-        TEST_ASSERT_EQUAL( p, &data[2] );
+        CHECK_EQ( data[0], 0x11 );
+        CHECK_EQ( data[1], 0x22 );
+        CHECK_EQ( p, &data[2] );
 }
 
-void test_fill_buffer( void )
+TEST_CASE( "fill_buffer" )
 {
         uint8_t data1[2] = { 0x01, 0x01 };
         uint8_t data2[4] = { 0x02, 0x02, 0x02, 0x02 };
@@ -56,22 +49,22 @@ void test_fill_buffer( void )
         struct asrtl_span sp = { .b = data2, .e = data2 + sizeof data2 };
         asrtl_fill_buffer( data1, sizeof data1, &sp );
 
-        TEST_ASSERT_EQUAL( &data2[2], sp.b );
-        TEST_ASSERT_EQUAL( 0x01, data2[0] );
-        TEST_ASSERT_EQUAL( 0x01, data2[1] );
-        TEST_ASSERT_EQUAL( 0x02, data2[2] );
-        TEST_ASSERT_EQUAL( 0x02, data2[3] );
+        CHECK_EQ( &data2[2], sp.b );
+        CHECK_EQ( 0x01, data2[0] );
+        CHECK_EQ( 0x01, data2[1] );
+        CHECK_EQ( 0x02, data2[2] );
+        CHECK_EQ( 0x02, data2[3] );
 
         uint8_t data3[4] = { 0x03, 0x03, 0x03, 0x03 };
-        sp               = ( struct asrtl_span ){ .b = data1, .e = data1 + sizeof data1 };
+        sp               = (struct asrtl_span) { .b = data1, .e = data1 + sizeof data1 };
         asrtl_fill_buffer( data3, sizeof data3, &sp );
 
-        TEST_ASSERT_EQUAL( &data1[2], sp.b );
-        TEST_ASSERT_EQUAL( 0x03, data1[0] );
-        TEST_ASSERT_EQUAL( 0x03, data1[1] );
+        CHECK_EQ( &data1[2], sp.b );
+        CHECK_EQ( 0x03, data1[0] );
+        CHECK_EQ( 0x03, data1[1] );
 }
 
-void test_fill_buffer_zero_source( void )
+TEST_CASE( "fill_buffer_zero_source" )
 {
         uint8_t           dest[4]       = { 0xAA, 0xBB, 0xCC, 0xDD };
         struct asrtl_span sp            = { .b = dest, .e = dest + sizeof dest };
@@ -80,15 +73,15 @@ void test_fill_buffer_zero_source( void )
 
         asrtl_fill_buffer( NULL, 0, &sp );
 
-        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
-        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
-        TEST_ASSERT_EQUAL( 0xAA, dest[0] );
-        TEST_ASSERT_EQUAL( 0xBB, dest[1] );
-        TEST_ASSERT_EQUAL( 0xCC, dest[2] );
-        TEST_ASSERT_EQUAL( 0xDD, dest[3] );
+        CHECK_EQ( dest_b_before, sp.b );
+        CHECK_EQ( dest_e_before, sp.e );
+        CHECK_EQ( 0xAA, dest[0] );
+        CHECK_EQ( 0xBB, dest[1] );
+        CHECK_EQ( 0xCC, dest[2] );
+        CHECK_EQ( 0xDD, dest[3] );
 }
 
-void test_fill_buffer_zero_capacity_dest( void )
+TEST_CASE( "fill_buffer_zero_capacity_dest" )
 {
         uint8_t           source[4] = { 0x11, 0x22, 0x33, 0x44 };
         uint8_t           dest[0];
@@ -98,11 +91,11 @@ void test_fill_buffer_zero_capacity_dest( void )
 
         asrtl_fill_buffer( source, sizeof source, &sp );
 
-        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
-        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
+        CHECK_EQ( dest_b_before, sp.b );
+        CHECK_EQ( dest_e_before, sp.e );
 }
 
-void test_fill_buffer_both_zero( void )
+TEST_CASE( "fill_buffer_both_zero" )
 {
         uint8_t           dest[0];
         struct asrtl_span sp            = { .b = dest, .e = dest };
@@ -111,11 +104,11 @@ void test_fill_buffer_both_zero( void )
 
         asrtl_fill_buffer( NULL, 0, &sp );
 
-        TEST_ASSERT_EQUAL_PTR( dest_b_before, sp.b );
-        TEST_ASSERT_EQUAL_PTR( dest_e_before, sp.e );
+        CHECK_EQ( dest_b_before, sp.b );
+        CHECK_EQ( dest_e_before, sp.e );
 }
 
-void test_fill_buffer_exact_fit( void )
+TEST_CASE( "fill_buffer_exact_fit" )
 {
         uint8_t           source[3] = { 0xDE, 0xAD, 0xBE };
         uint8_t           dest[3]   = { 0x00, 0x00, 0x00 };
@@ -123,49 +116,37 @@ void test_fill_buffer_exact_fit( void )
 
         asrtl_fill_buffer( source, sizeof source, &sp );
 
-        TEST_ASSERT_EQUAL_PTR( dest + 3, sp.b );
-        TEST_ASSERT_EQUAL( 0xDE, dest[0] );
-        TEST_ASSERT_EQUAL( 0xAD, dest[1] );
-        TEST_ASSERT_EQUAL( 0xBE, dest[2] );
+        CHECK_EQ( dest + 3, sp.b );
+        CHECK_EQ( 0xDE, dest[0] );
+        CHECK_EQ( 0xAD, dest[1] );
+        CHECK_EQ( 0xBE, dest[2] );
 }
 
 struct cobs_record
 {
-        uint8_t*            raw;
-        uint32_t            raw_size;
-        uint8_t*            encoded;
-        uint32_t            encoded_size;
-        struct cobs_record* next;
+        uint8_t const*                 raw;
+        uint32_t                       raw_size;
+        uint8_t const*                 encoded;
+        uint32_t                       encoded_size;
+        std::unique_ptr< cobs_record > next;
 };
 
 void cobs_record_append(
-    struct cobs_record** head,
-    uint8_t*             raw,
-    uint32_t             raw_size,
-    uint8_t*             encoded,
-    uint32_t             encoded_size )
+    std::unique_ptr< cobs_record >& head,
+    uint8_t const*                  raw,
+    uint32_t                        raw_size,
+    uint8_t const*                  encoded,
+    uint32_t                        encoded_size )
 {
-        struct cobs_record* node = malloc( sizeof( struct cobs_record ) );
+        struct cobs_record* node = new cobs_record{};
         node->raw_size           = raw_size;
-        node->raw                = malloc( node->raw_size );
-        memcpy( node->raw, raw, node->raw_size );
-        node->encoded_size = encoded_size;
-        node->encoded      = malloc( node->encoded_size );
-        memcpy( node->encoded, encoded, node->encoded_size );
-        node->next = *head;
-        *head      = node;
+        node->raw                = raw;
+        node->encoded_size       = encoded_size;
+        node->encoded            = encoded;
+        node->next               = std::move( head );
+        head                     = std::unique_ptr< cobs_record >( node );
 }
 
-void cobs_rec_free( struct cobs_record* head )
-{
-        while ( head ) {
-                struct cobs_record* next = head->next;
-                free( head->raw );
-                free( head->encoded );
-                free( head );
-                head = next;
-        }
-}
 
 #define COBS_SEQ                                                                                  \
         0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, \
@@ -188,69 +169,71 @@ void cobs_rec_free( struct cobs_record* head )
             0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD,   \
             0xFE
 
-struct cobs_record* create_dataset( void )
+std::unique_ptr< cobs_record > create_dataset( void )
 {
-        struct cobs_record* head = NULL;
+        std::unique_ptr< cobs_record > head = nullptr;
         {
-                uint8_t raw[]     = { COBS_SEQ, 0xFF },
-                        encoded[] = { 0xFF, COBS_SEQ, 0x02, 0xFF, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { COBS_SEQ, 0xFF },
+                                         encoded[] = { 0xFF, COBS_SEQ, 0x02, 0xFF, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[] = { 0x00, COBS_SEQ }, encoded[] = { 0x01, 0xFF, COBS_SEQ, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x00, COBS_SEQ },
+                                         encoded[] = { 0x01, 0xFF, COBS_SEQ, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[] = { COBS_SEQ }, encoded[] = { 0xFF, COBS_SEQ, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[] = { COBS_SEQ }, encoded[] = { 0xFF, COBS_SEQ, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[]     = { 0x11, 0x00, 0x00, 0x00 },
-                        encoded[] = { 0x02, 0x11, 0x01, 0x01, 0x01, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x11, 0x00, 0x00, 0x00 },
+                                         encoded[] = { 0x02, 0x11, 0x01, 0x01, 0x01, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[]     = { 0x11, 0x22, 0x33, 0x44 },
-                        encoded[] = { 0x05, 0x11, 0x22, 0x33, 0x44, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x11, 0x22, 0x33, 0x44 },
+                                         encoded[] = { 0x05, 0x11, 0x22, 0x33, 0x44, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[]     = { 0x11, 0x22, 0x00, 0x33 },
-                        encoded[] = { 0x03, 0x11, 0x22, 0x02, 0x33, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x11, 0x22, 0x00, 0x33 },
+                                         encoded[] = { 0x03, 0x11, 0x22, 0x02, 0x33, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[] = { 0x00, 0x11, 0x00 }, encoded[] = { 0x01, 0x02, 0x11, 0x01, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x00, 0x11, 0x00 },
+                                         encoded[] = { 0x01, 0x02, 0x11, 0x01, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[] = { 0x00, 0x00 }, encoded[] = { 0x01, 0x01, 0x01, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[]     = { 0x00, 0x00 },
+                                         encoded[] = { 0x01, 0x01, 0x01, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         {
-                uint8_t raw[] = { 0x00 }, encoded[] = { 0x01, 0x01, 0x00 };
-                cobs_record_append( &head, raw, sizeof raw, encoded, sizeof encoded );
+                static constexpr uint8_t raw[] = { 0x00 }, encoded[] = { 0x01, 0x01, 0x00 };
+                cobs_record_append( head, raw, sizeof raw, encoded, sizeof encoded );
         }
         return head;
 }
 
-void test_cobs( void )
+TEST_CASE( "cobs" )
 {
-        struct cobs_record* head = create_dataset();
+        std::unique_ptr< cobs_record > head = create_dataset();
 
-        struct cobs_record* node;
-        for ( node = head; node; node = node->next ) {
+        for ( auto* node = head.get(); node; node = node->next.get() ) {
                 uint8_t                   buffer[512];
                 struct asrtl_cobs_encoder enc;
                 asrtl_cobs_encoder_init( &enc, buffer );
                 for ( uint32_t i = 0; i < node->raw_size; i++ )
                         asrtl_cobs_encoder_iter( &enc, node->raw[i] );
                 *enc.p++ = 0x00;
-                TEST_ASSERT_EQUAL( node->encoded_size, enc.p - buffer );
-                TEST_ASSERT_EQUAL_MEMORY( node->encoded, buffer, node->encoded_size );
+                CHECK_EQ( node->encoded_size, enc.p - buffer );
+                CHECK( memcmp( node->encoded, buffer, node->encoded_size ) == 0 );
         }
 
-        for ( node = head; node; node = node->next ) {
+        for ( auto* node = head.get(); node; node = node->next.get() ) {
                 struct asrtl_cobs_decoder dec;
                 uint8_t                   buffer[512];
                 asrtl_cobs_decoder_init( &dec );
@@ -259,14 +242,11 @@ void test_cobs( void )
                 for ( uint32_t i = 0; i < node->encoded_size - 1; ++i ) {
                         asrtl_cobs_decoder_iter( &dec, node->encoded[i], &p );
                         if ( p == e )
-                                TEST_FAIL();
+                                FAIL_CHECK( "" );
                 }
-                TEST_ASSERT_EQUAL( node->raw_size, p - buffer );
-                TEST_ASSERT_EQUAL_MEMORY( node->raw, buffer, node->raw_size );
+                CHECK_EQ( node->raw_size, p - buffer );
+                CHECK( memcmp( node->raw, buffer, node->raw_size ) == 0 );
         }
-
-
-        cobs_rec_free( head );
 }
 
 static size_t cobs_encode_payload(
@@ -280,7 +260,7 @@ static size_t cobs_encode_payload(
         for ( size_t i = 0; i < raw_size; ++i )
                 asrtl_cobs_encoder_iter( &enc, raw[i] );
         *enc.p++ = 0x00;
-        TEST_ASSERT_TRUE( (size_t) ( enc.p - out ) <= out_cap );
+        CHECK( (size_t) ( enc.p - out ) <= out_cap );
         return (size_t) ( enc.p - out );
 }
 
@@ -296,7 +276,7 @@ static void cobs_ibuffer_prime(
         storage[0] = 0xAA;
 }
 
-void test_cobs_ibuffer_iter_no_message( void )
+TEST_CASE( "cobs_ibuffer_iter_no_message" )
 {
         uint8_t                   storage[16] = { 0x03, 0x11, 0x22 };
         struct asrtl_cobs_ibuffer ib;
@@ -310,12 +290,12 @@ void test_cobs_ibuffer_iter_no_message( void )
         uint8_t*          out_b_before = out_sp.b;
         uint8_t*          out_e_before = out_sp.e;
 
-        TEST_ASSERT_EQUAL_INT8( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL_PTR( out_b_before, out_sp.b );
-        TEST_ASSERT_EQUAL_PTR( out_e_before, out_sp.e );
+        CHECK_EQ( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( out_b_before, out_sp.b );
+        CHECK_EQ( out_e_before, out_sp.e );
 }
 
-void test_cobs_ibuffer_iter_single_message( void )
+TEST_CASE( "cobs_ibuffer_iter_single_message" )
 {
         uint8_t raw[] = { 0x11, 0x22, 0x00, 0x33 };
         uint8_t encoded[32];
@@ -330,13 +310,13 @@ void test_cobs_ibuffer_iter_single_message( void )
         uint8_t           out[16];
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL_INT8( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL_MEMORY( raw, out, sizeof raw );
-        TEST_ASSERT_EQUAL_PTR( encoded + ( enc_len - 1 ), ib.used.b );
+        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
+        CHECK( memcmp( raw, out, sizeof raw ) == 0 );
+        CHECK_EQ( encoded + ( enc_len - 1 ), ib.used.b );
 }
 
-void test_cobs_ibuffer_iter_zero_length_message( void )
+TEST_CASE( "cobs_ibuffer_iter_zero_length_message" )
 {
         uint8_t                   storage[4] = { 0x00 };
         struct asrtl_cobs_ibuffer ib;
@@ -348,12 +328,12 @@ void test_cobs_ibuffer_iter_zero_length_message( void )
         uint8_t           out[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL_INT8( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL( 0, (int) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL_PTR( storage + 1, ib.used.b );
+        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 0, (int) ( out_sp.e - out_sp.b ) );
+        CHECK_EQ( storage + 1, ib.used.b );
 }
 
-void test_cobs_ibuffer_iter_buffer_too_small( void )
+TEST_CASE( "cobs_ibuffer_iter_buffer_too_small" )
 {
         uint8_t raw[] = { 0x11, 0x22, 0x33, 0x44 };
         uint8_t encoded[32];
@@ -370,12 +350,12 @@ void test_cobs_ibuffer_iter_buffer_too_small( void )
         uint8_t*          out_b_before = out_sp.b;
         uint8_t*          out_e_before = out_sp.e;
 
-        TEST_ASSERT_EQUAL_INT8( -1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL_PTR( out_b_before, out_sp.b );
-        TEST_ASSERT_EQUAL_PTR( out_e_before, out_sp.e );
+        CHECK_EQ( -1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( out_b_before, out_sp.b );
+        CHECK_EQ( out_e_before, out_sp.e );
 }
 
-void test_cobs_ibuffer_insert_fits_capacity( void )
+TEST_CASE( "cobs_ibuffer_insert_fits_capacity" )
 {
         uint8_t                   storage[16] = { 0 };
         struct asrtl_cobs_ibuffer ib;
@@ -384,14 +364,14 @@ void test_cobs_ibuffer_insert_fits_capacity( void )
         uint8_t           payload[] = { 0x10, 0x20, 0x30 };
         struct asrtl_span sp        = { .b = payload, .e = payload + sizeof payload };
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp ) );
-        TEST_ASSERT_EQUAL_PTR( storage + 1 + sizeof payload, ib.used.e );
-        TEST_ASSERT_EQUAL( 0x10, storage[1] );
-        TEST_ASSERT_EQUAL( 0x20, storage[2] );
-        TEST_ASSERT_EQUAL( 0x30, storage[3] );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp ) );
+        CHECK_EQ( storage + 1 + sizeof payload, ib.used.e );
+        CHECK_EQ( 0x10, storage[1] );
+        CHECK_EQ( 0x20, storage[2] );
+        CHECK_EQ( 0x30, storage[3] );
 }
 
-void test_cobs_ibuffer_insert_shift_then_fit( void )
+TEST_CASE( "cobs_ibuffer_insert_shift_then_fit" )
 {
         uint8_t                   storage[8] = { 0 };
         struct asrtl_cobs_ibuffer ib;
@@ -407,19 +387,19 @@ void test_cobs_ibuffer_insert_shift_then_fit( void )
         uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04 };
         struct asrtl_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
-        TEST_ASSERT_EQUAL_PTR( storage, ib.used.b );
-        TEST_ASSERT_EQUAL_PTR( storage + 7, ib.used.e );
-        TEST_ASSERT_EQUAL( 0xAA, storage[0] );
-        TEST_ASSERT_EQUAL( 0xBB, storage[1] );
-        TEST_ASSERT_EQUAL( 0xCC, storage[2] );
-        TEST_ASSERT_EQUAL( 0x01, storage[3] );
-        TEST_ASSERT_EQUAL( 0x02, storage[4] );
-        TEST_ASSERT_EQUAL( 0x03, storage[5] );
-        TEST_ASSERT_EQUAL( 0x04, storage[6] );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
+        CHECK_EQ( storage, ib.used.b );
+        CHECK_EQ( storage + 7, ib.used.e );
+        CHECK_EQ( 0xAA, storage[0] );
+        CHECK_EQ( 0xBB, storage[1] );
+        CHECK_EQ( 0xCC, storage[2] );
+        CHECK_EQ( 0x01, storage[3] );
+        CHECK_EQ( 0x02, storage[4] );
+        CHECK_EQ( 0x03, storage[5] );
+        CHECK_EQ( 0x04, storage[6] );
 }
 
-void test_cobs_ibuffer_insert_shift_no_fit( void )
+TEST_CASE( "cobs_ibuffer_insert_shift_no_fit" )
 {
         // After shifting, still not enough room — must return SIZE_ERR, not recurse infinitely
         uint8_t                   storage[6] = { 0 };
@@ -438,10 +418,10 @@ void test_cobs_ibuffer_insert_shift_no_fit( void )
 
         uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
         struct asrtl_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
-        TEST_ASSERT_EQUAL( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
+        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
 }
 
-void test_cobs_ibuffer_insert_size_err( void )
+TEST_CASE( "cobs_ibuffer_insert_size_err" )
 {
         uint8_t                   storage[8] = { 0 };
         struct asrtl_cobs_ibuffer ib;
@@ -458,10 +438,10 @@ void test_cobs_ibuffer_insert_size_err( void )
         uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04 };
         struct asrtl_span sp        = { .b = payload, .e = payload + sizeof payload };
 
-        TEST_ASSERT_EQUAL( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, sp ) );
+        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, sp ) );
 }
 
-void test_cobs_ibuffer_partial_then_complete( void )
+TEST_CASE( "cobs_ibuffer_partial_then_complete" )
 {
         uint8_t raw[] = { 0x11, 0x00, 0x22 };
         uint8_t encoded[32];
@@ -473,7 +453,7 @@ void test_cobs_ibuffer_partial_then_complete( void )
 
         size_t            half = enc_len / 2;
         struct asrtl_span sp1  = { .b = encoded, .e = encoded + half };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp1 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp1 ) );
 
         ib.used.b = storage + 1;
 
@@ -482,19 +462,19 @@ void test_cobs_ibuffer_partial_then_complete( void )
         uint8_t*          out_b_before = out_sp.b;
         uint8_t*          out_e_before = out_sp.e;
 
-        TEST_ASSERT_EQUAL_INT8( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL_PTR( out_b_before, out_sp.b );
-        TEST_ASSERT_EQUAL_PTR( out_e_before, out_sp.e );
+        CHECK_EQ( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( out_b_before, out_sp.b );
+        CHECK_EQ( out_e_before, out_sp.e );
 
         struct asrtl_span sp2 = { .b = encoded + half, .e = encoded + enc_len };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp2 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp2 ) );
 
-        TEST_ASSERT_EQUAL_INT8( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL_MEMORY( raw, out, sizeof raw );
+        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
+        CHECK( memcmp( raw, out, sizeof raw ) == 0 );
 }
 
-void test_cobs_encode_buffer_success( void )
+TEST_CASE( "cobs_encode_buffer_success" )
 {
         uint8_t raw[] = { 0x11, 0x22, 0x00, 0x33 };
         uint8_t out[16];
@@ -510,12 +490,12 @@ void test_cobs_encode_buffer_success( void )
         struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
-        TEST_ASSERT_EQUAL( expected_len, (size_t) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL_MEMORY( expected, out, expected_len );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( expected_len, (size_t) ( out_sp.e - out_sp.b ) );
+        CHECK( memcmp( expected, out, expected_len ) == 0 );
 }
 
-void test_cobs_encode_buffer_empty_input( void )
+TEST_CASE( "cobs_encode_buffer_empty_input" )
 {
         uint8_t raw[0];
         uint8_t out[16];
@@ -523,23 +503,23 @@ void test_cobs_encode_buffer_empty_input( void )
         struct asrtl_span in     = { .b = raw, .e = raw };
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
-        TEST_ASSERT_EQUAL( 2, (int) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL( 0x01, out[0] );
-        TEST_ASSERT_EQUAL( 0x00, out[1] );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( 2, (int) ( out_sp.e - out_sp.b ) );
+        CHECK_EQ( 0x01, out[0] );
+        CHECK_EQ( 0x00, out[1] );
 }
 
-void test_cobs_encode_buffer_insufficient_space( void )
+TEST_CASE( "cobs_encode_buffer_insufficient_space" )
 {
         uint8_t           raw[] = { 0x11, 0x22, 0x33, 0x44 };
         uint8_t           out[4];
         struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL( ASRTL_SIZE_ERR, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_encode_buffer( in, &out_sp ) );
 }
 
-void test_cobs_encode_buffer_large_input( void )
+TEST_CASE( "cobs_encode_buffer_large_input" )
 {
         uint8_t raw[300];
         uint8_t out[350];
@@ -549,7 +529,7 @@ void test_cobs_encode_buffer_large_input( void )
         struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
 
         struct asrtl_cobs_decoder dec;
         uint8_t                   decoded[300];
@@ -558,11 +538,11 @@ void test_cobs_encode_buffer_large_input( void )
         for ( uint8_t* q = out; q < out_sp.e - 1; ++q )
                 asrtl_cobs_decoder_iter( &dec, *q, &p );
 
-        TEST_ASSERT_EQUAL( sizeof raw, (size_t) ( p - decoded ) );
-        TEST_ASSERT_EQUAL_MEMORY( raw, decoded, sizeof raw );
+        CHECK_EQ( sizeof raw, (size_t) ( p - decoded ) );
+        CHECK( memcmp( raw, decoded, sizeof raw ) == 0 );
 }
 
-void test_cobs_ibuffer_iter_consumes_trailing_zero( void )
+TEST_CASE( "cobs_ibuffer_iter_consumes_trailing_zero" )
 {
         uint8_t raw[] = { 0x11, 0x22, 0x33 };
         uint8_t encoded[32];
@@ -578,16 +558,16 @@ void test_cobs_ibuffer_iter_consumes_trailing_zero( void )
         struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
 
         // First call should return the message
-        TEST_ASSERT_EQUAL_INT8( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
-        TEST_ASSERT_EQUAL( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
-        TEST_ASSERT_EQUAL_MEMORY( raw, out, sizeof raw );
+        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
+        CHECK( memcmp( raw, out, sizeof raw ) == 0 );
 
         out_sp.b = out;
         out_sp.e = out + sizeof out;
-        TEST_ASSERT_EQUAL_INT8( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
 
         // Verify the buffer is now empty (used.b should be past the 0)
-        TEST_ASSERT_EQUAL_PTR( encoded + enc_len, ib.used.b );
+        CHECK_EQ( encoded + enc_len, ib.used.b );
 }
 
 // ============================================================================
@@ -641,7 +621,7 @@ static size_t create_channel_message(
         return cobs_encode_payload( raw, 2 + payload_size, out, out_cap );
 }
 
-void test_chann_cobs_dispatch_single_message( void )
+TEST_CASE( "chann_cobs_dispatch_single_message" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -658,14 +638,14 @@ void test_chann_cobs_dispatch_single_message( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );
-        TEST_ASSERT_EQUAL( sizeof payload, ctx.messages[0].size );
-        TEST_ASSERT_EQUAL_MEMORY( payload, ctx.messages[0].data, sizeof payload );
+        CHECK_EQ( 1, ctx.msg_count );
+        CHECK_EQ( sizeof payload, ctx.messages[0].size );
+        CHECK( memcmp( payload, ctx.messages[0].data, sizeof payload ) == 0 );
 }
 
-void test_chann_cobs_dispatch_multiple_messages( void )
+TEST_CASE( "chann_cobs_dispatch_multiple_messages" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -687,18 +667,18 @@ void test_chann_cobs_dispatch_multiple_messages( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + pos };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
-        TEST_ASSERT_EQUAL( 3, ctx.msg_count );
-        TEST_ASSERT_EQUAL( sizeof msg1, ctx.messages[0].size );
-        TEST_ASSERT_EQUAL_MEMORY( msg1, ctx.messages[0].data, sizeof msg1 );
-        TEST_ASSERT_EQUAL( sizeof msg2, ctx.messages[1].size );
-        TEST_ASSERT_EQUAL_MEMORY( msg2, ctx.messages[1].data, sizeof msg2 );
-        TEST_ASSERT_EQUAL( sizeof msg3, ctx.messages[2].size );
-        TEST_ASSERT_EQUAL_MEMORY( msg3, ctx.messages[2].data, sizeof msg3 );
+        CHECK_EQ( 3, ctx.msg_count );
+        CHECK_EQ( sizeof msg1, ctx.messages[0].size );
+        CHECK( memcmp( msg1, ctx.messages[0].data, sizeof msg1 ) == 0 );
+        CHECK_EQ( sizeof msg2, ctx.messages[1].size );
+        CHECK( memcmp( msg2, ctx.messages[1].data, sizeof msg2 ) == 0 );
+        CHECK_EQ( sizeof msg3, ctx.messages[2].size );
+        CHECK( memcmp( msg3, ctx.messages[2].data, sizeof msg3 ) == 0 );
 }
 
-void test_chann_cobs_dispatch_partial_then_complete( void )
+TEST_CASE( "chann_cobs_dispatch_partial_then_complete" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -717,20 +697,20 @@ void test_chann_cobs_dispatch_partial_then_complete( void )
         // Send first half
         size_t            half  = enc_len / 2;
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + half };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
-        TEST_ASSERT_EQUAL( 0, ctx.msg_count );  // No complete message yet
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( 0, ctx.msg_count );  // No complete message yet
 
         // Send second half
         in_sp.b = encoded + half;
         in_sp.e = encoded + enc_len;
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );
-        TEST_ASSERT_EQUAL( sizeof payload, ctx.messages[0].size );
-        TEST_ASSERT_EQUAL_MEMORY( payload, ctx.messages[0].data, sizeof payload );
+        CHECK_EQ( 1, ctx.msg_count );
+        CHECK_EQ( sizeof payload, ctx.messages[0].size );
+        CHECK( memcmp( payload, ctx.messages[0].data, sizeof payload ) == 0 );
 }
 
-void test_chann_cobs_dispatch_empty_payload( void )
+TEST_CASE( "chann_cobs_dispatch_empty_payload" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -745,13 +725,13 @@ void test_chann_cobs_dispatch_empty_payload( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );
-        TEST_ASSERT_EQUAL( 0, ctx.messages[0].size );
+        CHECK_EQ( 1, ctx.msg_count );
+        CHECK_EQ( 0, ctx.messages[0].size );
 }
 
-void test_chann_cobs_dispatch_multiple_channels( void )
+TEST_CASE( "chann_cobs_dispatch_multiple_channels" )
 {
         struct test_channel_ctx ctx1 = { .return_status = ASRTL_SUCCESS };
         struct test_channel_ctx ctx2 = { .return_status = ASRTL_SUCCESS };
@@ -783,17 +763,17 @@ void test_chann_cobs_dispatch_multiple_channels( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + pos };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node1, in_sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node1, in_sp ) );
 
-        TEST_ASSERT_EQUAL( 1, ctx1.msg_count );
-        TEST_ASSERT_EQUAL_MEMORY( payload1, ctx1.messages[0].data, sizeof payload1 );
-        TEST_ASSERT_EQUAL( 1, ctx2.msg_count );
-        TEST_ASSERT_EQUAL_MEMORY( payload2, ctx2.messages[0].data, sizeof payload2 );
-        TEST_ASSERT_EQUAL( 1, ctx3.msg_count );
-        TEST_ASSERT_EQUAL_MEMORY( payload3, ctx3.messages[0].data, sizeof payload3 );
+        CHECK_EQ( 1, ctx1.msg_count );
+        CHECK( memcmp( payload1, ctx1.messages[0].data, sizeof payload1 ) == 0 );
+        CHECK_EQ( 1, ctx2.msg_count );
+        CHECK( memcmp( payload2, ctx2.messages[0].data, sizeof payload2 ) == 0 );
+        CHECK_EQ( 1, ctx3.msg_count );
+        CHECK( memcmp( payload3, ctx3.messages[0].data, sizeof payload3 ) == 0 );
 }
 
-void test_chann_cobs_dispatch_unknown_channel( void )
+TEST_CASE( "chann_cobs_dispatch_unknown_channel" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -812,11 +792,11 @@ void test_chann_cobs_dispatch_unknown_channel( void )
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
         // Channel not found — error propagated
-        TEST_ASSERT_EQUAL( ASRTL_CHANN_NOT_FOUND, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
-        TEST_ASSERT_EQUAL( 0, ctx.msg_count );
+        CHECK_EQ( ASRTL_CHANN_NOT_FOUND, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( 0, ctx.msg_count );
 }
 
-void test_chann_cobs_dispatch_incremental_state( void )
+TEST_CASE( "chann_cobs_dispatch_incremental_state" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -838,23 +818,23 @@ void test_chann_cobs_dispatch_incremental_state( void )
 
         // Process messages one at a time, maintaining state
         struct asrtl_span in_sp1 = { .b = enc1, .e = enc1 + len1 };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp1 ) );
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp1 ) );
+        CHECK_EQ( 1, ctx.msg_count );
 
         struct asrtl_span in_sp2 = { .b = enc2, .e = enc2 + len2 };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp2 ) );
-        TEST_ASSERT_EQUAL( 2, ctx.msg_count );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp2 ) );
+        CHECK_EQ( 2, ctx.msg_count );
 
         struct asrtl_span in_sp3 = { .b = enc3, .e = enc3 + len3 };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp3 ) );
-        TEST_ASSERT_EQUAL( 3, ctx.msg_count );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp3 ) );
+        CHECK_EQ( 3, ctx.msg_count );
 
-        TEST_ASSERT_EQUAL_MEMORY( msg1, ctx.messages[0].data, sizeof msg1 );
-        TEST_ASSERT_EQUAL_MEMORY( msg2, ctx.messages[1].data, sizeof msg2 );
-        TEST_ASSERT_EQUAL_MEMORY( msg3, ctx.messages[2].data, sizeof msg3 );
+        CHECK( memcmp( msg1, ctx.messages[0].data, sizeof msg1 ) == 0 );
+        CHECK( memcmp( msg2, ctx.messages[1].data, sizeof msg2 ) == 0 );
+        CHECK( memcmp( msg3, ctx.messages[2].data, sizeof msg3 ) == 0 );
 }
 
-void test_chann_cobs_dispatch_message_too_large( void )
+TEST_CASE( "chann_cobs_dispatch_message_too_large" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -876,11 +856,11 @@ void test_chann_cobs_dispatch_message_too_large( void )
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
         // Should return size error because message is too large for internal buffer
-        TEST_ASSERT_EQUAL( ASRTL_SIZE_ERR, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
-        TEST_ASSERT_EQUAL( 0, ctx.msg_count );
+        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( 0, ctx.msg_count );
 }
 
-void test_chann_cobs_dispatch_mixed_partial_and_complete( void )
+TEST_CASE( "chann_cobs_dispatch_mixed_partial_and_complete" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -904,20 +884,20 @@ void test_chann_cobs_dispatch_mixed_partial_and_complete( void )
 
         // First call: complete msg1 + partial msg2
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + split_point };
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );  // Only msg1
-        TEST_ASSERT_EQUAL_MEMORY( msg1, ctx.messages[0].data, sizeof msg1 );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( 1, ctx.msg_count );  // Only msg1
+        CHECK( memcmp( msg1, ctx.messages[0].data, sizeof msg1 ) == 0 );
 
         // Second call: rest of msg2 + msg3
         in_sp.b = encoded + split_point;
         in_sp.e = encoded + pos;
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
-        TEST_ASSERT_EQUAL( 3, ctx.msg_count );  // msg1, msg2, msg3
-        TEST_ASSERT_EQUAL_MEMORY( msg2, ctx.messages[1].data, sizeof msg2 );
-        TEST_ASSERT_EQUAL_MEMORY( msg3, ctx.messages[2].data, sizeof msg3 );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( 3, ctx.msg_count );  // msg1, msg2, msg3
+        CHECK( memcmp( msg2, ctx.messages[1].data, sizeof msg2 ) == 0 );
+        CHECK( memcmp( msg3, ctx.messages[2].data, sizeof msg3 ) == 0 );
 }
 
-void test_chann_cobs_dispatch_byte_by_byte( void )
+TEST_CASE( "chann_cobs_dispatch_byte_by_byte" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
@@ -936,15 +916,15 @@ void test_chann_cobs_dispatch_byte_by_byte( void )
         // Feed data byte by byte
         for ( size_t i = 0; i < enc_len; i++ ) {
                 struct asrtl_span in_sp = { .b = encoded + i, .e = encoded + i + 1 };
-                TEST_ASSERT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+                CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
         }
 
-        TEST_ASSERT_EQUAL( 1, ctx.msg_count );
-        TEST_ASSERT_EQUAL( sizeof payload, ctx.messages[0].size );
-        TEST_ASSERT_EQUAL_MEMORY( payload, ctx.messages[0].data, sizeof payload );
+        CHECK_EQ( 1, ctx.msg_count );
+        CHECK_EQ( sizeof payload, ctx.messages[0].size );
+        CHECK( memcmp( payload, ctx.messages[0].data, sizeof payload ) == 0 );
 }
 
-void test_chann_cobs_dispatch_ibuffer_size_err( void )
+TEST_CASE( "chann_cobs_dispatch_ibuffer_size_err" )
 {
         // ibuffer too small for the incoming encoded message — insert must return SIZE_ERR
         // and cobs_dispatch must propagate it rather than silently succeed
@@ -964,10 +944,10 @@ void test_chann_cobs_dispatch_ibuffer_size_err( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_NE( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 }
 
-void test_chann_cobs_dispatch_recv_cb_error( void )
+TEST_CASE( "chann_cobs_dispatch_recv_cb_error" )
 {
         // When recv_cb returns an error, cobs_dispatch must propagate it
         struct test_channel_ctx ctx  = { .return_status = ASRTL_RECV_INTERNAL_ERR };
@@ -985,18 +965,18 @@ void test_chann_cobs_dispatch_recv_cb_error( void )
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        TEST_ASSERT_NOT_EQUAL( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_NE( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
 }
 
-void test_u8d4_to_u32_high_bit( void )
+TEST_CASE( "u8d4_to_u32_high_bit" )
 {
         uint8_t  data[4] = { 0x80, 0x00, 0x00, 0x01 };
         uint32_t val     = 0;
         asrtl_u8d4_to_u32( data, &val );
-        TEST_ASSERT_EQUAL_HEX32( 0x80000001, val );
+        CHECK_EQ( 0x80000001, val );
 }
 
-void test_cobs_encode_buffer_l11( void )
+TEST_CASE( "cobs_encode_buffer_l11" )
 {
         // L11: Verify asrtl_cobs_encode_buffer works correctly (out_ptr is dead code)
         uint8_t           input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
@@ -1006,112 +986,62 @@ void test_cobs_encode_buffer_l11( void )
 
         enum asrtl_status st = asrtl_cobs_encode_buffer( in, &out );
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
-        TEST_ASSERT_EQUAL( 7, (size_t) ( out.e - out.b ) );
-        TEST_ASSERT_EQUAL( 0x03, output[0] );
-        TEST_ASSERT_EQUAL( 0x11, output[1] );
-        TEST_ASSERT_EQUAL( 0x22, output[2] );
-        TEST_ASSERT_EQUAL( 0x03, output[3] );
-        TEST_ASSERT_EQUAL( 0x33, output[4] );
-        TEST_ASSERT_EQUAL( 0x44, output[5] );
-        TEST_ASSERT_EQUAL( 0x00, output[6] );
+        CHECK_EQ( ASRTL_SUCCESS, st );
+        CHECK_EQ( 7, (size_t) ( out.e - out.b ) );
+        CHECK_EQ( 0x03, output[0] );
+        CHECK_EQ( 0x11, output[1] );
+        CHECK_EQ( 0x22, output[2] );
+        CHECK_EQ( 0x03, output[3] );
+        CHECK_EQ( 0x33, output[4] );
+        CHECK_EQ( 0x44, output[5] );
+        CHECK_EQ( 0x00, output[6] );
 }
 
-void test_cobs_ibuffer_insert_l13( void )
+TEST_CASE( "cobs_ibuffer_insert_l13" )
 {
         // L13: Verify asrtl_cobs_ibuffer_insert works with larger buffers
         // (uses int instead of ptrdiff_t, but should work for reasonable sizes)
-        size_t   buf_size = 1024 * 1024;  // 1MB buffer
-        uint8_t* storage  = malloc( buf_size );
-        TEST_ASSERT_NOT_NULL( storage );
+        size_t                 buf_size = 1024 * 1024;  // 1MB buffer
+        std::vector< uint8_t > storage( buf_size, 0 );
 
         struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + buf_size };
+        struct asrtl_span         sp = { .b = storage.data(), .e = storage.data() + buf_size };
         asrtl_cobs_ibuffer_init( &ib, sp );
 
         // Insert data that's large but fits
-        size_t   insert_size = 100 * 1024;  // 100KB
-        uint8_t* payload     = malloc( insert_size );
-        TEST_ASSERT_NOT_NULL( payload );
+        size_t                 insert_size = 100 * 1024;  // 100KB
+        std::vector< uint8_t > payload( insert_size, 0 );
         for ( size_t i = 0; i < insert_size; i++ )
                 payload[i] = (uint8_t) ( i & 0xFF );
 
-        struct asrtl_span payload_span = { .b = payload, .e = payload + insert_size };
+        struct asrtl_span payload_span = { .b = payload.data(), .e = payload.data() + insert_size };
         enum asrtl_status st           = asrtl_cobs_ibuffer_insert( &ib, payload_span );
 
-        TEST_ASSERT_EQUAL( ASRTL_SUCCESS, st );
-        TEST_ASSERT_EQUAL( insert_size, (size_t) ( ib.used.e - ib.used.b ) );
-
-        free( payload );
-        free( storage );
+        CHECK_EQ( ASRTL_SUCCESS, st );
+        CHECK_EQ( insert_size, (size_t) ( ib.used.e - ib.used.b ) );
 }
 
 // L-cov2: asrtl_span_unfit_for direct tests
-void test_span_unfit_for( void )
+TEST_CASE( "span_unfit_for" )
 {
         uint8_t buf[8];
 
         struct asrtl_span full = { .b = buf, .e = buf + 8 };
-        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 0 ) );
-        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 1 ) );
-        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &full, 8 ) );
-        TEST_ASSERT_NOT_EQUAL( 0, asrtl_span_unfit_for( &full, 9 ) );
+        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 0 ) );
+        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 1 ) );
+        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 8 ) );
+        CHECK_NE( 0, asrtl_span_unfit_for( &full, 9 ) );
 
         struct asrtl_span empty = { .b = buf, .e = buf };
-        TEST_ASSERT_EQUAL( 0, asrtl_span_unfit_for( &empty, 0 ) );
-        TEST_ASSERT_NOT_EQUAL( 0, asrtl_span_unfit_for( &empty, 1 ) );
+        CHECK_EQ( 0, asrtl_span_unfit_for( &empty, 0 ) );
+        CHECK_NE( 0, asrtl_span_unfit_for( &empty, 1 ) );
 }
 
 // L-cov3: asrtl_u8d2_to_u16 with high bit set
-void test_u8d2_to_u16_high_bit( void )
+TEST_CASE( "u8d2_to_u16_high_bit" )
 {
         uint8_t  data[2] = { 0x80, 0x01 };
         uint16_t val     = 0;
         asrtl_u8d2_to_u16( data, &val );
-        TEST_ASSERT_EQUAL_HEX16( 0x8001, val );
-}
-
-int main( void )
-{
-        UNITY_BEGIN();
-        RUN_TEST( test_reactor_init );
-        RUN_TEST( test_add_chann_id );
-        RUN_TEST( test_fill_buffer );
-        RUN_TEST( test_fill_buffer_zero_source );
-        RUN_TEST( test_fill_buffer_zero_capacity_dest );
-        RUN_TEST( test_fill_buffer_both_zero );
-        RUN_TEST( test_fill_buffer_exact_fit );
-        RUN_TEST( test_cobs );
-        RUN_TEST( test_cobs_ibuffer_iter_no_message );
-        RUN_TEST( test_cobs_ibuffer_iter_single_message );
-        RUN_TEST( test_cobs_ibuffer_iter_zero_length_message );
-        RUN_TEST( test_cobs_ibuffer_iter_buffer_too_small );
-        RUN_TEST( test_cobs_ibuffer_insert_fits_capacity );
-        RUN_TEST( test_cobs_ibuffer_insert_shift_then_fit );
-        RUN_TEST( test_cobs_ibuffer_insert_shift_no_fit );
-        RUN_TEST( test_cobs_ibuffer_insert_size_err );
-        RUN_TEST( test_cobs_ibuffer_partial_then_complete );
-        RUN_TEST( test_cobs_encode_buffer_success );
-        RUN_TEST( test_cobs_encode_buffer_empty_input );
-        RUN_TEST( test_cobs_encode_buffer_insufficient_space );
-        RUN_TEST( test_cobs_encode_buffer_large_input );
-        RUN_TEST( test_cobs_ibuffer_iter_consumes_trailing_zero );
-        RUN_TEST( test_chann_cobs_dispatch_single_message );
-        RUN_TEST( test_chann_cobs_dispatch_multiple_messages );
-        RUN_TEST( test_chann_cobs_dispatch_partial_then_complete );
-        RUN_TEST( test_chann_cobs_dispatch_empty_payload );
-        RUN_TEST( test_chann_cobs_dispatch_multiple_channels );
-        RUN_TEST( test_chann_cobs_dispatch_unknown_channel );
-        RUN_TEST( test_chann_cobs_dispatch_incremental_state );
-        RUN_TEST( test_chann_cobs_dispatch_message_too_large );
-        RUN_TEST( test_chann_cobs_dispatch_mixed_partial_and_complete );
-        RUN_TEST( test_chann_cobs_dispatch_byte_by_byte );
-        RUN_TEST( test_chann_cobs_dispatch_ibuffer_size_err );
-        RUN_TEST( test_chann_cobs_dispatch_recv_cb_error );
-        RUN_TEST( test_u8d4_to_u32_high_bit );
-        RUN_TEST( test_cobs_encode_buffer_l11 );
-        RUN_TEST( test_cobs_ibuffer_insert_l13 );
-        RUN_TEST( test_span_unfit_for );
-        RUN_TEST( test_u8d2_to_u16_high_bit );
-        return UNITY_END();
+        CHECK_EQ( 0x8001, val );
 }

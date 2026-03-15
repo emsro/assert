@@ -33,7 +33,7 @@ static inline enum asrtc_status asrtc_default_error_callback(
             "Error reported from %s: %i %s",
             asrtl_source_to_str( src ),
             ecode,
-            asrtl_ecode_to_str( ecode ) );
+            asrtl_ecode_to_str( (enum asrtl_ecode) ecode ) );
         return ASRTC_SUCCESS;
 }
 

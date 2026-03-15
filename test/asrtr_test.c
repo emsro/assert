@@ -109,25 +109,33 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
 
+void assert_diag( struct data_ll* collected, uint32_t line )
+{
+        assert_collected_diag_hdr( collected );
+        assert_u32( line, collected->data );
+        // XXX: check that there is some string in data after line
+        clear_single_collected( &collected );
+}
+
 void assert_test_result( struct data_ll* collected, uint32_t id, enum asrtl_test_result_e result )
 {
-        assert_collected_hdr( collected, 0x08, ASRTL_MSG_TEST_RESULT );
+        assert_collected_core_hdr( collected, 0x08, ASRTL_MSG_TEST_RESULT );
         assert_u32( id, collected->data + 2 );
         assert_u16( result, collected->data + 6 );
 }
 
 void assert_test_start( struct data_ll* collected, uint16_t test_id, uint32_t run_id )
 {
-        assert_collected_hdr( collected, 0x08, ASRTL_MSG_TEST_START );
+        assert_collected_core_hdr( collected, 0x08, ASRTL_MSG_TEST_START );
         assert_u16( test_id, collected->data + 2 );
         assert_u32( run_id, collected->data + 4 );
 }
 
 struct test_context
 {
-        struct asrtr_reactor reac;
-        struct data_ll*      collected;
-        struct asrtl_sender  send;
+        struct asrtr_reactor   reac;
+        struct collected_data* collected;
+        struct asrtl_sender    send;
         // XXX: are these necessary anymore?
         uint8_t           buffer[64];
         struct asrtl_span sp;
@@ -209,7 +217,7 @@ void test_reactor_version( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_PROTO_VER );
 
-        assert_collected_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
+        assert_collected_core_hdr( ctx->collected, 0x08, ASRTL_MSG_PROTO_VERSION );
         assert_u16( ASRTL_PROTO_MAJOR, ctx->collected->data + 2 );
         assert_u16( ASRTL_PROTO_MINOR, ctx->collected->data + 4 );
         assert_u16( ASRTL_PROTO_PATCH, ctx->collected->data + 6 );
@@ -225,7 +233,7 @@ void test_reactor_desc( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_DESC );
 
-        assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
+        assert_collected_core_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
         assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
 
         clear_single_collected( &ctx->collected );
@@ -239,7 +247,7 @@ void test_reactor_test_count( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TC );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x00, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
 
@@ -250,7 +258,7 @@ void test_reactor_test_count( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TC );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x01, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
 }
@@ -263,7 +271,7 @@ void test_reactor_test_info( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
         assert_u16( ASRTL_ASE_MISSING_TEST, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 
@@ -274,7 +282,7 @@ void test_reactor_test_info( struct test_context* ctx )
 
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TI );
 
-        assert_collected_hdr( ctx->collected, 0x09, ASRTL_MSG_TEST_INFO );
+        assert_collected_core_hdr( ctx->collected, 0x09, ASRTL_MSG_TEST_INFO );
         assert_u16( 0x00, ctx->collected->data + 2 );
         assert_data_ll_contain_str( "test1", ctx->collected, 4 );
         clear_single_collected( &ctx->collected );
@@ -302,7 +310,7 @@ void test_reactor_start( struct test_context* ctx )
         check_recv_and_spin( &ctx->reac, ctx->buffer, ctx->sp.b, ASRTR_FLAG_TSTART );
 
         TEST_ASSERT_EQUAL( 1, data.counter );
-        assert_collected_hdr( ctx->collected, 4, ASRTL_MSG_ERROR );
+        assert_collected_core_hdr( ctx->collected, 4, ASRTL_MSG_ERROR );
         assert_u16( ASRTL_ASE_MISSING_TEST, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 }
@@ -333,7 +341,7 @@ void test_reactor_start_busy( struct test_context* ctx )
         check_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( 7, counter );
 
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_ERROR );
         assert_u16( ASRTL_ASE_TEST_ALREADY_RUNNING, &ctx->collected->data[2] );
         clear_single_collected( &ctx->collected );
 }
@@ -353,6 +361,13 @@ void test_check_macro( struct test_context* ctx )
         check_run_test( &ctx->reac, 0, 0 );
 
         TEST_ASSERT_EQUAL( 2, check_ctx.counter );
+
+        assert_diag( ctx->collected, 42 );
+        clear_top_collected( &ctx->collected );
+
+        assert_diag( ctx->collected, 42 );
+        clear_top_collected( &ctx->collected );
+
         assert_test_result( ctx->collected, 0, ASRTL_TEST_FAILURE );
         clear_top_collected( &ctx->collected );
 
@@ -519,7 +534,7 @@ void test_reactor_multi_flag( struct test_context* ctx )
         // First tick: DESC handled (highest priority in if-else chain)
         enum asrtr_status st = asrtr_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
-        assert_collected_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
+        assert_collected_core_hdr( ctx->collected, 0x06, ASRTL_MSG_DESC );
         assert_data_ll_contain_str( "rec1", ctx->collected, 2 );
         clear_single_collected( &ctx->collected );
         TEST_ASSERT( ctx->reac.flags & ASRTR_FLAG_TC );
@@ -528,7 +543,7 @@ void test_reactor_multi_flag( struct test_context* ctx )
         // Second tick: TC handled
         st = asrtr_reactor_tick( &ctx->reac );
         TEST_ASSERT_EQUAL( ASRTR_SUCCESS, st );
-        assert_collected_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
+        assert_collected_core_hdr( ctx->collected, 0x04, ASRTL_MSG_TEST_COUNT );
         assert_u16( 0x00, ctx->collected->data + 2 );
         clear_single_collected( &ctx->collected );
         TEST_ASSERT( !( ctx->reac.flags & ASRTR_FLAG_TC ) );

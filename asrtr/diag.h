@@ -75,12 +75,12 @@ inline static void asrtr_diag_record( struct asrtr_diag* diag, char const* file,
             .b = (uint8_t*) file, .e = (uint8_t*) file + strlen( file ), .next = NULL };
         line_buff.next = &file_buff;
 
-        /*
+        ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
+
         enum asrtl_status st = asrtl_send( &diag->sendr, ASRTL_DIAG, &line_buff );
         if ( st != ASRTL_SUCCESS )
                 ASRTL_ERR_LOG(
                     "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );
-                    */
 }
 
 // Helper macro to record filename, if the method in question does not work, alternatives are:
