@@ -72,12 +72,12 @@ inline constexpr color orange{ 230, 130, 30 };
 
 struct bar_config
 {
-        int         total = 0;    // 0 → indeterminate spinner
-        std::string suite_label;  // shown in middle of progress line
-        color       fail_color = colors::red;
-        char        fill_char  = '-';
-        char        head_char  = '-';
-        char        empty_char = ' ';
+        int         total       = 0;         // 0 → indeterminate spinner
+        std::string suite_label = "assert";  // shown in middle of progress line
+        color       fail_color  = colors::red;
+        char        fill_char   = '-';
+        char        head_char   = '-';
+        char        empty_char  = ' ';
 };
 
 // ─── Main class ───────────────────────────────────────────────────────────────
@@ -237,6 +237,18 @@ inline std::string fit_to_width( std::string_view s, int width )
         if ( leftover > 0 )
                 result += std::string( leftover, ' ' );
         return result;
+}
+
+// Pad s on the LEFT so its visible length equals exactly width (right-justify).
+// Truncation falls back to fit_to_width.
+inline std::string rfit_to_width( std::string_view s, int width )
+{
+        int vlen = visible_len( s );
+        if ( vlen == width )
+                return std::string( s );
+        if ( vlen < width )
+                return std::string( width - vlen, ' ' ) + std::string( s );
+        return fit_to_width( s, width );  // truncate (rare: very long duration)
 }
 
 // ── Time rendering ───────────────────────────────────────────────────────────
@@ -428,7 +440,7 @@ inline void terminal_progress::log_result( std::string_view name, bool passed, d
                 name_w = 12;
 
         std::string line = time_str + "  " + status_tag + "  " + fit_to_width( name, name_w ) +
-                           "  " + dim( fit_to_width( dur_str, 7 ) );
+                           "  " + dim( rfit_to_width( dur_str, 7 ) );
         log( line );
 }
 

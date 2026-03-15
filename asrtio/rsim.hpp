@@ -25,15 +25,11 @@ struct utest_sim
         bool             randomize   = false;
         std::string      tname;
 
+        std::mt19937* rng_ptr = nullptr;
+
         using clock = std::chrono::steady_clock;
         std::optional< clock::time_point > start;
         int                                actual_ms = 0;
-
-        static std::mt19937& rng()
-        {
-                static std::mt19937 gen{ std::random_device{}() };
-                return gen;
-        }
 
         char const* name()
         {
@@ -47,7 +43,7 @@ struct utest_sim
                         if ( variance_ms > 0 ) {
                                 std::uniform_int_distribution< int > jitter(
                                     -variance_ms, variance_ms );
-                                actual_ms = std::max( 0, duration_ms + jitter( rng() ) );
+                                actual_ms = std::max( 0, duration_ms + jitter( *rng_ptr ) );
                         } else {
                                 actual_ms = duration_ms;
                         }
@@ -55,7 +51,7 @@ struct utest_sim
                                 static constexpr asrtr_test_state k_results[] = {
                                     ASRTR_TEST_PASS, ASRTR_TEST_FAIL, ASRTR_TEST_ERROR };
                                 std::uniform_int_distribution< int > pick( 0, 2 );
-                                res = k_results[pick( rng() )];
+                                res = k_results[pick( *rng_ptr )];
                         }
                 }
 
@@ -75,11 +71,13 @@ struct conn_ctx
 {
         uv_tcp_t                              client;
         bool                                  closed = false;
+        std::mt19937                          rng;
         asrtr::reactor                        reac;
         std::list< asrtr::unit< utest_sim > > tests;
 
-        conn_ctx()
-          : reac( *this, "simulator reactor" )
+        conn_ctx( uint32_t seed )
+          : rng( seed )
+          , reac( *this, "simulator reactor" )
         {
                 client.data = this;
 
@@ -111,7 +109,8 @@ struct conn_ctx
 
         void reg( utest_sim sim )
         {
-                auto& t = tests.emplace_back( std::move( sim ) );
+                sim.rng_ptr = &rng;
+                auto& t    = tests.emplace_back( std::move( sim ) );
                 reac.add_test( t );
         }
 
@@ -155,6 +154,7 @@ struct rsim_ctx
 {
         uv_tcp_t              server;
         uv_idle_t             idle;
+        uint32_t              seed = 0;
         std::list< conn_ctx > conns;
 
         uint16_t port()
@@ -195,7 +195,7 @@ struct rsim_ctx
                                     return;
                             }
                             auto& self = *static_cast< rsim_ctx* >( server->data );
-                            auto& ctx  = self.conns.emplace_back();
+                            auto& ctx  = self.conns.emplace_back( self.seed );
                             uv_tcp_init( server->loop, &ctx.client );
                             if ( uv_accept( server, (uv_stream_t*) &ctx.client ) == 0 ) {
                                     ASRTL_INF_LOG( "test_rsim", "Accepted connection" );
@@ -218,9 +218,10 @@ struct rsim_ctx
         }
 };
 
-inline std::shared_ptr< asrtio::rsim_ctx > make_rsim( uv_loop_t* loop )
+inline std::shared_ptr< asrtio::rsim_ctx > make_rsim( uv_loop_t* loop, uint32_t seed = 42 )
 {
         std::shared_ptr< rsim_ctx > ctx = std::make_shared< rsim_ctx >();
+        ctx->seed                       = seed;
         struct sockaddr_in          addr;
         uv_ip4_addr( "127.0.0.1", 0, &addr );
 

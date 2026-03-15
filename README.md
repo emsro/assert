@@ -51,7 +51,7 @@ sequenceDiagram
 
 ## Channel abstraction
 
-The byte stream is multiplexed into independent **channels**, each identified by a 16-bit ID. Two channels are defined by the library:
+The byte stream is multiplexed into independent **channels**, each identified by a 16-bit ID in the transported message. Two channels are defined by the library:
 
 | ID | Name   | Purpose                          |
 |----|--------|----------------------------------|
@@ -69,3 +69,12 @@ asrtr_diag     (DIAG channel)    asrtc_diag        (DIAG channel)
 ```
 
 Modules are opt-in: if a feature is not needed, its module is simply not initialised and has zero runtime cost. The same mechanism allows adding custom modules for application-specific channels without modifying the library.
+
+## Pure C core
+
+The core libraries — `asrtl`, `asrtr`, and `asrtc` — are intentionally written in pure C. This maximises integration flexibility:
+
+- The **reactor** can be compiled into C, C++, or Rust firmware with no additional glue.
+- The **controller** can be wrapped by any language that supports a C FFI — Python, Go, Rust, etc.
+
+The C++ wrappers (`asrtrpp`, `asrtcpp`) and the host tool (`asrtio`) are optional layers built on top. They are not required for integration.

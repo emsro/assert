@@ -134,7 +134,6 @@ struct uv_tasks
 
         uv_idle_t                             idle_handle;
         std::deque< std::unique_ptr< task > > tasks;
-        std::function< void() >               on_complete;
 
         uv_tasks( uv_loop_t* loop )
           : loop( loop )
@@ -147,10 +146,6 @@ struct uv_tasks
                 tasks.push_back( std::move( task ) );
         }
 
-        void set_on_complete( std::function< void() > cb )
-        {
-                on_complete = std::move( cb );
-        }
 
         void start()
         {
@@ -166,31 +161,7 @@ struct uv_tasks
                         auto& task = tasks.front();
                         if ( task->tick() == task::finished )
                                 tasks.pop_front();
-                } else if ( on_complete ) {
-                        auto cb     = std::move( on_complete );
-                        on_complete = nullptr;
-                        cb();
                 }
-        }
-};
-
-struct after_idle : task
-{
-        asrtc::controller&      cntr;
-        std::function< void() > cb;
-
-        after_idle( asrtc::controller& cntr, std::function< void() > cb )
-          : cntr( cntr )
-          , cb( std::move( cb ) )
-        {
-        }
-
-        res tick() override
-        {
-                if ( !cntr.is_idle() )
-                        return runnning;
-                cb();
-                return finished;
         }
 };
 
@@ -202,6 +173,7 @@ struct test_pool_task : task
 
         std::function< void( uint32_t id, std::string_view name ) > cb;
         std::function< void( uint32_t ) >                           on_count;
+        std::function< void() >                                     on_complete;
 
         test_pool_task(
             asrtc::controller&                                          cntr,
@@ -269,20 +241,14 @@ struct test_pool_task : task
                                     asrtc_status_to_str( s ) );
                         }
                 }
-                return idx == count ? finished : runnning;
+                if ( idx == static_cast< uint32_t >( count ) ) {
+                        if ( on_complete )
+                                on_complete();
+                        return finished;
+                }
+                return runnning;
         }
 };
-
-inline void schedule_for_each_test(
-    uv_tasks&                                                   tasks,
-    asrtc::controller&                                          cntr,
-    std::function< void( uint32_t id, std::string_view name ) > cb,
-    std::function< void( uint32_t ) >                           on_count = {} )
-{
-        auto p      = std::make_unique< test_pool_task >( cntr, std::move( cb ) );
-        p->on_count = std::move( on_count );
-        tasks.push( std::move( p ) );
-}
 
 struct run_test_task : task
 {
@@ -345,16 +311,23 @@ struct run_test_task : task
         }
 };
 
-inline void schedule_run_test(
-    uv_tasks&                                     tasks,
-    asrtc::controller&                            cntr,
-    uint32_t                                      id,
-    std::function< void() >                       on_start  = {},
-    std::function< void( asrtc::result const& ) > on_result = {} )
+struct call_function_task : task
 {
-        auto p = std::make_unique< run_test_task >(
-            cntr, id, std::move( on_start ), std::move( on_result ) );
-        tasks.push( std::move( p ) );
-}
+        std::function< void() > func;
+
+        call_function_task( std::function< void() > func )
+          : func( std::move( func ) )
+        {
+        }
+
+        task::res tick() override
+        {
+                if ( func ) {
+                        func();
+                        func = {};
+                }
+                return finished;
+        }
+};
 
 }  // namespace asrtio
