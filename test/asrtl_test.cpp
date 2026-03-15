@@ -13,6 +13,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 
+#include <memory>
 #include <stdlib.h>
 #include <string.h>
 
