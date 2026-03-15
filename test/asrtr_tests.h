@@ -71,4 +71,60 @@ enum asrtr_status error_continue_fun( struct asrtr_record* x )
         return ASRTR_INTERNAL_ERR;
 }
 
+// R-CHK-3: two consecutive CHECK failures → two diag messages, counter = 2
+enum asrtr_status check_macro_two_fails( struct asrtr_record* r )
+{
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        return ASRTR_SUCCESS;
+}
+
+// R-CHK-4: one failure then one pass → one diag message, counter = 2
+enum asrtr_status check_macro_fail_pass( struct asrtr_record* r )
+{
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        ASRTR_CHECK( ctx->diag, r, 1 == 1 );
+        ctx->counter += 1;
+        return ASRTR_SUCCESS;
+}
+
+// R-REQ-4: failing REQUIRE → CHECK and counter after it unreachable
+enum asrtr_status require_then_check( struct asrtr_record* r )
+{
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );  // unreachable
+        ctx->counter += 1;                    // unreachable
+        return ASRTR_SUCCESS;
+}
+
+// R-MIX-1: CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
+enum asrtr_status mix_check_require_check( struct asrtr_record* r )
+{
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        ASRTR_REQUIRE( ctx->diag, r, 1 == 1 );
+        ctx->counter += 1;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        return ASRTR_SUCCESS;
+}
+
+// R-MIX-2: CHECK fails, REQUIRE fails → two diag messages, counter = 1
+enum asrtr_status mix_check_require_fail( struct asrtr_record* r )
+{
+        struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
+        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;
+        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
+        ctx->counter += 1;  // unreachable
+        return ASRTR_SUCCESS;
+}
+
 #endif

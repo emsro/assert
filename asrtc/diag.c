@@ -22,7 +22,7 @@ void asrtc_diag_free_record( struct asrtc_allocator* alloc, struct asrtc_diag_re
 static enum asrtl_status asrtc_diag_recv_record( struct asrtc_diag* d, struct asrtl_span* buff )
 {
         if ( asrtl_span_unfit_for( buff, sizeof( uint32_t ) ) )
-                return ASRTL_SUCCESS;
+                return ASRTL_RECV_ERR;
 
         uint32_t line;
         asrtl_cut_u32( &buff->b, &line );

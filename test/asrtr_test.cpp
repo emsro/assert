@@ -19,6 +19,7 @@
 #include "./collector.hpp"
 #include "./util.h"
 
+#include <algorithm>
 #include <doctest/doctest.h>
 
 ASRTL_DEFINE_GPOS_LOG()
@@ -99,11 +100,30 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
 
+void assert_diag_record_any_line( struct collected_data& collected )
+{
+        assert_collected_diag_hdr( collected, ASRTL_DIAG_MSG_RECORD );
+        uint32_t line = 0;
+        asrtl_u8d4_to_u32( collected.data.data() + 1, &line );
+        CHECK( line >= 1 );
+        CHECK( collected.data.size() > 5 );
+        auto* fn_begin = collected.data.data() + 5;
+        auto* fn_end   = collected.data.data() + collected.data.size();
+        CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
+                return b == '\0';
+        } ) );
+}
+
 void assert_diag_record( struct collected_data& collected, uint32_t line )
 {
         assert_collected_diag_hdr( collected, ASRTL_DIAG_MSG_RECORD );
         assert_u32( line, collected.data.data() + 1 );
-        // XXX: check that there is some string in data after line
+        CHECK( collected.data.size() > 5 );
+        auto* fn_begin = collected.data.data() + 5;
+        auto* fn_end   = collected.data.data() + collected.data.size();
+        CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
+                return b == '\0';
+        } ) );
 }
 
 void assert_test_result(
@@ -577,6 +597,224 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
                 coll.data.pop_back();
         }
         CHECK( !( reac.flags & ASRTR_FLAG_TC ) );
+}
+
+// R-INIT-1..4
+TEST_CASE_FIXTURE( reactor_ctx, "diag_init" )
+{
+        struct asrtr_diag diag = {};
+
+        // R-INIT-1: NULL diag
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_diag_init( NULL, &reac.node, send ) );
+
+        // R-INIT-2: NULL prev
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_diag_init( &diag, NULL, send ) );
+
+        // R-INIT-3 / R-INIT-4: valid init
+        check_reactor_init( &reac, send, "rec1" );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_diag_init( &diag, &reac.node, send ) );
+        CHECK_EQ( ASRTL_DIAG, diag.node.chid );
+        CHECK_EQ( &diag.node, reac.node.next );  // node appended after prev
+        CHECK_EQ( nullptr, diag.node.next );      // chain-terminal
+}
+
+// R-REC-1..3  (R-REC-4 is verified inside assert_diag_record via size > 5 + no-null)
+TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_diag diag = {};
+        check_diag_init( &diag, &reac.node, send );
+
+        // R-REC-1: normal call — verify full byte content
+        asrtr_diag_record( &diag, "test.c", 42 );
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record( collected, 42 );
+                CHECK_EQ( 1u + 4u + 6u, collected.data.size() );  // 1+4+strlen("test.c")
+                assert_data_ll_contain_str( "test.c", collected, 5 );
+                coll.data.pop_back();
+        }
+
+        // R-REC-2: line = 0
+        asrtr_diag_record( &diag, "f.c", 0 );
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record( collected, 0 );
+                coll.data.pop_back();
+        }
+
+        // R-REC-3: line = UINT32_MAX
+        asrtr_diag_record( &diag, "f.c", UINT32_MAX );
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record( collected, UINT32_MAX );
+                coll.data.pop_back();
+        }
+}
+
+// R-CHK-3: two consecutive CHECK failures → two diag messages, counter incremented twice
+TEST_CASE_FIXTURE( reactor_ctx, "check_macro_two_fails" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_test      t1;
+        struct asrtr_diag      diag;
+        check_diag_init( &diag, &reac.node, send );
+        struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
+        setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_two_fails );
+
+        check_run_test( &reac, 0, 0 );
+
+        CHECK_EQ( 2, check_ctx.counter );
+        {
+                auto& collected = coll.data.back();
+                assert_test_result( collected, 0, ASRTL_TEST_FAILURE );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
+                coll.data.pop_back();
+        }
+}
+
+// R-CHK-4: one CHECK failure then one pass → one diag message, counter = 2
+TEST_CASE_FIXTURE( reactor_ctx, "check_macro_fail_pass" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_test      t1;
+        struct asrtr_diag      diag;
+        check_diag_init( &diag, &reac.node, send );
+        struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
+        setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_fail_pass );
+
+        check_run_test( &reac, 0, 0 );
+
+        CHECK_EQ( 2, check_ctx.counter );
+        {
+                auto& collected = coll.data.back();
+                assert_test_result( collected, 0, ASRTL_TEST_FAILURE );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
+                coll.data.pop_back();
+        }
+}
+
+// R-REQ-4: failing REQUIRE → code after it unreachable
+TEST_CASE_FIXTURE( reactor_ctx, "require_fail_then_check" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_test      t1;
+        struct asrtr_diag      diag;
+        check_diag_init( &diag, &reac.node, send );
+        struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
+        setup_test( &reac, &t1, "test1", &check_ctx, &require_then_check );
+
+        check_run_test( &reac, 0, 0 );
+
+        CHECK_EQ( 0, check_ctx.counter );  // counter never incremented
+        {
+                auto& collected = coll.data.back();
+                assert_test_result( collected, 0, ASRTL_TEST_FAILURE );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );  // only one record (REQUIRE)
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
+                coll.data.pop_back();
+        }
+}
+
+// R-MIX-1: CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
+TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_check" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_test      t1;
+        struct asrtr_diag      diag;
+        check_diag_init( &diag, &reac.node, send );
+        struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
+        setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_check );
+
+        check_run_test( &reac, 0, 0 );
+
+        CHECK_EQ( 3, check_ctx.counter );
+        {
+                auto& collected = coll.data.back();
+                assert_test_result( collected, 0, ASRTL_TEST_FAILURE );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );  // second CHECK failure
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );  // first CHECK failure
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
+                coll.data.pop_back();
+        }
+}
+
+// R-MIX-2: CHECK fails, REQUIRE fails → two diag messages, counter = 1
+TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_fail" )
+{
+        check_reactor_init( &reac, send, "rec1" );
+        struct asrtr_test      t1;
+        struct asrtr_diag      diag;
+        check_diag_init( &diag, &reac.node, send );
+        struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
+        setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_fail );
+
+        check_run_test( &reac, 0, 0 );
+
+        CHECK_EQ( 1, check_ctx.counter );  // second increment unreachable
+        {
+                auto& collected = coll.data.back();
+                assert_test_result( collected, 0, ASRTL_TEST_FAILURE );
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );  // REQUIRE diag
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_diag_record_any_line( collected );  // CHECK diag
+                coll.data.pop_back();
+        }
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
+                coll.data.pop_back();
+        }
 }
 
 // R-cov3: truncated and trailing-byte recv errors in asrtr_reactor_recv
