@@ -99,10 +99,10 @@ void check_run_test( struct asrtr_reactor* reac, uint32_t test_id, uint32_t run_
         check_recv_and_spin( reac, buffer, sp.b, ASRTR_FLAG_TSTART );
 }
 
-void assert_diag( struct collected_data& collected, uint32_t line )
+void assert_diag_record( struct collected_data& collected, uint32_t line )
 {
-        assert_collected_diag_hdr( collected );
-        assert_u32( line, collected.data.data() );
+        assert_collected_diag_hdr( collected, ASRTL_DIAG_MSG_RECORD );
+        assert_u32( line, collected.data.data() + 1 );
         // XXX: check that there is some string in data after line
 }
 
@@ -368,7 +368,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro" )
 
         {
                 auto& collected = coll.data.back();
-                assert_diag( collected, 38 );
+                assert_diag_record( collected, 38 );
                 coll.data.pop_back();
         }
 
@@ -402,7 +402,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "require_macro" )
 
         {
                 auto& collected = coll.data.back();
-                assert_diag( collected, 28 );
+                assert_diag_record( collected, 28 );
                 coll.data.pop_back();
         }
 

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "../asrtl/core_proto.h"
+#include "../asrtl/diag_proto.h"
 #include "./util.h"
 
 #include <assert.h>
@@ -86,7 +87,11 @@ void assert_collected_core_hdr(
         CHECK_EQ( size, collected.data.size() );
 }
 
-void assert_collected_diag_hdr( struct collected_data& collected )
+void assert_collected_diag_hdr(
+    struct collected_data&       collected,
+    enum asrtl_diag_message_id_e type )
 {
+        REQUIRE_NE( &collected, nullptr );
         CHECK_EQ( ASRTL_DIAG, collected.id );
+        CHECK_EQ( type, collected.data[0] );
 }

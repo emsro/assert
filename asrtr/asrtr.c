@@ -11,6 +11,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/core_proto.h"
+#include "../asrtl/diag_proto.h"
 #include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
@@ -58,23 +59,20 @@ enum asrtr_status asrtr_diag_init(
         return ASRTR_SUCCESS;
 }
 
+static inline enum asrtl_status asrtr_diag_send_cb( void* ptr, struct asrtl_rec_span* sp )
+{
+        struct asrtr_diag* diag = (struct asrtr_diag*) ptr;
+        return asrtl_send( &diag->sendr, ASRTL_DIAG, sp );
+}
+
 void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line )
 {
         ASRTL_ASSERT( diag );
         ASRTL_ASSERT( file );
 
-        uint8_t  prefix[4];
-        uint8_t* p = prefix;
-        asrtl_add_u32( &p, line );
-        struct asrtl_rec_span line_buff = {
-            .b = prefix, .e = prefix + sizeof prefix, .next = NULL };
-        struct asrtl_rec_span file_buff = {
-            .b = (uint8_t*) file, .e = (uint8_t*) file + strlen( file ), .next = NULL };
-        line_buff.next = &file_buff;
-
         ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
 
-        enum asrtl_status st = asrtl_send( &diag->sendr, ASRTL_DIAG, &line_buff );
+        enum asrtl_status st = asrtl_msg_rtoc_diag_record( file, line, asrtr_diag_send_cb, diag );
         if ( st != ASRTL_SUCCESS )
                 ASRTL_ERR_LOG(
                     "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );
