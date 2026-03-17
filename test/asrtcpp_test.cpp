@@ -12,9 +12,11 @@
 #include "../asrtc/result.h"
 #include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
+#include "../asrtcpp/diag.hpp"
 #include "../asrtcpp/fmt.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/util.hpp"
+#include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
 
 #include <doctest/doctest.h>
@@ -281,4 +283,96 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 
         CHECK( first_called );
         CHECK_FALSE( second_called );
+}
+
+// ---------------------------------------------------------------------------
+// controller + diagnostics
+//
+// Extends paired_ctx with an asrtr::diag on the reactor side and an
+// asrtc::diag on the controller side, wired bidirectionally.
+//
+// The in-process paired_ctx routes messages directly via recv_cb, bypassing
+// channel dispatch.  Each diag sender delivers straight to the peer's
+// recv_cb.  Construction order: send lambdas first (capture this, only called
+// at runtime), then the diag objects that consume them.
+
+struct diag_paired_ctx : paired_ctx
+{
+        // c_diag sends → r_diag (controller-to-reactor direction)
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_diag_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto  flat = flatten( buff );
+                    auto  sp   = asrtl::cnv( std::span{ flat } );
+                    auto* rn   = r_diag.node();
+                    rn->recv_cb( rn->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        asrtc::diag c_diag{ ( *c ).node(), c_diag_send };
+
+        // r_diag sends → c_diag (reactor-to-controller direction)
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_diag_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto  flat = flatten( buff );
+                    auto  sp   = asrtl::cnv( std::span{ flat } );
+                    auto* rn   = c_diag.node();
+                    rn->recv_cb( rn->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        asrtr::diag r_diag{ r.node(), r_diag_send };
+};
+
+TEST_CASE_FIXTURE( diag_paired_ctx, "diag_record_received_by_controller" )
+{
+        r_diag.record( "test_file.c", 42 );
+
+        auto rec = c_diag.take_record();
+        REQUIRE( rec != nullptr );
+        CHECK_EQ( 42u, rec->line );
+        CHECK( std::string_view{ rec->file }.ends_with( "test_file.c" ) );
+
+        // no more records
+        CHECK( c_diag.take_record() == nullptr );
+}
+
+TEST_CASE_FIXTURE( diag_paired_ctx, "diag_multiple_records_queued_in_order" )
+{
+        r_diag.record( "a.c", 1 );
+        r_diag.record( "b.c", 2 );
+        r_diag.record( "c.c", 3 );
+
+        auto r1 = c_diag.take_record();
+        auto r2 = c_diag.take_record();
+        auto r3 = c_diag.take_record();
+        REQUIRE( r1 );
+        REQUIRE( r2 );
+        REQUIRE( r3 );
+
+        CHECK_EQ( 1u, r1->line );
+        CHECK_EQ( 2u, r2->line );
+        CHECK_EQ( 3u, r3->line );
+
+        CHECK( c_diag.take_record() == nullptr );
+}
+
+TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
+{
+        // both a controller query and a diag record in flight at the same time
+        std::string desc;
+        CHECK_EQ( ASRTC_SUCCESS, c->query_desc( [&]( asrtc::status s, std::string_view sv ) {
+                CHECK_EQ( ASRTC_SUCCESS, s );
+                desc = std::string{ sv };
+                return ASRTC_SUCCESS;
+        } ) );
+
+        r_diag.record( "diag_test.c", 99 );
+
+        spin();
+
+        CHECK_EQ( "paired_reactor", desc );
+
+        auto rec = c_diag.take_record();
+        REQUIRE( rec != nullptr );
+        CHECK_EQ( 99u, rec->line );
 }
