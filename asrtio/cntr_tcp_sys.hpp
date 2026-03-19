@@ -2,6 +2,7 @@
 
 #include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
+#include "../asrtcpp/diag.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
@@ -71,6 +72,11 @@ struct cntr_tcp_sys
                 tasks.push( std::make_unique< call_function_task >( std::move( func ) ) );
         }
 
+        auto take_diag_record()
+        {
+                return c_diag.take_record();
+        }
+
         void tick()
         {
                 if ( auto s = cntr.tick(); s != ASRTC_SUCCESS )
@@ -110,15 +116,17 @@ struct cntr_tcp_sys
         }
 
 private:
-        bool              closed = false;
-        uv_loop_t*        loop;
-        uv_connect_t      connect_req;
-        uv_idle_t         idle_handle;
-        uv_tcp_t          client;
+        bool                                                             closed = false;
+        uv_loop_t*                                                       loop;
+        uv_connect_t                                                     connect_req;
+        uv_idle_t                                                        idle_handle;
+        uv_tcp_t                                                         client;
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
+            [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
+                    return rx.write( (uv_stream_t*) &client, id, *buff );
+            } };
         asrtc::controller cntr{
-            [&]( asrtl::chann_id id, asrtl::rec_span& buff ) -> asrtl::status {
-                    return rx.write( (uv_stream_t*) &client, id, buff );
-            },
+            cntr_send,
             [this]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
                     auto s = std::format( "Source: {}, code: {}", sr, ec );
                     ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
@@ -134,6 +142,9 @@ private:
                     tasks.start();
                     return s;
             } };
+
+
+        asrtc::diag c_diag{ cntr.node(), cntr_send };
 
         uv_tasks  tasks;
         cobs_node rx;
@@ -159,6 +170,7 @@ struct suite_reporter
         virtual void on_count( uint32_t total )                                             = 0;
         virtual void on_test_start( std::string_view name )                                 = 0;
         virtual void on_test_done( std::string_view name, bool passed, double duration_ms ) = 0;
+        virtual void on_diagnostic( std::string_view file, uint32_t line )                  = 0;
         virtual ~suite_reporter() = default;
 };
 
@@ -187,7 +199,9 @@ void run_test_suite(
                                 reporter.on_test_start( n );
                                 state->starts[id] = std::chrono::steady_clock::now();
                         },
-                        [&reporter, state, n]( asrtc::result const& res ) {
+                        [&reporter, &cntr, state, n]( asrtc::result const& res ) {
+                                while ( auto rec = cntr.take_diag_record() )
+                                        reporter.on_diagnostic( rec->file, rec->line );
                                 using namespace std::chrono;
                                 double ms = duration_cast< duration< double, std::milli > >(
                                                 steady_clock::now() - state->starts[res.test_id] )

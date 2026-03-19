@@ -624,17 +624,17 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         check_diag_init( &diag, &reac.node, send );
 
         // normal call — verify full byte content
-        asrtr_diag_record( &diag, "test.c", 42 );
+        asrtr_diag_record( &diag, "test.c", 42, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, 42 );
-                CHECK_EQ( 1u + 4u + 6u, collected.data.size() );  // 1+4+strlen("test.c")
-                assert_data_ll_contain_str( "test.c", collected, 5 );
+                CHECK_EQ( 1u + 4u + 1u + 6u, collected.data.size() );
+                assert_data_ll_contain_str( "test.c", collected, 6 );
                 coll.data.pop_back();
         }
 
         // line = 0
-        asrtr_diag_record( &diag, "f.c", 0 );
+        asrtr_diag_record( &diag, "f.c", 0, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, 0 );
@@ -642,7 +642,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         }
 
         // line = UINT32_MAX
-        asrtr_diag_record( &diag, "f.c", UINT32_MAX );
+        asrtr_diag_record( &diag, "f.c", UINT32_MAX, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, UINT32_MAX );

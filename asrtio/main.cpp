@@ -48,6 +48,12 @@ struct pbar_reporter : suite_reporter
                 bar.log_result( name, passed, duration_ms );
                 bar.set_progress( ++done, failed );
         }
+
+        void on_diagnostic( std::string_view file, uint32_t line ) override
+        {
+                auto loc = std::string{ file } + ":" + std::to_string( line );
+                bar.log( pbar::colored_wall_time() + "    " + pbar::fg( loc, pbar::colors::red ) );
+        }
 };
 
 std::shared_ptr< pbar::terminal_progress > g_bar;

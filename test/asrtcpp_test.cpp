@@ -89,6 +89,16 @@ struct paired_ctx
         // lambda object must outlive the reactor.
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_send;
 
+        // Stable send callable for the controller; must outlive `c`.
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto  flat = flatten( buff );
+                    auto  sp   = asrtl::cnv( std::span{ flat } );
+                    auto* rn   = r.node();
+                    rn->recv_cb( rn->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
         asrtr::reactor r;
 
         paired_ctx()
@@ -106,13 +116,7 @@ struct paired_ctx
 
                 c.emplace(
                     // controller sends → flatten + forward to reactor's recv_cb
-                    asrtl::send_cb{ [this]( asrtl::chann_id, asrtl::rec_span& buff ) {
-                            auto  flat = flatten( &buff );
-                            auto  sp   = asrtl::cnv( std::span{ flat } );
-                            auto* rn   = r.node();
-                            rn->recv_cb( rn->recv_ptr, sp );
-                            return ASRTL_SUCCESS;
-                    } },
+                    c_send,
                     // error callback
                     []( asrtl::source, asrtl::ecode ) -> asrtc::status {
                             return ASRTC_SUCCESS;

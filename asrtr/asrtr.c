@@ -65,14 +65,19 @@ static inline enum asrtl_status asrtr_diag_send_cb( void* ptr, struct asrtl_rec_
         return asrtl_send( &diag->sendr, ASRTL_DIAG, sp );
 }
 
-void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line )
+void asrtr_diag_record(
+    struct asrtr_diag* diag,
+    char const*        file,
+    uint32_t           line,
+    char const*        extra )
 {
         ASRTL_ASSERT( diag );
         ASRTL_ASSERT( file );
 
         ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
 
-        enum asrtl_status st = asrtl_msg_rtoc_diag_record( file, line, asrtr_diag_send_cb, diag );
+        enum asrtl_status st =
+            asrtl_msg_rtoc_diag_record( file, line, extra, asrtr_diag_send_cb, diag );
         if ( st != ASRTL_SUCCESS )
                 ASRTL_ERR_LOG(
                     "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );

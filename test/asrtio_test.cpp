@@ -204,7 +204,15 @@ struct task_ctx
         asrtr::unit< fail_cb > t1;
 
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_send;
-        asrtr::reactor                                                   r;
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_send =
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto  flat = flatten_span( buff );
+                    auto  sp   = asrtl::cnv( std::span{ flat } );
+                    auto* rn   = r.node();
+                    rn->recv_cb( rn->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            };
+        asrtr::reactor r;
 
         task_ctx()
           : r_send( [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
@@ -220,13 +228,7 @@ struct task_ctx
                 r.add_test( t1 );
 
                 c.emplace(
-                    asrtl::send_cb{ [this]( asrtl::chann_id, asrtl::rec_span& buff ) {
-                            auto  flat = flatten_span( &buff );
-                            auto  sp   = asrtl::cnv( std::span{ flat } );
-                            auto* rn   = r.node();
-                            rn->recv_cb( rn->recv_ptr, sp );
-                            return ASRTL_SUCCESS;
-                    } },
+                    c_send,
                     []( asrtl::source, asrtl::ecode ) -> asrtc::status {
                             return ASRTC_SUCCESS;
                     },
@@ -355,7 +357,7 @@ TEST_CASE( "run_task_finished_after_result" )
 {
         task_ctx              ctx;
         asrtio::run_test_task t( *ctx.c, 0 );
-        asrtio::task::res last = asrtio::task::runnning;
+        asrtio::task::res     last = asrtio::task::runnning;
         ctx.spin_task( t );
         last = t.tick();  // one more tick — must stay finished
         CHECK( last == asrtio::task::finished );
@@ -620,6 +622,9 @@ struct recording_reporter : asrtio::suite_reporter
                 done_names.emplace_back( n );
                 passed.push_back( p );
                 durations_ms.push_back( ms );
+        }
+        void on_diagnostic( std::string_view, uint32_t ) override
+        {
         }
 };
 

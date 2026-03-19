@@ -9,6 +9,8 @@
 namespace asrtc
 {
 
+using diag_record = asrtc_diag_record;
+
 struct diag
 {
         template < typename CB >

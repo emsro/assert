@@ -4,6 +4,7 @@
 #include "../asrtc/callbacks.h"
 #include "../asrtc/result.h"
 #include "../asrtc/status.h"
+#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
 #include <functional>
@@ -24,7 +25,12 @@ struct controller_impl;
 
 struct controller
 {
-        controller( asrtl::send_cb scb, error_cb ecb, init_cb icb );
+        template < typename CB >
+        controller( CB& scb, error_cb ecb, init_cb icb )
+          : controller( asrtl::make_sender( scb ), std::move( ecb ), std::move( icb ) )
+        {
+        }
+
         controller( controller&& );
 
         [[nodiscard]]
@@ -43,6 +49,8 @@ struct controller
         ~controller();
 
 private:
+        controller( asrtl_sender sender, error_cb ecb, init_cb icb );
+
         uptr< controller_impl > _impl;
 };
 

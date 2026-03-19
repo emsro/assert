@@ -5,6 +5,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtr/status_to_str.h"
+#include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "./util.hpp"
 
@@ -25,7 +26,8 @@ struct utest_sim
         bool             randomize   = false;
         std::string      tname;
 
-        std::mt19937* rng_ptr = nullptr;
+        std::mt19937* rng_ptr  = nullptr;
+        asrtr::diag*  diag_ptr = nullptr;
 
         using clock = std::chrono::steady_clock;
         std::optional< clock::time_point > start;
@@ -58,10 +60,13 @@ struct utest_sim
                 auto elapsed =
                     std::chrono::duration_cast< std::chrono::milliseconds >( clock::now() - *start )
                         .count();
-                if ( elapsed >= actual_ms )
+                if ( elapsed >= actual_ms ) {
                         r.state = res;
-                else
+                        if ( res != ASRTR_TEST_PASS && diag_ptr )
+                                diag_ptr->record( tname.c_str(), __LINE__ );
+                } else {
                         r.state = ASRTR_TEST_RUNNING;
+                }
                 return ASRTR_SUCCESS;
         }
 };
@@ -73,11 +78,13 @@ struct conn_ctx
         bool                                  closed = false;
         std::mt19937                          rng;
         asrtr::reactor                        reac;
+        asrtr::diag                           r_diag;
         std::list< asrtr::unit< utest_sim > > tests;
 
         conn_ctx( uint32_t seed )
           : rng( seed )
           , reac( *this, "simulator reactor" )
+          , r_diag( reac.node(), *this )
         {
                 client.data = this;
 
@@ -109,8 +116,9 @@ struct conn_ctx
 
         void reg( utest_sim sim )
         {
-                sim.rng_ptr = &rng;
-                auto& t     = tests.emplace_back( std::move( sim ) );
+                sim.rng_ptr  = &rng;
+                sim.diag_ptr = &r_diag;
+                auto& t      = tests.emplace_back( std::move( sim ) );
                 reac.add_test( t );
         }
 

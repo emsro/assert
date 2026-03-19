@@ -33,7 +33,11 @@ enum asrtr_status asrtr_diag_init(
     struct asrtl_node*  prev,
     struct asrtl_sender sender );
 
-void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line );
+void asrtr_diag_record(
+    struct asrtr_diag* diag,
+    char const*        file,
+    uint32_t           line,
+    char const*        extra );
 
 // Helper macro to record filename, if the method in question does not work, alternatives are:
 // - -DASRTR_FILENAME=__FILE__ directly (but it is long and includes path)
@@ -47,21 +51,21 @@ void asrtr_diag_record( struct asrtr_diag* diag, char const* file, uint32_t line
                                       __FILE__ )
 #endif
 
-#define ASRTR_CHECK( diag, rec, x )                                              \
-        do {                                                                     \
-                if ( !( x ) ) {                                                  \
-                        asrtr_fail( ( rec ) );                                   \
-                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__ ); \
-                }                                                                \
+#define ASRTR_CHECK( diag, rec, x )                                                  \
+        do {                                                                         \
+                if ( !( x ) ) {                                                      \
+                        asrtr_fail( ( rec ) );                                       \
+                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
+                }                                                                    \
         } while ( 0 )
 
-#define ASRTR_REQUIRE( diag, rec, x )                                            \
-        do {                                                                     \
-                if ( !( x ) ) {                                                  \
-                        asrtr_fail( ( rec ) );                                   \
-                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__ ); \
-                        return ASRTR_SUCCESS;                                    \
-                }                                                                \
+#define ASRTR_REQUIRE( diag, rec, x )                                                \
+        do {                                                                         \
+                if ( !( x ) ) {                                                      \
+                        asrtr_fail( ( rec ) );                                       \
+                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
+                        return ASRTR_SUCCESS;                                        \
+                }                                                                    \
         } while ( 0 )
 
 #ifdef __cplusplus

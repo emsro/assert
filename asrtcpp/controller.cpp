@@ -11,7 +11,6 @@ namespace asrtc
 struct controller_impl
 {
         asrtc_controller asc;
-        asrtl::send_cb   scb;
         error_cb         ecb;
         init_cb          ini_cb;
 
@@ -31,14 +30,6 @@ auto cimpl_do( auto& cb, Ts&&... args )
         auto st = cb( (Ts&&) args... );
         cb      = {};
         return st;
-}
-
-asrtl::status cimpl_send( void* ptr, asrtl::chann_id id, struct asrtl_rec_span* buff )
-{
-        auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        if ( !ci->scb )
-                return ASRTL_SEND_ERR;
-        return ci->scb( id, *buff );
 }
 
 asrtc::status cimpl_init( void* ptr, asrtc::status s )
@@ -79,16 +70,15 @@ asrtc::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result
 
 }  // namespace
 
-controller::controller( asrtl::send_cb scb, error_cb ecb, init_cb icb )
+controller::controller( asrtl_sender sender, error_cb ecb, init_cb icb )
   : _impl{ new controller_impl{
-        .scb    = std::move( scb ),
         .ecb    = std::move( ecb ),
         .ini_cb = std::move( icb ),
     } }
 {
         auto st = asrtc_cntr_init(
             &_impl->asc,
-            asrtl_sender{ .ptr = _impl.get(), .cb = &cimpl_send },
+            sender,
             asrtc_default_allocator(),
             { .ptr = _impl.get(), .cb = &cimpl_error },
             &cimpl_init,

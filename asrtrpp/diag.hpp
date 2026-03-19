@@ -24,9 +24,9 @@ struct diag
                 return &diag_.node;
         }
 
-        void record( char const* file, uint32_t line )
+        void record( char const* file, uint32_t line, char const* extra = nullptr )
         {
-                asrtr_diag_record( &diag_, file, line );
+                asrtr_diag_record( &diag_, file, line, extra );
         }
 
         ~diag() = default;

@@ -262,14 +262,15 @@ void exec( std::ostream& os, test_case const& tc )
         asrtr::unit< noop_test > t1{};
         r.add_test( t1 );
 
+        auto c_send = [&]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
+                auto flat = flatten( buff );
+                check >> r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
+                return ASRTL_SUCCESS;
+        };
+
         c.emplace(
-            [&]( asrtl::chann_id, asrtl::rec_span& buff ) {
-                    print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, &buff );
-                    auto flat = flatten( &buff );
-                    check >>
-                        r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
-                    return ASRTL_SUCCESS;
-            },
+            c_send,
             [&]( asrtl::source s, asrtl::ecode ec ) {
                     os << std::format( "({}) ", s );
                     os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
