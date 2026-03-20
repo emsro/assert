@@ -40,7 +40,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_diag_record(
         uint8_t* p = prefix;
         *p++       = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, line );
-        long file_len = strlen( file );
+        size_t file_len = strlen( file );
         if ( file_len > UINT8_MAX ) {
                 file     = "filename too long";
                 file_len = strlen( file );
