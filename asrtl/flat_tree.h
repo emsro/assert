@@ -42,6 +42,7 @@ typedef uint32_t asrtl_flat_id;
 /// Value type 0 is reserved — indicates an uninitialized node slot.
 enum asrtl_flat_value_type
 {
+        ASRTL_FLAT_VALUE_TYPE_NONE   = 0,
         ASRTL_FLAT_VALUE_TYPE_STR    = 1,
         ASRTL_FLAT_VALUE_TYPE_U32    = 2,
         ASRTL_FLAT_VALUE_TYPE_FLOAT  = 3,

@@ -39,7 +39,8 @@ enum asrtl_status asrtl_flat_block_init(
                 return ASRTL_ALLOC_ERR;
         }
         for ( uint32_t i = 0; i < node_capacity; i++ )
-                block->nodes[i] = ( struct asrtl_flat_node ){ 0 };
+                block->nodes[i] =
+                    ( struct asrtl_flat_node ){ .value = { .type = ASRTL_FLAT_VALUE_TYPE_NONE } };
         block->node_count = 0;
         return ASRTL_SUCCESS;
 }
@@ -65,7 +66,7 @@ enum asrtl_status asrtl_flat_block_deinit(
         }
         if ( block->nodes != NULL ) {
                 for ( uint32_t i = 0; i < node_capacity; i++ )
-                        if ( block->nodes[i].value.type != 0 )
+                        if ( block->nodes[i].value.type != ASRTL_FLAT_VALUE_TYPE_NONE )
                                 asrtl_flat_free_node_strings( alloc, &block->nodes[i] );
                 asrtl_free( alloc, (void**) &block->nodes );
         }
@@ -284,7 +285,7 @@ enum asrtl_status asrtl_flat_tree_append(
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "append: node_id=%u not reachable", node_id );
                 return ASRTL_ARG_ERR;
         }
-        if ( node->value.type != 0 ) {
+        if ( node->value.type != ASRTL_FLAT_VALUE_TYPE_NONE ) {
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "append: node_id=%u already exists", node_id );
                 return ASRTL_ARG_ERR;
         }
