@@ -22,14 +22,20 @@
       "name": "asan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=address -DASRTL_DEFAULT_ASSERT"
+        "CMAKE_C_FLAGS": "-fsanitize=address -DASRTL_DEFAULT_ASSERT",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address",
+        "BUILD_SHARED_LIBS": "OFF"
       }
     },
     {
       "name": "ubsan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRTL_DEFAULT_ASSERT"
+        "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRTL_DEFAULT_ASSERT",
+        "CMAKE_CXX_FLAGS": "-fsanitize=undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined",
+        "BUILD_SHARED_LIBS": "OFF"
       }
     },
     {
