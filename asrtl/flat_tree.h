@@ -160,6 +160,7 @@ struct asrtl_flat_query_result
         asrtl_flat_id           id;
         char const*             key;
         struct asrtl_flat_value value;
+        asrtl_flat_id           next_sibling;  ///< 0 = no next sibling.
 };
 
 /// Read a single node by ID.

@@ -311,9 +311,10 @@ enum asrtl_status asrtl_flat_tree_query(
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "query: node_id=%u not found", node_id );
                 return ASRTL_ARG_ERR;
         }
-        result->id    = node_id;
-        result->key   = node->key;
-        result->value = node->value;
+        result->id           = node_id;
+        result->key          = node->key;
+        result->value        = node->value;
+        result->next_sibling = node->next_sibling;
         return ASRTL_SUCCESS;
 }
 
