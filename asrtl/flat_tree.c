@@ -38,6 +38,8 @@ enum asrtl_status asrtl_flat_block_init(
                     "asrtl_flat_tree", "block_init: alloc failed for %u nodes", node_capacity );
                 return ASRTL_ALLOC_ERR;
         }
+        for ( uint32_t i = 0; i < node_capacity; i++ )
+                block->nodes[i] = ( struct asrtl_flat_node ){ 0 };
         block->node_count = 0;
         return ASRTL_SUCCESS;
 }
