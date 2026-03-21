@@ -1,0 +1,7 @@
+# Exclude build dirs and caches from the Docker build context.
+# The source itself is volume-mounted at runtime; nothing is COPY'd in.
+_build/
+_build_asan/
+_build_gcc/
+_deps/
+.git/
