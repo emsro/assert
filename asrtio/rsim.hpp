@@ -6,7 +6,9 @@
 #include "../asrtl/status_to_str.h"
 #include "../asrtr/status_to_str.h"
 #include "../asrtrpp/diag.hpp"
+#include "../asrtrpp/param.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "./task.hpp"
 #include "./util.hpp"
 
 #include <chrono>
@@ -26,14 +28,15 @@ struct utest_sim
         bool             randomize   = false;
         std::string      tname;
 
-        std::mt19937* rng_ptr  = nullptr;
-        asrtr::diag*  diag_ptr = nullptr;
+        std::mt19937*        rng_ptr   = nullptr;
+        asrtr::diag*         diag_ptr  = nullptr;
+        asrtr::param_client* param_ptr = nullptr;
 
         using clock = std::chrono::steady_clock;
         std::optional< clock::time_point > start;
         int                                actual_ms = 0;
-
-        char const* name()
+        asrtio::status                     stat      = asrtio::status::success;
+        char const*                        name()
         {
                 return tname.data();
         }
@@ -79,12 +82,18 @@ struct conn_ctx
         std::mt19937                          rng;
         asrtr::reactor                        reac;
         asrtr::diag                           r_diag;
+        uint8_t                               param_buf[256] = {};
+        asrtr::param_client                   r_param;
         std::list< asrtr::unit< utest_sim > > tests;
 
         conn_ctx( uint32_t seed )
           : rng( seed )
           , reac( *this, "simulator reactor" )
           , r_diag( reac.node(), *this )
+          , r_param(
+                r_diag.node(),
+                *this,
+                asrtl_span{ .b = param_buf, .e = param_buf + sizeof( param_buf ) } )
         {
                 client.data = this;
 
@@ -116,10 +125,16 @@ struct conn_ctx
 
         void reg( utest_sim sim )
         {
-                sim.rng_ptr  = &rng;
-                sim.diag_ptr = &r_diag;
-                auto& t      = tests.emplace_back( std::move( sim ) );
+                sim.rng_ptr   = &rng;
+                sim.diag_ptr  = &r_diag;
+                sim.param_ptr = &r_param;
+                auto& t       = tests.emplace_back( std::move( sim ) );
                 reac.add_test( t );
+        }
+
+        asrtr::param_client& param()
+        {
+                return r_param;
         }
 
         asrtl::status operator()( asrtl::chann_id id, asrtl::rec_span* buff )
@@ -134,6 +149,7 @@ struct conn_ctx
                         ASRTL_ERR_LOG(
                             "test_rsim", "Reactor tick failed: %s", asrtr_status_to_str( s ) );
                 }
+                std::ignore = r_param.tick();
         }
 
         cobs_node rx;
@@ -160,11 +176,18 @@ struct conn_ctx
 
 struct rsim_ctx
 {
+        uv_loop_t*            loop;
         uv_tcp_t              server;
         uv_idle_t             idle;
         uint32_t              seed   = 0;
         bool                  closed = false;
         std::list< conn_ctx > conns;
+
+        rsim_ctx( uv_loop_t* loop, uint32_t seed = 0 )
+          : loop( loop )
+          , seed( seed )
+        {
+        }
 
         uint16_t port()
         {
@@ -188,33 +211,51 @@ struct rsim_ctx
                         c.tick();
         }
 
-        void start()
+        status start()
         {
+                struct sockaddr_in addr;
+                uv_ip4_addr( "127.0.0.1", 0, &addr );
+
+                int r = uv_tcp_init( loop, &server );
+                if ( r != 0 ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio", "Failed to initialize server: %s", uv_strerror( r ) );
+                        return status::init_failed;
+                }
+
+                r = uv_tcp_bind( &server, (const struct sockaddr*) &addr, 0 );
+                if ( r != 0 ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio", "Failed to bind to address: %s", uv_strerror( r ) );
+                        return status::bind_failed;
+                }
                 server.data = this;
                 uv_idle_init( server.loop, &idle );
                 idle.data = this;
                 uv_idle_start( &idle, []( uv_idle_t* h ) {
                         static_cast< rsim_ctx* >( h->data )->tick();
                 } );
-                int r =
-                    uv_listen( (uv_stream_t*) &server, 128, []( uv_stream_t* server, int status ) {
-                            if ( status < 0 ) {
-                                    ASRTL_ERR_LOG(
-                                        "test_rsim", "Listen error: %s", uv_strerror( status ) );
-                                    return;
-                            }
-                            auto& self = *static_cast< rsim_ctx* >( server->data );
-                            auto& ctx  = self.conns.emplace_back( self.seed );
-                            uv_tcp_init( server->loop, &ctx.client );
-                            if ( uv_accept( server, (uv_stream_t*) &ctx.client ) == 0 ) {
-                                    ASRTL_INF_LOG( "test_rsim", "Accepted connection" );
-                                    ctx.start();
-                            } else {
-                                    ctx.close();
-                            }
-                    } );
-                if ( r != 0 )
+                r = uv_listen( (uv_stream_t*) &server, 128, []( uv_stream_t* server, int status ) {
+                        if ( status < 0 ) {
+                                ASRTL_ERR_LOG(
+                                    "test_rsim", "Listen error: %s", uv_strerror( status ) );
+                                return;
+                        }
+                        auto& self = *static_cast< rsim_ctx* >( server->data );
+                        auto& ctx  = self.conns.emplace_back( self.seed );
+                        uv_tcp_init( server->loop, &ctx.client );
+                        if ( uv_accept( server, (uv_stream_t*) &ctx.client ) == 0 ) {
+                                ASRTL_INF_LOG( "test_rsim", "Accepted connection" );
+                                ctx.start();
+                        } else {
+                                ctx.close();
+                        }
+                } );
+                if ( r != 0 ) {
                         ASRTL_ERR_LOG( "test_rsim", "uv_listen failed: %s", uv_strerror( r ) );
+                        return status::listen_failed;
+                }
+                return status::success;
         }
 
         void close()
@@ -229,27 +270,5 @@ struct rsim_ctx
                 uv_close( (uv_handle_t*) &server, nullptr );
         }
 };
-
-inline std::shared_ptr< asrtio::rsim_ctx > make_rsim( uv_loop_t* loop, uint32_t seed = 42 )
-{
-        std::shared_ptr< rsim_ctx > ctx = std::make_shared< rsim_ctx >();
-        ctx->seed                       = seed;
-        struct sockaddr_in addr;
-        uv_ip4_addr( "127.0.0.1", 0, &addr );
-
-        int r = uv_tcp_init( loop, &ctx->server );
-        if ( r != 0 ) {
-                ASRTL_ERR_LOG( "asrtio", "Failed to initialize server: %s", uv_strerror( r ) );
-                return nullptr;
-        }
-
-        r = uv_tcp_bind( &ctx->server, (const struct sockaddr*) &addr, 0 );
-        if ( r != 0 ) {
-                ASRTL_ERR_LOG( "asrtio", "Failed to bind to address: %s", uv_strerror( r ) );
-                return nullptr;
-        }
-
-        return ctx;
-}
 
 }  // namespace asrtio

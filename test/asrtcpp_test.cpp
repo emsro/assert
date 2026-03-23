@@ -14,10 +14,12 @@
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
 #include "../asrtcpp/fmt.hpp"
+#include "../asrtcpp/param.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/util.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "./collector.hpp"
 
 #include <doctest/doctest.h>
 #include <format>
@@ -379,4 +381,43 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
         auto rec = c_diag.take_record();
         REQUIRE( rec != nullptr );
         CHECK_EQ( 99u, rec->line );
+}
+
+// ---------------------------------------------------------------------------
+// param_server wrapper
+
+struct param_server_ctx : paired_ctx
+{
+        collector param_coll;
+
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > param_send{
+            [this]( asrtl_chann_id id, asrtl_rec_span* buff ) {
+                    return sender_collect( &param_coll, id, buff );
+            } };
+
+        asrtc::param_server srv{ ( *c ).node(), param_send, asrtl_default_allocator() };
+};
+
+TEST_CASE_FIXTURE( param_server_ctx, "param_server_node_chained" )
+{
+        CHECK_NE( nullptr, srv.node() );
+        CHECK_EQ( ASRTL_PARAM, srv.node()->chid );
+}
+
+TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "k", asrtl_flat_value_u32( 42 ) );
+
+        srv.set_tree( &tree );
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+
+        REQUIRE_EQ( 1u, param_coll.data.size() );
+        CHECK_EQ( ASRTL_PARAM, param_coll.data.front().id );
+        CHECK_EQ( ASRTL_PARAM_MSG_READY, param_coll.data.front().data[0] );
+        param_coll.data.pop_front();
+
+        asrtl_flat_tree_deinit( &tree );
 }

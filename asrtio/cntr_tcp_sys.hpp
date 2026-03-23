@@ -3,9 +3,12 @@
 #include "../asrtc/status_to_str.h"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
+#include "../asrtcpp/param.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
+#include "./euv.hpp"
+#include "./task.hpp"
 #include "./util.hpp"
 
 #include <chrono>
@@ -17,59 +20,9 @@ namespace asrtio
 struct cntr_tcp_sys
 {
 
-        cntr_tcp_sys( uv_loop_t* l )
-          : loop( l )
-          , tasks( l )
+        cntr_tcp_sys( uv_tcp_t* client )
+          : client( client )
         {
-                connect_req.data = this;
-        }
-
-        void init( sockaddr_in& dest )
-        {
-                std::ignore = uv_tcp_init( loop, &client );
-
-                std::ignore = uv_tcp_connect(
-                    &connect_req,
-                    &client,
-                    (const struct sockaddr*) &dest,
-                    []( uv_connect_t* req, int status ) {
-                            if ( status < 0 ) {
-                                    ASRTL_ERR_LOG(
-                                        "asrtio_main",
-                                        "Connection error: %s",
-                                        uv_strerror( status ) );
-                                    return;
-                            }
-                            auto& sys = *static_cast< cntr_tcp_sys* >( req->data );
-                            sys.start();
-                            ASRTL_INF_LOG( "asrtio_main", "Connected to the system" );
-                    } );
-        }
-
-        void schedule_for_each_test(
-            std::function< void( uint32_t id, std::string_view name ) > cb,
-            std::function< void( uint32_t ) >                           on_count    = {},
-            std::function< void() >                                     on_complete = {} )
-        {
-                auto p         = std::make_unique< test_pool_task >( cntr, std::move( cb ) );
-                p->on_count    = std::move( on_count );
-                p->on_complete = std::move( on_complete );
-                tasks.push( std::move( p ) );
-        }
-
-        void schedule_run_test(
-            uint32_t                                      id,
-            std::function< void() >                       on_start  = {},
-            std::function< void( asrtc::result const& ) > on_result = {} )
-        {
-                auto p = std::make_unique< run_test_task >(
-                    cntr, id, std::move( on_start ), std::move( on_result ) );
-                tasks.push( std::move( p ) );
-        }
-
-        void schedule_call( std::function< void() > func )
-        {
-                tasks.push( std::make_unique< call_function_task >( std::move( func ) ) );
         }
 
         auto take_diag_record()
@@ -77,22 +30,34 @@ struct cntr_tcp_sys
                 return c_diag.take_record();
         }
 
+        asrtc::param_server& param()
+        {
+                return c_param;
+        }
+
+        void set_param_tree( asrtl_flat_tree const* tree, asrtl_flat_id root_id )
+        {
+                c_param.set_tree( tree );
+                std::ignore = c_param.send_ready( root_id );
+        }
+
         void tick()
         {
                 if ( auto s = cntr.tick(); s != ASRTC_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
+                std::ignore = c_param.tick();
         }
 
 
         void start()
         {
-                uv_idle_init( loop, &idle_handle );
+                uv_idle_init( client->loop, &idle_handle );
                 idle_handle.data = this;
                 uv_idle_start( &idle_handle, []( uv_idle_t* h ) {
                         static_cast< cntr_tcp_sys* >( h->data )->tick();
                 } );
-                rx.start( (uv_stream_t*) &client, cntr.node(), [this]( ssize_t nread ) {
+                rx.start( (uv_stream_t*) client, cntr.node(), [this]( ssize_t nread ) {
                         if ( nread == UV_EOF )
                                 ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
                         else
@@ -106,25 +71,20 @@ struct cntr_tcp_sys
 
         void close()
         {
-                if ( closed )
-                        return;
-                closed = true;
                 uv_idle_stop( &idle_handle );
                 uv_close( (uv_handle_t*) &idle_handle, nullptr );
-                tasks.stop();
-                uv_close( (uv_handle_t*) &client, nullptr );
+                uv_close( (uv_handle_t*) client, nullptr );
         }
 
 private:
-        bool                                                             closed = false;
-        uv_loop_t*                                                       loop;
-        uv_connect_t                                                     connect_req;
         uv_idle_t                                                        idle_handle;
-        uv_tcp_t                                                         client;
+        uv_tcp_t*                                                        client;
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
             [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
-                    return rx.write( (uv_stream_t*) &client, id, *buff );
+                    return rx.write( (uv_stream_t*) client, id, *buff );
             } };
+
+public:
         asrtc::controller cntr{
             cntr_send,
             [this]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
@@ -134,36 +94,22 @@ private:
                     return ASRTC_SUCCESS;
             },
             [this]( asrtc::status s ) -> asrtc::status {
+                    // XXX: this should be awaited somewhere.
                     if ( s != ASRTC_SUCCESS )
                             ASRTL_ERR_LOG(
                                 "asrtio_main",
                                 "Controller init failed: %s",
                                 asrtc_status_to_str( s ) );
-                    tasks.start();
                     return s;
             } };
 
 
-        asrtc::diag c_diag{ cntr.node(), cntr_send };
+        asrtc::diag         c_diag{ cntr.node(), cntr_send };
+        asrtc::param_server c_param{ c_diag.node(), cntr_send, asrtl_default_allocator() };
 
-        uv_tasks  tasks;
         cobs_node rx;
 };
 
-inline std::shared_ptr< cntr_tcp_sys > make_tcp_sys(
-    uv_loop_t*       loop,
-    std::string_view host,
-    uint16_t         port )
-{
-        struct sockaddr_in dest;
-        if ( uv_ip4_addr( host.data(), port, &dest ) != 0 ) {
-                ASRTL_ERR_LOG( "asrtio_main", "Invalid address: %s:%u", host.data(), port );
-                return nullptr;
-        }
-        std::shared_ptr< cntr_tcp_sys > sys = std::make_shared< cntr_tcp_sys >( loop );
-        sys->init( dest );
-        return sys;
-}
 
 struct suite_reporter
 {
@@ -174,56 +120,32 @@ struct suite_reporter
         virtual ~suite_reporter() = default;
 };
 
-void run_test_suite(
-    cntr_tcp_sys&           cntr,
-    suite_reporter&         reporter,
-    std::function< void() > on_done = {} )
+inline task< void > run_test_suite( task_ctx& ctx, cntr_tcp_sys& sys, suite_reporter& reporter )
 {
-        struct state_t
-        {
-                uint32_t                                             total  = 0;
-                int                                                  failed = 0;
-                std::vector< std::chrono::steady_clock::time_point > starts;
-                std::function< void() >                              on_done_cb;
-        };
+        while ( !sys.cntr.is_idle() )
+                co_await ecor::suspend;
 
-        auto state        = std::make_shared< state_t >();
-        state->on_done_cb = std::move( on_done );
+        uint32_t count = co_await cntr_query_test_count{ sys.cntr };
+        reporter.on_count( count );
 
-        cntr.schedule_for_each_test(
-            [&cntr, &reporter, state]( uint32_t id, std::string_view name ) {
-                    std::string n{ name };
-                    cntr.schedule_run_test(
-                        id,
-                        [&reporter, state, id, n] {
-                                reporter.on_test_start( n );
-                                state->starts[id] = std::chrono::steady_clock::now();
-                        },
-                        [&reporter, &cntr, state, n]( asrtc::result const& res ) {
-                                while ( auto rec = cntr.take_diag_record() )
-                                        reporter.on_diagnostic( rec->file, rec->line );
-                                using namespace std::chrono;
-                                double ms = duration_cast< duration< double, std::milli > >(
-                                                steady_clock::now() - state->starts[res.test_id] )
-                                                .count();
-                                bool passed = ( res.res == ASRTC_TEST_SUCCESS );
-                                if ( !passed )
-                                        ++state->failed;
-                                reporter.on_test_done( n, passed, ms );
-                        } );
-            },
-            [&reporter, state]( uint32_t count ) {
-                    state->total = count;
-                    state->starts.resize( count );
-                    reporter.on_count( count );
-            },
-            [state, &cntr] {
-                    cntr.schedule_call( [state] {
-                            ASRTL_INF_LOG( "asrtio_main", "All tasks completed, shutting down" );
-                            if ( state->on_done_cb )
-                                    state->on_done_cb();
-                    } );
-            } );
+        for ( uint32_t i = 0; i < count; ++i ) {
+                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr, i };
+                reporter.on_test_start( name );
+                asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid };
+
+                while ( auto rec = sys.take_diag_record() )
+                        reporter.on_diagnostic( rec->file, rec->line );
+                using namespace std::chrono;
+                double ms =
+                    duration_cast< duration< double, std::milli > >(
+                        std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point{} )
+                        .count();
+                bool passed = ( res.res == ASRTC_TEST_SUCCESS );
+                reporter.on_test_done( name, passed, ms );
+        }
+
+        co_return;
 }
+
 
 }  // namespace asrtio

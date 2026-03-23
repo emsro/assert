@@ -5,7 +5,7 @@
 // Simulates a test runner so you can see the bar, status line and scrolling
 // log in action.
 
-#include "../asrtio/deps/pbar.hpp"
+#include "../asrtio/pbar.hpp"
 
 #include <CLI/CLI.hpp>
 #include <chrono>

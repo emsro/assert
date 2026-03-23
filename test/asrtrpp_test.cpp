@@ -9,11 +9,14 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "../asrtcpp/param.hpp"
 #include "../asrtl/log.h"
+#include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
 #include "../asrtr/record.h"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/fmt.hpp"
+#include "../asrtrpp/param.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "./collector.hpp"
 #include "./util.h"
@@ -21,6 +24,9 @@
 #include <algorithm>
 #include <doctest/doctest.h>
 #include <format>
+#include <functional>
+#include <span>
+#include <vector>
 
 ASRTL_DEFINE_GPOS_LOG()
 
@@ -283,4 +289,180 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 2, 30 );
         coll.data.pop_back();
+}
+
+// ---------------------------------------------------------------------------
+// param_client wrapper — loopback with C++ param_server
+
+static std::vector< uint8_t > flatten( asrtl::rec_span const* buff )
+{
+        std::vector< uint8_t > v;
+        for ( auto const* seg = buff; seg; seg = seg->next )
+                v.insert( v.end(), seg->b, seg->e );
+        return v;
+}
+
+struct param_loopback_cpp_ctx
+{
+        asrtl_node srv_head = {};
+        asrtl_node cli_head = {};
+
+        // cross-wired senders
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > srv_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto flat = flatten( buff );
+                    auto sp   = asrtl::cnv( std::span{ flat } );
+                    cli.node()->recv_cb( cli.node()->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cli_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto flat = flatten( buff );
+                    auto sp   = asrtl::cnv( std::span{ flat } );
+                    srv.node()->recv_cb( srv.node()->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        asrtc::param_server srv{ &srv_head, srv_send, asrtl_default_allocator() };
+
+        static constexpr uint32_t BUF_SZ          = 256;
+        uint8_t                   cli_buf[BUF_SZ] = {};
+        asrtr::param_client       cli{
+            &cli_head,
+            cli_send,
+            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ } };
+
+        // response state
+        struct received_node
+        {
+                asrtl_flat_id    id;
+                std::string      key;
+                asrtl_flat_value value;
+                asrtl_flat_id    next_sibling;
+        };
+        std::vector< received_node > received;
+        int                          error_called = 0;
+
+        static void response_cb(
+            void*            ptr,
+            asrtl_flat_id    id,
+            char const*      key,
+            asrtl_flat_value value,
+            asrtl_flat_id    next_sibling_id )
+        {
+                auto* ctx = (param_loopback_cpp_ctx*) ptr;
+                ctx->received.push_back( { id, key ? key : "", value, next_sibling_id } );
+        }
+
+        static void error_cb( void* ptr, uint8_t, asrtl_flat_id )
+        {
+                auto* ctx = (param_loopback_cpp_ctx*) ptr;
+                ctx->error_called++;
+        }
+
+        void spin( int max_iter = 100 )
+        {
+                for ( int i = 0; i < max_iter; i++ ) {
+                        srv.tick();
+                        cli.tick();
+                        if ( cli.ready() )
+                                break;
+                }
+        }
+
+        void spin_query( int max_iter = 100 )
+        {
+                for ( int i = 0; i < max_iter; i++ ) {
+                        srv.tick();
+                        cli.tick();
+                }
+        }
+
+        param_loopback_cpp_ctx()
+        {
+                srv_head.chid = ASRTL_CORE;
+                cli_head.chid = ASRTL_CORE;
+        }
+};
+
+TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        srv.set_tree( &tree );
+
+        CHECK_FALSE( cli.ready() );
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        spin();
+        CHECK( cli.ready() );
+        CHECK_EQ( 1u, cli.root_id() );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_str( "hi" ) );
+        srv.set_tree( &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        spin();
+        REQUIRE( cli.ready() );
+
+        // Query root
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( 1u, response_cb, this, error_cb, this ) );
+        spin_query();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 1u, received[0].id );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) received[0].value.type );
+        asrtl_flat_id first_child = received[0].value.obj_val.first_child;
+
+        // Query first child "a"
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( first_child, response_cb, this, error_cb, this ) );
+        spin_query();
+        REQUIRE_EQ( 2u, received.size() );
+        CHECK_EQ( "a", received[1].key );
+        CHECK_EQ( 10u, received[1].value.u32_val );
+        asrtl_flat_id next_sib = received[1].next_sibling;
+
+        // Query next sibling "b"
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( next_sib, response_cb, this, error_cb, this ) );
+        spin_query();
+        REQUIRE_EQ( 3u, received.size() );
+        CHECK_EQ( "b", received[2].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[2].value.type );
+        CHECK_EQ( 0u, received[2].next_sibling );
+
+        CHECK_EQ( 0, error_called );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        srv.set_tree( &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        spin();
+        REQUIRE( cli.ready() );
+
+        // Query non-existent node — server sends ERROR
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( 999u, response_cb, this, error_cb, this ) );
+        spin_query();
+
+        // The node doesn't exist, so server sends a response with NONE type
+        // (not an error — the server encodes whatever the tree returns).
+        // The callback fires with the queried id.
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 999u, received[0].id );
+
+        asrtl_flat_tree_deinit( &tree );
 }

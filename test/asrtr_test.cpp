@@ -14,6 +14,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 #include "../asrtr/diag.h"
+#include "../asrtr/param.h"
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.hpp"
@@ -843,4 +844,313 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_recv_truncated" )
         asrtl_add_u16( &sp.b, 0xFFFF );  // extra bytes after a no-payload message
         rst = asrtr_reactor_recv( &reac, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
+}
+
+// ============================================================================
+// asrtr_param_client — reactor PARAM channel (Phase 3)
+// ============================================================================
+
+static inline enum asrtl_status call_rtr_param_client_recv(
+    struct asrtr_param_client* p,
+    uint8_t*                   b,
+    uint8_t*                   e )
+{
+        return p->node.recv_cb( p->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
+}
+
+static uint8_t* build_param_ready( uint8_t* buf, asrtl_flat_id root_id )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_READY;
+        asrtl_add_u32( &p, root_id );
+        return p;
+}
+
+static uint8_t* build_param_error( uint8_t* buf, uint8_t error_code, asrtl_flat_id node_id )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_ERROR;
+        *p++       = error_code;
+        asrtl_add_u32( &p, node_id );
+        return p;
+}
+
+// Build a RESPONSE payload: msg_id + nodes + trailing next_sibling_id
+// Each node: u32 id | key\0 | u8 type | value bytes
+static uint8_t* build_param_response_u32(
+    uint8_t*      buf,
+    asrtl_flat_id node_id,
+    char const*   key,
+    uint32_t      value,
+    asrtl_flat_id next_sibling_id )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_RESPONSE;
+        asrtl_add_u32( &p, node_id );
+        size_t klen = strlen( key );
+        memcpy( p, key, klen );
+        p += klen;
+        *p++ = '\0';
+        *p++ = ASRTL_FLAT_VALUE_TYPE_U32;
+        asrtl_add_u32( &p, value );
+        asrtl_add_u32( &p, next_sibling_id );
+        return p;
+}
+
+struct param_client_ctx
+{
+        static constexpr uint32_t BUF_SZ = 256;
+
+        struct asrtl_node         head            = {};
+        struct asrtr_param_client client          = {};
+        uint8_t                   msg_buf[BUF_SZ] = {};
+        collector                 coll;
+        asrtl_sender              sendr = {};
+
+        // response callback state
+        int           resp_called = 0;
+        asrtl_flat_id resp_id     = 0;
+        std::string   resp_key;
+        uint32_t      resp_u32_val  = 0;
+        uint8_t       resp_type     = 0;
+        asrtl_flat_id resp_next_sib = 0;
+
+        static void response_cb(
+            void*                   ptr,
+            asrtl_flat_id           id,
+            char const*             key,
+            struct asrtl_flat_value value,
+            asrtl_flat_id           next_sibling_id )
+        {
+                auto* ctx = (param_client_ctx*) ptr;
+                ctx->resp_called++;
+                ctx->resp_id       = id;
+                ctx->resp_key      = key ? key : "";
+                ctx->resp_type     = (uint8_t) value.type;
+                ctx->resp_u32_val  = value.u32_val;
+                ctx->resp_next_sib = next_sibling_id;
+        }
+
+        // error callback state
+        uint8_t       error_code    = 0;
+        asrtl_flat_id error_node_id = 0;
+        int           error_called  = 0;
+
+        static void error_cb( void* ptr, uint8_t code, asrtl_flat_id nid )
+        {
+                auto* ctx          = (param_client_ctx*) ptr;
+                ctx->error_code    = code;
+                ctx->error_node_id = nid;
+                ctx->error_called++;
+        }
+
+        // helpers
+        void make_ready( asrtl_flat_id root_id = 1u )
+        {
+                uint8_t buf[8];
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS,
+                    call_rtr_param_client_recv( &client, buf, build_param_ready( buf, root_id ) ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+                coll.data.clear();
+        }
+
+        param_client_ctx()
+        {
+                head.chid = ASRTL_CORE;
+                setup_sender_collector( &sendr, &coll );
+                struct asrtl_span mb = { .b = msg_buf, .e = msg_buf + BUF_SZ };
+                REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, sendr, mb ) );
+        }
+        ~param_client_ctx()
+        {
+                asrtr_param_client_deinit( &client );
+        }
+};
+
+TEST_CASE( "asrtr_param_client_init" )
+{
+        struct asrtl_node head            = {};
+        head.chid                         = ASRTL_CORE;
+        asrtl_sender              null_s  = {};
+        struct asrtr_param_client client  = {};
+        uint8_t                   buf[64] = {};
+        struct asrtl_span         mb      = { .b = buf, .e = buf + sizeof buf };
+        struct asrtl_span         bad     = { .b = nullptr, .e = nullptr };
+
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( NULL, &head, null_s, mb ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, NULL, null_s, mb ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, &head, null_s, bad ) );
+
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, null_s, mb ) );
+        CHECK_EQ( ASRTL_PARAM, client.node.chid );
+        CHECK_NE( nullptr, (void*) (uintptr_t) client.node.recv_cb );
+        CHECK_EQ( &client.node, head.next );
+        CHECK_EQ( 0, client.ready );
+        asrtr_param_client_deinit( &client );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_ready_sends_ack_and_stores_root" )
+{
+        uint8_t buf[8];
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            call_rtr_param_client_recv( &client, buf, build_param_ready( buf, 3u ) ) );
+        CHECK_EQ( 0, client.ready );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+
+        // READY_ACK sent with capacity as big-endian u32
+        REQUIRE_EQ( 1u, coll.data.size() );
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM, msg.id );
+        REQUIRE_EQ( 5u, msg.data.size() );
+        CHECK_EQ( ASRTL_PARAM_MSG_READY_ACK, msg.data[0] );
+        CHECK_EQ( 0u, msg.data[1] );
+        CHECK_EQ( 0u, msg.data[2] );
+        CHECK_EQ( 1u, msg.data[3] );  // 256 = 0x00000100
+        CHECK_EQ( 0u, msg.data[4] );
+
+        CHECK_EQ( 1, client.ready );
+        CHECK_EQ( 3u, asrtr_param_client_root_id( &client ) );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_query_before_ready_returns_error" )
+{
+        CHECK_EQ(
+            ASRTL_ARG_ERR,
+            asrtr_param_client_query( &client, 2u, nullptr, nullptr, nullptr, nullptr ) );
+        CHECK( coll.data.empty() );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_query_cache_miss_sends_wire" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 2u, response_cb, this, error_cb, this ) );
+        // query itself does NOT send — tick does the cache lookup + sends on miss
+        CHECK( coll.data.empty() );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        REQUIRE_EQ( 1u, coll.data.size() );
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM, msg.id );
+        REQUIRE_EQ( 5u, msg.data.size() );
+        CHECK_EQ( ASRTL_PARAM_MSG_QUERY, msg.data[0] );
+        // node_id = 2 big-endian
+        CHECK_EQ( 0u, msg.data[1] );
+        CHECK_EQ( 0u, msg.data[2] );
+        CHECK_EQ( 0u, msg.data[3] );
+        CHECK_EQ( 2u, msg.data[4] );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_response_delivers_one_node" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 10u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // cache miss → wire
+        coll.data.clear();
+
+        // Inject a RESPONSE with one node: id=10, key="abc", type=U32, value=42, next_sib=0
+        uint8_t  rbuf[64];
+        uint8_t* re = build_param_response_u32( rbuf, 10u, "abc", 42u, 0u );
+        CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
+
+        CHECK_EQ( 0, resp_called );  // pending
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( 1, resp_called );
+        CHECK_EQ( 10u, resp_id );
+        CHECK_EQ( "abc", resp_key );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_U32, resp_type );
+        CHECK_EQ( 42u, resp_u32_val );
+        CHECK_EQ( 0u, resp_next_sib );
+
+        // callbacks cleared after delivery
+        CHECK_EQ( nullptr, (void*) (uintptr_t) client.pending_cb );
+        CHECK_EQ( nullptr, (void*) (uintptr_t) client.pending_error_cb );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_hit_delivers_without_wire" )
+{
+        make_ready( 1u );
+
+        // First query — cache miss, sends wire, gets response
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 10u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // wire
+        coll.data.clear();
+
+        uint8_t  rbuf[64];
+        uint8_t* re = build_param_response_u32( rbuf, 10u, "abc", 42u, 0u );
+        CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // delivers
+        resp_called = 0;
+
+        // Second query for same node — should be a cache hit, no wire sent
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 10u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+
+        CHECK_EQ( 1, resp_called );
+        CHECK_EQ( 10u, resp_id );
+        CHECK_EQ( "abc", resp_key );
+        CHECK_EQ( 42u, resp_u32_val );
+        // no wire message sent
+        CHECK( coll.data.empty() );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_error_dispatches_and_clears" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 5u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // cache miss → wire
+        coll.data.clear();
+
+        // Inject PARAM_ERROR
+        uint8_t buf[8];
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            call_rtr_param_client_recv(
+                &client, buf, build_param_error( buf, ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, 5u ) ) );
+        CHECK_EQ( 0, error_called );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( 1, error_called );
+        CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, error_code );
+        CHECK_EQ( 5u, error_node_id );
+
+        // callbacks cleared after error dispatch
+        CHECK_EQ( nullptr, (void*) (uintptr_t) client.pending_cb );
+        CHECK_EQ( nullptr, (void*) (uintptr_t) client.pending_error_cb );
+}
+
+TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_next_sibling_stored" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 10u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // wire
+        coll.data.clear();
+
+        // RESPONSE with next_sibling_id = 99
+        uint8_t  rbuf[64];
+        uint8_t* re = build_param_response_u32( rbuf, 10u, "x", 7u, 99u );
+        CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
+        CHECK_EQ( 99u, client.cache_next_sibling );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( 1, resp_called );
+        CHECK_EQ( 99u, resp_next_sib );
 }

@@ -12,6 +12,7 @@
 #include "../asrtl/cobs.h"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
+#include "../asrtl/param_proto.h"
 #include "../asrtl/util.h"
 
 #include <memory>
@@ -1680,3 +1681,25 @@ TEST_CASE( "flat_tree_query_next_sibling_chain" )
         CHECK_EQ( (asrtl_flat_id) 0, r.next_sibling );
         asrtl_flat_tree_deinit( &tree );
 }
+
+// ============================================================================
+// param_proto — encode/decode helpers
+// ============================================================================
+
+// Captures a single asrtl_rec_span chain into a flat byte vector.
+struct ParamCapture
+{
+        uint8_t  buf[512];
+        uint32_t len = 0;
+
+        static enum asrtl_status cb( void* ptr, struct asrtl_rec_span* sp )
+        {
+                auto* self = static_cast< ParamCapture* >( ptr );
+                for ( ; sp; sp = sp->next ) {
+                        size_t n = (size_t) ( sp->e - sp->b );
+                        memcpy( self->buf + self->len, sp->b, n );
+                        self->len += (uint32_t) n;
+                }
+                return ASRTL_SUCCESS;
+        }
+};

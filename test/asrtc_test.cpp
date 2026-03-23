@@ -13,10 +13,12 @@
 #include "../asrtc/default_allocator.h"
 #include "../asrtc/default_error_cb.h"
 #include "../asrtc/diag.h"
+#include "../asrtc/param.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 #include "../asrtl/util.h"
+#include "../asrtr/param.h"
 #include "./collector.hpp"
 #include "./stub_allocator.hpp"
 #include "./util.h"
@@ -1149,4 +1151,634 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         check_recv_and_spin( &cntr, buf, sp.b );
         CHECK_EQ( ASRTC_TEST_SUCCESS, res.res );
         CHECK_EQ( coll.data.empty(), true );
+}
+
+// ============================================================================
+// asrtc_param_server — controller PARAM channel (Phase 2)
+// ============================================================================
+
+static struct asrtl_flat_tree make_param_tree()
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, alloc, 8, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 10 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "beta", asrtl_flat_value_str( "hi" ) );
+        asrtl_flat_tree_append( &tree, 1, 4, "gamma", asrtl_flat_value_bool( 1 ) );
+        return tree;
+}
+
+static inline enum asrtl_status call_param_recv(
+    struct asrtc_param_server* p,
+    uint8_t*                   b,
+    uint8_t*                   e )
+{
+        return p->node.recv_cb( p->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
+}
+
+// Build a raw READY_ACK message into buf; return past-end pointer.
+static uint8_t* build_ready_ack( uint8_t* buf, uint32_t max_msg_size )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_READY_ACK;
+        asrtl_add_u32( &p, max_msg_size );
+        return p;
+}
+
+// Build a raw QUERY message into buf; return past-end pointer.
+static uint8_t* build_query( uint8_t* buf, asrtl_flat_id node_id )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_QUERY;
+        asrtl_add_u32( &p, node_id );
+        return p;
+}
+
+struct param_ctx
+{
+        struct asrtl_node         head      = {};
+        stub_allocator_ctx        alloc_ctx = {};
+        asrtl_allocator           alloc     = {};
+        struct asrtc_param_server param     = {};
+        collector                 coll;
+        asrtl_sender              sendr = {};
+
+        param_ctx()
+        {
+                head.chid = ASRTL_CORE;
+                alloc     = asrtl_stub_allocator( &alloc_ctx );
+                setup_sender_collector( &sendr, &coll );
+                REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &param, &head, sendr, alloc ) );
+        }
+        ~param_ctx()
+        {
+                asrtc_param_server_deinit( &param );
+        }
+};
+
+TEST_CASE( "asrtc_param_server_init" )
+{
+        struct asrtl_node head           = {};
+        head.chid                        = ASRTL_CORE;
+        asrtl_sender              null_s = {};
+        struct asrtc_param_server param2 = {};
+
+        CHECK_EQ(
+            ASRTC_CNTR_INIT_ERR,
+            asrtc_param_server_init( NULL, &head, null_s, asrtl_default_allocator() ) );
+        CHECK_EQ(
+            ASRTC_CNTR_INIT_ERR,
+            asrtc_param_server_init( &param2, NULL, null_s, asrtl_default_allocator() ) );
+
+        CHECK_EQ(
+            ASRTC_SUCCESS,
+            asrtc_param_server_init( &param2, &head, null_s, asrtl_default_allocator() ) );
+        CHECK_EQ( ASRTL_PARAM, param2.node.chid );
+        CHECK_NE( nullptr, (void*) (uintptr_t) param2.node.recv_cb );
+        CHECK_EQ( &param2.node, head.next );
+        CHECK_EQ( nullptr, param2.tree );
+        CHECK_EQ( nullptr, param2.enc_buff );
+        CHECK_EQ( 0, param2.ack_received );
+        asrtc_param_server_deinit( &param2 );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_send_ready_no_tree" )
+{
+        CHECK_EQ( ASRTL_ARG_ERR, asrtc_param_server_send_ready( &param, 1u ) );
+        CHECK( coll.data.empty() );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_send_ready_invalid_id" )
+{
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+        CHECK_EQ( ASRTL_ARG_ERR, asrtc_param_server_send_ready( &param, 999u ) );
+        CHECK( coll.data.empty() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_send_ready_encodes_correctly" )
+{
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &param, 1u ) );
+        REQUIRE_EQ( 1u, coll.data.size() );
+
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM, msg.id );
+        REQUIRE_EQ( 5u, msg.data.size() );
+        CHECK_EQ( ASRTL_PARAM_MSG_READY, msg.data[0] );
+        // root_id = 1 as big-endian u32
+        CHECK_EQ( 0u, msg.data[1] );
+        CHECK_EQ( 0u, msg.data[2] );
+        CHECK_EQ( 0u, msg.data[3] );
+        CHECK_EQ( 1u, msg.data[4] );
+
+        CHECK_EQ( 0, param.ack_received );  // reset on send_ready
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_allocates_buffer" )
+{
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+        CHECK_EQ( 1, param.ack_received );
+        CHECK_EQ( 256u, param.max_msg_size );
+        CHECK_NE( nullptr, param.enc_buff );
+        CHECK_EQ( 1u, alloc_ctx.alloc_calls );
+}
+
+// BUG: handle_ready_ack does not guard against overwriting an already-pending
+// event.  A second recv (without a tick) should return ASRTL_RECV_ERR but
+// currently returns ASRTL_SUCCESS, so this test is expected to FAIL.
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_while_pending_returns_error" )
+{
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
+        // pending == PENDING_READY_ACK; tick not called yet
+        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_ready_ack( buf, 512u ) ) );
+        // Consume the first pending so the fixture destructor stays clean
+        asrtc_param_server_tick( &param );
+}
+
+// BUG: handle_query does not guard against overwriting an already-pending
+// event.  A second recv (without a tick) should return ASRTL_RECV_ERR but
+// currently returns ASRTL_SUCCESS, so this test is expected to FAIL.
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_query_while_pending_returns_error" )
+{
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        uint8_t buf[8];
+        // Handshake so ack_received=1 and enc_buff is ready
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+
+        // First query stores pending
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        // pending == PENDING_QUERY; tick not called yet
+        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_query( buf, 3u ) ) );
+        // Consume the first pending so the fixture destructor stays clean
+        asrtc_param_server_tick( &param );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_before_ack_returns_error" )
+{
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        CHECK( coll.data.empty() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_produces_response" )
+{
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        uint8_t buf[8];
+        // Handshake
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+
+        // Query node 2 ("alpha", u32=10)
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+        REQUIRE_EQ( 1u, coll.data.size() );
+
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM, msg.id );
+        CHECK_EQ( ASRTL_PARAM_MSG_RESPONSE, msg.data[0] );
+
+        // Verify wire format: first node id should be 2 (big-endian u32 at offset 1)
+        REQUIRE( msg.data.size() > 5u );
+        uint32_t first_id = ( (uint32_t) msg.data[1] << 24 ) | ( (uint32_t) msg.data[2] << 16 ) |
+                            ( (uint32_t) msg.data[3] << 8 ) | (uint32_t) msg.data[4];
+        CHECK_EQ( 2u, first_id );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_multi_batch" )
+{
+        // Use a small max_msg_size so only one node fits per batch.
+        // Node 2: id(4) + "alpha\0"(6) + type(1) + u32(4) = 15 node bytes
+        // Full message: msg_id(1) + 15 + next_sib(4) = 20 bytes.
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 20u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+
+        // First query: only node 2 fits → next_sibling_id points to node 3
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+        REQUIRE_EQ( 1u, coll.data.size() );
+
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM_MSG_RESPONSE, msg.data[0] );
+        REQUIRE_EQ( 20u, msg.data.size() );  // msg_id(1) + node(15) + next_sib(4)
+        // First node id = 2
+        uint32_t nid = ( (uint32_t) msg.data[1] << 24 ) | ( (uint32_t) msg.data[2] << 16 ) |
+                       ( (uint32_t) msg.data[3] << 8 ) | (uint32_t) msg.data[4];
+        CHECK_EQ( 2u, nid );
+        // Trailing next_sibling_id = 3 (last 4 bytes)
+        uint32_t nsib = ( (uint32_t) msg.data[16] << 24 ) | ( (uint32_t) msg.data[17] << 16 ) |
+                        ( (uint32_t) msg.data[18] << 8 ) | (uint32_t) msg.data[19];
+        CHECK_EQ( 3u, nsib );  // next batch starts at node 3
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_oversize_returns_error" )
+{
+        // max_msg_size=11 — minimum struct size but key "alpha" doesn't fit
+        struct asrtl_flat_tree tree = make_param_tree();
+        asrtc_param_server_set_tree( &param, &tree );
+
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 11u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+
+        REQUIRE_EQ( 1u, coll.data.size() );
+        auto& msg = coll.data.front();
+        CHECK_EQ( ASRTL_PARAM, msg.id );
+        REQUIRE_EQ( 6u, msg.data.size() );
+        CHECK_EQ( ASRTL_PARAM_MSG_ERROR, msg.data[0] );
+        CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, msg.data[1] );
+        // node_id = 2 as big-endian u32
+        CHECK_EQ( 0u, msg.data[2] );
+        CHECK_EQ( 0u, msg.data[3] );
+        CHECK_EQ( 0u, msg.data[4] );
+        CHECK_EQ( 2u, msg.data[5] );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_deinit_frees_buffer" )
+{
+        uint8_t buf[8];
+        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 64u ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param ) );
+        CHECK_NE( nullptr, param.enc_buff );
+        CHECK_EQ( 1u, alloc_ctx.alloc_calls );
+        CHECK_EQ( 0u, alloc_ctx.free_calls );
+
+        asrtc_param_server_deinit( &param );
+        CHECK_EQ( nullptr, param.enc_buff );
+        CHECK_EQ( 1u, alloc_ctx.free_calls );
+
+        // Prevent double-free in fixture destructor
+        alloc_ctx.free_calls = 0;
+}
+
+// ============================================================================
+// Phase 4 — C loopback integration test (server ↔ client)
+// ============================================================================
+
+struct param_loopback_ctx
+{
+        // Both sides share one head each (CORE placeholder + PARAM node)
+        struct asrtl_node         srv_head            = {};
+        struct asrtl_node         cli_head            = {};
+        stub_allocator_ctx        alloc_ctx           = {};
+        asrtl_allocator           alloc               = {};
+        struct asrtc_param_server server              = {};
+        struct asrtr_param_client client              = {};
+        static constexpr uint32_t CLI_BUF_SZ          = 256;
+        uint8_t                   cli_buf[CLI_BUF_SZ] = {};
+
+        // Cross-wired senders: server sends → client recv, client sends → server recv
+        asrtl_sender srv_sendr = {};
+        asrtl_sender cli_sendr = {};
+
+        static enum asrtl_status srv_to_cli(
+            void* ptr,
+            asrtl_chann_id /*id*/,
+            struct asrtl_rec_span* buff )
+        {
+                auto*             ctx = (param_loopback_ctx*) ptr;
+                uint8_t           flat[512];
+                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
+                asrtl_rec_span_to_span( &sp, buff );
+                struct asrtl_span msg = { .b = flat, .e = sp.b };
+                return ctx->client.node.recv_cb( ctx->client.node.recv_ptr, msg );
+        }
+
+        static enum asrtl_status cli_to_srv(
+            void* ptr,
+            asrtl_chann_id /*id*/,
+            struct asrtl_rec_span* buff )
+        {
+                auto*             ctx = (param_loopback_ctx*) ptr;
+                uint8_t           flat[512];
+                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
+                asrtl_rec_span_to_span( &sp, buff );
+                struct asrtl_span msg = { .b = flat, .e = sp.b };
+                return ctx->server.node.recv_cb( ctx->server.node.recv_ptr, msg );
+        }
+
+        // Response callback state
+        struct received_node
+        {
+                asrtl_flat_id    id;
+                std::string      key;
+                asrtl_flat_value value;
+                asrtl_flat_id    next_sibling;
+        };
+        std::vector< received_node > received;
+        int                          error_called = 0;
+
+        static void response_cb(
+            void*                   ptr,
+            asrtl_flat_id           id,
+            char const*             key,
+            struct asrtl_flat_value value,
+            asrtl_flat_id           next_sibling_id )
+        {
+                auto* ctx = (param_loopback_ctx*) ptr;
+                ctx->received.push_back( { id, key ? key : "", value, next_sibling_id } );
+        }
+
+        static void error_cb( void* ptr, uint8_t /*code*/, asrtl_flat_id /*nid*/ )
+        {
+                auto* ctx = (param_loopback_ctx*) ptr;
+                ctx->error_called++;
+        }
+
+        // Tick both sides up to N times until neither has pending work
+        void spin( int max_iter = 100 )
+        {
+                for ( int i = 0; i < max_iter; i++ ) {
+                        asrtc_param_server_tick( &server );
+                        asrtr_param_client_tick( &client );
+                        if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
+                             server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
+                                break;
+                }
+        }
+
+        param_loopback_ctx()
+        {
+                srv_head.chid = ASRTL_CORE;
+                cli_head.chid = ASRTL_CORE;
+                alloc         = asrtl_stub_allocator( &alloc_ctx );
+                srv_sendr     = { .ptr = this, .cb = srv_to_cli };
+                cli_sendr     = { .ptr = this, .cb = cli_to_srv };
+                REQUIRE_EQ(
+                    ASRTC_SUCCESS,
+                    asrtc_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
+                struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + CLI_BUF_SZ };
+                REQUIRE_EQ(
+                    ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, cli_sendr, mb ) );
+        }
+
+        ~param_loopback_ctx()
+        {
+                asrtr_param_client_deinit( &client );
+                asrtc_param_server_deinit( &server );
+        }
+};
+
+TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
+{
+        // Build 3-level tree:
+        //   root (OBJECT, id=1)
+        //     ├── "sub" (OBJECT, id=2)
+        //     │     ├── "x" (U32=100, id=4)
+        //     │     └── "y" (STR="hello", id=5)
+        //     └── "b" (BOOL=1, id=3)
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "sub", asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_bool( 1 ) );
+        asrtl_flat_tree_append( &tree, 2, 4, "x", asrtl_flat_value_u32( 100 ) );
+        asrtl_flat_tree_append( &tree, 2, 5, "y", asrtl_flat_value_str( "hello" ) );
+
+        asrtc_param_server_set_tree( &server, &tree );
+
+        // Server sends READY
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u ) );
+        // Spin: READY → client gets root_id, sends READY_ACK → server allocates
+        spin();
+        CHECK_EQ( 1, client.ready );
+        CHECK_EQ( 1u, asrtr_param_client_root_id( &client ) );
+
+        // Recursive traversal: collect all nodes
+        // Query root
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 1u, response_cb, this, error_cb, this ) );
+        spin();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 1u, received[0].id );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) received[0].value.type );
+        asrtl_flat_id first_child = received[0].value.obj_val.first_child;
+        CHECK_NE( 0u, first_child );  // should be 2
+
+        // Query first child of root ("sub", id=2)
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, first_child, response_cb, this, error_cb, this ) );
+        spin();
+        REQUIRE_EQ( 2u, received.size() );
+        CHECK_EQ( 2u, received[1].id );
+        CHECK_EQ( "sub", received[1].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) received[1].value.type );
+        asrtl_flat_id sub_first_child = received[1].value.obj_val.first_child;
+        asrtl_flat_id sub_next_sib    = received[1].next_sibling;
+        CHECK_NE( 0u, sub_first_child );  // should be 4
+        CHECK_NE( 0u, sub_next_sib );     // should be 3
+
+        // Query next sibling of "sub" → "b" (id=3)
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, sub_next_sib, response_cb, this, error_cb, this ) );
+        spin();
+        REQUIRE_EQ( 3u, received.size() );
+        CHECK_EQ( 3u, received[2].id );
+        CHECK_EQ( "b", received[2].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_BOOL, (uint8_t) received[2].value.type );
+        CHECK_EQ( 1u, received[2].value.u32_val );
+        CHECK_EQ( 0u, received[2].next_sibling );  // last sibling
+
+        // Query children of "sub": "x" (id=4)
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query(
+                &client, sub_first_child, response_cb, this, error_cb, this ) );
+        spin();
+        REQUIRE_EQ( 4u, received.size() );
+        CHECK_EQ( 4u, received[3].id );
+        CHECK_EQ( "x", received[3].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_U32, (uint8_t) received[3].value.type );
+        CHECK_EQ( 100u, received[3].value.u32_val );
+        asrtl_flat_id x_next_sib = received[3].next_sibling;
+        CHECK_NE( 0u, x_next_sib );  // should be 5
+
+        // Query "y" (id=5)
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, x_next_sib, response_cb, this, error_cb, this ) );
+        spin();
+        REQUIRE_EQ( 5u, received.size() );
+        CHECK_EQ( 5u, received[4].id );
+        CHECK_EQ( "y", received[4].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[4].value.type );
+        CHECK_EQ( 0u, received[4].next_sibling );  // last sibling
+
+        // No errors throughout
+        CHECK_EQ( 0, error_called );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "param_loopback_multi_batch" )
+{
+        // Small buffer (25 bytes) forces server to split siblings across batches.
+        // Node wire size for "cN" U32 child: id(4)+"cN\0"(3)+type(1)+val(4) = 12
+        // max_msg_size=25: msg_id(1) + 20 node space + 4 trailer → fits 1 node (12<20).
+        // Actually 2×12=24>20 so only 1 fits per batch.  4 children → 4 batches.
+        // Use 30 to fit 2: 30-1-4=25, 2×12=24<25 → 2 per batch, 4 children → 2 batches.
+        static constexpr uint32_t SMALL_BUF = 30;
+
+        struct asrtl_node         srv_head           = {};
+        struct asrtl_node         cli_head           = {};
+        stub_allocator_ctx        alloc_ctx          = {};
+        asrtl_allocator           alloc              = {};
+        struct asrtc_param_server server             = {};
+        struct asrtr_param_client client             = {};
+        uint8_t                   cli_buf[SMALL_BUF] = {};
+
+        struct loopback_ptrs
+        {
+                asrtc_param_server* server;
+                asrtr_param_client* client;
+        } cross = { &server, &client };
+
+        auto srv_to_cli =
+            []( void* ptr, asrtl_chann_id, struct asrtl_rec_span* buff )->enum asrtl_status
+        {
+                auto*             c = (loopback_ptrs*) ptr;
+                uint8_t           flat[512];
+                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
+                asrtl_rec_span_to_span( &sp, buff );
+                struct asrtl_span msg = { .b = flat, .e = sp.b };
+                return c->client->node.recv_cb( c->client->node.recv_ptr, msg );
+        };
+
+        auto cli_to_srv =
+            []( void* ptr, asrtl_chann_id, struct asrtl_rec_span* buff )->enum asrtl_status
+        {
+                auto*             c = (loopback_ptrs*) ptr;
+                uint8_t           flat[512];
+                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
+                asrtl_rec_span_to_span( &sp, buff );
+                struct asrtl_span msg = { .b = flat, .e = sp.b };
+                return c->server->node.recv_cb( c->server->node.recv_ptr, msg );
+        };
+
+        srv_head.chid = ASRTL_CORE;
+        cli_head.chid = ASRTL_CORE;
+        alloc         = asrtl_stub_allocator( &alloc_ctx );
+
+        asrtl_sender ssend = { .ptr = &cross, .cb = srv_to_cli };
+        asrtl_sender csend = { .ptr = &cross, .cb = cli_to_srv };
+
+        REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
+        struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
+        REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, csend, mb ) );
+
+        // Tree: root(OBJECT,1) → 4 children (U32, ids 2..5)
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "c1", asrtl_flat_value_u32( 10 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "c2", asrtl_flat_value_u32( 20 ) );
+        asrtl_flat_tree_append( &tree, 1, 4, "c3", asrtl_flat_value_u32( 30 ) );
+        asrtl_flat_tree_append( &tree, 1, 5, "c4", asrtl_flat_value_u32( 40 ) );
+        asrtc_param_server_set_tree( &server, &tree );
+
+        auto spin = [&] {
+                for ( int i = 0; i < 100; i++ ) {
+                        asrtc_param_server_tick( &server );
+                        asrtr_param_client_tick( &client );
+                        if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
+                             server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
+                                break;
+                }
+        };
+
+        // Handshake
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u ) );
+        spin();
+        CHECK_EQ( 1, client.ready );
+
+        // Collect results
+        struct rn
+        {
+                asrtl_flat_id id;
+                uint32_t      val;
+                asrtl_flat_id next_sib;
+        };
+        std::vector< rn > results;
+
+        auto resp_cb = []( void*         ptr,
+                           asrtl_flat_id id,
+                           char const*,
+                           struct asrtl_flat_value v,
+                           asrtl_flat_id           next_sib ) {
+                auto* r = (std::vector< rn >*) ptr;
+                r->push_back( { id, v.u32_val, next_sib } );
+        };
+
+        // Query root to get first_child
+        asrtl_flat_id first_child = 0;
+        auto          root_resp =
+            []( void* ptr, asrtl_flat_id, char const*, struct asrtl_flat_value v, asrtl_flat_id ) {
+                    *(asrtl_flat_id*) ptr = v.obj_val.first_child;
+            };
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query( &client, 1u, root_resp, &first_child, nullptr, nullptr ) );
+        spin();
+        REQUIRE_NE( 0u, first_child );
+
+        // Walk all children via next_sibling_id chain
+        asrtl_flat_id query_id = first_child;
+        while ( query_id != 0u ) {
+                CHECK_EQ(
+                    ASRTL_SUCCESS,
+                    asrtr_param_client_query(
+                        &client, query_id, resp_cb, &results, nullptr, nullptr ) );
+                spin();
+                REQUIRE_FALSE( results.empty() );
+                query_id = results.back().next_sib;
+        }
+
+        // Verify all 4 children received in order
+        REQUIRE_EQ( 4u, results.size() );
+        CHECK_EQ( 2u, results[0].id );
+        CHECK_EQ( 10u, results[0].val );
+        CHECK_EQ( 3u, results[1].id );
+        CHECK_EQ( 20u, results[1].val );
+        CHECK_EQ( 4u, results[2].id );
+        CHECK_EQ( 30u, results[2].val );
+        CHECK_EQ( 5u, results[3].id );
+        CHECK_EQ( 40u, results[3].val );
+        CHECK_EQ( 0u, results[3].next_sib );
+
+        asrtr_param_client_deinit( &client );
+        asrtc_param_server_deinit( &server );
+        asrtl_flat_tree_deinit( &tree );
 }

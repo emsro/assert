@@ -15,6 +15,7 @@
 #include "../asrtio/util.hpp"
 #include "../asrtl/chann.h"
 #include "../asrtl/cobs.h"
+#include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/util.hpp"
@@ -157,318 +158,6 @@ TEST_CASE( "utest_sim_returns_success" )
         asrtr::record     r{};
         // operator() must always return ASRTR_SUCCESS regardless of test outcome
         CHECK( sim( r ) == ASRTR_SUCCESS );
-}
-
-// ---------------------------------------------------------------------------
-// Component 2 infrastructure: in-process controller <-> reactor fixture
-
-static std::vector< uint8_t > flatten_span( asrtl::rec_span const* buff )
-{
-        std::vector< uint8_t > v;
-        for ( auto const* seg = buff; seg; seg = seg->next )
-                v.insert( v.end(), seg->b, seg->e );
-        return v;
-}
-
-struct pass_cb
-{
-        char const* name() const
-        {
-                return "pass_cb";
-        }
-        asrtr::status operator()( asrtr::record& r )
-        {
-                r.state = ASRTR_TEST_PASS;
-                return ASRTR_SUCCESS;
-        }
-};
-
-struct fail_cb
-{
-        char const* name() const
-        {
-                return "fail_cb";
-        }
-        asrtr::status operator()( asrtr::record& r )
-        {
-                r.state = ASRTR_TEST_FAIL;
-                return ASRTR_SUCCESS;
-        }
-};
-
-struct task_ctx
-{
-        asrtl::opt< asrtc::controller > c;
-
-        asrtr::unit< pass_cb > t0;
-        asrtr::unit< fail_cb > t1;
-
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_send;
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_send =
-            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                    auto  flat = flatten_span( buff );
-                    auto  sp   = asrtl::cnv( std::span{ flat } );
-                    auto* rn   = r.node();
-                    rn->recv_cb( rn->recv_ptr, sp );
-                    return ASRTL_SUCCESS;
-            };
-        asrtr::reactor r;
-
-        task_ctx()
-          : r_send( [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                  auto  flat = flatten_span( buff );
-                  auto  sp   = asrtl::cnv( std::span{ flat } );
-                  auto* cn   = ( *c ).node();
-                  cn->recv_cb( cn->recv_ptr, sp );
-                  return ASRTL_SUCCESS;
-          } )
-          , r( r_send, "task_reactor" )
-        {
-                r.add_test( t0 );
-                r.add_test( t1 );
-
-                c.emplace(
-                    c_send,
-                    []( asrtl::source, asrtl::ecode ) -> asrtc::status {
-                            return ASRTC_SUCCESS;
-                    },
-                    []( asrtc::status ) -> asrtc::status {
-                            return ASRTC_SUCCESS;
-                    } );
-
-                spin();
-        }
-
-        void spin( int limit = 200 )
-        {
-                for ( int i = 0; i < limit && !c->is_idle(); ++i ) {
-                        (void) c->tick();
-                        r.tick();
-                }
-                REQUIRE( c->is_idle() );
-        }
-
-        void spin_task( asrtio::task& t, int limit = 500 )
-        {
-                for ( int i = 0; i < limit; ++i ) {
-                        if ( t.tick() == asrtio::task::finished )
-                                return;
-                        (void) c->tick();
-                        r.tick();
-                }
-        }
-};
-
-// ---------------------------------------------------------------------------
-// call_function_task
-
-TEST_CASE( "call_task_fires_once" )
-{
-        int                        count = 0;
-        asrtio::call_function_task t( [&] {
-                ++count;
-        } );
-        CHECK( t.tick() == asrtio::task::finished );
-        CHECK( count == 1 );
-}
-
-TEST_CASE( "call_task_second_tick_safe" )
-{
-        int                        count = 0;
-        asrtio::call_function_task t( [&] {
-                ++count;
-        } );
-        t.tick();
-        CHECK( t.tick() == asrtio::task::finished );
-        CHECK( count == 1 );  // still 1, func was cleared
-}
-
-// ---------------------------------------------------------------------------
-// run_test_task
-
-TEST_CASE( "run_task_waits_while_busy" )
-{
-        task_ctx ctx;
-        // Kick off a query to make controller busy
-        (void) ctx.c->query_test_count( []( asrtc::status, uint32_t ) {
-                return ASRTC_SUCCESS;
-        } );
-        REQUIRE( !ctx.c->is_idle() );
-
-        asrtio::run_test_task t( *ctx.c, 0 );
-        CHECK( t.tick() == asrtio::task::runnning );
-
-        ctx.spin();
-}
-
-TEST_CASE( "run_task_on_start_fires_once" )
-{
-        task_ctx ctx;
-
-        int                   start_count = 0;
-        asrtio::run_test_task t(
-            *ctx.c,
-            0,
-            [&] {
-                    ++start_count;
-            },
-            {} );
-
-        // tick until finished
-        ctx.spin_task( t );
-        CHECK( start_count == 1 );
-}
-
-TEST_CASE( "run_task_result_pass" )
-{
-        task_ctx              ctx;
-        asrtc::result         got{};
-        bool                  got_result = false;
-        asrtio::run_test_task t( *ctx.c, 0, {}, [&]( asrtc::result const& res ) {
-                got        = res;
-                got_result = true;
-        } );
-
-        ctx.spin_task( t );
-        REQUIRE( got_result );
-        CHECK( got.res == ASRTC_TEST_SUCCESS );
-}
-
-TEST_CASE( "run_task_result_fail" )
-{
-        task_ctx              ctx;
-        asrtc::result         got{};
-        bool                  got_result = false;
-        asrtio::run_test_task t(
-            *ctx.c,
-            1,  // t1 is fail_cb
-            {},
-            [&]( asrtc::result const& res ) {
-                    got        = res;
-                    got_result = true;
-            } );
-
-        ctx.spin_task( t );
-        REQUIRE( got_result );
-        CHECK( got.res == ASRTC_TEST_FAILURE );
-}
-
-TEST_CASE( "run_task_finished_after_result" )
-{
-        task_ctx              ctx;
-        asrtio::run_test_task t( *ctx.c, 0 );
-        asrtio::task::res     last = asrtio::task::runnning;
-        ctx.spin_task( t );
-        last = t.tick();  // one more tick — must stay finished
-        CHECK( last == asrtio::task::finished );
-}
-
-// ---------------------------------------------------------------------------
-// test_pool_task
-
-TEST_CASE( "pool_task_count_fires" )
-{
-        task_ctx ctx;
-        uint32_t received_count = 0;
-
-        asrtio::test_pool_task t( *ctx.c, []( uint32_t, std::string_view ) {} );
-        t.on_count = [&]( uint32_t c ) {
-                received_count = c;
-        };
-
-        ctx.spin_task( t );
-        CHECK( received_count == 2 );  // t0 + t1
-}
-
-TEST_CASE( "pool_task_cb_each_test" )
-{
-        task_ctx                                          ctx;
-        std::vector< std::pair< uint32_t, std::string > > seen;
-
-        asrtio::test_pool_task t( *ctx.c, [&]( uint32_t id, std::string_view name ) {
-                seen.emplace_back( id, name );
-        } );
-
-        ctx.spin_task( t );
-        REQUIRE( seen.size() == 2 );
-        CHECK( seen[0].second == "pass_cb" );
-        CHECK( seen[1].second == "fail_cb" );
-}
-
-TEST_CASE( "pool_task_complete_fires" )
-{
-        task_ctx ctx;
-        bool     complete_fired = false;
-
-        asrtio::test_pool_task t( *ctx.c, []( uint32_t, std::string_view ) {} );
-        t.on_complete = [&] {
-                complete_fired = true;
-        };
-
-        asrtio::task::res last = asrtio::task::runnning;
-        ctx.spin_task( t );
-        last = t.tick();  // one more tick — must stay finished
-        CHECK( complete_fired );
-        CHECK( last == asrtio::task::finished );
-}
-
-// ---------------------------------------------------------------------------
-// uv_tasks queue ordering
-
-TEST_CASE( "queue_fifo_order" )
-{
-        std::vector< int > order;
-
-        // uv_tasks needs a live loop only for start(); we drive on_idle() directly
-        uv_loop_t        loop{};
-        asrtio::uv_tasks q( &loop );
-
-        q.push( std::make_unique< asrtio::call_function_task >( [&] {
-                order.push_back( 1 );
-        } ) );
-        q.push( std::make_unique< asrtio::call_function_task >( [&] {
-                order.push_back( 2 );
-        } ) );
-        q.push( std::make_unique< asrtio::call_function_task >( [&] {
-                order.push_back( 3 );
-        } ) );
-
-        q.on_idle();
-        q.on_idle();
-        q.on_idle();
-
-        REQUIRE( order.size() == 3 );
-        CHECK( order[0] == 1 );
-        CHECK( order[1] == 2 );
-        CHECK( order[2] == 3 );
-}
-
-TEST_CASE( "queue_one_per_idle" )
-{
-        int              count = 0;
-        uv_loop_t        loop{};
-        asrtio::uv_tasks q( &loop );
-
-        q.push( std::make_unique< asrtio::call_function_task >( [&] {
-                ++count;
-        } ) );
-        q.push( std::make_unique< asrtio::call_function_task >( [&] {
-                ++count;
-        } ) );
-
-        q.on_idle();  // only first task executes
-        CHECK( count == 1 );
-}
-
-TEST_CASE( "queue_pop_on_done" )
-{
-        uv_loop_t        loop{};
-        asrtio::uv_tasks q( &loop );
-
-        q.push( std::make_unique< asrtio::call_function_task >( [] {} ) );
-        CHECK( q.tasks.size() == 1 );
-        q.on_idle();
-        CHECK( q.tasks.empty() );
 }
 
 // ---------------------------------------------------------------------------
@@ -648,6 +337,54 @@ static void drain_loop( uv_loop_t* loop )
         uv_loop_delete( loop );
 }
 
+struct test_receiver
+{
+        using receiver_concept = ecor::receiver_t;
+        bool*      flag;
+        uv_idle_t* idle;
+
+        void set_value() noexcept
+        {
+                *flag = true;
+                uv_idle_stop( idle );
+                uv_close( (uv_handle_t*) idle, nullptr );
+        }
+        void set_error( asrtio::status ) noexcept
+        {
+                uv_idle_stop( idle );
+                uv_close( (uv_handle_t*) idle, nullptr );
+        }
+        void set_error( ecor::task_error ) noexcept
+        {
+                uv_idle_stop( idle );
+                uv_close( (uv_handle_t*) idle, nullptr );
+        }
+        void set_stopped() noexcept
+        {
+                uv_idle_stop( idle );
+                uv_close( (uv_handle_t*) idle, nullptr );
+        }
+        ecor::empty_env get_env() const noexcept
+        {
+                return {};
+        }
+};
+
+static asrtio::task< void > suite_coro(
+    asrtio::task_ctx&   tctx,
+    asrtio::rsim_ctx&   rs,
+    recording_reporter& reporter,
+    uv_tcp_t&           client )
+{
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        asrtio::cntr_tcp_sys sys{ &client };
+        sys.start();
+        co_await asrtio::run_test_suite( tctx, sys, reporter );
+        reporter.done_names_at_on_done = (int) reporter.done_names.size();
+        sys.close();
+        rs.close();
+}
+
 struct suite_run
 {
         recording_reporter reporter;
@@ -655,21 +392,24 @@ struct suite_run
 
         suite_run( uint32_t seed = 42 )
         {
-                uv_loop_t* loop = uv_loop_new();
+                uv_loop_t*       loop = uv_loop_new();
+                asrtio::task_ctx tctx;
+                asrtio::rsim_ctx rs{ loop, seed };
+                REQUIRE( rs.start() == asrtio::status::success );
 
-                auto rsim = asrtio::make_rsim( loop, seed );
-                REQUIRE( rsim );
-                rsim->start();
+                uv_tcp_t client;
+                uv_tcp_init( loop, &client );
 
-                auto sys = asrtio::make_tcp_sys( loop, "127.0.0.1", rsim->port() );
-                REQUIRE( sys );
-
-                asrtio::run_test_suite( *sys, reporter, [this, sys, rsim] {
-                        reporter.done_names_at_on_done = (int) reporter.done_names.size();
-                        sys->close();
-                        rsim->close();
-                        done = true;
+                uv_idle_t idle;
+                idle.data = &tctx;
+                uv_idle_init( loop, &idle );
+                uv_idle_start( &idle, []( uv_idle_t* h ) {
+                        static_cast< asrtio::task_ctx* >( h->data )->tick();
                 } );
+
+                auto op = suite_coro( tctx, rs, reporter, client )
+                              .connect( test_receiver{ &done, &idle } );
+                op.start();
 
                 uv_run( loop, UV_RUN_DEFAULT );
                 drain_loop( loop );
@@ -678,6 +418,7 @@ struct suite_run
 
 TEST_CASE( "suite_basic" )
 {
+        ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
         CHECK( r.reporter.count == 6 );
@@ -701,4 +442,156 @@ TEST_CASE( "suite_seed_changes_outcomes" )
         suite_run a( 42 ), b( 9999 );
         REQUIRE( a.reporter.passed.size() == b.reporter.passed.size() );
         CHECK( a.reporter.passed != b.reporter.passed );
+}
+
+// ---------------------------------------------------------------------------
+// Component 5: param protocol over TCP
+
+struct param_received_node
+{
+        asrtl_flat_id    id;
+        std::string      key;
+        asrtl_flat_value value;
+        asrtl_flat_id    next_sibling;
+};
+
+struct param_e2e_state
+{
+        bool                               param_ready = false;
+        asrtl_flat_id                      root_id     = 0;
+        std::vector< param_received_node > received;
+        int                                errors = 0;
+
+        static void response_cb(
+            void*            ptr,
+            asrtl_flat_id    id,
+            char const*      key,
+            asrtl_flat_value value,
+            asrtl_flat_id    next_sibling_id )
+        {
+                auto* s = static_cast< param_e2e_state* >( ptr );
+                s->received.push_back( { id, key ? key : "", value, next_sibling_id } );
+        }
+
+        static void error_cb( void* ptr, uint8_t, asrtl_flat_id )
+        {
+                static_cast< param_e2e_state* >( ptr )->errors++;
+        }
+};
+
+static asrtio::task< void > param_e2e_coro(
+    asrtio::task_ctx&      tctx,
+    asrtio::rsim_ctx&      rs,
+    recording_reporter&    reporter,
+    param_e2e_state&       state,
+    asrtl_flat_tree const* tree,
+    uv_tcp_t&              client )
+{
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        asrtio::cntr_tcp_sys sys{ &client };
+        sys.start();
+        sys.set_param_tree( tree, 1u );
+        co_await asrtio::run_test_suite( tctx, sys, reporter );
+
+        REQUIRE_FALSE( rs.conns.empty() );
+        auto& conn = rs.conns.front();
+
+        while ( !conn.param().ready() )
+                co_await ecor::suspend;
+
+        state.param_ready = true;
+        state.root_id     = conn.param().root_id();
+
+        std::ignore = conn.param().query(
+            state.root_id,
+            param_e2e_state::response_cb,
+            &state,
+            param_e2e_state::error_cb,
+            &state );
+
+        while ( state.received.size() < 1 )
+                co_await ecor::suspend;
+
+        if ( state.received[0].value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT ) {
+                std::ignore = conn.param().query(
+                    state.received[0].value.obj_val.first_child,
+                    param_e2e_state::response_cb,
+                    &state,
+                    param_e2e_state::error_cb,
+                    &state );
+        }
+
+        while ( state.received.size() < 2 )
+                co_await ecor::suspend;
+
+        if ( state.received[1].next_sibling != 0 ) {
+                std::ignore = conn.param().query(
+                    state.received[1].next_sibling,
+                    param_e2e_state::response_cb,
+                    &state,
+                    param_e2e_state::error_cb,
+                    &state );
+        }
+
+        while ( state.received.size() < 3 )
+                co_await ecor::suspend;
+
+        sys.close();
+        rs.close();
+}
+
+TEST_CASE( "param_tcp_e2e" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 8, 32 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "x", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "y", asrtl_flat_value_str( "hello" ) );
+
+        param_e2e_state    state;
+        recording_reporter reporter;
+        bool               done = false;
+
+        uv_loop_t*       loop = uv_loop_new();
+        asrtio::task_ctx tctx;
+        asrtio::rsim_ctx rs{ loop, 42 };
+        REQUIRE( rs.start() == asrtio::status::success );
+
+        uv_tcp_t client;
+        uv_tcp_init( loop, &client );
+
+        uv_idle_t idle;
+        idle.data = &tctx;
+        uv_idle_init( loop, &idle );
+        uv_idle_start( &idle, []( uv_idle_t* h ) {
+                static_cast< asrtio::task_ctx* >( h->data )->tick();
+        } );
+
+        auto op = param_e2e_coro( tctx, rs, reporter, state, &tree, client )
+                      .connect( test_receiver{ &done, &idle } );
+        op.start();
+
+        uv_run( loop, UV_RUN_DEFAULT );
+        drain_loop( loop );
+
+        CHECK( done );
+        CHECK( state.param_ready );
+        CHECK_EQ( 1u, state.root_id );
+        REQUIRE_GE( state.received.size(), 3u );
+
+        // Root node: OBJECT
+        CHECK_EQ( 1u, state.received[0].id );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) state.received[0].value.type );
+
+        // First child "x": U32 = 42
+        CHECK_EQ( "x", state.received[1].key );
+        CHECK_EQ( 42u, state.received[1].value.u32_val );
+
+        // Second child "y": STR = "hello"
+        CHECK_EQ( "y", state.received[2].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) state.received[2].value.type );
+
+        CHECK_EQ( 0, state.errors );
+
+        asrtl_flat_tree_deinit( &tree );
 }

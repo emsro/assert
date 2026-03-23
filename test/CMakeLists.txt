@@ -1,7 +1,7 @@
 cpmaddpackage("gh:doctest/doctest@2.4.12")
 
 add_executable(asrtc_test asrtc_test.cpp)
-target_link_libraries(asrtc_test PRIVATE doctest::doctest asrtc)
+target_link_libraries(asrtc_test PRIVATE doctest::doctest asrtc asrtr)
 target_compile_features(asrtc_test PUBLIC cxx_std_20)
 add_test(NAME asrtc_test COMMAND asrtc_test)
 
@@ -21,12 +21,13 @@ target_compile_features(asrtcpp_test PUBLIC cxx_std_20)
 add_test(NAME asrtcpp_test COMMAND asrtcpp_test)
 
 add_executable(asrtrpp_test asrtrpp_test.cpp)
-target_link_libraries(asrtrpp_test PRIVATE doctest::doctest asrtrpp)
+target_link_libraries(asrtrpp_test PRIVATE doctest::doctest asrtrpp asrtcpp)
 target_compile_features(asrtrpp_test PUBLIC cxx_std_20)
 add_test(NAME asrtrpp_test COMMAND asrtrpp_test)
 
 add_executable(asrtio_test asrtio_test.cpp)
-target_link_libraries(asrtio_test PRIVATE doctest::doctest asrtrpp asrtcpp uv)
+target_link_libraries(asrtio_test PRIVATE doctest::doctest asrtrpp asrtcpp uv
+                                          ecor)
 target_compile_features(asrtio_test PUBLIC cxx_std_20)
 add_test(NAME asrtio_test COMMAND asrtio_test)
 

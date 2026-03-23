@@ -24,9 +24,10 @@ extern "C" {
 
 enum asrtl_chann_id_e
 {
-        ASRTL_META = 1,
-        ASRTL_CORE = 2,
-        ASRTL_DIAG = 3,
+        ASRTL_META  = 1,
+        ASRTL_CORE  = 2,
+        ASRTL_DIAG  = 3,
+        ASRTL_PARAM = 4,
 };
 
 typedef uint16_t asrtl_chann_id;

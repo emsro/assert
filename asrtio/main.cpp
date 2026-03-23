@@ -2,7 +2,8 @@
 #include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "./cntr_tcp_sys.hpp"
-#include "./deps/pbar.hpp"
+#include "./euv.hpp"
+#include "./pbar.hpp"
 #include "./rsim.hpp"
 #include "./util.hpp"
 
@@ -99,36 +100,40 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 }
 }
 
-
-struct rsym_sys
+task< void > run_tcp( task_ctx& ctx, uv_loop_t* loop, std::string_view host, uint16_t port )
 {
-        std::shared_ptr< cntr_tcp_sys >     sys;
-        std::shared_ptr< asrtio::rsim_ctx > sim;
+        pbar_reporter reporter{ *g_bar };
+        uv_tcp_t      client;
+        std::ignore = uv_tcp_init( loop, &client );
+        co_await tcp_connect{ &client, host, port };
+        cntr_tcp_sys sys{ &client };
+        sys.start();
 
-        void close()
-        {
-                if ( sys )
-                        sys->close();
-                if ( sim )
-                        sim->close();
-        }
+        co_await run_test_suite( ctx, sys, reporter );
+        g_bar->finish();
+        g_bar.reset();
+
+        sys.close();
 };
 
-std::shared_ptr< rsym_sys > make_rsym_sys( uv_loop_t* loop, uint32_t seed )
+task< void > run_rsim( task_ctx& ctx, uv_loop_t* loop, uint32_t seed )
 {
-        auto rsim = make_rsim( loop, seed );
-        if ( !rsim ) {
-                ASRTL_ERR_LOG( "asrtio", "Failed to create RSIM system" );
-                return nullptr;
-        }
-        rsim->start();
-        auto tcp_sys = make_tcp_sys( loop, "127.0.0.1", rsim->port() );
+        pbar_reporter reporter{ *g_bar };
+        rsim_ctx      rs{ loop, seed };
+        rs.start();
 
-        std::shared_ptr< rsym_sys > rsys =
-            std::make_shared< rsym_sys >( std::move( tcp_sys ), std::move( rsim ) );
-        return rsys;
+        uv_tcp_t client;
+        std::ignore = uv_tcp_init( loop, &client );
+        co_await tcp_connect{ &client, "0.0.0.0", rs.port() };
+        cntr_tcp_sys sys{ &client };
+        sys.start();
+
+        co_await run_test_suite( ctx, sys, reporter );
+        g_bar->finish();
+        g_bar.reset();
+        sys.close();
+        rs.close();
 }
-
 
 struct tcp_opts
 {
@@ -136,15 +141,55 @@ struct tcp_opts
         uint16_t    port;
 };
 
+struct final_receiver
+{
+        using receiver_concept = ecor::receiver_t;
+        uv_idle_t* idle = nullptr;
+
+        void set_value()
+        {
+                stop_idle();
+        }
+
+        void set_error( ecor::task_error )
+        {
+                ASRTL_ERR_LOG( "asrtio_main", "Task error" );
+                stop_idle();
+        }
+
+        void set_error( asrtio::status s )
+        {
+                ASRTL_ERR_LOG( "asrtio_main", "Task error: %s", status_to_str( s ) );
+                stop_idle();
+        }
+
+        void set_stopped()
+        {
+                stop_idle();
+        }
+
+        void stop_idle()
+        {
+                if ( idle ) {
+                        uv_idle_stop( idle );
+                        uv_close( (uv_handle_t*) idle, nullptr );
+                        idle = nullptr;
+                }
+        }
+};
+
 }  // namespace asrtio
 
 int main( int argc, char* argv[] )
 {
         using namespace asrtio;
-        uv_loop_t* loop = uv_default_loop();
-        CLI::App   app{ "App description" };
+        uv_loop_t*                                         loop = uv_default_loop();
+        ecor::connect_type< task< void >, final_receiver > t;
+        std::shared_ptr< pbar_reporter >                   reporter;
+        task_ctx                                           ctx;
+        uv_idle_t                                          idle;
+        CLI::App                                           app{ "App description" };
         argv = app.ensure_utf8( argv );
-        std::shared_ptr< asrtio::cntr_tcp_sys > sys;
 
         auto opt       = std::make_shared< tcp_opts >();
         int  verbosity = 0;
@@ -157,40 +202,18 @@ int main( int argc, char* argv[] )
         sub->add_option( "-p,--port", opt->port, "Port to connect to" )->required();
         sub->add_option( "--host", opt->host, "Host to connect to" )->required();
 
-        sub->callback( [loop, opt, &sys] {
-                sys = make_tcp_sys( loop, opt->host, opt->port );
-                if ( !sys ) {
-                        ASRTL_ERR_LOG( "asrtio_main", "Failed to create system" );
-                        return;
-                }
-                g_bar         = std::make_shared< pbar::terminal_progress >();
-                auto reporter = std::make_shared< pbar_reporter >( *g_bar );
-                run_test_suite( *sys, *reporter, [reporter, sys] {
-                        g_bar->finish();
-                        g_bar.reset();
-                        sys->close();
-                } );
+        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle] {
+                g_bar = std::make_shared< pbar::terminal_progress >();
+                t     = run_tcp( ctx, loop, opt->host, opt->port ).connect( final_receiver{ &idle } );
         } );
 
         auto* rsim      = app.add_subcommand( "rsim", "Run the test RSIM system" );
         auto  rsim_seed = std::make_shared< uint32_t >( 42u );
         rsim->add_option( "--seed", *rsim_seed, "Seed for pseudo-random test simulation" );
         rsim->fallthrough();
-        rsim->callback( [loop, &sys, rsim_seed] {
-                auto rsys = make_rsym_sys( loop, *rsim_seed );
-                if ( !rsys ) {
-                        ASRTL_ERR_LOG( "asrtio_main", "Failed to create RSIM system" );
-                        return;
-                }
-                sys           = std::shared_ptr< cntr_tcp_sys >( rsys, rsys->sys.get() );
-                g_bar         = std::make_shared< pbar::terminal_progress >();
-                auto reporter = std::make_shared< pbar_reporter >( *g_bar );
-                run_test_suite( *sys, *reporter, [reporter, sys, sim = rsys->sim] {
-                        g_bar->finish();
-                        g_bar.reset();
-                        sys->close();
-                        sim->close();
-                } );
+        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle] {
+                g_bar = std::make_shared< pbar::terminal_progress >();
+                t     = run_rsim( ctx, loop, *rsim_seed ).connect( final_receiver{ &idle } );
         } );
 
         CLI11_PARSE( app, argc, argv );
@@ -202,7 +225,17 @@ int main( int argc, char* argv[] )
         else
                 g_log_level = ASRTL_LOG_ERROR;
 
+        idle.data = &ctx;
+        uv_idle_init( loop, &idle );
+        uv_idle_start( &idle, []( uv_idle_t* handle ) {
+                auto& ctx = *static_cast< task_ctx* >( handle->data );
+                ctx.tick();
+        } );
+
+        t.start();
+
         uv_run( loop, UV_RUN_DEFAULT );
+        uv_loop_close( loop );
 
         return 0;
 }
