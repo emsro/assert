@@ -121,105 +121,25 @@ struct cobs_node
 };
 
 
-inline bool _flat_tree_from_json_impl(
+bool _flat_tree_from_json_impl(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
     asrtl_flat_id         parent,
     char const*           key,
-    asrtl_flat_id&        next_id )
-{
-        asrtl_flat_id const my_id = next_id++;
-
-        asrtl_flat_value val{};
-        switch ( j.type() ) {
-        case nlohmann::json::value_t::null:
-                val = asrtl_flat_value_null();
-                break;
-        case nlohmann::json::value_t::boolean:
-                val = asrtl_flat_value_bool( j.get< bool >() ? 1u : 0u );
-                break;
-        case nlohmann::json::value_t::number_integer: {
-                auto v = j.get< int64_t >();
-                if ( v < 0 ) {
-                        if ( v < std::numeric_limits< int32_t >::min() ) {
-                                ASRTL_ERR_LOG(
-                                    "asrtio", "integer %lld out of int32_t range", (long long) v );
-                                return false;
-                        }
-                        val = asrtl_flat_value_i32( static_cast< int32_t >( v ) );
-                } else {
-                        if ( v > std::numeric_limits< uint32_t >::max() ) {
-                                ASRTL_ERR_LOG(
-                                    "asrtio", "integer %lld out of uint32_t range", (long long) v );
-                                return false;
-                        }
-                        val = asrtl_flat_value_u32( static_cast< uint32_t >( v ) );
-                }
-                break;
-        }
-        case nlohmann::json::value_t::number_unsigned: {
-                auto v = j.get< uint64_t >();
-                if ( v > std::numeric_limits< uint32_t >::max() ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio",
-                            "unsigned integer %llu out of uint32_t range",
-                            (unsigned long long) v );
-                        return false;
-                }
-                val = asrtl_flat_value_u32( static_cast< uint32_t >( v ) );
-                break;
-        }
-        case nlohmann::json::value_t::number_float: {
-                auto v = j.get< double >();
-                if ( v > static_cast< double >( std::numeric_limits< float >::max() ) ||
-                     v < static_cast< double >( -std::numeric_limits< float >::max() ) ) {
-                        ASRTL_ERR_LOG( "asrtio", "float value %f out of float range", v );
-                        return false;
-                }
-                val = asrtl_flat_value_float( static_cast< float >( v ) );
-                break;
-        }
-        case nlohmann::json::value_t::string:
-                val = asrtl_flat_value_str( j.get< std::string >().c_str() );
-                break;
-        case nlohmann::json::value_t::object:
-                val = asrtl_flat_value_object();
-                break;
-        case nlohmann::json::value_t::array:
-                val = asrtl_flat_value_array();
-                break;
-        default:
-                val = asrtl_flat_value_null();
-                break;
-        }
-
-        auto s = asrtl_flat_tree_append( &tree, parent, my_id, key, val );
-        if ( s != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG(
-                    "asrtio",
-                    "flat_tree_append failed: %s",
-                    asrtl_status_to_str( s ) );
-                return false;
-        }
-
-        if ( j.is_object() ) {
-                for ( auto const& [k, v] : j.items() )
-                        if ( !_flat_tree_from_json_impl( tree, v, my_id, k.c_str(), next_id ) )
-                                return false;
-        } else if ( j.is_array() ) {
-                for ( auto const& elem : j )
-                        if ( !_flat_tree_from_json_impl( tree, elem, my_id, nullptr, next_id ) )
-                                return false;
-        }
-
-        return true;
-}
-
+    asrtl_flat_id&        next_id );
 
 inline bool flat_tree_from_json( asrtl_flat_tree& tree, nlohmann::json const& j )
 {
         asrtl_flat_id next_id = 1;
         return _flat_tree_from_json_impl( tree, j, 0, nullptr, next_id );
+}
+
+
+bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl_flat_id node_id, nlohmann::json& out );
+
+inline bool flat_tree_to_json( asrtl_flat_tree& tree, nlohmann::json& out )
+{
+        return _flat_tree_to_json_impl( tree, 1, out );
 }
 
 }  // namespace asrtio

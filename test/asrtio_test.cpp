@@ -1038,3 +1038,232 @@ TEST_CASE( "ftfj_error_append_failure_in_nested" )
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j ) );
         asrtl_flat_tree_deinit( &tree );
 }
+
+// --- flat_tree_to_json tests ---
+
+TEST_CASE( "fttj_null" )
+{
+        auto            j = nlohmann::json( nullptr );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out.is_null() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_bool_true" )
+{
+        auto            j = nlohmann::json( true );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( true, out.get< bool >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_bool_false" )
+{
+        auto            j = nlohmann::json( false );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( false, out.get< bool >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_positive_integer" )
+{
+        auto            j = nlohmann::json( 42 );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( 42u, out.get< uint32_t >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_negative_integer" )
+{
+        auto            j = nlohmann::json( -7 );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( -7, out.get< int32_t >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_float" )
+{
+        auto            j = nlohmann::json( 3.14f );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( doctest::Approx( 3.14f ), out.get< float >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_string" )
+{
+        auto            j = nlohmann::json( "hello" );
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( "hello", out.get< std::string >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_empty_object" )
+{
+        auto            j = nlohmann::json::object();
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out.is_object() );
+        CHECK( out.empty() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_empty_array" )
+{
+        auto            j = nlohmann::json::array();
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out.is_array() );
+        CHECK( out.empty() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_simple_object" )
+{
+        auto j = nlohmann::json::object( { { "x", 42 }, { "y", "hi" } } );
+
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out.is_object() );
+        CHECK_EQ( 2u, out.size() );
+        CHECK_EQ( 42u, out["x"].get< uint32_t >() );
+        CHECK_EQ( "hi", out["y"].get< std::string >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_simple_array" )
+{
+        auto j = nlohmann::json::array( { 10, 20, 30 } );
+
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out.is_array() );
+        REQUIRE_EQ( 3u, out.size() );
+        CHECK_EQ( 10u, out[0].get< uint32_t >() );
+        CHECK_EQ( 20u, out[1].get< uint32_t >() );
+        CHECK_EQ( 30u, out[2].get< uint32_t >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_nested_object" )
+{
+        auto j = nlohmann::json::parse( R"({"a": {"b": 1}, "c": [true, false]})" );
+
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( j, out );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_mixed_types" )
+{
+        auto j = nlohmann::json::parse(
+            R"({"n": null, "b": true, "i": -5, "u": 100, "f": 1.5, "s": "abc"})" );
+
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK( out["n"].is_null() );
+        CHECK_EQ( true, out["b"].get< bool >() );
+        CHECK_EQ( -5, out["i"].get< int32_t >() );
+        CHECK_EQ( 100u, out["u"].get< uint32_t >() );
+        CHECK_EQ( doctest::Approx( 1.5f ), out["f"].get< float >() );
+        CHECK_EQ( "abc", out["s"].get< std::string >() );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_deeply_nested" )
+{
+        auto j = nlohmann::json::parse( R"({"a": {"b": {"c": 42}}})" );
+
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE( asrtio::flat_tree_from_json( tree, j ) );
+
+        nlohmann::json out;
+        CHECK( asrtio::flat_tree_to_json( tree, out ) );
+        CHECK_EQ( j, out );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "fttj_error_empty_tree" )
+{
+        asrtl_allocator alloc = asrtl_default_allocator();
+        asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+
+        nlohmann::json out;
+        CHECK_FALSE( asrtio::flat_tree_to_json( tree, out ) );
+        asrtl_flat_tree_deinit( &tree );
+}

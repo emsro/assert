@@ -6,7 +6,10 @@ cpmaddpackage("gh:CLIUtils/CLI11@2.5.0")
 cpmaddpackage("gh:libuv/libuv@1.51.0")
 cpmaddpackage("gh:nlohmann/json@3.11.3")
 
+add_library(asrtio_lib util.cpp)
+target_compile_features(asrtio_lib PUBLIC cxx_std_20)
+target_link_libraries(asrtio_lib PUBLIC asrtcpp asrtrpp uv ecor
+                                        nlohmann_json::nlohmann_json)
+
 add_executable(asrtio main.cpp)
-target_compile_features(asrtio PUBLIC cxx_std_20)
-target_link_libraries(asrtio PUBLIC asrtcpp asrtrpp CLI11::CLI11 uv ecor
-                                    nlohmann_json::nlohmann_json)
+target_link_libraries(asrtio PUBLIC asrtio_lib CLI11::CLI11)
