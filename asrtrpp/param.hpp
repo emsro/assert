@@ -37,7 +37,7 @@ struct param_client
 
         [[nodiscard]] asrtl_status query(
             asrtl_flat_id           node_id,
-            asrtr_param_response_cb response_cb,
+            asrtl_param_response_cb response_cb,
             void*                   response_cb_ptr,
             asrtr_param_error_cb    error_cb,
             void*                   error_ptr )

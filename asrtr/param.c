@@ -18,14 +18,14 @@
 // Finish a query: save & zero temporaries, fire the appropriate callback.
 // ---------------------------------------------------------------------------
 
-static void finish_query(
+static void asrtr_finish_query(
     struct asrtr_param_client* client,
     asrtl_flat_id              id,
     char const*                key,
     struct asrtl_flat_value    value,
     asrtl_flat_id              next_sibling_id )
 {
-        asrtr_param_response_cb cb  = client->pending_cb;
+        asrtl_param_response_cb cb  = client->pending_cb;
         void*                   ptr = client->pending_cb_ptr;
 
         client->pending_cb           = NULL;
@@ -38,7 +38,7 @@ static void finish_query(
                 cb( ptr, id, key, value, next_sibling_id );
 }
 
-static void finish_query_error(
+static void asrtr_finish_query_error(
     struct asrtr_param_client* client,
     uint8_t                    error_code,
     asrtl_flat_id              node_id )
@@ -75,18 +75,18 @@ static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span
 // Nodes are present while (sp.e - sp.b) > 4.
 // ---------------------------------------------------------------------------
 
-static enum asrtl_status cache_try_deliver( struct asrtr_param_client* client )
+static enum asrtl_status asrtr_cache_try_deliver( struct asrtr_param_client* client )
 {
         struct asrtl_span sp = {
             .b = client->cache_buf,
             .e = client->cache_buf + client->cache_len,
         };
 
-        while ( (size_t) ( sp.e - sp.b ) > 4u ) {
+        while ( (size_t) ( sp.e - sp.b ) > 4U ) {
                 asrtl_flat_id nid;
                 asrtl_cut_u32( &sp.b, &nid );
 
-                size_t   search_len = (size_t) ( sp.e - sp.b ) - 4u;
+                size_t   search_len = (size_t) ( sp.e - sp.b ) - 4U;
                 uint8_t* nul        = (uint8_t*) memchr( sp.b, '\0', search_len );
                 if ( !nul ) {
                         ASRTL_ERR_LOG( "asrtr_param_client", "cache: missing key terminator" );
@@ -111,11 +111,11 @@ static enum asrtl_status cache_try_deliver( struct asrtr_param_client* client )
 
                 if ( nid == client->query_node_id ) {
                         asrtl_flat_id next_sib;
-                        if ( (size_t) ( sp.e - sp.b ) > 4u )
+                        if ( (size_t) ( sp.e - sp.b ) > 4U )
                                 asrtl_u8d4_to_u32( sp.b, &next_sib );
                         else
                                 next_sib = client->cache_next_sibling;
-                        finish_query( client, nid, key, val, next_sib );
+                        asrtr_finish_query( client, nid, key, val, next_sib );
                         return ASRTL_SUCCESS;
                 }
         }
@@ -221,13 +221,13 @@ enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client )
 
         case ASRTR_PARAM_CLIENT_PENDING_DELIVER:
                 client->pending = ASRTR_PARAM_CLIENT_PENDING_NONE;
-                return cache_try_deliver( client );
+                return asrtr_cache_try_deliver( client );
 
         case ASRTR_PARAM_CLIENT_PENDING_ERROR: {
                 uint8_t       error_code = client->pending_data.error.error_code;
                 asrtl_flat_id node_id    = client->pending_data.error.node_id;
                 client->pending          = ASRTR_PARAM_CLIENT_PENDING_NONE;
-                finish_query_error( client, error_code, node_id );
+                asrtr_finish_query_error( client, error_code, node_id );
                 return ASRTL_SUCCESS;
         }
         }
@@ -307,7 +307,7 @@ asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* clien
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
-    asrtr_param_response_cb    response_cb,
+    asrtl_param_response_cb    response_cb,
     void*                      response_cb_ptr,
     asrtr_param_error_cb       error_cb,
     void*                      error_cb_ptr )

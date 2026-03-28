@@ -17,6 +17,7 @@ bool _flat_tree_from_json_impl(
 {
         asrtl_flat_id const my_id = next_id++;
 
+        std::string      str_storage;
         asrtl_flat_value val{};
         switch ( j.type() ) {
         case nlohmann::json::value_t::null:
@@ -67,7 +68,8 @@ bool _flat_tree_from_json_impl(
                 break;
         }
         case nlohmann::json::value_t::string:
-                val = asrtl_flat_value_str( j.get< std::string >().c_str() );
+                str_storage = j.get< std::string >();
+                val         = asrtl_flat_value_str( str_storage.c_str() );
                 break;
         case nlohmann::json::value_t::object:
                 val = asrtl_flat_value_object();

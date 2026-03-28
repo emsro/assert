@@ -42,7 +42,7 @@ struct asrtr_param_client
         uint32_t      cache_len;           // valid bytes (includes trailing 4-byte next_sib)
         asrtl_flat_id cache_next_sibling;  // trailing next_sibling_id from last RESPONSE
 
-        asrtr_param_response_cb pending_cb;
+        asrtl_param_response_cb pending_cb;
         void*                   pending_cb_ptr;
         asrtr_param_error_cb    pending_error_cb;
         void*                   pending_error_cb_ptr;
@@ -72,7 +72,7 @@ asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* clien
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
-    asrtr_param_response_cb    response_cb,
+    asrtl_param_response_cb    response_cb,
     void*                      response_cb_ptr,
     asrtr_param_error_cb       error_cb,
     void*                      error_cb_ptr );

@@ -107,17 +107,16 @@ static inline size_t asrtl_param_value_wire_size( struct asrtl_flat_value v )
 {
         switch ( v.type ) {
         case ASRTL_FLAT_VALUE_TYPE_STR:
-                return strlen( v.str_val ) + 1u;
+                return strlen( v.str_val ) + 1U;
         case ASRTL_FLAT_VALUE_TYPE_U32:
         case ASRTL_FLAT_VALUE_TYPE_BOOL:
         case ASRTL_FLAT_VALUE_TYPE_FLOAT:
         case ASRTL_FLAT_VALUE_TYPE_I32:
-                return 4u;
-        case ASRTL_FLAT_VALUE_TYPE_OBJECT:
+                return 4U;
         case ASRTL_FLAT_VALUE_TYPE_ARRAY:
-                return 8u;
+                return 8U;
         default:
-                return 0u;
+                return 0U;
         }
 }
 
@@ -171,7 +170,7 @@ static inline enum asrtl_status asrtl_param_decode_value(
         case ASRTL_FLAT_VALUE_TYPE_NULL:
                 break;
         case ASRTL_FLAT_VALUE_TYPE_STR: {
-                size_t   search_len = (size_t) ( buff->e - buff->b ) - 4u;
+                size_t   search_len = (size_t) ( buff->e - buff->b ) - 4U;
                 uint8_t* snul       = (uint8_t*) memchr( buff->b, '\0', search_len );
                 if ( !snul )
                         return ASRTL_RECV_ERR;
@@ -233,7 +232,7 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
 {
         if ( !tree || !out_buff || !out_len )
                 return ASRTL_ARG_ERR;
-        if ( max_bytes < 11u )  // msg_id(1)+node_id(4)+key\0(1)+type(1)+next_sib(4)
+        if ( max_bytes < 11U )  // msg_id(1)+node_id(4)+key\0(1)+type(1)+next_sib(4)
                 return ASRTL_SIZE_ERR;
 
         uint8_t*      p         = out_buff;
@@ -254,8 +253,8 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
                         qr.next_sibling = ASRTL_PARAM_NONE_ID;
                 }
 
-                size_t key_len   = qr.key ? strlen( qr.key ) : 0u;
-                size_t node_size = 4u + key_len + 1u + 1u  // node_id + key\0 + type
+                size_t key_len   = qr.key ? strlen( qr.key ) : 0U;
+                size_t node_size = 4U + key_len + 1U + 1U  // node_id + key\0 + type
                                    + asrtl_param_value_wire_size( qr.value );
 
                 if ( p + node_size > nodes_end ) {
@@ -286,7 +285,7 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
 }
 
 // Fired once per decoded node. next_sibling_id is non-zero only on the last node.
-typedef void ( *asrtr_param_response_cb )(
+typedef void ( *asrtl_param_response_cb )(
     void*                   cb_ptr,
     asrtl_flat_id           id,
     char const*             key,

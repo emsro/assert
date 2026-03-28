@@ -155,11 +155,10 @@ using cntr_query_test_count = _sender< _cntr_query_test_count >;
 
 struct _cntr_query_test_info
 {
-        using value_sig = ecor::set_value_t( uint16_t, std::string_view );
+        using value_sig = ecor::set_value_t( uint16_t, std::string );
 
         asrtc::controller& cntr;
         uint32_t           id;
-        std::string        res;
 
         _cntr_query_test_info( asrtc::controller& c, uint32_t id )
           : cntr( c )
@@ -176,8 +175,7 @@ struct _cntr_query_test_info
                                     op.recv.set_error( status::query_failed );
                                     return ASRTC_SUCCESS;
                             }
-                            op.ctx.res = desc;
-                            op.recv.set_value( tid, op.ctx.res );
+                            op.recv.set_value( tid, std::string( desc ) );
                             return ASRTC_SUCCESS;
                     } );
                 if ( s != ASRTC_SUCCESS ) {
