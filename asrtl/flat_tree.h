@@ -50,6 +50,7 @@ enum asrtl_flat_value_type
         ASRTL_FLAT_VALUE_TYPE_ARRAY  = 5,
         ASRTL_FLAT_VALUE_TYPE_BOOL   = 6,
         ASRTL_FLAT_VALUE_TYPE_NULL   = 7,
+        ASRTL_FLAT_VALUE_TYPE_I32    = 8,
 };
 
 struct asrtl_flat_child_list
@@ -65,6 +66,7 @@ struct asrtl_flat_value
         {
                 char const*                  str_val;
                 uint32_t                     u32_val;
+                int32_t                      i32_val;
                 float                        float_val;
                 struct asrtl_flat_child_list obj_val;
                 struct asrtl_flat_child_list arr_val;
@@ -88,6 +90,10 @@ static inline struct asrtl_flat_value asrtl_flat_value_u32( uint32_t val )
 static inline struct asrtl_flat_value asrtl_flat_value_str( char const* val )
 {
         return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_STR, .str_val = val };
+}
+static inline struct asrtl_flat_value asrtl_flat_value_i32( int32_t val )
+{
+        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_I32, .i32_val = val };
 }
 static inline struct asrtl_flat_value asrtl_flat_value_float( float val )
 {

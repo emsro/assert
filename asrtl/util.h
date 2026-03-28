@@ -63,6 +63,20 @@ static inline void asrtl_add_u32( uint8_t** data, uint32_t val )
         asrtl_u32_to_u8d4( val, *data );
         *data += 4;
 }
+static inline void asrtl_cut_i32( uint8_t** data, int32_t* val )
+{
+        uint32_t bits;
+        asrtl_u8d4_to_u32( *data, &bits );
+        memcpy( val, &bits, sizeof bits );
+        *data += 4;
+}
+static inline void asrtl_add_i32( uint8_t** data, int32_t val )
+{
+        uint32_t bits;
+        memcpy( &bits, &val, sizeof bits );
+        asrtl_u32_to_u8d4( bits, *data );
+        *data += 4;
+}
 
 // Copy data from `from` to `to` respecting sizes of both buffers, copies only as much as possible,
 // updates to/to_size to reflect filled in data

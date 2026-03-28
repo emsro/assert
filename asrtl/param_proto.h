@@ -111,6 +111,7 @@ static inline size_t asrtl_param_value_wire_size( struct asrtl_flat_value v )
         case ASRTL_FLAT_VALUE_TYPE_U32:
         case ASRTL_FLAT_VALUE_TYPE_BOOL:
         case ASRTL_FLAT_VALUE_TYPE_FLOAT:
+        case ASRTL_FLAT_VALUE_TYPE_I32:
                 return 4u;
         case ASRTL_FLAT_VALUE_TYPE_OBJECT:
         case ASRTL_FLAT_VALUE_TYPE_ARRAY:
@@ -135,6 +136,9 @@ static inline void asrtl_param_write_value( uint8_t** p, struct asrtl_flat_value
         }
         case ASRTL_FLAT_VALUE_TYPE_U32:
                 asrtl_add_u32( p, v.u32_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_I32:
+                asrtl_add_i32( p, v.i32_val );
                 break;
         case ASRTL_FLAT_VALUE_TYPE_BOOL:
                 asrtl_add_u32( p, v.bool_val );
@@ -179,6 +183,11 @@ static inline enum asrtl_status asrtl_param_decode_value(
                 if ( asrtl_span_unfit_for( buff, 4 ) )
                         return ASRTL_RECV_ERR;
                 asrtl_cut_u32( &buff->b, &val->u32_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_I32:
+                if ( asrtl_span_unfit_for( buff, 4 ) )
+                        return ASRTL_RECV_ERR;
+                asrtl_cut_i32( &buff->b, &val->i32_val );
                 break;
         case ASRTL_FLAT_VALUE_TYPE_BOOL:
                 if ( asrtl_span_unfit_for( buff, 4 ) )

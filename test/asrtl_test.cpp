@@ -1352,6 +1352,23 @@ TEST_CASE( "flat_tree_query_float_value" )
         asrtl_flat_tree_deinit( &tree );
 }
 
+TEST_CASE( "flat_tree_query_i32_value" )
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, "neg", asrtl_flat_value_i32( -42 ) ) );
+        struct asrtl_flat_query_result r;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_I32, r.value.type );
+        CHECK_EQ( -42, r.value.i32_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
 TEST_CASE( "flat_tree_query_str_value" )
 {
         struct asrtl_allocator alloc = asrtl_default_allocator();

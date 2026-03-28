@@ -27,7 +27,7 @@ add_test(NAME asrtrpp_test COMMAND asrtrpp_test)
 
 add_executable(asrtio_test asrtio_test.cpp)
 target_link_libraries(asrtio_test PRIVATE doctest::doctest asrtrpp asrtcpp uv
-                                          ecor)
+                                          ecor nlohmann_json::nlohmann_json)
 target_compile_features(asrtio_test PUBLIC cxx_std_20)
 add_test(NAME asrtio_test COMMAND asrtio_test)
 
