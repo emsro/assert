@@ -93,6 +93,36 @@ struct _tcp_connect
 
 using tcp_connect = _sender< _tcp_connect >;
 
+struct _cntr_start
+{
+        using value_sig = ecor::set_value_t();
+
+        asrtc::controller& cntr;
+
+        _cntr_start( asrtc::controller& c )
+          : cntr( c )
+        {
+        }
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                auto x = cntr.start( [&op]( asrtc::status s ) {
+                        if ( s != ASRTC_SUCCESS )
+                                op.recv.set_error( status::init_failed );
+                        else
+                                op.recv.set_value();
+                        return s;
+                } );
+                if ( x != ASRTC_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Controller start failed: %s",
+                            asrtc_status_to_str( x ) );
+        }
+};
+using cntr_start = _sender< _cntr_start >;
+
 struct _cntr_query_test_count
 {
         using value_sig = ecor::set_value_t( uint32_t );

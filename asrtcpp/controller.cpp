@@ -70,21 +70,23 @@ asrtc::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result
 
 }  // namespace
 
-controller::controller( asrtl_sender sender, error_cb ecb, init_cb icb )
+controller::controller( asrtl_sender sender, error_cb ecb )
   : _impl{ new controller_impl{
-        .ecb    = std::move( ecb ),
-        .ini_cb = std::move( icb ),
+        .ecb = std::move( ecb ),
     } }
 {
         auto st = asrtc_cntr_init(
             &_impl->asc,
             sender,
             asrtc_default_allocator(),
-            { .ptr = _impl.get(), .cb = &cimpl_error },
-            &cimpl_init,
-            _impl.get(),
-            0 );
+            { .ptr = _impl.get(), .cb = &cimpl_error } );
         ASRTL_ASSERT( st == ASRTC_SUCCESS );
+}
+
+asrtc::status controller::start( init_cb icb )
+{
+        _impl->ini_cb = std::move( icb );
+        return asrtc_cntr_start( &_impl->asc, &cimpl_init, _impl.get(), 0 );
 }
 
 controller::controller( controller&& ) = default;

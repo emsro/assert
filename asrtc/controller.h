@@ -58,7 +58,10 @@ enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
     struct asrtl_allocator   alloc,
-    struct asrtc_error_cb    eh,
+    struct asrtc_error_cb    eh );
+
+enum asrtc_status asrtc_cntr_start(
+    struct asrtc_controller* c,
     asrtc_init_callback      cb,
     void*                    ptr,
     uint32_t                 timeout_ticks );

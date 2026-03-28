@@ -26,12 +26,15 @@ struct controller_impl;
 struct controller
 {
         template < typename CB >
-        controller( CB& scb, error_cb ecb, init_cb icb )
-          : controller( asrtl::make_sender( scb ), std::move( ecb ), std::move( icb ) )
+        controller( CB& scb, error_cb ecb )
+          : controller( asrtl::make_sender( scb ), std::move( ecb ) )
         {
         }
 
         controller( controller&& );
+
+        [[nodiscard]]
+        asrtc::status start( init_cb icb );
 
         [[nodiscard]]
         asrtc::status tick();
@@ -49,7 +52,7 @@ struct controller
         ~controller();
 
 private:
-        controller( asrtl_sender sender, error_cb ecb, init_cb icb );
+        controller( asrtl_sender sender, error_cb ecb );
 
         uptr< controller_impl > _impl;
 };

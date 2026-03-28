@@ -269,17 +269,18 @@ void exec( std::ostream& os, test_case const& tc )
                 return ASRTL_SUCCESS;
         };
 
-        c.emplace(
-            c_send,
-            [&]( asrtl::source s, asrtl::ecode ec ) {
-                    os << std::format( "({}) ", s );
-                    os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
-                    return ASRTC_SUCCESS;
-            },
-            [&]( asrtc::status s ) {
-                    check >> s;
-                    return ASRTC_SUCCESS;
-            } );
+        c.emplace( c_send, [&]( asrtl::source s, asrtl::ecode ec ) {
+                os << std::format( "({}) ", s );
+                os << asrtl_ecode_to_str( (enum asrtl_ecode) ec ) << std::endl;
+                return ASRTC_SUCCESS;
+        } );
+
+        auto s = c->start( [&]( asrtc::status s ) {
+                check >> s;
+                return ASRTC_SUCCESS;
+        } );
+        if ( s != ASRTC_SUCCESS )
+                os << std::format( "Controller start failed: {}\n", asrtc_status_to_str( s ) );
 
         gene_handler gh{ os, *c, r };
         for ( auto const& gene : tc.genes )

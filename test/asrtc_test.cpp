@@ -85,10 +85,9 @@ void check_cntr_full_init( controller_ctx* ctx )
             &ctx->cntr,
             ctx->send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &ctx->init_status,
-            0 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &ctx->cntr );
 
@@ -117,24 +116,21 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
             NULL,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            NULL,
-            0 );
+            asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_CNTR_INIT_ERR, st );
 
         st = asrtc_cntr_init(
             &cntr,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            0 );
+            asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         CHECK_EQ( ASRTL_CORE, cntr.node.chid );
-        CHECK_EQ( ASRTC_CNTR_INIT, cntr.state );
+        CHECK( asrtc_cntr_idle( &cntr ) );
 
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTC_CNTR_INIT, cntr.state );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         st = asrtc_cntr_tick( &cntr );
@@ -299,10 +295,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
             &cntr,
             send,
             failing_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            0 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &cntr );
         coll.data.pop_back();  // discard PROTO_VERSION request
@@ -387,10 +382,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
             &cntr,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            0 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &cntr );
         coll.data.pop_back();
@@ -455,10 +449,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
             &cntr,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            3 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 3 );
         CHECK_EQ( ASRTC_SUCCESS, st );
 
         // first tick sends the request and transitions to WAITING
@@ -605,7 +598,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
         struct asrtc_error_cb ecb = { .ptr = &err, .cb = &record_error_cb };
 
         enum asrtc_status st = asrtc_cntr_init(
-            &cntr, send, asrtc_default_allocator(), ecb, &record_init_cb, &init_status, 0 );
+            &cntr, send, asrtc_default_allocator(), ecb );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &cntr );
         coll.data.pop_back();
@@ -663,10 +658,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
             &cntr,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            0 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
 
         uint8_t           buf[1];
@@ -690,10 +684,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
             &cntr,
             send,
             asrtc_default_allocator(),
-            asrtc_default_error_cb(),
-            &record_init_cb,
-            &init_status,
-            0 );
+            asrtc_default_error_cb() );
+        CHECK_EQ( ASRTC_SUCCESS, st );
+        st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 0 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &cntr );
         coll.data.pop_back();

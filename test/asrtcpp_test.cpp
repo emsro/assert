@@ -122,7 +122,10 @@ struct paired_ctx
                     // error callback
                     []( asrtl::source, asrtl::ecode ) -> asrtc::status {
                             return ASRTC_SUCCESS;
-                    },
+                    } );
+
+                // start init handshake
+                (void) c->start(
                     // init callback — single-use via cimpl_do
                     [this]( asrtc::status s ) -> asrtc::status {
                             init_cb_count++;

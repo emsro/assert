@@ -40,12 +40,9 @@ enum asrtc_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
     struct asrtl_allocator   alloc,
-    struct asrtc_error_cb    eh,
-    asrtc_init_callback      cb,
-    void*                    ptr,
-    uint32_t                 timeout_ticks )
+    struct asrtc_error_cb    eh )
 {
-        if ( !c || !eh.cb || !cb )
+        if ( !c || !eh.cb )
                 return ASRTC_CNTR_INIT_ERR;
         *c = ( struct asrtc_controller ){
             .node =
@@ -59,14 +56,28 @@ enum asrtc_status asrtc_cntr_init(
             .alloc         = alloc,
             .eh            = eh,
             .run_id        = 0,
-            .state         = ASRTC_CNTR_INIT,
+            .state         = ASRTC_CNTR_IDLE,
             .stage         = ASRTC_STAGE_INIT,
             .waiting_ticks = 0,
-            .hndl.init =
-                ( struct asrtc_init_handler ){
-                    .cb = cb, .ptr = ptr, .timeout_ticks = timeout_ticks },
         };
 
+        return ASRTC_SUCCESS;
+}
+
+enum asrtc_status asrtc_cntr_start(
+    struct asrtc_controller* c,
+    asrtc_init_callback      cb,
+    void*                    ptr,
+    uint32_t                 timeout_ticks )
+{
+        if ( !c || !cb )
+                return ASRTC_CNTR_INIT_ERR;
+        if ( !asrtc_cntr_idle( c ) )
+                return ASRTC_CNTR_BUSY_ERR;
+        c->hndl.init =
+            ( struct asrtc_init_handler ){ .cb = cb, .ptr = ptr, .timeout_ticks = timeout_ticks };
+        c->state = ASRTC_CNTR_INIT;
+        c->stage = ASRTC_STAGE_INIT;
         return ASRTC_SUCCESS;
 }
 

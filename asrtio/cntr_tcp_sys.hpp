@@ -67,6 +67,19 @@ struct cntr_tcp_sys
                                     uv_strerror( static_cast< int >( nread ) ) );
                         close();
                 } );
+                auto x = cntr.start( []( asrtc::status s ) -> asrtc::status {
+                        if ( s != ASRTC_SUCCESS )
+                                ASRTL_ERR_LOG(
+                                    "asrtio_main",
+                                    "Controller init failed: %s",
+                                    asrtc_status_to_str( s ) );
+                        return s;
+                } );
+                if ( x != ASRTC_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Controller start failed: %s",
+                            asrtc_status_to_str( x ) );
         }
 
         void close()
@@ -92,15 +105,6 @@ public:
                     ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
                     close();
                     return ASRTC_SUCCESS;
-            },
-            [this]( asrtc::status s ) -> asrtc::status {
-                    // XXX: this should be awaited somewhere.
-                    if ( s != ASRTC_SUCCESS )
-                            ASRTL_ERR_LOG(
-                                "asrtio_main",
-                                "Controller init failed: %s",
-                                asrtc_status_to_str( s ) );
-                    return s;
             } };
 
 
@@ -122,8 +126,7 @@ struct suite_reporter
 
 inline task< void > run_test_suite( task_ctx& ctx, cntr_tcp_sys& sys, suite_reporter& reporter )
 {
-        while ( !sys.cntr.is_idle() )
-                co_await ecor::suspend;
+        co_await cntr_start{ sys.cntr };
 
         uint32_t count = co_await cntr_query_test_count{ sys.cntr };
         reporter.on_count( count );
