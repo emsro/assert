@@ -51,14 +51,14 @@ struct conn_ctx
                 reg_demo( make_demo_counter() );
                 reg_demo( make_demo_random() );
                 reg_demo( make_demo_random_counter() );
+                reg_demo( make_demo_param_value() );
+                reg_demo( make_demo_param_count() );
         }
 
-        void reg_demo( demo_test demo )
+        void reg_demo( demo_spec spec )
         {
-                demo.diag_ptr  = &r_diag;
-                demo.param_ptr = &r_param;
-                demo.rng_ptr   = &rng;
-                auto& t        = demo_tests.emplace_back( std::move( demo ) );
+                auto& t = demo_tests.emplace_back(
+                    std::move( spec ), r_diag, r_param, rng );
                 reac.add_test( t );
         }
 

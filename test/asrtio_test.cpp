@@ -301,11 +301,11 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 8 );
-        CHECK( r.reporter.starts.size() == 8 );
-        CHECK( r.reporter.done_names.size() == 8 );
+        CHECK( r.reporter.count == 10 );
+        CHECK( r.reporter.starts.size() == 10 );
+        CHECK( r.reporter.done_names.size() == 10 );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
-        CHECK( r.reporter.done_names_at_on_done == 8 );
+        CHECK( r.reporter.done_names_at_on_done == 10 );
         for ( double ms : r.reporter.durations_ms ) {
                 CHECK( ms >= 0.0 );
                 CHECK( ms < 1000.0 );
@@ -314,6 +314,7 @@ TEST_CASE( "suite_basic" )
         // Demo suite: 3 pass (demo_pass, demo_check, demo_counter)
         //             3 fail (demo_fail, demo_check_fail, demo_require_fail)
         //             2 nondeterministic (demo_random, demo_random_counter)
+        //             2 param-aware (demo_param_value, demo_param_count) — trivial pass w/o params
         CHECK( r.reporter.done_names[0] == "demo_pass" );
         CHECK( r.reporter.done_names[1] == "demo_fail" );
         CHECK( r.reporter.done_names[2] == "demo_check" );
@@ -322,12 +323,16 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names[5] == "demo_counter" );
         CHECK( r.reporter.done_names[6] == "demo_random" );
         CHECK( r.reporter.done_names[7] == "demo_random_counter" );
+        CHECK( r.reporter.done_names[8] == "demo_param_value" );
+        CHECK( r.reporter.done_names[9] == "demo_param_count" );
         CHECK( r.reporter.passed[0] == true );
         CHECK( r.reporter.passed[1] == false );
         CHECK( r.reporter.passed[2] == true );
         CHECK( r.reporter.passed[3] == false );
         CHECK( r.reporter.passed[4] == false );
         CHECK( r.reporter.passed[5] == true );
+        CHECK( r.reporter.passed[8] == true );
+        CHECK( r.reporter.passed[9] == true );
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -1469,8 +1474,8 @@ TEST_CASE( "suite_param_multi_run" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 8 tests discovered, all run once except demo_pass which runs twice → 9 done events
-        CHECK_EQ( 9u, r.reporter.done_names.size() );
+        // 10 tests discovered, all run once except demo_pass which runs twice → 11 done events
+        CHECK_EQ( 11u, r.reporter.done_names.size() );
 
         // Find the two demo_pass entries
         std::vector< size_t > ip_indices;
@@ -1501,8 +1506,8 @@ TEST_CASE( "suite_param_skip" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 8 tests discovered, 1 skipped → 7 done events
-        CHECK_EQ( 7u, r.reporter.done_names.size() );
+        // 10 tests discovered, 1 skipped → 9 done events
+        CHECK_EQ( 9u, r.reporter.done_names.size() );
         // demo_pass should not appear
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "demo_pass" );
@@ -1524,8 +1529,8 @@ TEST_CASE( "suite_param_wildcard" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 7 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 9
-        CHECK_EQ( 9u, r.reporter.done_names.size() );
+        // 9 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 11
+        CHECK_EQ( 11u, r.reporter.done_names.size() );
 
         // demo_pass appears exactly twice
         uint32_t ip_count = 0;
@@ -1556,8 +1561,8 @@ TEST_CASE( "suite_param_unknown_key" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // All 8 device tests run normally (unknown key is ignored)
-        CHECK_EQ( 8u, r.reporter.done_names.size() );
+        // All 10 device tests run normally (unknown key is ignored)
+        CHECK_EQ( 10u, r.reporter.done_names.size() );
         // "nonexistent_test" never appears in results
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "nonexistent_test" );

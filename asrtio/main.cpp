@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <list>
 #include <memory>
+#include <sstream>
 #include <uv.h>
 #include <vector>
 
@@ -40,8 +41,10 @@ struct pbar_reporter : suite_reporter
 
         void on_test_start( std::string_view name, uint32_t run_idx, uint32_t run_total ) override
         {
-                auto label = std::string{ name } + " [" + std::to_string( run_idx ) + "/" +
-                             std::to_string( run_total ) + "]";
+                auto label = std::string{ name };
+                if ( run_total > 1 )
+                        label +=
+                            " " + std::to_string( run_idx ) + "/" + std::to_string( run_total );
                 bar.set_status( label );
         }
 
@@ -54,8 +57,10 @@ struct pbar_reporter : suite_reporter
         {
                 if ( !passed )
                         ++failed;
-                auto label = std::string{ name } + " [" + std::to_string( run_idx ) + "/" +
-                             std::to_string( run_total ) + "]";
+                auto label = std::string{ name };
+                if ( run_total > 1 )
+                        label +=
+                            " " + std::to_string( run_idx ) + "/" + std::to_string( run_total );
                 bar.log_result( label, passed, duration_ms );
                 bar.set_progress( ++done, failed );
         }
@@ -259,6 +264,14 @@ int main( int argc, char* argv[] )
         rsim->fallthrough();
         rsim->callback( [&, rsim_seed] {
                 launch( [&, rsim_seed]( auto timeout, auto params ) {
+                        if ( params_file.empty() ) {
+                                std::istringstream in( R"({
+                                        "*": {"default": 1},
+                                        "demo_param_value": [{"val": 10}, {"val": 20}],
+                                        "demo_param_count": {"a": 1, "b": 2, "c": 3}
+                                })" );
+                                params = param_config_from_stream( in );
+                        }
                         return run_rsim( ctx, loop, *rsim_seed, timeout, std::move( params ) );
                 } );
         } );
