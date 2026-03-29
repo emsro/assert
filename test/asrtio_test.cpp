@@ -31,139 +31,6 @@ using namespace std::chrono_literals;
 ASRTL_DEFINE_GPOS_LOG()
 
 // ---------------------------------------------------------------------------
-// utest_sim helpers
-
-static asrtio::utest_sim make_sim(
-    int              duration_ms,
-    int              variance_ms,
-    asrtr_test_state res,
-    bool             randomize,
-    std::mt19937&    rng )
-{
-        asrtio::utest_sim s;
-        s.duration_ms = duration_ms;
-        s.variance_ms = variance_ms;
-        s.res         = res;
-        s.randomize   = randomize;
-        s.tname       = "test";
-        s.rng_ptr     = &rng;
-        return s;
-}
-
-// Run sim until it no longer returns ASRTR_TEST_RUNNING (or bail after limit).
-static asrtr_test_state run_to_completion( asrtio::utest_sim& sim, int limit = 100'000'000 )
-{
-        asrtr::record r{};
-        for ( int i = 0; i < limit; ++i ) {
-                REQUIRE( sim( r ) == ASRTR_SUCCESS );
-                if ( r.state != ASRTR_TEST_RUNNING )
-                        return r.state;
-                // busy-wait — fine for sub-second durations in a test
-        }
-        return r.state;
-}
-
-// ---------------------------------------------------------------------------
-// Component 1: utest_sim
-
-TEST_CASE( "utest_sim_insta_pass" )
-{
-        std::mt19937      rng( 0 );
-        asrtio::utest_sim sim = make_sim( 0, 0, ASRTR_TEST_PASS, false, rng );
-        asrtr::record     r{};
-        CHECK( sim( r ) == ASRTR_SUCCESS );
-        CHECK( r.state == ASRTR_TEST_PASS );
-}
-
-TEST_CASE( "utest_sim_insta_fail" )
-{
-        std::mt19937      rng( 0 );
-        asrtio::utest_sim sim = make_sim( 0, 0, ASRTR_TEST_FAIL, false, rng );
-        asrtr::record     r{};
-        CHECK( sim( r ) == ASRTR_SUCCESS );
-        CHECK( r.state == ASRTR_TEST_FAIL );
-}
-
-TEST_CASE( "utest_sim_running_then_done" )
-{
-        std::mt19937 rng( 0 );
-        // 10 ms fixed duration — first tick will almost certainly be RUNNING
-        asrtio::utest_sim sim = make_sim( 10, 0, ASRTR_TEST_PASS, false, rng );
-        asrtr::record     r{};
-        REQUIRE( sim( r ) == ASRTR_SUCCESS );
-        CHECK( r.state == ASRTR_TEST_RUNNING );
-
-        asrtr_test_state final_state = run_to_completion( sim );
-        CHECK( final_state == ASRTR_TEST_PASS );
-}
-
-TEST_CASE( "utest_sim_variance_clamped_non_negative" )
-{
-        // duration_ms=0, variance_ms=50 — jitter could go negative; actual_ms must never be < 0
-        std::mt19937 rng( 1 );
-        for ( int trial = 0; trial < 50; ++trial ) {
-                asrtio::utest_sim sim = make_sim( 0, 50, ASRTR_TEST_PASS, false, rng );
-                asrtr::record     r{};
-                REQUIRE( sim( r ) == ASRTR_SUCCESS );  // triggers actual_ms calculation
-                CHECK( sim.actual_ms >= 0 );
-        }
-}
-
-TEST_CASE( "utest_sim_deterministic" )
-{
-        // Two sims with same seed must produce identical actual_ms and res
-        std::mt19937      rng_a( 42 ), rng_b( 42 );
-        asrtio::utest_sim a = make_sim( 300, 200, ASRTR_TEST_PASS, true, rng_a );
-        asrtio::utest_sim b = make_sim( 300, 200, ASRTR_TEST_PASS, true, rng_b );
-
-        asrtr::record ra{}, rb{};
-        REQUIRE( a( ra ) == ASRTR_SUCCESS );
-        REQUIRE( b( rb ) == ASRTR_SUCCESS );
-
-        CHECK( a.actual_ms == b.actual_ms );
-        CHECK( a.res == b.res );
-}
-
-TEST_CASE( "utest_sim_different_seeds_differ" )
-{
-        // With randomize=true, different seeds should differ in at least one run
-        // over multiple trials.
-        bool any_differ = false;
-        for ( uint32_t seed = 0; seed < 20; ++seed ) {
-                std::mt19937      rng_a( seed ), rng_b( seed + 1000 );
-                asrtio::utest_sim a = make_sim( 300, 200, ASRTR_TEST_PASS, true, rng_a );
-                asrtio::utest_sim b = make_sim( 300, 200, ASRTR_TEST_PASS, true, rng_b );
-
-                asrtr::record ra{}, rb{};
-                REQUIRE( a( ra ) == ASRTR_SUCCESS );
-                REQUIRE( b( rb ) == ASRTR_SUCCESS );
-
-                if ( a.actual_ms != b.actual_ms || a.res != b.res ) {
-                        any_differ = true;
-                        break;
-                }
-        }
-        CHECK( any_differ );
-}
-
-TEST_CASE( "utest_sim_name" )
-{
-        std::mt19937      rng( 0 );
-        asrtio::utest_sim sim = make_sim( 0, 0, ASRTR_TEST_PASS, false, rng );
-        sim.tname             = "my_test";
-        CHECK( std::string_view( sim.name() ) == "my_test" );
-}
-
-TEST_CASE( "utest_sim_returns_success" )
-{
-        std::mt19937      rng( 0 );
-        asrtio::utest_sim sim = make_sim( 0, 0, ASRTR_TEST_ERROR, false, rng );
-        asrtr::record     r{};
-        // operator() must always return ASRTR_SUCCESS regardless of test outcome
-        CHECK( sim( r ) == ASRTR_SUCCESS );
-}
-
-// ---------------------------------------------------------------------------
 // Component 3: cobs_node::on_data
 
 // Build a COBS-framed packet: [u16_le(chid) | payload] COBS-encoded + 0x00 terminator
@@ -323,7 +190,7 @@ struct recording_reporter : asrtio::suite_reporter
                 done_run_idx.push_back( ri );
                 done_run_total.push_back( rt );
         }
-        void on_diagnostic( std::string_view, uint32_t ) override
+        void on_diagnostic( std::string_view, uint32_t, std::string_view ) override
         {
         }
 };
@@ -434,15 +301,33 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 6 );
-        CHECK( r.reporter.starts.size() == 6 );
-        CHECK( r.reporter.done_names.size() == 6 );
+        CHECK( r.reporter.count == 8 );
+        CHECK( r.reporter.starts.size() == 8 );
+        CHECK( r.reporter.done_names.size() == 8 );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
-        CHECK( r.reporter.done_names_at_on_done == 6 );
+        CHECK( r.reporter.done_names_at_on_done == 8 );
         for ( double ms : r.reporter.durations_ms ) {
                 CHECK( ms >= 0.0 );
                 CHECK( ms < 1000.0 );
         }
+
+        // Demo suite: 3 pass (demo_pass, demo_check, demo_counter)
+        //             3 fail (demo_fail, demo_check_fail, demo_require_fail)
+        //             2 nondeterministic (demo_random, demo_random_counter)
+        CHECK( r.reporter.done_names[0] == "demo_pass" );
+        CHECK( r.reporter.done_names[1] == "demo_fail" );
+        CHECK( r.reporter.done_names[2] == "demo_check" );
+        CHECK( r.reporter.done_names[3] == "demo_check_fail" );
+        CHECK( r.reporter.done_names[4] == "demo_require_fail" );
+        CHECK( r.reporter.done_names[5] == "demo_counter" );
+        CHECK( r.reporter.done_names[6] == "demo_random" );
+        CHECK( r.reporter.done_names[7] == "demo_random_counter" );
+        CHECK( r.reporter.passed[0] == true );
+        CHECK( r.reporter.passed[1] == false );
+        CHECK( r.reporter.passed[2] == true );
+        CHECK( r.reporter.passed[3] == false );
+        CHECK( r.reporter.passed[4] == false );
+        CHECK( r.reporter.passed[5] == true );
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -454,9 +339,16 @@ TEST_CASE( "suite_deterministic" )
 
 TEST_CASE( "suite_seed_changes_outcomes" )
 {
-        suite_run a( 42 ), b( 9999 );
-        REQUIRE( a.reporter.passed.size() == b.reporter.passed.size() );
-        CHECK( a.reporter.passed != b.reporter.passed );
+        // Nondeterministic tests depend on the seed — different seeds should
+        // (with high probability) produce different outcomes over multiple trials.
+        bool any_differ = false;
+        for ( uint32_t s = 0; s < 20 && !any_differ; ++s ) {
+                suite_run a( s ), b( s + 1000 );
+                REQUIRE( a.reporter.passed.size() == b.reporter.passed.size() );
+                if ( a.reporter.passed != b.reporter.passed )
+                        any_differ = true;
+        }
+        CHECK( any_differ );
 }
 
 // ---------------------------------------------------------------------------
@@ -1566,10 +1458,10 @@ struct param_suite_run
 
 TEST_CASE( "suite_param_multi_run" )
 {
-        // utest_sim_insta_pass mapped to 2 param sets → runs twice
+        // demo_pass mapped to 2 param sets → runs twice
         auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
         {
-                "utest_sim_insta_pass": [{"a": 1}, {"b": 2}]
+                "demo_pass": [{"a": 1}, {"b": 2}]
         }
         )" ) );
         REQUIRE( cfg_opt );
@@ -1577,13 +1469,13 @@ TEST_CASE( "suite_param_multi_run" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 6 tests discovered, all run once except insta_pass which runs twice → 7 done events
-        CHECK_EQ( 7u, r.reporter.done_names.size() );
+        // 8 tests discovered, all run once except demo_pass which runs twice → 9 done events
+        CHECK_EQ( 9u, r.reporter.done_names.size() );
 
-        // Find the two insta_pass entries
+        // Find the two demo_pass entries
         std::vector< size_t > ip_indices;
         for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
-                if ( r.reporter.done_names[i] == "utest_sim_insta_pass" )
+                if ( r.reporter.done_names[i] == "demo_pass" )
                         ip_indices.push_back( i );
         }
         REQUIRE_EQ( 2u, ip_indices.size() );
@@ -1598,10 +1490,10 @@ TEST_CASE( "suite_param_multi_run" )
 
 TEST_CASE( "suite_param_skip" )
 {
-        // utest_sim_insta_pass mapped to [] → skipped entirely
+        // demo_pass mapped to [] → skipped entirely
         auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
         {
-                "utest_sim_insta_pass": []
+                "demo_pass": []
         }
         )" ) );
         REQUIRE( cfg_opt );
@@ -1609,22 +1501,22 @@ TEST_CASE( "suite_param_skip" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 6 tests discovered, 1 skipped → 5 done events
-        CHECK_EQ( 5u, r.reporter.done_names.size() );
-        // insta_pass should not appear
+        // 8 tests discovered, 1 skipped → 7 done events
+        CHECK_EQ( 7u, r.reporter.done_names.size() );
+        // demo_pass should not appear
         for ( auto const& name : r.reporter.done_names )
-                CHECK_NE( name, "utest_sim_insta_pass" );
+                CHECK_NE( name, "demo_pass" );
         for ( auto const& name : r.reporter.starts )
-                CHECK_NE( name, "utest_sim_insta_pass" );
+                CHECK_NE( name, "demo_pass" );
 }
 
 TEST_CASE( "suite_param_wildcard" )
 {
-        // "*" applies to all unlisted tests; "utest_sim_insta_pass" has its own entry
+        // "*" applies to all unlisted tests; "demo_pass" has its own entry
         auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
         {
                 "*": {"w": 99},
-                "utest_sim_insta_pass": [{"a": 1}, {"b": 2}]
+                "demo_pass": [{"a": 1}, {"b": 2}]
         }
         )" ) );
         REQUIRE( cfg_opt );
@@ -1632,19 +1524,19 @@ TEST_CASE( "suite_param_wildcard" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 5 unlisted tests get 1 run each (via wildcard), insta_pass gets 2 → 7
-        CHECK_EQ( 7u, r.reporter.done_names.size() );
+        // 7 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 9
+        CHECK_EQ( 9u, r.reporter.done_names.size() );
 
-        // insta_pass appears exactly twice
+        // demo_pass appears exactly twice
         uint32_t ip_count = 0;
         for ( auto const& name : r.reporter.done_names )
-                if ( name == "utest_sim_insta_pass" )
+                if ( name == "demo_pass" )
                         ++ip_count;
         CHECK_EQ( 2u, ip_count );
 
         // Each wildcard test gets [1/1]
         for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
-                if ( r.reporter.done_names[i] != "utest_sim_insta_pass" ) {
+                if ( r.reporter.done_names[i] != "demo_pass" ) {
                         CHECK_EQ( 1u, r.reporter.done_run_idx[i] );
                         CHECK_EQ( 1u, r.reporter.done_run_total[i] );
                 }
@@ -1664,8 +1556,8 @@ TEST_CASE( "suite_param_unknown_key" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // All 6 device tests run normally (unknown key is ignored)
-        CHECK_EQ( 6u, r.reporter.done_names.size() );
+        // All 8 device tests run normally (unknown key is ignored)
+        CHECK_EQ( 8u, r.reporter.done_names.size() );
         // "nonexistent_test" never appears in results
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "nonexistent_test" );

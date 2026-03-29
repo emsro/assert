@@ -60,9 +60,11 @@ struct pbar_reporter : suite_reporter
                 bar.set_progress( ++done, failed );
         }
 
-        void on_diagnostic( std::string_view file, uint32_t line ) override
+        void on_diagnostic( std::string_view file, uint32_t line, std::string_view extra ) override
         {
                 auto loc = std::string{ file } + ":" + std::to_string( line );
+                if ( !extra.empty() )
+                        loc += " " + std::string{ extra };
                 bar.log( pbar::colored_wall_time() + "    " + pbar::fg( loc, pbar::colors::red ) );
         }
 };
@@ -111,11 +113,11 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 }
 
 task< void > run_tcp(
-    task_ctx&                        ctx,
-    uv_loop_t*                       loop,
-    std::string_view                 host,
-    uint16_t                         port,
-    std::chrono::milliseconds        timeout,
+    task_ctx&                       ctx,
+    uv_loop_t*                      loop,
+    std::string_view                host,
+    uint16_t                        port,
+    std::chrono::milliseconds       timeout,
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
@@ -134,10 +136,10 @@ task< void > run_tcp(
 };
 
 task< void > run_rsim(
-    task_ctx&                        ctx,
-    uv_loop_t*                       loop,
-    uint32_t                         seed,
-    std::chrono::milliseconds        timeout,
+    task_ctx&                       ctx,
+    uv_loop_t*                      loop,
+    uint32_t                        seed,
+    std::chrono::milliseconds       timeout,
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
@@ -230,7 +232,7 @@ int main( int argc, char* argv[] )
         app.add_option( "--timeout", timeout_ms, "Timeout in milliseconds" );
         app.add_option( "--params", params_file, "Path to JSON param config file" );
 
-        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle, &timeout_ms, &params_file] {
+        auto launch = [&]( auto make_task ) {
                 auto timeout = std::chrono::milliseconds{ timeout_ms };
                 auto params  = std::make_unique< param_config >();
                 if ( !params_file.empty() ) {
@@ -241,27 +243,24 @@ int main( int argc, char* argv[] )
                         }
                 }
                 g_bar = std::make_shared< pbar::terminal_progress >();
-                t     = run_tcp( ctx, loop, opt->host, opt->port, timeout, std::move( params ) )
-                        .connect( final_receiver{ &idle } );
+                t = make_task( timeout, std::move( params ) ).connect( final_receiver{ &idle } );
+        };
+
+        sub->callback( [&, opt] {
+                launch( [&, opt]( auto timeout, auto params ) {
+                        return run_tcp(
+                            ctx, loop, opt->host, opt->port, timeout, std::move( params ) );
+                } );
         } );
 
         auto* rsim      = app.add_subcommand( "rsim", "Run the test RSIM system" );
         auto  rsim_seed = std::make_shared< uint32_t >( 42u );
         rsim->add_option( "--seed", *rsim_seed, "Seed for pseudo-random test simulation" );
         rsim->fallthrough();
-        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle, &timeout_ms, &params_file] {
-                auto timeout = std::chrono::milliseconds{ timeout_ms };
-                auto params  = std::make_unique< param_config >();
-                if ( !params_file.empty() ) {
-                        params = param_config_from_file( params_file );
-                        if ( !params ) {
-                                std::fprintf( stderr, "Failed to load param config\n" );
-                                std::exit( 1 );
-                        }
-                }
-                g_bar = std::make_shared< pbar::terminal_progress >();
-                t     = run_rsim( ctx, loop, *rsim_seed, timeout, std::move( params ) )
-                            .connect( final_receiver{ &idle } );
+        rsim->callback( [&, rsim_seed] {
+                launch( [&, rsim_seed]( auto timeout, auto params ) {
+                        return run_rsim( ctx, loop, *rsim_seed, timeout, std::move( params ) );
+                } );
         } );
 
         CLI11_PARSE( app, argc, argv );

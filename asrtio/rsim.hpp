@@ -8,84 +8,29 @@
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "./demo.hpp"
 #include "./euv.hpp"
 #include "./task.hpp"
 #include "./util.hpp"
 
-#include <chrono>
 #include <list>
-#include <optional>
 #include <random>
 #include <uv.h>
 
 namespace asrtio
 {
 
-struct utest_sim
-{
-        int              duration_ms = 300;
-        int              variance_ms = 0;
-        asrtr_test_state res         = ASRTR_TEST_PASS;
-        bool             randomize   = false;
-        std::string      tname;
-
-        std::mt19937*        rng_ptr   = nullptr;
-        asrtr::diag*         diag_ptr  = nullptr;
-        asrtr::param_client* param_ptr = nullptr;
-
-        using clock = std::chrono::steady_clock;
-        std::optional< clock::time_point > start;
-        int                                actual_ms = 0;
-        asrtio::status                     stat      = asrtio::status::success;
-        char const*                        name()
-        {
-                return tname.data();
-        }
-
-        asrtr::status operator()( asrtr::record& r )
-        {
-                if ( !start ) {
-                        start = clock::now();
-                        if ( variance_ms > 0 ) {
-                                std::uniform_int_distribution< int > jitter(
-                                    -variance_ms, variance_ms );
-                                actual_ms = std::max( 0, duration_ms + jitter( *rng_ptr ) );
-                        } else {
-                                actual_ms = duration_ms;
-                        }
-                        if ( randomize ) {
-                                static constexpr asrtr_test_state k_results[] = {
-                                    ASRTR_TEST_PASS, ASRTR_TEST_FAIL, ASRTR_TEST_ERROR };
-                                std::uniform_int_distribution< int > pick( 0, 2 );
-                                res = k_results[pick( *rng_ptr )];
-                        }
-                }
-
-                auto elapsed =
-                    std::chrono::duration_cast< std::chrono::milliseconds >( clock::now() - *start )
-                        .count();
-                if ( elapsed >= actual_ms ) {
-                        r.state = res;
-                        if ( res != ASRTR_TEST_PASS && diag_ptr )
-                                diag_ptr->record( tname.c_str(), __LINE__ );
-                } else {
-                        r.state = ASRTR_TEST_RUNNING;
-                }
-                return ASRTR_SUCCESS;
-        }
-};
-
 
 struct conn_ctx
 {
-        uv_tcp_t                              client;
-        bool                                  closed = false;
-        std::mt19937                          rng;
-        asrtr::reactor                        reac;
-        asrtr::diag                           r_diag;
-        uint8_t                               param_buf[256] = {};
-        asrtr::param_client                   r_param;
-        std::list< asrtr::unit< utest_sim > > tests;
+        uv_tcp_t                               client;
+        bool                                   closed = false;
+        std::mt19937                           rng;
+        asrtr::reactor                         reac;
+        asrtr::diag                            r_diag;
+        uint8_t                                param_buf[256] = {};
+        asrtr::param_client                    r_param;
+        std::list< asrtr::unit< demo_test > >  demo_tests;
 
         conn_ctx( uint32_t seed )
           : rng( seed )
@@ -98,38 +43,22 @@ struct conn_ctx
         {
                 client.data = this;
 
-                reg( utest_sim{
-                    .duration_ms = 300,
-                    .variance_ms = 200,
-                    .res         = ASRTR_TEST_PASS,
-                    .randomize   = true,
-                    .tname       = "utest_sim" } );
-                reg( utest_sim{
-                    .duration_ms = 500,
-                    .variance_ms = 300,
-                    .res         = ASRTR_TEST_FAIL,
-                    .randomize   = true,
-                    .tname       = "utest_sim_fail" } );
-                reg( utest_sim{
-                    .duration_ms = 150,
-                    .variance_ms = 100,
-                    .res         = ASRTR_TEST_ERROR,
-                    .randomize   = false,
-                    .tname       = "utest_sim_error" } );
-                reg( utest_sim{
-                    .duration_ms = 0, .res = ASRTR_TEST_PASS, .tname = "utest_sim_insta_pass" } );
-                reg( utest_sim{
-                    .duration_ms = 0, .res = ASRTR_TEST_FAIL, .tname = "utest_sim_insta_fail" } );
-                reg( utest_sim{
-                    .duration_ms = 0, .res = ASRTR_TEST_ERROR, .tname = "utest_sim_insta_error" } );
+                reg_demo( make_demo_pass() );
+                reg_demo( make_demo_fail() );
+                reg_demo( make_demo_check() );
+                reg_demo( make_demo_check_fail() );
+                reg_demo( make_demo_require_fail() );
+                reg_demo( make_demo_counter() );
+                reg_demo( make_demo_random() );
+                reg_demo( make_demo_random_counter() );
         }
 
-        void reg( utest_sim sim )
+        void reg_demo( demo_test demo )
         {
-                sim.rng_ptr   = &rng;
-                sim.diag_ptr  = &r_diag;
-                sim.param_ptr = &r_param;
-                auto& t       = tests.emplace_back( std::move( sim ) );
+                demo.diag_ptr  = &r_diag;
+                demo.param_ptr = &r_param;
+                demo.rng_ptr   = &rng;
+                auto& t        = demo_tests.emplace_back( std::move( demo ) );
                 reac.add_test( t );
         }
 

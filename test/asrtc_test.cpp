@@ -831,6 +831,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 7 );
+        *p++ = 3;  // file_len
         *p++ = 'f';
         *p++ = 'o';
         *p++ = 'o';
@@ -844,10 +845,11 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
                 asrtc_diag_free_record( &diag.alloc, rec );
         }
 
-        // empty filename (5 bytes total) → file is empty string
+        // empty filename → file is empty string
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 42 );
+        *p++ = 0;  // file_len
         CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
@@ -862,11 +864,13 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 1 );
+        *p++ = 1;  // file_len
         *p++ = 'a';
         CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
+        *p++ = 1;  // file_len
         *p++ = 'b';
         CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         {
@@ -919,6 +923,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         p                      = buf;
         *p++                   = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 10 );
+        *p++ = 1;  // file_len
         *p++ = 'x';
         CHECK_EQ( ASRTL_ALLOC_ERR, call_diag_recv( &diag, buf, p ) );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -931,6 +936,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         p                      = buf;
         *p++                   = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 20 );
+        *p++ = 1;  // file_len
         *p++ = 'y';
         CHECK_EQ( ASRTL_ALLOC_ERR, call_diag_recv( &diag, buf, p ) );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -955,6 +961,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 99 );
+        *p++ = 1;  // file_len
         *p++ = 'z';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         {
@@ -971,6 +978,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
                 p    = buf;
                 *p++ = ASRTL_DIAG_MSG_RECORD;
                 asrtl_add_u32( &p, i );
+                *p++ = 1;  // file_len
                 *p++ = 'a';
                 REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         }
@@ -988,6 +996,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 10 );
+        *p++ = 1;  // file_len
         *p++ = 'x';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         auto* rec_a = asrtc_diag_take_record( &diag );
@@ -995,6 +1004,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 20 );
+        *p++ = 1;  // file_len
         *p++ = 'y';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         auto* rec_b = asrtc_diag_take_record( &diag );
@@ -1019,10 +1029,11 @@ TEST_CASE( "diag_free_record" )
         struct asrtc_diag  diag      = {};
         REQUIRE_EQ( ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
 
-        uint8_t  buf[8];
+        uint8_t  buf[16];
         uint8_t* p = buf;
         *p++       = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 5 );
+        *p++ = 2;  // file_len
         *p++ = 'h';
         *p++ = 'i';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
@@ -1039,7 +1050,7 @@ TEST_CASE( "diag_free_record" )
         auto* rec2 =
             static_cast< asrtc_diag_record* >( asrtl_alloc( &alloc, sizeof( asrtc_diag_record ) ) );
         REQUIRE_NE( nullptr, rec2 );
-        *rec2           = { .file = nullptr, .line = 0, .next = nullptr };
+        *rec2           = { .file = nullptr, .extra = nullptr, .line = 0, .next = nullptr };
         sctx.free_calls = 0;
         asrtc_diag_free_record( &alloc, rec2 );
         CHECK_EQ( 1u, sctx.free_calls );
@@ -1078,6 +1089,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 p    = buf;
                 *p++ = ASRTL_DIAG_MSG_RECORD;
                 asrtl_add_u32( &p, 1 );
+                *p++ = 1;  // file_len
                 *p++ = 'a';
                 REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &d3, buf, p ) );
                 CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d3 ) );
@@ -1098,6 +1110,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                         p    = buf;
                         *p++ = ASRTL_DIAG_MSG_RECORD;
                         asrtl_add_u32( &p, i );
+                        *p++ = 1;  // file_len
                         *p++ = 'x';
                         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &d4, buf, p ) );
                 }
@@ -1110,11 +1123,13 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 1 );
+        *p++ = 1;  // file_len
         *p++ = 'a';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
+        *p++ = 1;  // file_len
         *p++ = 'b';
         REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
         auto* taken = asrtc_diag_take_record( &diag );
@@ -1152,6 +1167,48 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         check_recv_and_spin( &cntr, buf, sp.b, &t );
         CHECK_EQ( ASRTC_TEST_SUCCESS, res.res );
         CHECK_EQ( coll.data.empty(), true );
+}
+
+// ---------------------------------------------------------------------------
+// diag: protocol-level round-trip tests (expose file/extra parsing bug)
+
+TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
+{
+        // Serialize with the real protocol encoder (extra=NULL)
+        uint8_t           buf[128];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_diag_record( "foo.c", 7, NULL, asrtl_rec_span_to_span_cb, &sp );
+
+        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, sp.b ) );
+
+        auto* rec = asrtc_diag_take_record( &diag );
+        REQUIRE_NE( nullptr, rec );
+        CHECK_EQ( 7u, rec->line );
+        REQUIRE_NE( nullptr, rec->file );
+        CHECK_EQ( std::string( "foo.c" ), std::string( rec->file ) );
+        asrtc_diag_free_record( &diag.alloc, rec );
+
+        asrtc_diag_deinit( &diag );
+}
+
+TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
+{
+        // Serialize with the real protocol encoder, file + extra
+        uint8_t           buf[128];
+        struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_diag_record( "test.c", 42, "x > 0", asrtl_rec_span_to_span_cb, &sp );
+
+        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, sp.b ) );
+
+        auto* rec = asrtc_diag_take_record( &diag );
+        REQUIRE_NE( nullptr, rec );
+        CHECK_EQ( 42u, rec->line );
+        REQUIRE_NE( nullptr, rec->file );
+        // file must be exactly "test.c", not polluted by the file_len prefix or extra
+        CHECK_EQ( std::string( "test.c" ), std::string( rec->file ) );
+        asrtc_diag_free_record( &diag.alloc, rec );
+
+        asrtc_diag_deinit( &diag );
 }
 
 // ============================================================================

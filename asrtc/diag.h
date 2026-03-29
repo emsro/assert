@@ -24,6 +24,7 @@ extern "C" {
 struct asrtc_diag_record
 {
         char const* file;
+        char const* extra;
         uint32_t    line;
 
         struct asrtc_diag_record* next;

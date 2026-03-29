@@ -14,6 +14,8 @@
 
 void asrtc_diag_free_record( struct asrtl_allocator* alloc, struct asrtc_diag_record* rec )
 {
+        if ( rec->extra )
+                asrtl_free( alloc, (void**) &rec->extra );
         if ( rec->file )
                 asrtl_free( alloc, (void**) &rec->file );
         asrtl_free( alloc, (void**) &rec );
@@ -21,25 +23,51 @@ void asrtc_diag_free_record( struct asrtl_allocator* alloc, struct asrtc_diag_re
 
 static enum asrtl_status asrtc_diag_recv_record( struct asrtc_diag* d, struct asrtl_span* buff )
 {
-        if ( asrtl_span_unfit_for( buff, sizeof( uint32_t ) ) )
+        if ( asrtl_span_unfit_for( buff, sizeof( uint32_t ) + sizeof( uint8_t ) ) )
                 return ASRTL_RECV_ERR;
 
         uint32_t line;
         asrtl_cut_u32( &buff->b, &line );
 
+        uint8_t file_len = *buff->b++;
+
+        if ( asrtl_span_unfit_for( buff, file_len ) )
+                return ASRTL_RECV_ERR;
+
         struct asrtc_diag_record* rec = asrtl_alloc( &d->alloc, sizeof( *rec ) );
         if ( !rec )
                 return ASRTL_ALLOC_ERR;
         *rec = ( struct asrtc_diag_record ){
-            .file = NULL,
-            .line = line,
-            .next = NULL,
+            .file  = NULL,
+            .extra = NULL,
+            .line  = line,
+            .next  = NULL,
         };
-        rec->file = asrtl_realloc_str( &d->alloc, buff );
-        if ( !rec->file ) {
+
+        char* file = asrtl_alloc( &d->alloc, (uint32_t) file_len + 1 );
+        if ( !file ) {
                 asrtl_free( &d->alloc, (void**) &rec );
                 return ASRTL_ALLOC_ERR;
         }
+        memcpy( file, buff->b, file_len );
+        file[file_len] = '\0';
+        buff->b += file_len;
+        rec->file = file;
+
+        uint32_t extra_len = (uint32_t) ( buff->e - buff->b );
+        if ( extra_len > 0 ) {
+                char* extra = asrtl_alloc( &d->alloc, extra_len + 1 );
+                if ( !extra ) {
+                        asrtl_free( &d->alloc, (void**) &rec->file );
+                        asrtl_free( &d->alloc, (void**) &rec );
+                        return ASRTL_ALLOC_ERR;
+                }
+                memcpy( extra, buff->b, extra_len );
+                extra[extra_len] = '\0';
+                buff->b += extra_len;
+                rec->extra = extra;
+        }
+
         if ( !d->first_rec ) {
                 d->first_rec = rec;
                 d->last_rec  = rec;

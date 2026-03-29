@@ -140,7 +140,7 @@ struct suite_reporter
             double           duration_ms,
             uint32_t         run_idx,
             uint32_t         run_total )                                           = 0;
-        virtual void on_diagnostic( std::string_view file, uint32_t line ) = 0;
+        virtual void on_diagnostic( std::string_view file, uint32_t line, std::string_view extra ) = 0;
         virtual ~suite_reporter()                                          = default;
 };
 
@@ -215,7 +215,8 @@ inline task< void > run_test_suite(
                         asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid, timeout };
 
                         while ( auto rec = sys.take_diag_record() )
-                                reporter.on_diagnostic( rec->file, rec->line );
+                                reporter.on_diagnostic(
+                                    rec->file, rec->line, rec->extra ? rec->extra : "" );
                         double ms     = static_cast< double >( ( sys.clk().now() - t0 ).count() );
                         bool   passed = ( res.res == ASRTC_TEST_SUCCESS );
                         reporter.on_test_done( name, passed, ms, ri + 1, run_total );
