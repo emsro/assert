@@ -1650,3 +1650,23 @@ TEST_CASE( "suite_param_wildcard" )
                 }
         }
 }
+
+TEST_CASE( "suite_param_unknown_key" )
+{
+        // "nonexistent_test" is not a device test — should log a warning but not fail
+        auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
+        {
+                "nonexistent_test": [{"a": 1}]
+        }
+        )" ) );
+        REQUIRE( cfg_opt );
+
+        param_suite_run r( *cfg_opt );
+        REQUIRE( r.done );
+
+        // All 6 device tests run normally (unknown key is ignored)
+        CHECK_EQ( 6u, r.reporter.done_names.size() );
+        // "nonexistent_test" never appears in results
+        for ( auto const& name : r.reporter.done_names )
+                CHECK_NE( name, "nonexistent_test" );
+}

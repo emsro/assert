@@ -13,6 +13,7 @@
 #include "./util.hpp"
 
 #include <chrono>
+#include <set>
 #include <uv.h>
 
 namespace asrtio
@@ -188,8 +189,14 @@ inline task< void > run_test_suite(
         uint32_t count = co_await cntr_query_test_count{ sys.cntr, timeout };
         reporter.on_count( count );
 
+        std::set< std::string > unseen_keys;
+        for ( auto const& [key, _] : params.tests )
+                unseen_keys.insert( key );
+
         for ( uint32_t i = 0; i < count; ++i ) {
                 auto [tid, name] = co_await cntr_query_test_info{ sys.cntr, i, timeout };
+
+                unseen_keys.erase( name );
 
                 auto [skip, roots] = params.runs_for( name );
 
@@ -214,6 +221,12 @@ inline task< void > run_test_suite(
                         reporter.on_test_done( name, passed, ms, ri + 1, run_total );
                 }
         }
+
+        for ( auto const& key : unseen_keys )
+                ASRTL_INF_LOG(
+                    "asrtio",
+                    "param config: key \"%s\" does not match any device test",
+                    key.c_str() );
 
         co_return;
 }
