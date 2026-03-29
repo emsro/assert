@@ -8,6 +8,7 @@
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "./euv.hpp"
 #include "./task.hpp"
 #include "./util.hpp"
 
@@ -166,10 +167,9 @@ struct conn_ctx
         void close()
         {
                 if ( !closed ) {
+                        closed = true;
                         ASRTL_INF_LOG( "asrtio", "Closing rsim reactor connection" );
-                        uv_close( (uv_handle_t*) &client, []( uv_handle_t* h ) {
-                                static_cast< conn_ctx* >( h->data )->closed = true;
-                        } );
+                        uv_close( (uv_handle_t*) &client, nullptr );
                 }
         }
 };
@@ -269,6 +269,24 @@ struct rsim_ctx
                         c.close();
                 uv_close( (uv_handle_t*) &server, nullptr );
         }
+
+        friend task< void > async_close( task_ctx&, rsim_ctx& );
 };
+
+inline task< void > async_close( task_ctx&, rsim_ctx& rs )
+{
+        if ( rs.closed )
+                co_return;
+        rs.closed = true;
+        uv_idle_stop( &rs.idle );
+        co_await uv_close_handle{ (uv_handle_t*) &rs.idle };
+        for ( auto& c : rs.conns ) {
+                if ( !c.closed ) {
+                        c.closed = true;
+                        co_await uv_close_handle{ (uv_handle_t*) &c.client };
+                }
+        }
+        co_await uv_close_handle{ (uv_handle_t*) &rs.server };
+}
 
 }  // namespace asrtio

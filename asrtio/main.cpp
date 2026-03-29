@@ -12,6 +12,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <list>
+#include <memory>
 #include <uv.h>
 #include <vector>
 
@@ -37,16 +38,25 @@ struct pbar_reporter : suite_reporter
                 bar.set_total( (int) total );
         }
 
-        void on_test_start( std::string_view name ) override
+        void on_test_start( std::string_view name, uint32_t run_idx, uint32_t run_total ) override
         {
-                bar.set_status( name );
+                auto label = std::string{ name } + " [" + std::to_string( run_idx ) + "/" +
+                             std::to_string( run_total ) + "]";
+                bar.set_status( label );
         }
 
-        void on_test_done( std::string_view name, bool passed, double duration_ms ) override
+        void on_test_done(
+            std::string_view name,
+            bool             passed,
+            double           duration_ms,
+            uint32_t         run_idx,
+            uint32_t         run_total ) override
         {
                 if ( !passed )
                         ++failed;
-                bar.log_result( name, passed, duration_ms );
+                auto label = std::string{ name } + " [" + std::to_string( run_idx ) + "/" +
+                             std::to_string( run_total ) + "]";
+                bar.log_result( label, passed, duration_ms );
                 bar.set_progress( ++done, failed );
         }
 
@@ -101,11 +111,12 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 }
 
 task< void > run_tcp(
-    task_ctx&                 ctx,
-    uv_loop_t*                loop,
-    std::string_view          host,
-    uint16_t                  port,
-    std::chrono::milliseconds timeout )
+    task_ctx&                        ctx,
+    uv_loop_t*                       loop,
+    std::string_view                 host,
+    uint16_t                         port,
+    std::chrono::milliseconds        timeout,
+    std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
         uv_tcp_t      client;
@@ -113,20 +124,21 @@ task< void > run_tcp(
         co_await tcp_connect{ &client, host, port };
         steady_clock clk;
         cntr_tcp_sys sys{ &client, clk };
-        sys.start( timeout );
+        sys.start();
 
-        co_await run_test_suite( ctx, sys, reporter, timeout );
+        co_await run_test_suite( ctx, sys, reporter, timeout, *params );
         g_bar->finish();
         g_bar.reset();
 
-        sys.close();
+        co_await async_close( ctx, sys );
 };
 
 task< void > run_rsim(
-    task_ctx&                 ctx,
-    uv_loop_t*                loop,
-    uint32_t                  seed,
-    std::chrono::milliseconds timeout )
+    task_ctx&                        ctx,
+    uv_loop_t*                       loop,
+    uint32_t                         seed,
+    std::chrono::milliseconds        timeout,
+    std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
         rsim_ctx      rs{ loop, seed };
@@ -137,13 +149,13 @@ task< void > run_rsim(
         co_await tcp_connect{ &client, "0.0.0.0", rs.port() };
         steady_clock clk;
         cntr_tcp_sys sys{ &client, clk };
-        sys.start( timeout );
+        sys.start();
 
-        co_await run_test_suite( ctx, sys, reporter, timeout );
+        co_await run_test_suite( ctx, sys, reporter, timeout, *params );
         g_bar->finish();
         g_bar.reset();
-        sys.close();
-        rs.close();
+        co_await async_close( ctx, sys );
+        co_await async_close( ctx, rs );
 }
 
 struct tcp_opts
@@ -213,11 +225,23 @@ int main( int argc, char* argv[] )
         sub->add_option( "-p,--port", opt->port, "Port to connect to" )->required();
         sub->add_option( "--host", opt->host, "Host to connect to" )->required();
 
-        auto timeout = 200ms;
+        uint32_t    timeout_ms = 5000u;
+        std::string params_file;
+        app.add_option( "--timeout", timeout_ms, "Timeout in milliseconds" );
+        app.add_option( "--params", params_file, "Path to JSON param config file" );
 
-        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle, timeout] {
+        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle, &timeout_ms, &params_file] {
+                auto timeout = std::chrono::milliseconds{ timeout_ms };
+                auto params  = std::make_unique< param_config >();
+                if ( !params_file.empty() ) {
+                        params = param_config_from_file( params_file );
+                        if ( !params ) {
+                                std::fprintf( stderr, "Failed to load param config\n" );
+                                std::exit( 1 );
+                        }
+                }
                 g_bar = std::make_shared< pbar::terminal_progress >();
-                t     = run_tcp( ctx, loop, opt->host, opt->port, timeout )
+                t     = run_tcp( ctx, loop, opt->host, opt->port, timeout, std::move( params ) )
                         .connect( final_receiver{ &idle } );
         } );
 
@@ -225,9 +249,19 @@ int main( int argc, char* argv[] )
         auto  rsim_seed = std::make_shared< uint32_t >( 42u );
         rsim->add_option( "--seed", *rsim_seed, "Seed for pseudo-random test simulation" );
         rsim->fallthrough();
-        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle, timeout] {
+        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle, &timeout_ms, &params_file] {
+                auto timeout = std::chrono::milliseconds{ timeout_ms };
+                auto params  = std::make_unique< param_config >();
+                if ( !params_file.empty() ) {
+                        params = param_config_from_file( params_file );
+                        if ( !params ) {
+                                std::fprintf( stderr, "Failed to load param config\n" );
+                                std::exit( 1 );
+                        }
+                }
                 g_bar = std::make_shared< pbar::terminal_progress >();
-                t = run_rsim( ctx, loop, *rsim_seed, timeout ).connect( final_receiver{ &idle } );
+                t     = run_rsim( ctx, loop, *rsim_seed, timeout, std::move( params ) )
+                            .connect( final_receiver{ &idle } );
         } );
 
         CLI11_PARSE( app, argc, argv );

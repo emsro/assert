@@ -4,6 +4,7 @@
 #include "./util.hpp"
 
 #include <fstream>
+#include <memory>
 #include <nlohmann/json.hpp>
 
 namespace asrtio
@@ -23,14 +24,14 @@ param_config::run_view param_config::runs_for( std::string const& name ) const
         return { .skip = false, .roots = no_params };
 }
 
-std::optional< param_config > param_config_from_json( nlohmann::json const& j )
+std::unique_ptr< param_config > param_config_from_json( nlohmann::json const& j )
 {
         if ( !j.is_object() ) {
                 ASRTL_ERR_LOG( "asrtio", "param config: top level must be a JSON object" );
-                return std::nullopt;
+                return nullptr;
         }
 
-        param_config  cfg;
+        auto          cfg     = std::make_unique< param_config >();
         asrtl_flat_id next_id = 1;
 
         for ( auto const& [key, val] : j.items() ) {
@@ -45,7 +46,7 @@ std::optional< param_config > param_config_from_json( nlohmann::json const& j )
                                             "asrtio",
                                             "param config: array element for \"%s\" must be an object",
                                             key.c_str() );
-                                        return std::nullopt;
+                                        return nullptr;
                                 }
                                 entries.push_back( &elem );
                         }
@@ -54,32 +55,32 @@ std::optional< param_config > param_config_from_json( nlohmann::json const& j )
                             "asrtio",
                             "param config: value for \"%s\" must be an object or array",
                             key.c_str() );
-                        return std::nullopt;
+                        return nullptr;
                 }
 
                 std::vector< asrtl_flat_id > roots;
                 for ( auto const* entry : entries ) {
                         asrtl_flat_id root_id = next_id;
-                        if ( !flat_tree_from_json( cfg.tree, *entry, next_id ) ) {
+                        if ( !flat_tree_from_json( cfg->tree, *entry, next_id ) ) {
                                 ASRTL_ERR_LOG(
                                     "asrtio",
                                     "param config: failed to convert params for \"%s\"",
                                     key.c_str() );
-                                return std::nullopt;
+                                return nullptr;
                         }
                         roots.push_back( root_id );
                 }
 
                 if ( key == "*" )
-                        cfg.wildcard = std::move( roots );
+                        cfg->wildcard = std::move( roots );
                 else
-                        cfg.tests[key] = std::move( roots );
+                        cfg->tests[key] = std::move( roots );
         }
 
         return cfg;
 }
 
-std::optional< param_config > param_config_from_stream( std::istream& in )
+std::unique_ptr< param_config > param_config_from_stream( std::istream& in )
 {
         nlohmann::json j;
         try {
@@ -87,19 +88,19 @@ std::optional< param_config > param_config_from_stream( std::istream& in )
         }
         catch ( nlohmann::json::parse_error const& e ) {
                 ASRTL_ERR_LOG( "asrtio", "param config: JSON parse error: %s", e.what() );
-                return std::nullopt;
+                return nullptr;
         }
 
         return param_config_from_json( j );
 }
 
-std::optional< param_config > param_config_from_file( std::filesystem::path const& path )
+std::unique_ptr< param_config > param_config_from_file( std::filesystem::path const& path )
 {
         std::ifstream file( path );
         if ( !file ) {
                 ASRTL_ERR_LOG(
                     "asrtio", "param config: cannot open file \"%s\"", path.string().c_str() );
-                return std::nullopt;
+                return nullptr;
         }
 
         return param_config_from_stream( file );

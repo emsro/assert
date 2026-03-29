@@ -299,21 +299,29 @@ struct recording_reporter : asrtio::suite_reporter
         std::vector< std::string > done_names;
         std::vector< bool >        passed;
         std::vector< double >      durations_ms;
+        std::vector< uint32_t >    start_run_idx;
+        std::vector< uint32_t >    start_run_total;
+        std::vector< uint32_t >    done_run_idx;
+        std::vector< uint32_t >    done_run_total;
         int                        done_names_at_on_done = -1;
 
         void on_count( uint32_t n ) override
         {
                 count = n;
         }
-        void on_test_start( std::string_view n ) override
+        void on_test_start( std::string_view n, uint32_t ri, uint32_t rt ) override
         {
                 starts.emplace_back( n );
+                start_run_idx.push_back( ri );
+                start_run_total.push_back( rt );
         }
-        void on_test_done( std::string_view n, bool p, double ms ) override
+        void on_test_done( std::string_view n, bool p, double ms, uint32_t ri, uint32_t rt ) override
         {
                 done_names.emplace_back( n );
                 passed.push_back( p );
                 durations_ms.push_back( ms );
+                done_run_idx.push_back( ri );
+                done_run_total.push_back( rt );
         }
         void on_diagnostic( std::string_view, uint32_t ) override
         {
@@ -382,8 +390,9 @@ static asrtio::task< void > suite_coro(
         co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
         asrtio::steady_clock clk;
         asrtio::cntr_tcp_sys sys{ &client, clk };
-        sys.start( 1000ms );
-        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms );
+        sys.start();
+        asrtio::param_config no_params;
+        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, no_params );
         reporter.done_names_at_on_done = (int) reporter.done_names.size();
         sys.close();
         rs.close();
@@ -430,8 +439,10 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names.size() == 6 );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
         CHECK( r.reporter.done_names_at_on_done == 6 );
-        for ( double ms : r.reporter.durations_ms )
+        for ( double ms : r.reporter.durations_ms ) {
                 CHECK( ms >= 0.0 );
+                CHECK( ms < 1000.0 );
+        }
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -494,10 +505,11 @@ static asrtio::task< void > param_e2e_coro(
         co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
         asrtio::steady_clock clk;
         asrtio::cntr_tcp_sys sys{ &client, clk };
-        sys.start( 1000ms );
+        sys.start();
         auto noop = [] {};
         sys.set_param_tree( tree, 1u, noop, 1000ms );
-        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms );
+        asrtio::param_config no_params;
+        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, no_params );
 
         REQUIRE_FALSE( rs.conns.empty() );
         auto& conn = rs.conns.front();
@@ -1384,7 +1396,7 @@ TEST_CASE( "pcfj_multi_test_round_trip" )
         })" );
 
         auto opt = asrtio::param_config_from_json( j );
-        REQUIRE( opt.has_value() );
+        REQUIRE( opt );
         auto& cfg = *opt;
 
         // test_a has 2 runs
@@ -1416,7 +1428,7 @@ TEST_CASE( "pcfj_bare_object_shorthand" )
         })" );
 
         auto opt = asrtio::param_config_from_json( j );
-        REQUIRE( opt.has_value() );
+        REQUIRE( opt );
         auto& cfg = *opt;
 
         REQUIRE_EQ( 1u, cfg.tests.at( "test_a" ).size() );
@@ -1433,7 +1445,7 @@ TEST_CASE( "pcfj_wildcard" )
         })" );
 
         auto opt = asrtio::param_config_from_json( j );
-        REQUIRE( opt.has_value() );
+        REQUIRE( opt );
         auto& cfg = *opt;
 
         CHECK( cfg.tests.empty() );
@@ -1451,7 +1463,7 @@ TEST_CASE( "pcfj_empty_array_skip" )
         })" );
 
         auto opt = asrtio::param_config_from_json( j );
-        REQUIRE( opt.has_value() );
+        REQUIRE( opt );
         auto& cfg = *opt;
 
         REQUIRE( cfg.tests.count( "test_skip" ) );
@@ -1461,19 +1473,19 @@ TEST_CASE( "pcfj_empty_array_skip" )
 TEST_CASE( "pcfj_error_non_object_top" )
 {
         auto j = nlohmann::json::parse( R"([1, 2, 3])" );
-        CHECK_FALSE( asrtio::param_config_from_json( j ).has_value() );
+        CHECK_FALSE( asrtio::param_config_from_json( j ) );
 }
 
 TEST_CASE( "pcfj_error_string_value" )
 {
         auto j = nlohmann::json::parse( R"({"test_a": "bad"})" );
-        CHECK_FALSE( asrtio::param_config_from_json( j ).has_value() );
+        CHECK_FALSE( asrtio::param_config_from_json( j ) );
 }
 
 TEST_CASE( "pcfj_error_non_object_array_elem" )
 {
         auto j = nlohmann::json::parse( R"({"test_a": [42]})" );
-        CHECK_FALSE( asrtio::param_config_from_json( j ).has_value() );
+        CHECK_FALSE( asrtio::param_config_from_json( j ) );
 }
 
 // --- param_config_from_stream() tests ---
@@ -1485,7 +1497,7 @@ TEST_CASE( "pcfs_load_valid" )
         std::istringstream in( R"({"test_a": [{"x": 1}]})" );
         auto               opt = asrtio::param_config_from_stream( in );
 
-        REQUIRE( opt.has_value() );
+        REQUIRE( opt );
         auto rv = opt->runs_for( "test_a" );
         CHECK_FALSE( rv.skip );
         REQUIRE_EQ( 1u, rv.roots.size() );
@@ -1494,10 +1506,147 @@ TEST_CASE( "pcfs_load_valid" )
 TEST_CASE( "pcfs_invalid_json" )
 {
         std::istringstream in( "{ not valid json }}}" );
-        CHECK_FALSE( asrtio::param_config_from_stream( in ).has_value() );
+        CHECK_FALSE( asrtio::param_config_from_stream( in ) );
 }
 
 TEST_CASE( "pcff_nonexistent_file" )
 {
-        CHECK_FALSE( asrtio::param_config_from_file( "no_such_file_12345.json" ).has_value() );
+        CHECK_FALSE( asrtio::param_config_from_file( "no_such_file_12345.json" ) );
+}
+
+// ---------------------------------------------------------------------------
+// Component 8: rsim integration tests for param_config
+
+static asrtio::task< void > suite_param_coro(
+    asrtio::task_ctx&      tctx,
+    asrtio::rsim_ctx&      rs,
+    recording_reporter&    reporter,
+    asrtio::param_config&  params,
+    uv_tcp_t&              client )
+{
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        asrtio::steady_clock clk;
+        asrtio::cntr_tcp_sys sys{ &client, clk };
+        sys.start();
+        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, params );
+        sys.close();
+        rs.close();
+}
+
+struct param_suite_run
+{
+        recording_reporter reporter;
+        bool               done = false;
+
+        param_suite_run( asrtio::param_config& params, uint32_t seed = 42 )
+        {
+                uv_loop_t*       loop = uv_loop_new();
+                asrtio::task_ctx tctx;
+                asrtio::rsim_ctx rs{ loop, seed };
+                REQUIRE( rs.start() == asrtio::status::success );
+
+                uv_tcp_t client;
+                uv_tcp_init( loop, &client );
+
+                uv_idle_t idle;
+                idle.data = &tctx;
+                uv_idle_init( loop, &idle );
+                uv_idle_start( &idle, []( uv_idle_t* h ) {
+                        static_cast< asrtio::task_ctx* >( h->data )->tick();
+                } );
+
+                auto op = suite_param_coro( tctx, rs, reporter, params, client )
+                              .connect( test_receiver{ &done, &idle } );
+                op.start();
+
+                uv_run( loop, UV_RUN_DEFAULT );
+                drain_loop( loop );
+        }
+};
+
+TEST_CASE( "suite_param_multi_run" )
+{
+        // utest_sim_insta_pass mapped to 2 param sets → runs twice
+        auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
+        {
+                "utest_sim_insta_pass": [{"a": 1}, {"b": 2}]
+        }
+        )" ) );
+        REQUIRE( cfg_opt );
+
+        param_suite_run r( *cfg_opt );
+        REQUIRE( r.done );
+
+        // 6 tests discovered, all run once except insta_pass which runs twice → 7 done events
+        CHECK_EQ( 7u, r.reporter.done_names.size() );
+
+        // Find the two insta_pass entries
+        std::vector< size_t > ip_indices;
+        for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
+                if ( r.reporter.done_names[i] == "utest_sim_insta_pass" )
+                        ip_indices.push_back( i );
+        }
+        REQUIRE_EQ( 2u, ip_indices.size() );
+        // They should be consecutive
+        CHECK_EQ( ip_indices[0] + 1, ip_indices[1] );
+        // run_idx should be 1 and 2, run_total should be 2
+        CHECK_EQ( 1u, r.reporter.done_run_idx[ip_indices[0]] );
+        CHECK_EQ( 2u, r.reporter.done_run_total[ip_indices[0]] );
+        CHECK_EQ( 2u, r.reporter.done_run_idx[ip_indices[1]] );
+        CHECK_EQ( 2u, r.reporter.done_run_total[ip_indices[1]] );
+}
+
+TEST_CASE( "suite_param_skip" )
+{
+        // utest_sim_insta_pass mapped to [] → skipped entirely
+        auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
+        {
+                "utest_sim_insta_pass": []
+        }
+        )" ) );
+        REQUIRE( cfg_opt );
+
+        param_suite_run r( *cfg_opt );
+        REQUIRE( r.done );
+
+        // 6 tests discovered, 1 skipped → 5 done events
+        CHECK_EQ( 5u, r.reporter.done_names.size() );
+        // insta_pass should not appear
+        for ( auto const& name : r.reporter.done_names )
+                CHECK_NE( name, "utest_sim_insta_pass" );
+        for ( auto const& name : r.reporter.starts )
+                CHECK_NE( name, "utest_sim_insta_pass" );
+}
+
+TEST_CASE( "suite_param_wildcard" )
+{
+        // "*" applies to all unlisted tests; "utest_sim_insta_pass" has its own entry
+        auto cfg_opt = asrtio::param_config_from_json( nlohmann::json::parse( R"(
+        {
+                "*": {"w": 99},
+                "utest_sim_insta_pass": [{"a": 1}, {"b": 2}]
+        }
+        )" ) );
+        REQUIRE( cfg_opt );
+
+        param_suite_run r( *cfg_opt );
+        REQUIRE( r.done );
+
+        // 5 unlisted tests get 1 run each (via wildcard), insta_pass gets 2 → 7
+        CHECK_EQ( 7u, r.reporter.done_names.size() );
+
+        // insta_pass appears exactly twice
+        uint32_t ip_count = 0;
+        for ( auto const& name : r.reporter.done_names )
+                if ( name == "utest_sim_insta_pass" )
+                        ++ip_count;
+        CHECK_EQ( 2u, ip_count );
+
+        // Each wildcard test gets [1/1]
+        for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
+                if ( r.reporter.done_names[i] != "utest_sim_insta_pass" ) {
+                        CHECK_EQ( 1u, r.reporter.done_run_idx[i] );
+                        CHECK_EQ( 1u, r.reporter.done_run_total[i] );
+                }
+        }
 }

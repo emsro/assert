@@ -227,4 +227,27 @@ struct _cntr_exec_test
 };
 using cntr_exec_test = _sender< _cntr_exec_test >;
 
+struct _uv_close
+{
+        using value_sig = ecor::set_value_t();
+
+        uv_handle_t* handle;
+
+        _uv_close( uv_handle_t* h )
+          : handle( h )
+        {
+        }
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                handle->data = &op;
+                uv_close( handle, []( uv_handle_t* h ) {
+                        auto& op = *static_cast< OP* >( h->data );
+                        op.recv.set_value();
+                } );
+        }
+};
+using uv_close_handle = _sender< _uv_close >;
+
 }  // namespace asrtio
