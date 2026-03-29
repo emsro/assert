@@ -3,6 +3,7 @@
 #include "../asrtcpp/controller.hpp"
 #include "./task.hpp"
 
+#include <chrono>
 #include <ecor/ecor.hpp>
 #include <uv.h>
 
@@ -97,10 +98,12 @@ struct _cntr_start
 {
         using value_sig = ecor::set_value_t();
 
-        asrtc::controller& cntr;
+        asrtc::controller&    cntr;
+        std::chrono::milliseconds timeout;
 
-        _cntr_start( asrtc::controller& c )
+        _cntr_start( asrtc::controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
+          , timeout( timeout )
         {
         }
 
@@ -113,7 +116,7 @@ struct _cntr_start
                         else
                                 op.recv.set_value();
                         return s;
-                } );
+                }, static_cast< uint32_t >( timeout.count() ) );
                 if ( x != ASRTC_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main",
@@ -127,10 +130,12 @@ struct _cntr_query_test_count
 {
         using value_sig = ecor::set_value_t( uint32_t );
 
-        asrtc::controller& cntr;
+        asrtc::controller&    cntr;
+        std::chrono::milliseconds timeout;
 
-        _cntr_query_test_count( asrtc::controller& c )
+        _cntr_query_test_count( asrtc::controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
+          , timeout( timeout )
         {
         }
 
@@ -144,7 +149,7 @@ struct _cntr_query_test_count
                         }
                         op.recv.set_value( count );
                         return ASRTC_SUCCESS;
-                } );
+                }, static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
                         op.recv.set_error( status::query_failed );
                         return;
@@ -157,12 +162,14 @@ struct _cntr_query_test_info
 {
         using value_sig = ecor::set_value_t( uint16_t, std::string );
 
-        asrtc::controller& cntr;
-        uint32_t           id;
+        asrtc::controller&    cntr;
+        uint32_t              id;
+        std::chrono::milliseconds timeout;
 
-        _cntr_query_test_info( asrtc::controller& c, uint32_t id )
+        _cntr_query_test_info( asrtc::controller& c, uint32_t id, std::chrono::milliseconds timeout )
           : cntr( c )
           , id( id )
+          , timeout( timeout )
         {
         }
 
@@ -177,7 +184,7 @@ struct _cntr_query_test_info
                             }
                             op.recv.set_value( tid, std::string( desc ) );
                             return ASRTC_SUCCESS;
-                    } );
+                    }, static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
                         op.recv.set_error( status::query_failed );
                         return;
@@ -190,12 +197,14 @@ struct _cntr_exec_test
 {
         using value_sig = ecor::set_value_t( asrtc::result );
 
-        asrtc::controller& cntr;
-        uint32_t           id;
+        asrtc::controller&    cntr;
+        uint32_t              id;
+        std::chrono::milliseconds timeout;
 
-        _cntr_exec_test( asrtc::controller& c, uint32_t id )
+        _cntr_exec_test( asrtc::controller& c, uint32_t id, std::chrono::milliseconds timeout )
           : cntr( c )
           , id( id )
+          , timeout( timeout )
         {
         }
 
@@ -209,7 +218,7 @@ struct _cntr_exec_test
                         }
                         op.recv.set_value( res );
                         return ASRTC_SUCCESS;
-                } );
+                }, static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
                         op.recv.set_error( status::query_failed );
                         return;

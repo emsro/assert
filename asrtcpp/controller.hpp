@@ -34,20 +34,20 @@ struct controller
         controller( controller&& );
 
         [[nodiscard]]
-        asrtc::status start( init_cb icb );
+        asrtc::status start( init_cb icb, uint32_t timeout );
 
         [[nodiscard]]
-        asrtc::status tick();
+        asrtc::status tick( uint32_t now );
 
         // XXX: reevaluate this
         asrtl_node* node();
 
         bool is_idle() const;
 
-        [[nodiscard]] asrtc::status query_desc( desc_cb cb );
-        [[nodiscard]] asrtc::status query_test_count( tc_cb cb );
-        [[nodiscard]] asrtc::status query_test_info( uint16_t id, test_info_cb cb );
-        [[nodiscard]] asrtc::status exec_test( uint16_t id, test_result_cb cb );
+        [[nodiscard]] asrtc::status query_desc( desc_cb cb, uint32_t timeout );
+        [[nodiscard]] asrtc::status query_test_count( tc_cb cb, uint32_t timeout );
+        [[nodiscard]] asrtc::status query_test_info( uint16_t id, test_info_cb cb, uint32_t timeout );
+        [[nodiscard]] asrtc::status exec_test( uint16_t id, test_result_cb cb, uint32_t timeout );
 
         ~controller();
 

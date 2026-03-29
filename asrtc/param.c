@@ -67,10 +67,21 @@ static enum asrtl_status asrtc_param_server_handle_query(
         return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param )
+enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now )
 {
         switch ( param->pending ) {
         case ASRTC_PARAM_SERVER_PENDING_NONE:
+                if ( param->ack_cb && !param->ack_received ) {
+                        if ( param->deadline == 0 )
+                                param->deadline = now + param->timeout;
+                        if ( now >= param->deadline ) {
+                                asrtc_param_ready_ack_cb cb = param->ack_cb;
+                                void*                    p  = param->ack_cb_ptr;
+                                param->ack_cb               = NULL;
+                                param->ack_cb_ptr           = NULL;
+                                cb( p, ASRTC_TIMEOUT_ERR );
+                        }
+                }
                 return ASRTL_SUCCESS;
 
         case ASRTC_PARAM_SERVER_PENDING_READY_ACK: {
@@ -90,6 +101,13 @@ enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param )
 
                 param->max_msg_size = max_msg_size;
                 param->ack_received = 1;
+                if ( param->ack_cb ) {
+                        asrtc_param_ready_ack_cb cb = param->ack_cb;
+                        void*                    p  = param->ack_cb_ptr;
+                        param->ack_cb               = NULL;
+                        param->ack_cb_ptr           = NULL;
+                        cb( p, ASRTC_SUCCESS );
+                }
                 return ASRTL_SUCCESS;
         }
 
@@ -179,6 +197,10 @@ enum asrtc_status asrtc_param_server_init(
             .max_msg_size = 0,
             .ack_received = 0,
             .enc_buff     = NULL,
+            .ack_cb       = NULL,
+            .ack_cb_ptr   = NULL,
+            .timeout      = 0,
+            .deadline     = 0,
         };
         prev->next = &param->node;
         return ASRTC_SUCCESS;
@@ -193,7 +215,10 @@ void asrtc_param_server_set_tree(
 
 enum asrtl_status asrtc_param_server_send_ready(
     struct asrtc_param_server* param,
-    asrtl_flat_id              root_id )
+    asrtl_flat_id              root_id,
+    uint32_t                   timeout,
+    asrtc_param_ready_ack_cb   ack_cb,
+    void*                      ack_cb_ptr )
 {
         if ( !param || !param->tree ) {
                 ASRTL_ERR_LOG( "asrtc_param_server", "send_ready: param or tree is NULL" );
@@ -209,6 +234,10 @@ enum asrtl_status asrtc_param_server_send_ready(
 
         param->ack_received = 0;
         param->max_msg_size = 0;
+        param->ack_cb       = ack_cb;
+        param->ack_cb_ptr   = ack_cb_ptr;
+        param->timeout      = timeout;
+        param->deadline     = 0;
         return asrtl_msg_ctor_param_ready( root_id, asrtc_param_server_send, param );
 }
 

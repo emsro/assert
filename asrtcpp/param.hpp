@@ -28,14 +28,22 @@ struct param_server
                 asrtc_param_server_set_tree( &server_, tree );
         }
 
-        [[nodiscard]] asrtl_status send_ready( asrtl_flat_id root_id )
+        template < typename CB >
+        [[nodiscard]] asrtl_status send_ready( asrtl_flat_id root_id, CB& ack_cb, uint32_t timeout )
         {
-                return asrtc_param_server_send_ready( &server_, root_id );
+                return asrtc_param_server_send_ready(
+                    &server_,
+                    root_id,
+                    timeout,
+                    []( void* p, asrtc_status ) {
+                            ( *reinterpret_cast< CB* >( p ) )();
+                    },
+                    &ack_cb );
         }
 
-        asrtl_status tick()
+        asrtl_status tick( uint32_t now )
         {
-                return asrtc_param_server_tick( &server_ );
+                return asrtc_param_server_tick( &server_, now );
         }
 
         ~param_server()

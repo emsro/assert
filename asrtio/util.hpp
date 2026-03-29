@@ -20,6 +20,20 @@
 namespace asrtio
 {
 
+struct clock
+{
+        virtual std::chrono::milliseconds now() const = 0;
+};
+
+struct steady_clock : clock
+{
+        std::chrono::milliseconds now() const override
+        {
+                return std::chrono::duration_cast< std::chrono::milliseconds >(
+                    std::chrono::steady_clock::now().time_since_epoch() );
+        }
+};
+
 struct cobs_node
 {
         asrtl_node*                      node;
@@ -128,9 +142,11 @@ bool _flat_tree_from_json_impl(
     char const*           key,
     asrtl_flat_id&        next_id );
 
-inline bool flat_tree_from_json( asrtl_flat_tree& tree, nlohmann::json const& j )
+inline bool flat_tree_from_json(
+    asrtl_flat_tree&      tree,
+    nlohmann::json const& j,
+    asrtl_flat_id&        next_id )
 {
-        asrtl_flat_id next_id = 1;
         return _flat_tree_from_json_impl( tree, j, 0, nullptr, next_id );
 }
 

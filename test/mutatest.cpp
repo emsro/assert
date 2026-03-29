@@ -176,12 +176,13 @@ struct gene_handler
         asrtc::controller& c;
         asrtr::reactor&    r;
         checker            check{ os };
+        uint32_t           t = 1;
 
-        void operator()( _tick const& t )
+        void operator()( _tick const& t_ )
         {
                 os << "T" << std::endl;
-                for ( int i = 0; i < t.i; i++ ) {
-                        check >> c.tick();
+                for ( int i = 0; i < t_.i; i++ ) {
+                        check >> c.tick( t++ );
                         check >> r.tick();
                 }
         }
@@ -192,7 +193,7 @@ struct gene_handler
                 check >> c.query_desc( [&]( asrtc::status s, std::string_view ) {
                         check >> s;
                         return ASRTC_SUCCESS;
-                } );
+                }, 1000 );
         }
 
         void operator()( _tc const& )
@@ -201,7 +202,7 @@ struct gene_handler
                 check >> c.query_test_count( [&]( asrtc::status s, uint32_t ) {
                         check >> s;
                         return ASRTC_SUCCESS;
-                } );
+                }, 1000 );
         }
 
         void operator()( _ti const& )
@@ -210,7 +211,7 @@ struct gene_handler
                 check >> c.query_test_info( 0, [&]( asrtc::status s, uint16_t, std::string_view ) {
                         check >> s;
                         return ASRTC_SUCCESS;
-                } );
+                }, 1000 );
         }
 
         void operator()( _ex const& )
@@ -219,7 +220,7 @@ struct gene_handler
                 check >> c.exec_test( 0, [&]( asrtc::status s, asrtc::result const& ) {
                         check >> s;
                         return ASRTC_SUCCESS;
-                } );
+                }, 1000 );
         }
 
         template < typename T >
@@ -278,7 +279,7 @@ void exec( std::ostream& os, test_case const& tc )
         auto s = c->start( [&]( asrtc::status s ) {
                 check >> s;
                 return ASRTC_SUCCESS;
-        } );
+        }, 1000 );
         if ( s != ASRTC_SUCCESS )
                 os << std::format( "Controller start failed: {}\n", asrtc_status_to_str( s ) );
 

@@ -343,6 +343,7 @@ struct param_loopback_cpp_ctx
         };
         std::vector< received_node > received;
         int                          error_called = 0;
+        uint32_t                     t              = 1;
 
         static void response_cb(
             void*            ptr,
@@ -364,7 +365,7 @@ struct param_loopback_cpp_ctx
         void spin( int max_iter = 100 )
         {
                 for ( int i = 0; i < max_iter; i++ ) {
-                        srv.tick();
+                        srv.tick(t++);
                         cli.tick();
                         if ( cli.ready() )
                                 break;
@@ -374,7 +375,7 @@ struct param_loopback_cpp_ctx
         void spin_query( int max_iter = 100 )
         {
                 for ( int i = 0; i < max_iter; i++ ) {
-                        srv.tick();
+                        srv.tick(t++);
                         cli.tick();
                 }
         }
@@ -394,7 +395,8 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
         srv.set_tree( &tree );
 
         CHECK_FALSE( cli.ready() );
-        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        auto noop = [] {};
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         CHECK( cli.ready() );
         CHECK_EQ( 1u, cli.root_id() );
@@ -411,7 +413,8 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_str( "hi" ) );
         srv.set_tree( &tree );
 
-        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        auto noop = [] {};
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
 
@@ -450,7 +453,8 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
         srv.set_tree( &tree );
 
-        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        auto noop = [] {};
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
 

@@ -43,7 +43,7 @@ struct asrtc_controller
         uint32_t              run_id;
         enum asrtc_cntr_state state;
         enum asrtc_stage_e    stage;
-        uint32_t              waiting_ticks;
+        uint32_t              deadline;
         union
         {
                 struct asrtc_init_handler init;
@@ -64,34 +64,34 @@ enum asrtc_status asrtc_cntr_start(
     struct asrtc_controller* c,
     asrtc_init_callback      cb,
     void*                    ptr,
-    uint32_t                 timeout_ticks );
+    uint32_t                 timeout );
 
-enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c );
+enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c, uint32_t now );
 uint32_t          asrtc_cntr_idle( struct asrtc_controller const* c );
 
 enum asrtc_status asrtc_cntr_desc(
     struct asrtc_controller* c,
     asrtc_desc_callback      cb,
     void*                    ptr,
-    uint32_t                 timeout_ticks );
+    uint32_t                 timeout );
 enum asrtc_status asrtc_cntr_test_count(
     struct asrtc_controller*  c,
     asrtc_test_count_callback cb,
     void*                     ptr,
-    uint32_t                  timeout_ticks );
+    uint32_t                  timeout );
 enum asrtc_status asrtc_cntr_test_info(
     struct asrtc_controller* c,
     uint16_t                 id,
     asrtc_test_info_callback cb,
     void*                    ptr,
-    uint32_t                 timeout_ticks );
+    uint32_t                 timeout );
 
 enum asrtc_status asrtc_cntr_test_exec(
     struct asrtc_controller*   c,
     uint16_t                   id,
     asrtc_test_result_callback cb,
     void*                      ptr,
-    uint32_t                   timeout_ticks );
+    uint32_t                   timeout );
 
 enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff );
 void              asrtc_cntr_deinit( struct asrtc_controller* c );

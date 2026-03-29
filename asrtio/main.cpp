@@ -100,23 +100,33 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 }
 }
 
-task< void > run_tcp( task_ctx& ctx, uv_loop_t* loop, std::string_view host, uint16_t port )
+task< void > run_tcp(
+    task_ctx&                 ctx,
+    uv_loop_t*                loop,
+    std::string_view          host,
+    uint16_t                  port,
+    std::chrono::milliseconds timeout )
 {
         pbar_reporter reporter{ *g_bar };
         uv_tcp_t      client;
         std::ignore = uv_tcp_init( loop, &client );
         co_await tcp_connect{ &client, host, port };
-        cntr_tcp_sys sys{ &client };
-        sys.start();
+        steady_clock clk;
+        cntr_tcp_sys sys{ &client, clk };
+        sys.start( timeout );
 
-        co_await run_test_suite( ctx, sys, reporter );
+        co_await run_test_suite( ctx, sys, reporter, timeout );
         g_bar->finish();
         g_bar.reset();
 
         sys.close();
 };
 
-task< void > run_rsim( task_ctx& ctx, uv_loop_t* loop, uint32_t seed )
+task< void > run_rsim(
+    task_ctx&                 ctx,
+    uv_loop_t*                loop,
+    uint32_t                  seed,
+    std::chrono::milliseconds timeout )
 {
         pbar_reporter reporter{ *g_bar };
         rsim_ctx      rs{ loop, seed };
@@ -125,10 +135,11 @@ task< void > run_rsim( task_ctx& ctx, uv_loop_t* loop, uint32_t seed )
         uv_tcp_t client;
         std::ignore = uv_tcp_init( loop, &client );
         co_await tcp_connect{ &client, "0.0.0.0", rs.port() };
-        cntr_tcp_sys sys{ &client };
-        sys.start();
+        steady_clock clk;
+        cntr_tcp_sys sys{ &client, clk };
+        sys.start( timeout );
 
-        co_await run_test_suite( ctx, sys, reporter );
+        co_await run_test_suite( ctx, sys, reporter, timeout );
         g_bar->finish();
         g_bar.reset();
         sys.close();
@@ -144,7 +155,7 @@ struct tcp_opts
 struct final_receiver
 {
         using receiver_concept = ecor::receiver_t;
-        uv_idle_t* idle = nullptr;
+        uv_idle_t* idle        = nullptr;
 
         void set_value()
         {
@@ -202,18 +213,21 @@ int main( int argc, char* argv[] )
         sub->add_option( "-p,--port", opt->port, "Port to connect to" )->required();
         sub->add_option( "--host", opt->host, "Host to connect to" )->required();
 
-        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle] {
+        auto timeout = 200ms;
+
+        sub->callback( [loop, opt, &ctx, &t, &reporter, &idle, timeout] {
                 g_bar = std::make_shared< pbar::terminal_progress >();
-                t     = run_tcp( ctx, loop, opt->host, opt->port ).connect( final_receiver{ &idle } );
+                t     = run_tcp( ctx, loop, opt->host, opt->port, timeout )
+                        .connect( final_receiver{ &idle } );
         } );
 
         auto* rsim      = app.add_subcommand( "rsim", "Run the test RSIM system" );
         auto  rsim_seed = std::make_shared< uint32_t >( 42u );
         rsim->add_option( "--seed", *rsim_seed, "Seed for pseudo-random test simulation" );
         rsim->fallthrough();
-        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle] {
+        rsim->callback( [loop, rsim_seed, &ctx, &t, &reporter, &idle, timeout] {
                 g_bar = std::make_shared< pbar::terminal_progress >();
-                t     = run_rsim( ctx, loop, *rsim_seed ).connect( final_receiver{ &idle } );
+                t = run_rsim( ctx, loop, *rsim_seed, timeout ).connect( final_receiver{ &idle } );
         } );
 
         CLI11_PARSE( app, argc, argv );

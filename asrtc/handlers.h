@@ -38,7 +38,7 @@ struct asrtc_init_handler
 {
         asrtc_init_callback cb;
         void*               ptr;
-        uint32_t            timeout_ticks;
+        uint32_t            timeout;
         struct
         {
                 uint16_t major;
@@ -53,7 +53,7 @@ struct asrtc_tc_handler
         uint16_t                  count;
         void*                     ptr;
         asrtc_test_count_callback cb;
-        uint32_t                  timeout_ticks;
+        uint32_t                  timeout;
 };
 
 struct asrtc_desc_handler
@@ -61,7 +61,7 @@ struct asrtc_desc_handler
         char*               desc;
         void*               ptr;
         asrtc_desc_callback cb;
-        uint32_t            timeout_ticks;
+        uint32_t            timeout;
 };
 
 struct asrtc_ti_handler
@@ -70,7 +70,7 @@ struct asrtc_ti_handler
         char*                    desc;
         void*                    ptr;
         asrtc_test_info_callback cb;
-        uint32_t                 timeout_ticks;
+        uint32_t                 timeout;
 };
 
 struct asrtc_exec_handler
@@ -78,7 +78,7 @@ struct asrtc_exec_handler
         struct asrtc_result        res;
         void*                      ptr;
         asrtc_test_result_callback cb;
-        uint32_t                   timeout_ticks;
+        uint32_t                   timeout;
 };
 
 #ifdef __cplusplus

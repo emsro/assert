@@ -21,6 +21,8 @@ extern "C" {
 #include "../asrtl/param_proto.h"
 #include "./status.h"
 
+typedef void ( *asrtc_param_ready_ack_cb )( void* ptr, enum asrtc_status status );
+
 enum asrtc_param_server_pending
 {
         ASRTC_PARAM_SERVER_PENDING_NONE = 0,
@@ -43,6 +45,10 @@ struct asrtc_param_server
                 uint32_t      max_msg_size;
                 asrtl_flat_id node_id;
         } pending_data;
+        asrtc_param_ready_ack_cb ack_cb;
+        void*                    ack_cb_ptr;
+        uint32_t                 timeout;
+        uint32_t                 deadline;
 };
 
 enum asrtc_status asrtc_param_server_init(
@@ -57,9 +63,12 @@ void asrtc_param_server_set_tree(
 
 enum asrtl_status asrtc_param_server_send_ready(
     struct asrtc_param_server* param,
-    asrtl_flat_id              root_id );
+    asrtl_flat_id              root_id,
+    uint32_t                   timeout,
+    asrtc_param_ready_ack_cb   ack_cb,
+    void*                      ack_cb_ptr );
 
-enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param );
+enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now );
 
 void asrtc_param_server_deinit( struct asrtc_param_server* param );
 

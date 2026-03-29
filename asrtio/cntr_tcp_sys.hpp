@@ -20,8 +20,9 @@ namespace asrtio
 struct cntr_tcp_sys
 {
 
-        cntr_tcp_sys( uv_tcp_t* client )
+        cntr_tcp_sys( uv_tcp_t* client, clock const& clk )
           : client( client )
+          , clk_( clk )
         {
         }
 
@@ -35,22 +36,34 @@ struct cntr_tcp_sys
                 return c_param;
         }
 
-        void set_param_tree( asrtl_flat_tree const* tree, asrtl_flat_id root_id )
+        clock const& clk() const
+        {
+                return clk_;
+        }
+
+        template < typename CB >
+        void set_param_tree(
+            asrtl_flat_tree const*     tree,
+            asrtl_flat_id              root_id,
+            CB&                        on_ack,
+            std::chrono::milliseconds  timeout )
         {
                 c_param.set_tree( tree );
-                std::ignore = c_param.send_ready( root_id );
+                std::ignore =
+                    c_param.send_ready( root_id, on_ack, static_cast< uint32_t >( timeout.count() ) );
         }
 
         void tick()
         {
-                if ( auto s = cntr.tick(); s != ASRTC_SUCCESS )
+                auto now = static_cast< uint32_t >( clk_.now().count() );
+                if ( auto s = cntr.tick( now ); s != ASRTC_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
-                std::ignore = c_param.tick();
+                std::ignore = c_param.tick( now );
         }
 
 
-        void start()
+        void start( std::chrono::milliseconds timeout )
         {
                 uv_idle_init( client->loop, &idle_handle );
                 idle_handle.data = this;
@@ -67,14 +80,16 @@ struct cntr_tcp_sys
                                     uv_strerror( static_cast< int >( nread ) ) );
                         close();
                 } );
-                auto x = cntr.start( []( asrtc::status s ) -> asrtc::status {
-                        if ( s != ASRTC_SUCCESS )
-                                ASRTL_ERR_LOG(
-                                    "asrtio_main",
-                                    "Controller init failed: %s",
-                                    asrtc_status_to_str( s ) );
-                        return s;
-                } );
+                auto x = cntr.start(
+                    []( asrtc::status s ) -> asrtc::status {
+                            if ( s != ASRTC_SUCCESS )
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Controller init failed: %s",
+                                        asrtc_status_to_str( s ) );
+                            return s;
+                    },
+                    static_cast< uint32_t >( timeout.count() ) );
                 if ( x != ASRTC_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main",
@@ -92,6 +107,7 @@ struct cntr_tcp_sys
 private:
         uv_idle_t                                                        idle_handle;
         uv_tcp_t*                                                        client;
+        clock const&                                                     clk_;
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
             [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
                     return rx.write( (uv_stream_t*) client, id, *buff );
@@ -124,31 +140,64 @@ struct suite_reporter
         virtual ~suite_reporter() = default;
 };
 
-inline task< void > run_test_suite( task_ctx& ctx, cntr_tcp_sys& sys, suite_reporter& reporter )
+inline task< void > run_test_suite(
+    task_ctx&                 ctx,
+    cntr_tcp_sys&             sys,
+    suite_reporter&           reporter,
+    std::chrono::milliseconds timeout )
 {
-        co_await cntr_start{ sys.cntr };
+        co_await cntr_start{ sys.cntr, timeout };
 
-        uint32_t count = co_await cntr_query_test_count{ sys.cntr };
+        uint32_t count = co_await cntr_query_test_count{ sys.cntr, timeout };
         reporter.on_count( count );
 
         for ( uint32_t i = 0; i < count; ++i ) {
-                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr, i };
+                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr, i, timeout };
                 reporter.on_test_start( name );
-                asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid };
+                asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid, timeout };
 
                 while ( auto rec = sys.take_diag_record() )
                         reporter.on_diagnostic( rec->file, rec->line );
-                using namespace std::chrono;
-                double ms =
-                    duration_cast< duration< double, std::milli > >(
-                        std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point{} )
-                        .count();
+                double ms = static_cast< double >( sys.clk().now().count() );
                 bool passed = ( res.res == ASRTC_TEST_SUCCESS );
                 reporter.on_test_done( name, passed, ms );
         }
 
         co_return;
 }
+
+struct _cntr_set_param_tree
+{
+        using value_sig = ecor::set_value_t();
+
+        cntr_tcp_sys&              sys;
+        asrtl_flat_tree const*     tree;
+        asrtl_flat_id              root_id;
+        std::chrono::milliseconds  timeout;
+        std::function< void() >    on_ack_;
+
+        _cntr_set_param_tree(
+            cntr_tcp_sys&             s,
+            asrtl_flat_tree const*    t,
+            asrtl_flat_id             rid,
+            std::chrono::milliseconds timeout )
+          : sys( s )
+          , tree( t )
+          , root_id( rid )
+          , timeout( timeout )
+        {
+        }
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                on_ack_ = [&op] {
+                        op.recv.set_value();
+                };
+                sys.set_param_tree( tree, root_id, on_ack_, timeout );
+        }
+};
+using cntr_set_param_tree = _sender< _cntr_set_param_tree >;
 
 
 }  // namespace asrtio

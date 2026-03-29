@@ -80,6 +80,7 @@ struct paired_ctx
 {
         int           init_cb_count = 0;
         asrtc::status init_status   = ASRTC_SUCCESS;
+        uint32_t      t             = 1;
 
         asrtl::opt< asrtc::controller > c;
 
@@ -131,11 +132,12 @@ struct paired_ctx
                             init_cb_count++;
                             init_status = s;
                             return ASRTC_SUCCESS;
-                    } );
+                    },
+                    1000 );
 
                 // complete PROTO_VERSION handshake
                 for ( int i = 0; i < 100 && !c->is_idle(); i++ ) {
-                        (void) c->tick();
+                        (void) c->tick( t++ );
                         r.tick();
                 }
                 CHECK( c->is_idle() );
@@ -145,7 +147,7 @@ struct paired_ctx
         void spin()
         {
                 for ( int i = 0; i < 100 && !c->is_idle(); i++ ) {
-                        (void) c->tick();
+                        (void) c->tick( t++ );
                         r.tick();
                 }
                 CHECK( c->is_idle() );
@@ -194,7 +196,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_desc" )
                 CHECK_EQ( ASRTC_SUCCESS, s );
                 received = std::string{ sv };
                 return ASRTC_SUCCESS;
-        } );
+        }, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         spin();
         CHECK_EQ( "paired_reactor", received );
@@ -212,7 +214,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_count" )
                 CHECK_EQ( ASRTC_SUCCESS, s );
                 count = n;
                 return ASRTC_SUCCESS;
-        } );
+        }, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         spin();
         CHECK_EQ( 2u, count );
@@ -231,7 +233,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
                     tid  = t;
                     name = std::string{ sv };
                     return ASRTC_SUCCESS;
-            } );
+            }, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         spin();
         CHECK_EQ( 0u, tid );
@@ -248,7 +250,7 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
                 CHECK_EQ( ASRTC_SUCCESS, s );
                 res = r.res;
                 return ASRTC_SUCCESS;
-        } );
+        }, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         spin();
         CHECK_EQ( ASRTC_TEST_SUCCESS, res );
@@ -261,7 +263,7 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
                 CHECK_EQ( ASRTC_SUCCESS, s );
                 res = r.res;
                 return ASRTC_SUCCESS;
-        } );
+        }, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         spin();
         CHECK_EQ( ASRTC_TEST_FAILURE, res );
@@ -279,13 +281,13 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
         CHECK_EQ( ASRTC_SUCCESS, c->query_desc( [&]( asrtc::status, std::string_view ) {
                 first_called = true;
                 return ASRTC_SUCCESS;
-        } ) );
+        }, 1000 ) );
 
         // controller is now busy — second query must be rejected; its callback must NOT be stored
         CHECK_EQ( ASRTC_CNTR_BUSY_ERR, c->query_test_count( [&]( asrtc::status, uint32_t ) {
                 second_called = true;
                 return ASRTC_SUCCESS;
-        } ) );
+        }, 1000 ) );
 
         // complete the first query
         spin();
@@ -373,7 +375,7 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
                 CHECK_EQ( ASRTC_SUCCESS, s );
                 desc = std::string{ sv };
                 return ASRTC_SUCCESS;
-        } ) );
+        }, 1000 ) );
 
         r_diag.record( "diag_test.c", 99 );
 
@@ -415,12 +417,44 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
         asrtl_flat_tree_append( &tree, 1, 2, "k", asrtl_flat_value_u32( 42 ) );
 
         srv.set_tree( &tree );
-        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u ) );
+        auto noop = [] {};
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
 
         REQUIRE_EQ( 1u, param_coll.data.size() );
         CHECK_EQ( ASRTL_PARAM, param_coll.data.front().id );
         CHECK_EQ( ASRTL_PARAM_MSG_READY, param_coll.data.front().data[0] );
         param_coll.data.pop_front();
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+
+        srv.set_tree( &tree );
+
+        int  ack_count = 0;
+        auto on_ack    = [&] { ++ack_count; };
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, on_ack, 1000 ) );
+        param_coll.data.clear();
+
+        // Build a READY_ACK message: [ASRTL_PARAM_MSG_READY_ACK, max_msg_size(256) LE]
+        uint8_t    ack_msg[5] = { ASRTL_PARAM_MSG_READY_ACK, 0, 1, 0, 0 };  // 256 LE
+        asrtl_span sp         = { .b = ack_msg, .e = ack_msg + sizeof ack_msg };
+
+        auto* n = srv.node();
+        n->recv_cb( n->recv_ptr, sp );
+
+        CHECK_EQ( 0, ack_count );  // not yet — pending, needs tick
+        CHECK_EQ( ASRTL_SUCCESS, srv.tick( t++ ) );
+        CHECK_EQ( 1, ack_count );  // fired once
+
+        // Second tick should not fire again
+        CHECK_EQ( ASRTL_SUCCESS, srv.tick( t++ ) );
+        CHECK_EQ( 1, ack_count );
 
         asrtl_flat_tree_deinit( &tree );
 }

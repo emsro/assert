@@ -83,10 +83,10 @@ controller::controller( asrtl_sender sender, error_cb ecb )
         ASRTL_ASSERT( st == ASRTC_SUCCESS );
 }
 
-asrtc::status controller::start( init_cb icb )
+asrtc::status controller::start( init_cb icb, uint32_t timeout )
 {
         _impl->ini_cb = std::move( icb );
-        return asrtc_cntr_start( &_impl->asc, &cimpl_init, _impl.get(), 0 );
+        return asrtc_cntr_start( &_impl->asc, &cimpl_init, _impl.get(), timeout );
 }
 
 controller::controller( controller&& ) = default;
@@ -102,9 +102,9 @@ asrtl_node* controller::node()
         return &_impl->asc.node;
 }
 
-asrtc::status controller::tick()
+asrtc::status controller::tick( uint32_t now )
 {
-        return asrtc_cntr_tick( &_impl->asc );
+        return asrtc_cntr_tick( &_impl->asc, now );
 }
 
 bool controller::is_idle() const
@@ -112,9 +112,9 @@ bool controller::is_idle() const
         return asrtc_cntr_idle( &_impl->asc ) > 0;
 }
 
-asrtc::status controller::query_desc( desc_cb cb )
+asrtc::status controller::query_desc( desc_cb cb, uint32_t timeout )
 {
-        auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get(), 0 );
+        auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get(), timeout );
         if ( st == ASRTC_SUCCESS )
                 _impl->des_cb = std::move( cb );
         else
@@ -125,9 +125,9 @@ asrtc::status controller::query_desc( desc_cb cb )
         return st;
 }
 
-asrtc::status controller::query_test_count( tc_cb cb )
+asrtc::status controller::query_test_count( tc_cb cb, uint32_t timeout )
 {
-        auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get(), 0 );
+        auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get(), timeout );
         if ( st == ASRTC_SUCCESS )
                 _impl->test_count_cb = std::move( cb );
         else
@@ -138,9 +138,9 @@ asrtc::status controller::query_test_count( tc_cb cb )
         return st;
 }
 
-asrtc::status controller::query_test_info( uint16_t id, test_info_cb cb )
+asrtc::status controller::query_test_info( uint16_t id, test_info_cb cb, uint32_t timeout )
 {
-        auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get(), 0 );
+        auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get(), timeout );
         if ( st == ASRTC_SUCCESS )
                 _impl->ti_cb = std::move( cb );
         else
@@ -149,9 +149,9 @@ asrtc::status controller::query_test_info( uint16_t id, test_info_cb cb )
         return st;
 }
 
-asrtc::status controller::exec_test( uint16_t id, test_result_cb cb )
+asrtc::status controller::exec_test( uint16_t id, test_result_cb cb, uint32_t timeout )
 {
-        auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get(), 0 );
+        auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get(), timeout );
         if ( st == ASRTC_SUCCESS )
                 _impl->te_cb = std::move( cb );
         else
