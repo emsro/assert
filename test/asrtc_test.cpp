@@ -1557,22 +1557,17 @@ struct param_loopback_ctx
         std::vector< received_node > received;
         int                          error_called = 0;
         uint32_t                     t            = 1;
+        struct asrtr_param_query     query        = {};
 
-        static void response_cb(
-            void*                   ptr,
-            asrtl_flat_id           id,
-            char const*             key,
-            struct asrtl_flat_value value,
-            asrtl_flat_id           next_sibling_id )
+        static void query_cb( struct asrtr_param_client*, struct asrtr_param_query* q, struct asrtl_flat_value val )
         {
-                auto* ctx = (param_loopback_ctx*) ptr;
-                ctx->received.push_back( { id, key ? key : "", value, next_sibling_id } );
-        }
-
-        static void error_cb( void* ptr, uint8_t /*code*/, asrtl_flat_id /*nid*/ )
-        {
-                auto* ctx = (param_loopback_ctx*) ptr;
-                ctx->error_called++;
+                auto* ctx = (param_loopback_ctx*) q->cb_ptr;
+                if ( q->error_code != 0 ) {
+                        ctx->error_called++;
+                } else {
+                        ctx->received.push_back(
+                            { q->node_id, q->key ? q->key : "", val, q->next_sibling } );
+                }
         }
 
         // Tick both sides up to N times until neither has pending work
@@ -1638,7 +1633,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query root
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query( &client, 1u, response_cb, this, error_cb, this ) );
+            asrtr_param_client_query_any( &query, &client, 1u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -1649,7 +1644,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query first child of root ("sub", id=2)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query( &client, first_child, response_cb, this, error_cb, this ) );
+            asrtr_param_client_query_any( &query, &client, first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 2u, received[1].id );
@@ -1663,7 +1658,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query next sibling of "sub" → "b" (id=3)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query( &client, sub_next_sib, response_cb, this, error_cb, this ) );
+            asrtr_param_client_query_any( &query, &client, sub_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( 3u, received[2].id );
@@ -1675,8 +1670,8 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query children of "sub": "x" (id=4)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query(
-                &client, sub_first_child, response_cb, this, error_cb, this ) );
+            asrtr_param_client_query_any(
+                &query, &client, sub_first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 4u, received.size() );
         CHECK_EQ( 4u, received[3].id );
@@ -1689,7 +1684,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query "y" (id=5)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query( &client, x_next_sib, response_cb, this, error_cb, this ) );
+            asrtr_param_client_query_any( &query, &client, x_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 5u, received.size() );
         CHECK_EQ( 5u, received[4].id );
@@ -1790,26 +1785,23 @@ TEST_CASE( "param_loopback_multi_batch" )
                 uint32_t      val;
                 asrtl_flat_id next_sib;
         };
-        std::vector< rn > results;
+        std::vector< rn >       results;
+        struct asrtr_param_query q = {};
 
-        auto resp_cb = []( void*         ptr,
-                           asrtl_flat_id id,
-                           char const*,
-                           struct asrtl_flat_value v,
-                           asrtl_flat_id           next_sib ) {
-                auto* r = (std::vector< rn >*) ptr;
-                r->push_back( { id, v.u32_val, next_sib } );
+        auto resp_cb = []( struct asrtr_param_client*, struct asrtr_param_query* qq, struct asrtl_flat_value val ) {
+                auto* r = (std::vector< rn >*) qq->cb_ptr;
+                r->push_back( { qq->node_id, val.u32_val, qq->next_sibling } );
         };
 
         // Query root to get first_child
         asrtl_flat_id first_child = 0;
         auto          root_resp =
-            []( void* ptr, asrtl_flat_id, char const*, struct asrtl_flat_value v, asrtl_flat_id ) {
-                    *(asrtl_flat_id*) ptr = v.obj_val.first_child;
+            []( struct asrtr_param_client*, struct asrtr_param_query* qq, struct asrtl_flat_value val ) {
+                    *(asrtl_flat_id*) qq->cb_ptr = val.obj_val.first_child;
             };
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query( &client, 1u, root_resp, &first_child, nullptr, nullptr ) );
+            asrtr_param_client_query_any( &q, &client, 1u, root_resp, &first_child ) );
         spin();
         REQUIRE_NE( 0u, first_child );
 
@@ -1818,8 +1810,8 @@ TEST_CASE( "param_loopback_multi_batch" )
         while ( query_id != 0u ) {
                 CHECK_EQ(
                     ASRTL_SUCCESS,
-                    asrtr_param_client_query(
-                        &client, query_id, resp_cb, &results, nullptr, nullptr ) );
+                    asrtr_param_client_query_any(
+                        &q, &client, query_id, resp_cb, &results ) );
                 spin();
                 REQUIRE_FALSE( results.empty() );
                 query_id = results.back().next_sib;

@@ -373,21 +373,17 @@ struct param_e2e_state
         asrtl_flat_id                      root_id     = 0;
         std::vector< param_received_node > received;
         int                                errors = 0;
+        asrtr_param_query                  query  = {};
 
-        static void response_cb(
-            void*            ptr,
-            asrtl_flat_id    id,
-            char const*      key,
-            asrtl_flat_value value,
-            asrtl_flat_id    next_sibling_id )
+        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_value val )
         {
-                auto* s = static_cast< param_e2e_state* >( ptr );
-                s->received.push_back( { id, key ? key : "", value, next_sibling_id } );
-        }
-
-        static void error_cb( void* ptr, uint8_t, asrtl_flat_id )
-        {
-                static_cast< param_e2e_state* >( ptr )->errors++;
+                auto* s = static_cast< param_e2e_state* >( q->cb_ptr );
+                if ( q->error_code != 0 ) {
+                        s->errors++;
+                } else {
+                        s->received.push_back(
+                            { q->node_id, q->key ? q->key : "", val, q->next_sibling } );
+                }
         }
 };
 
@@ -418,10 +414,9 @@ static asrtio::task< void > param_e2e_coro(
         state.root_id     = conn.param().root_id();
 
         std::ignore = conn.param().query(
+            &state.query,
             state.root_id,
-            param_e2e_state::response_cb,
-            &state,
-            param_e2e_state::error_cb,
+            param_e2e_state::query_cb,
             &state );
 
         while ( state.received.size() < 1 )
@@ -429,10 +424,9 @@ static asrtio::task< void > param_e2e_coro(
 
         if ( state.received[0].value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT ) {
                 std::ignore = conn.param().query(
+                    &state.query,
                     state.received[0].value.obj_val.first_child,
-                    param_e2e_state::response_cb,
-                    &state,
-                    param_e2e_state::error_cb,
+                    param_e2e_state::query_cb,
                     &state );
         }
 
@@ -441,10 +435,9 @@ static asrtio::task< void > param_e2e_coro(
 
         if ( state.received[1].next_sibling != 0 ) {
                 std::ignore = conn.param().query(
+                    &state.query,
                     state.received[1].next_sibling,
-                    param_e2e_state::response_cb,
-                    &state,
-                    param_e2e_state::error_cb,
+                    param_e2e_state::query_cb,
                     &state );
         }
 

@@ -344,22 +344,17 @@ struct param_loopback_cpp_ctx
         std::vector< received_node > received;
         int                          error_called = 0;
         uint32_t                     t              = 1;
+        asrtr_param_query            query          = {};
 
-        static void response_cb(
-            void*            ptr,
-            asrtl_flat_id    id,
-            char const*      key,
-            asrtl_flat_value value,
-            asrtl_flat_id    next_sibling_id )
+        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_value val )
         {
-                auto* ctx = (param_loopback_cpp_ctx*) ptr;
-                ctx->received.push_back( { id, key ? key : "", value, next_sibling_id } );
-        }
-
-        static void error_cb( void* ptr, uint8_t, asrtl_flat_id )
-        {
-                auto* ctx = (param_loopback_cpp_ctx*) ptr;
-                ctx->error_called++;
+                auto* ctx = (param_loopback_cpp_ctx*) q->cb_ptr;
+                if ( q->error_code != 0 ) {
+                        ctx->error_called++;
+                } else {
+                        ctx->received.push_back(
+                            { q->node_id, q->key ? q->key : "", val, q->next_sibling } );
+                }
         }
 
         void spin( int max_iter = 100 )
@@ -419,7 +414,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         REQUIRE( cli.ready() );
 
         // Query root
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( 1u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, 1u, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -427,7 +422,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrtl_flat_id first_child = received[0].value.obj_val.first_child;
 
         // Query first child "a"
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( first_child, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, first_child, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( "a", received[1].key );
@@ -435,7 +430,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrtl_flat_id next_sib = received[1].next_sibling;
 
         // Query next sibling "b"
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( next_sib, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, next_sib, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( "b", received[2].key );
@@ -459,7 +454,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         REQUIRE( cli.ready() );
 
         // Query non-existent node — server sends ERROR
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( 999u, response_cb, this, error_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, 999u, query_cb, this ) );
         spin_query();
 
         // The node doesn't exist, so server sends a response with NONE type
@@ -468,5 +463,197 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 999u, received[0].id );
 
+        asrtl_flat_tree_deinit( &tree );
+}
+
+// ---------------------------------------------------------------------------
+// typed query<T> tests
+
+struct typed_loopback_ctx
+{
+        asrtl_node srv_head = {};
+        asrtl_node cli_head = {};
+
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > srv_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto flat = flatten( buff );
+                    auto sp   = asrtl::cnv( std::span{ flat } );
+                    cli.node()->recv_cb( cli.node()->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cli_send{
+            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
+                    auto flat = flatten( buff );
+                    auto sp   = asrtl::cnv( std::span{ flat } );
+                    srv.node()->recv_cb( srv.node()->recv_ptr, sp );
+                    return ASRTL_SUCCESS;
+            } };
+
+        asrtc::param_server srv{ &srv_head, srv_send, asrtl_default_allocator() };
+
+        static constexpr uint32_t BUF_SZ          = 256;
+        uint8_t                   cli_buf[BUF_SZ] = {};
+        asrtr::param_client       cli{
+            &cli_head,
+            cli_send,
+            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ } };
+
+        uint32_t          t     = 1;
+        asrtr_param_query query = {};
+
+        // results
+        uint32_t               u32_val  = 0;
+        int32_t                i32_val  = 0;
+        float                  flt_val  = 0.0f;
+        std::string            str_val;
+        asrtl_flat_child_list  obj_val  = {};
+        asrtl_flat_child_list  arr_val  = {};
+        uint32_t               bool_val = 0;
+        int                    cb_count = 0;
+        bool                   got_null = false;
+
+        typed_loopback_ctx()
+        {
+                srv_head.chid = ASRTL_CORE;
+                cli_head.chid = ASRTL_CORE;
+        }
+
+        void setup_tree_and_handshake( asrtl_flat_tree* tree )
+        {
+                srv.set_tree( tree );
+                auto noop = [] {};
+                CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
+                for ( int i = 0; i < 100; i++ ) {
+                        srv.tick( t++ );
+                        cli.tick();
+                        if ( cli.ready() )
+                                break;
+                }
+                REQUIRE( cli.ready() );
+        }
+
+        void spin_query( int max_iter = 100 )
+        {
+                for ( int i = 0; i < max_iter; i++ ) {
+                        srv.tick( t++ );
+                        cli.tick();
+                }
+        }
+};
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 42 ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+                cb_count++;
+                u32_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( 42u, u32_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_mismatch" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "nope" ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+                cb_count++;
+                got_null = ( q->error_code != 0 );
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK( got_null );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_i32_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_i32( -7 ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, int32_t v ) {
+                cb_count++;
+                i32_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< int32_t >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( -7, i32_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_str_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "hello" ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
+                cb_count++;
+                if ( v )
+                        str_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< char const* >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( "hello", str_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_float_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_float( 3.14f ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, float v ) {
+                cb_count++;
+                flt_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< float >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( doctest::Approx( 3.14f ), flt_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 99 ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, asrtl_flat_value v ) {
+                cb_count++;
+                u32_val = v.u32_val;
+        };
+        // untyped query — explicit asrtl_flat_value
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< asrtl_flat_value >( &query, 2u, cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( 99u, u32_val );
         asrtl_flat_tree_deinit( &tree );
 }

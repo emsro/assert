@@ -284,13 +284,6 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
         return ASRTL_SUCCESS;
 }
 
-// Fired once per decoded node. next_sibling_id is non-zero only on the last node.
-typedef void ( *asrtl_param_response_cb )(
-    void*                   cb_ptr,
-    asrtl_flat_id           id,
-    char const*             key,
-    struct asrtl_flat_value value,
-    asrtl_flat_id           next_sibling_id );
 
 #ifdef __cplusplus
 }

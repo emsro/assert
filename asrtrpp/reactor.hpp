@@ -40,10 +40,15 @@ struct unit
 
 struct reactor
 {
-        template < typename CB >
+        template < asrtl::sender_callable CB >
         reactor( CB& send_cb, char const* desc )
         {
                 std::ignore = asrtr_reactor_init( &reac, asrtl::make_sender( send_cb ), desc );
+        }
+
+        reactor( asrtl_sender sender, char const* desc )
+        {
+                std::ignore = asrtr_reactor_init( &reac, sender, desc );
         }
 
         reactor( reactor&& )      = delete;

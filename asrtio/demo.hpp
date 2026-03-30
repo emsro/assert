@@ -203,29 +203,22 @@ namespace detail
 
 struct param_qr
 {
-        bool             got      = false;
-        asrtl_flat_value value    = {};
-        asrtl_flat_id    next_sib = 0;
+        bool              got      = false;
+        asrtl_flat_value  value    = {};
+        asrtl_flat_id     next_sib = 0;
+        asrtr_param_query q        = {};
 };
 
-inline void param_qr_cb(
-    void*            ptr,
-    asrtl_flat_id,
-    char const*,
-    asrtl_flat_value value,
-    asrtl_flat_id    next_sib )
-{
-        auto& s    = *static_cast< param_qr* >( ptr );
-        s.got      = true;
-        s.value    = value;
-        s.next_sib = next_sib;
-}
-
-inline void param_qr_err( void* ptr, uint8_t, asrtl_flat_id )
-{
-        auto& s = *static_cast< param_qr* >( ptr );
-        s.got   = true;
-        s.value = {};
+inline void param_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_value val )
+        {
+                auto& s    = *static_cast< param_qr* >( qq->cb_ptr );
+                s.got      = true;
+                if ( qq->error_code != 0 ) {
+                        s.value = {};
+                } else {
+                        s.value    = val;
+                s.next_sib = qq->next_sibling;
+        }
 }
 
 }  // namespace detail
@@ -251,10 +244,9 @@ inline demo_spec make_demo_param_value()
                             }
                             pq = {};
                             std::ignore = self.param.query(
+                                &pq.q,
                                 self.param.root_id(),
                                 detail::param_qr_cb,
-                                &pq,
-                                detail::param_qr_err,
                                 &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -269,10 +261,9 @@ inline demo_spec make_demo_param_value()
                             auto first   = pq.value.obj_val.first_child;
                             pq           = {};
                             std::ignore = self.param.query(
+                                &pq.q,
                                 first,
                                 detail::param_qr_cb,
-                                &pq,
-                                detail::param_qr_err,
                                 &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -322,10 +313,9 @@ inline demo_spec make_demo_param_count()
                             }
                             pq = {};
                             std::ignore = self.param.query(
+                                &pq.q,
                                 self.param.root_id(),
                                 detail::param_qr_cb,
-                                &pq,
-                                detail::param_qr_err,
                                 &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -340,10 +330,9 @@ inline demo_spec make_demo_param_count()
                             auto first   = pq.value.obj_val.first_child;
                             pq           = {};
                             std::ignore = self.param.query(
+                                &pq.q,
                                 first,
                                 detail::param_qr_cb,
-                                &pq,
-                                detail::param_qr_err,
                                 &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -359,10 +348,9 @@ inline demo_spec make_demo_param_count()
                                     auto next = pq.next_sib;
                                     pq        = {};
                                     std::ignore = self.param.query(
+                                        &pq.q,
                                         next,
                                         detail::param_qr_cb,
-                                        &pq,
-                                        detail::param_qr_err,
                                         &pq );
                                     r.state = ASRTR_TEST_RUNNING;
                                     return ASRTR_SUCCESS;

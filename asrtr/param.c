@@ -14,51 +14,69 @@
 
 #include <string.h>
 
-// ---------------------------------------------------------------------------
-// Finish a query: save & zero temporaries, fire the appropriate callback.
-// ---------------------------------------------------------------------------
-
-static void asrtr_finish_query(
-    struct asrtr_param_client* client,
-    asrtl_flat_id              id,
-    char const*                key,
-    struct asrtl_flat_value    value,
-    asrtl_flat_id              next_sibling_id )
+static void asrtr_param_finish_query(
+    struct asrtr_param_client*     client,
+    struct asrtl_flat_value const* val )
 {
-        asrtl_param_response_cb cb  = client->pending_cb;
-        void*                   ptr = client->pending_cb_ptr;
+        struct asrtr_param_query* q = client->pending_query;
+        client->pending_query       = NULL;
 
-        client->pending_cb           = NULL;
-        client->pending_cb_ptr       = NULL;
-        client->pending_error_cb     = NULL;
-        client->pending_error_cb_ptr = NULL;
-        client->query_node_id        = ASRTL_PARAM_NONE_ID;
+        int has_error = q->error_code != 0;
+        int type_ok   = !has_error && ( q->expected_type == ASRTL_FLAT_VALUE_TYPE_NONE ||
+                                      val->type == q->expected_type );
+        if ( !has_error && !type_ok ) {
+                ASRTL_ERR_LOG(
+                    "asrtr_param_client",
+                    "type mismatch: expected %u, got %u",
+                    q->expected_type,
+                    val->type );
+                q->error_code = ASRTR_PARAM_ERR_TYPE_MISMATCH;
+        }
 
-        if ( cb )
-                cb( ptr, id, key, value, next_sibling_id );
+        switch ( q->expected_type ) {
+        case ASRTL_FLAT_VALUE_TYPE_NONE:
+                if ( q->cb.any )
+                        q->cb.any( client, q, *val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_U32:
+                if ( q->cb.u32 )
+                        q->cb.u32( client, q, type_ok ? val->u32_val : 0 );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_I32:
+                if ( q->cb.i32 )
+                        q->cb.i32( client, q, type_ok ? val->i32_val : 0 );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_STR:
+                if ( q->cb.str )
+                        q->cb.str( client, q, type_ok ? val->str_val : NULL );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_FLOAT:
+                if ( q->cb.flt )
+                        q->cb.flt( client, q, type_ok ? val->float_val : 0.0f );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_BOOL:
+                if ( q->cb.bln )
+                        q->cb.bln( client, q, type_ok ? val->bool_val : 0 );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_OBJECT: {
+                if ( q->cb.obj ) {
+                        struct asrtl_flat_child_list zero = { 0, 0 };
+                        q->cb.obj( client, q, type_ok ? val->obj_val : zero );
+                }
+                break;
+        }
+        case ASRTL_FLAT_VALUE_TYPE_ARRAY: {
+                if ( q->cb.arr ) {
+                        struct asrtl_flat_child_list zero = { 0, 0 };
+                        q->cb.arr( client, q, type_ok ? val->arr_val : zero );
+                }
+                break;
+        }
+        case ASRTL_FLAT_VALUE_TYPE_NULL:
+                ASRTL_ERR_LOG( "asrtr_param_client", "unsupported expected_type NULL" );
+                break;
+        }
 }
-
-static void asrtr_finish_query_error(
-    struct asrtr_param_client* client,
-    uint8_t                    error_code,
-    asrtl_flat_id              node_id )
-{
-        asrtr_param_error_cb cb  = client->pending_error_cb;
-        void*                ptr = client->pending_error_cb_ptr;
-
-        client->pending_cb           = NULL;
-        client->pending_cb_ptr       = NULL;
-        client->pending_error_cb     = NULL;
-        client->pending_error_cb_ptr = NULL;
-        client->query_node_id        = ASRTL_PARAM_NONE_ID;
-
-        if ( cb )
-                cb( ptr, error_code, node_id );
-}
-
-// ---------------------------------------------------------------------------
-// recv handlers — light, only store
-// ---------------------------------------------------------------------------
 
 static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span* buff )
 {
@@ -109,19 +127,23 @@ static enum asrtl_status asrtr_cache_try_deliver( struct asrtr_param_client* cli
                         return vst;
                 }
 
-                if ( nid == client->query_node_id ) {
+                if ( nid == client->pending_query->node_id ) {
                         asrtl_flat_id next_sib;
                         if ( (size_t) ( sp.e - sp.b ) > 4U )
                                 asrtl_u8d4_to_u32( sp.b, &next_sib );
                         else
                                 next_sib = client->cache_next_sibling;
-                        asrtr_finish_query( client, nid, key, val, next_sib );
+                        client->pending_query->key          = key;
+                        client->pending_query->next_sibling = next_sib;
+
+                        asrtr_param_finish_query( client, &val );
                         return ASRTL_SUCCESS;
                 }
         }
 
         client->cache_len = 0;
-        return asrtl_msg_rtoc_param_query( client->query_node_id, asrtr_param_client_send, client );
+        return asrtl_msg_rtoc_param_query(
+            client->pending_query->node_id, asrtr_param_client_send, client );
 }
 
 static enum asrtl_status asrtr_param_client_handle_ready(
@@ -224,10 +246,14 @@ enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client )
                 return asrtr_cache_try_deliver( client );
 
         case ASRTR_PARAM_CLIENT_PENDING_ERROR: {
-                uint8_t       error_code = client->pending_data.error.error_code;
-                asrtl_flat_id node_id    = client->pending_data.error.node_id;
-                client->pending          = ASRTR_PARAM_CLIENT_PENDING_NONE;
-                asrtr_finish_query_error( client, error_code, node_id );
+                uint8_t       error_code          = client->pending_data.error.error_code;
+                asrtl_flat_id node_id             = client->pending_data.error.node_id;
+                client->pending                   = ASRTR_PARAM_CLIENT_PENDING_NONE;
+                client->pending_query->error_code = error_code;
+                client->pending_query->node_id    = node_id;
+
+                struct asrtl_flat_value zero_val = { 0 };
+                asrtr_param_finish_query( client, &zero_val );
                 return ASRTL_SUCCESS;
         }
         }
@@ -281,19 +307,15 @@ enum asrtr_status asrtr_param_client_init(
                     .recv_cb  = asrtr_param_client_recv,
                     .next     = NULL,
                 },
-            .sendr                = sender,
-            .root_id              = ASRTL_PARAM_NONE_ID,
-            .ready                = 0,
-            .cache_buf            = msg_buffer.b,
-            .cache_capacity       = (uint32_t) ( msg_buffer.e - msg_buffer.b ),
-            .cache_len            = 0,
-            .cache_next_sibling   = ASRTL_PARAM_NONE_ID,
-            .pending_cb           = NULL,
-            .pending_cb_ptr       = NULL,
-            .pending_error_cb     = NULL,
-            .pending_error_cb_ptr = NULL,
-            .pending              = ASRTR_PARAM_CLIENT_PENDING_NONE,
-            .query_node_id        = ASRTL_PARAM_NONE_ID,
+            .sendr              = sender,
+            .root_id            = ASRTL_PARAM_NONE_ID,
+            .ready              = 0,
+            .cache_buf          = msg_buffer.b,
+            .cache_capacity     = (uint32_t) ( msg_buffer.e - msg_buffer.b ),
+            .cache_len          = 0,
+            .cache_next_sibling = ASRTL_PARAM_NONE_ID,
+            .pending_query      = NULL,
+            .pending            = ASRTR_PARAM_CLIENT_PENDING_NONE,
         };
         prev->next = &client->node;
         return ASRTR_SUCCESS;
@@ -305,24 +327,29 @@ asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* clien
 }
 
 enum asrtl_status asrtr_param_client_query(
+    struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
-    asrtl_param_response_cb    response_cb,
-    void*                      response_cb_ptr,
-    asrtr_param_error_cb       error_cb,
-    void*                      error_cb_ptr )
+    asrtl_flat_id              node_id )
 {
         if ( !client->ready ) {
                 ASRTL_ERR_LOG( "asrtr_param_client", "query: not ready" );
                 return ASRTL_ARG_ERR;
         }
+        if ( !query ) {
+                ASRTL_ERR_LOG( "asrtr_param_client", "query: null query" );
+                return ASRTL_ARG_ERR;
+        }
+        if ( client->pending_query ) {
+                ASRTL_ERR_LOG( "asrtr_param_client", "query: another query is pending" );
+                return ASRTL_ARG_ERR;
+        }
 
-        client->pending_cb           = response_cb;
-        client->pending_cb_ptr       = response_cb_ptr;
-        client->pending_error_cb     = error_cb;
-        client->pending_error_cb_ptr = error_cb_ptr;
-        client->query_node_id        = node_id;
-        client->pending              = ASRTR_PARAM_CLIENT_PENDING_DELIVER;
+        client->pending_query = query;
+        query->error_code     = 0;
+        query->node_id        = node_id;
+        query->key            = NULL;
+        query->next_sibling   = ASRTL_PARAM_NONE_ID;
+        client->pending       = ASRTR_PARAM_CLIENT_PENDING_DELIVER;
         return ASRTL_SUCCESS;
 }
 
