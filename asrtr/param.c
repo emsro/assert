@@ -210,7 +210,7 @@ static enum asrtl_status asrtr_param_client_handle_error(
 
         client->pending_data.error.error_code = error_code;
         client->pending_data.error.node_id    = node_id;
-        client->pending                       = ASRTR_PARAM_CLIENT_PENDING_ERROR;
+        client->pending                       = ASRTR_PARAM_CLIENT_PENDING_QUERY_ERROR;
         return ASRTL_SUCCESS;
 }
 
@@ -245,7 +245,7 @@ enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client )
                 client->pending = ASRTR_PARAM_CLIENT_PENDING_NONE;
                 return asrtr_cache_try_deliver( client );
 
-        case ASRTR_PARAM_CLIENT_PENDING_ERROR: {
+        case ASRTR_PARAM_CLIENT_PENDING_QUERY_ERROR: {
                 uint8_t       error_code          = client->pending_data.error.error_code;
                 asrtl_flat_id node_id             = client->pending_data.error.node_id;
                 client->pending                   = ASRTR_PARAM_CLIENT_PENDING_NONE;

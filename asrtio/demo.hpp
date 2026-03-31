@@ -203,22 +203,35 @@ namespace detail
 
 struct param_qr
 {
-        bool              got      = false;
-        asrtl_flat_value  value    = {};
-        asrtl_flat_id     next_sib = 0;
-        asrtr_param_query q        = {};
+        asrtl_flat_id     first_child = 0;
+        uint32_t          u32_val     = 0;
+        asrtl_flat_id     next_sib    = 0;
+        asrtr_param_query q           = {};
 };
 
-inline void param_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_value val )
-        {
-                auto& s    = *static_cast< param_qr* >( qq->cb_ptr );
-                s.got      = true;
-                if ( qq->error_code != 0 ) {
-                        s.value = {};
-                } else {
-                        s.value    = val;
+inline void param_obj_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_child_list val )
+{
+        auto& s = *static_cast< param_qr* >( qq->cb_ptr );
+        if ( qq->error_code == 0 ) {
+                s.first_child = val.first_child;
+                s.next_sib    = qq->next_sibling;
+        }
+}
+
+inline void param_u32_qr_cb( asrtr_param_client*, asrtr_param_query* qq, uint32_t val )
+{
+        auto& s = *static_cast< param_qr* >( qq->cb_ptr );
+        if ( qq->error_code == 0 ) {
+                s.u32_val  = val;
                 s.next_sib = qq->next_sibling;
         }
+}
+
+inline void param_any_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_value )
+{
+        auto& s = *static_cast< param_qr* >( qq->cb_ptr );
+        if ( qq->error_code == 0 )
+                s.next_sib = qq->next_sibling;
 }
 
 }  // namespace detail
@@ -236,6 +249,10 @@ inline demo_spec make_demo_param_value()
                             self.counter = 0;
                             pq           = {};
                     }
+                    if ( self.param.query_pending() ) {
+                            r.state = ASRTR_TEST_RUNNING;
+                            return ASRTR_SUCCESS;
+                    }
                     switch ( self.counter ) {
                     case 0:
                             if ( !self.param.ready() ) {
@@ -243,43 +260,33 @@ inline demo_spec make_demo_param_value()
                                     return ASRTR_SUCCESS;
                             }
                             pq = {};
-                            std::ignore = self.param.query(
+                            std::ignore = self.param.query< asrtr::param_obj >(
                                 &pq.q,
                                 self.param.root_id(),
-                                detail::param_qr_cb,
+                                detail::param_obj_qr_cb,
                                 &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
-                            if ( !pq.got ) {
-                                    r.state = ASRTR_TEST_RUNNING;
-                                    return ASRTR_SUCCESS;
-                            }
-                            ASRTR_RECORD_REQUIRE(
-                                &r, pq.value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT );
-                            auto first   = pq.value.obj_val.first_child;
+                            ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
+                            auto first   = pq.first_child;
                             pq           = {};
-                            std::ignore = self.param.query(
+                            std::ignore = self.param.query< uint32_t >(
                                 &pq.q,
                                 first,
-                                detail::param_qr_cb,
+                                detail::param_u32_qr_cb,
                                 &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     }
                     case 2:
-                            if ( !pq.got ) {
-                                    r.state = ASRTR_TEST_RUNNING;
-                                    return ASRTR_SUCCESS;
-                            }
-                            ASRTR_RECORD_CHECK(
-                                &r, pq.value.type == ASRTL_FLAT_VALUE_TYPE_U32 );
+                            ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
                             if ( r.state == ASRTR_TEST_FAIL ) {
                                     self.diag.record( "demo.hpp", __LINE__, "expected u32" );
                             } else {
-                                    ASRTR_RECORD_CHECK( &r, pq.value.u32_val > 0 );
+                                    ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRTR_TEST_FAIL )
                                             self.diag.record(
                                                 "demo.hpp", __LINE__, "val > 0" );
@@ -305,6 +312,10 @@ inline demo_spec make_demo_param_count()
                             child_count  = 0;
                             pq           = {};
                     }
+                    if ( self.param.query_pending() ) {
+                            r.state = ASRTR_TEST_RUNNING;
+                            return ASRTR_SUCCESS;
+                    }
                     switch ( self.counter ) {
                     case 0:
                             if ( !self.param.ready() ) {
@@ -312,45 +323,36 @@ inline demo_spec make_demo_param_count()
                                     return ASRTR_SUCCESS;
                             }
                             pq = {};
-                            std::ignore = self.param.query(
+                            std::ignore = self.param.query< asrtr::param_obj >(
                                 &pq.q,
                                 self.param.root_id(),
-                                detail::param_qr_cb,
+                                detail::param_obj_qr_cb,
                                 &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
-                            if ( !pq.got ) {
-                                    r.state = ASRTR_TEST_RUNNING;
-                                    return ASRTR_SUCCESS;
-                            }
-                            ASRTR_RECORD_REQUIRE(
-                                &r, pq.value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT );
-                            auto first   = pq.value.obj_val.first_child;
+                            ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
+                            auto first   = pq.first_child;
                             pq           = {};
-                            std::ignore = self.param.query(
+                            std::ignore = self.param.query< void >(
                                 &pq.q,
                                 first,
-                                detail::param_qr_cb,
+                                detail::param_any_qr_cb,
                                 &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     }
                     case 2:
-                            if ( !pq.got ) {
-                                    r.state = ASRTR_TEST_RUNNING;
-                                    return ASRTR_SUCCESS;
-                            }
                             ++child_count;
                             if ( pq.next_sib != 0 ) {
                                     auto next = pq.next_sib;
                                     pq        = {};
-                                    std::ignore = self.param.query(
+                                    std::ignore = self.param.query< void >(
                                         &pq.q,
                                         next,
-                                        detail::param_qr_cb,
+                                        detail::param_any_qr_cb,
                                         &pq );
                                     r.state = ASRTR_TEST_RUNNING;
                                     return ASRTR_SUCCESS;

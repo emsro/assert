@@ -1658,3 +1658,27 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_rejects_when_pending" )
             ASRTL_ARG_ERR,
             asrtr_param_client_query_any( &query2, &client, 11u, query_cb, this ) );
 }
+
+// --- query pending flag ---
+
+TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
+{
+        make_ready( 1u );
+        CHECK_FALSE( asrtr_param_query_pending( &client ) );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK( asrtr_param_query_pending( &client ) );
+
+        // deliver response
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        coll.data.clear();
+        uint8_t  rbuf[64];
+        uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
+        CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+
+        CHECK_FALSE( asrtr_param_query_pending( &client ) );
+        CHECK_EQ( 1, resp_called );
+}

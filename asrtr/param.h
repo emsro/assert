@@ -25,7 +25,7 @@ enum asrtr_param_client_pending
         ASRTR_PARAM_CLIENT_PENDING_NONE = 0,
         ASRTR_PARAM_CLIENT_PENDING_READY,
         ASRTR_PARAM_CLIENT_PENDING_DELIVER,
-        ASRTR_PARAM_CLIENT_PENDING_ERROR,
+        ASRTR_PARAM_CLIENT_PENDING_QUERY_ERROR,
 };
 
 struct asrtr_param_client
@@ -118,6 +118,11 @@ enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id );
+
+static inline int asrtr_param_query_pending( struct asrtr_param_client const* client )
+{
+        return client->pending_query != NULL;
+}
 
 // Typed query helpers — set expected_type + cb + cb_ptr, then submit
 static inline enum asrtl_status asrtr_param_client_query_any(

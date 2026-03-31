@@ -343,8 +343,8 @@ struct param_loopback_cpp_ctx
         };
         std::vector< received_node > received;
         int                          error_called = 0;
-        uint32_t                     t              = 1;
-        asrtr_param_query            query          = {};
+        uint32_t                     t            = 1;
+        asrtr_param_query            query        = {};
 
         static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_value val )
         {
@@ -360,7 +360,7 @@ struct param_loopback_cpp_ctx
         void spin( int max_iter = 100 )
         {
                 for ( int i = 0; i < max_iter; i++ ) {
-                        srv.tick(t++);
+                        srv.tick( t++ );
                         cli.tick();
                         if ( cli.ready() )
                                 break;
@@ -370,7 +370,7 @@ struct param_loopback_cpp_ctx
         void spin_query( int max_iter = 100 )
         {
                 for ( int i = 0; i < max_iter; i++ ) {
-                        srv.tick(t++);
+                        srv.tick( t++ );
                         cli.tick();
                 }
         }
@@ -503,15 +503,15 @@ struct typed_loopback_ctx
         asrtr_param_query query = {};
 
         // results
-        uint32_t               u32_val  = 0;
-        int32_t                i32_val  = 0;
-        float                  flt_val  = 0.0f;
-        std::string            str_val;
-        asrtl_flat_child_list  obj_val  = {};
-        asrtl_flat_child_list  arr_val  = {};
-        uint32_t               bool_val = 0;
-        int                    cb_count = 0;
-        bool                   got_null = false;
+        uint32_t              u32_val = 0;
+        int32_t               i32_val = 0;
+        float                 flt_val = 0.0f;
+        std::string           str_val;
+        asrtl_flat_child_list obj_val  = {};
+        asrtl_flat_child_list arr_val  = {};
+        uint32_t              bool_val = 0;
+        int                   cb_count = 0;
+        bool                  got_null = false;
 
         typed_loopback_ctx()
         {
@@ -655,5 +655,29 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( 99u, u32_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 7 ) );
+        setup_tree_and_handshake( &tree );
+
+        CHECK_FALSE( cli.query_pending() );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+                cb_count++;
+                u32_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        CHECK( cli.query_pending() );
+
+        spin_query();
+        CHECK_FALSE( cli.query_pending() );
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( 7u, u32_val );
         asrtl_flat_tree_deinit( &tree );
 }

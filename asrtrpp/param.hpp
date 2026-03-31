@@ -148,6 +148,12 @@ struct param_client
                 return client_.ready != 0;
         }
 
+        [[nodiscard]] bool query_pending() const
+        {
+                return asrtr_param_query_pending( &client_ ) != 0;
+        }
+
+
         [[nodiscard]] asrtl_flat_id root_id() const
         {
                 return asrtr_param_client_root_id( &client_ );
