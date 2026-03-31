@@ -25,11 +25,12 @@ extern "C" {
 // Message IDs (uint8_t, channel 4)
 enum asrtl_param_message_id_e
 {
-        ASRTL_PARAM_MSG_READY     = 0x01,  // controller -> reactor
-        ASRTL_PARAM_MSG_READY_ACK = 0x02,  // reactor    -> controller
-        ASRTL_PARAM_MSG_QUERY     = 0x03,  // reactor    -> controller
-        ASRTL_PARAM_MSG_RESPONSE  = 0x04,  // controller -> reactor
-        ASRTL_PARAM_MSG_ERROR     = 0x05,  // controller -> reactor
+        ASRTL_PARAM_MSG_READY       = 0x01,  // controller -> reactor
+        ASRTL_PARAM_MSG_READY_ACK   = 0x02,  // reactor    -> controller
+        ASRTL_PARAM_MSG_QUERY       = 0x03,  // reactor    -> controller
+        ASRTL_PARAM_MSG_RESPONSE    = 0x04,  // controller -> reactor
+        ASRTL_PARAM_MSG_ERROR       = 0x05,  // controller -> reactor
+        ASRTL_PARAM_MSG_FIND_BY_KEY = 0x06,  // reactor    -> controller
 };
 typedef uint8_t asrtl_param_message_id;
 
@@ -86,6 +87,26 @@ static inline enum asrtl_status asrtl_msg_rtoc_param_query(
         *p++       = ASRTL_PARAM_MSG_QUERY;
         asrtl_add_u32( &p, node_id );
         struct asrtl_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
+        return cb( cb_ptr, &span );
+}
+
+static inline enum asrtl_status asrtl_msg_rtoc_param_find_by_key(
+    struct asrtl_span*       buff,
+    asrtl_flat_id            parent_id,
+    char const*              key,
+    asrtl_param_msg_callback cb,
+    void*                    cb_ptr )
+{
+        size_t   key_len = strlen( key );
+        uint8_t* p       = buff->b;
+        if ( 5U + key_len + 1U > (size_t) ( buff->e - buff->b ) )
+                return ASRTL_SIZE_ERR;
+        *p++ = ASRTL_PARAM_MSG_FIND_BY_KEY;
+        asrtl_add_u32( &p, parent_id );
+        memcpy( p, key, key_len );
+        p += key_len;
+        *p++                       = '\0';
+        struct asrtl_rec_span span = { .b = buff->b, .e = p, .next = NULL };
         return cb( cb_ptr, &span );
 }
 

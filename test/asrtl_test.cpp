@@ -1700,6 +1700,183 @@ TEST_CASE( "flat_tree_query_next_sibling_chain" )
 }
 
 // ============================================================================
+// flat_tree — find_by_key (Component 9)
+// ============================================================================
+
+TEST_CASE( "flat_tree_find_by_key_null_args" )
+{
+        struct asrtl_allocator        alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree        tree;
+        struct asrtl_flat_query_result r;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+
+        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( NULL, 1, "k", &r ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( &tree, 1, NULL, &r ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "k", NULL ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_parent_not_found" )
+{
+        struct asrtl_allocator        alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree        tree;
+        struct asrtl_flat_query_result r;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 999, "k", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_parent_not_object" )
+{
+        struct asrtl_allocator        alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree        tree;
+        struct asrtl_flat_query_result r;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_array() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, NULL, asrtl_flat_value_u32( 42 ) ) );
+
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "k", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_happy" )
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 10 ) ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 3, "beta", asrtl_flat_value_str( "hi" ) ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 4, "gamma", asrtl_flat_value_bool( 1 ) ) );
+
+        struct asrtl_flat_query_result r;
+
+        // Find first child
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "alpha", &r ) );
+        CHECK_EQ( (asrtl_flat_id) 2, r.id );
+        CHECK( strcmp( r.key, "alpha" ) == 0 );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_U32, r.value.type );
+        CHECK_EQ( 10u, r.value.u32_val );
+        CHECK_EQ( (asrtl_flat_id) 3, r.next_sibling );
+
+        // Find middle child
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "beta", &r ) );
+        CHECK_EQ( (asrtl_flat_id) 3, r.id );
+        CHECK( strcmp( r.key, "beta" ) == 0 );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_STR, r.value.type );
+        CHECK_EQ( (asrtl_flat_id) 4, r.next_sibling );
+
+        // Find last child
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "gamma", &r ) );
+        CHECK_EQ( (asrtl_flat_id) 4, r.id );
+        CHECK( strcmp( r.key, "gamma" ) == 0 );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_BOOL, r.value.type );
+        CHECK_EQ( 1u, r.value.bool_val );
+        CHECK_EQ( (asrtl_flat_id) 0, r.next_sibling );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_not_found" )
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 10 ) ) );
+
+        struct asrtl_flat_query_result r;
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "missing", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_empty_object" )
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+
+        struct asrtl_flat_query_result r;
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "any", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_nested_object" )
+{
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, "sub", asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 2, 3, "x", asrtl_flat_value_u32( 100 ) ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 2, 4, "y", asrtl_flat_value_i32( -7 ) ) );
+
+        struct asrtl_flat_query_result r;
+
+        // Find in top-level object returns the nested object
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "sub", &r ) );
+        CHECK_EQ( (asrtl_flat_id) 2, r.id );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_OBJECT, r.value.type );
+
+        // Find inside the nested object
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 2, "y", &r ) );
+        CHECK_EQ( (asrtl_flat_id) 4, r.id );
+        CHECK_EQ( ASRTL_FLAT_VALUE_TYPE_I32, r.value.type );
+        CHECK_EQ( -7, r.value.i32_val );
+
+        // Key from wrong parent fails
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "x", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE( "flat_tree_find_by_key_leaf_parent" )
+{
+        // Searching inside a leaf (non-container) node must fail.
+        struct asrtl_allocator alloc = asrtl_default_allocator();
+        struct asrtl_flat_tree tree;
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS, asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() ) );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 42 ) ) );
+
+        struct asrtl_flat_query_result r;
+        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 2, "anything", &r ) );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+// ============================================================================
 // param_proto — encode/decode helpers
 // ============================================================================
 

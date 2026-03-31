@@ -318,6 +318,51 @@ enum asrtl_status asrtl_flat_tree_query(
         return ASRTL_SUCCESS;
 }
 
+enum asrtl_status asrtl_flat_tree_find_by_key(
+    struct asrtl_flat_tree*         t,
+    asrtl_flat_id                   parent_id,
+    char const*                     key,
+    struct asrtl_flat_query_result* result )
+{
+        if ( !t || !key || !result ) {
+                ASRTL_ERR_LOG( "asrtl_flat_tree", "find_by_key: NULL argument" );
+                return ASRTL_INIT_ERR;
+        }
+        struct asrtl_flat_node* parent = asrtl_flat_get_node( t, parent_id );
+        if ( !parent ) {
+                ASRTL_ERR_LOG(
+                    "asrtl_flat_tree", "find_by_key: parent_id=%u not found", parent_id );
+                return ASRTL_ARG_ERR;
+        }
+
+        asrtl_flat_id child_id = 0;
+        if ( parent->value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT )
+                child_id = parent->value.obj_val.first_child;
+        else {
+                ASRTL_ERR_LOG(
+                    "asrtl_flat_tree", "find_by_key: parent_id=%u is not an object", parent_id );
+                return ASRTL_ARG_ERR;
+        }
+
+        while ( child_id != 0 ) {
+                struct asrtl_flat_node* child = asrtl_flat_get_node( t, child_id );
+                if ( !child )
+                        break;
+                if ( child->key && strcmp( child->key, key ) == 0 ) {
+                        result->id           = child_id;
+                        result->key          = child->key;
+                        result->value        = child->value;
+                        result->next_sibling = child->next_sibling;
+                        return ASRTL_SUCCESS;
+                }
+                child_id = child->next_sibling;
+        }
+
+        ASRTL_ERR_LOG(
+            "asrtl_flat_tree", "find_by_key: key '%s' not found in parent %u", key, parent_id );
+        return ASRTL_ARG_ERR;
+}
+
 enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* t )
 {
         if ( !t ) {

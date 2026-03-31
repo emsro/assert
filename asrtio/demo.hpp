@@ -369,4 +369,54 @@ inline demo_spec make_demo_param_count()
             } };
 }
 
+/// Finds a child by key in the param root object and checks > 0.
+/// Demonstrates the find-by-key API for direct key lookup.
+inline demo_spec make_demo_param_find()
+{
+        return {
+            .tname = "demo_param_find",
+            .body  = [pq = detail::param_qr{}]( demo_test& self,
+                                                 asrtr::record& r ) mutable -> asrtr::status {
+                    if ( r.state == ASRTR_TEST_INIT ) {
+                            self.counter = 0;
+                            pq           = {};
+                    }
+                    if ( self.param.query_pending() ) {
+                            r.state = ASRTR_TEST_RUNNING;
+                            return ASRTR_SUCCESS;
+                    }
+                    switch ( self.counter ) {
+                    case 0:
+                            if ( !self.param.ready() ) {
+                                    r.state = ASRTR_TEST_PASS;
+                                    return ASRTR_SUCCESS;
+                            }
+                            pq = {};
+                            std::ignore = self.param.find< uint32_t >(
+                                &pq.q,
+                                self.param.root_id(),
+                                "count",
+                                detail::param_u32_qr_cb,
+                                &pq );
+                            self.counter = 1;
+                            r.state      = ASRTR_TEST_RUNNING;
+                            return ASRTR_SUCCESS;
+                    case 1:
+                            ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
+                            if ( r.state == ASRTR_TEST_FAIL ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "find 'count'" );
+                            } else {
+                                    ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
+                                    if ( r.state == ASRTR_TEST_FAIL )
+                                            self.diag.record(
+                                                "demo.hpp", __LINE__, "count > 0" );
+                                    else
+                                            r.state = ASRTR_TEST_PASS;
+                            }
+                            return ASRTR_SUCCESS;
+                    }
+                    return ASRTR_SUCCESS;
+            } };
+}
+
 }  // namespace asrtio

@@ -175,6 +175,13 @@ enum asrtl_status asrtl_flat_tree_query(
     asrtl_flat_id                   node_id,
     struct asrtl_flat_query_result* result );
 
+/// Find a child of parent_id whose key matches. Returns the child's query result.
+enum asrtl_status asrtl_flat_tree_find_by_key(
+    struct asrtl_flat_tree*         tree,
+    asrtl_flat_id                   parent_id,
+    char const*                     key,
+    struct asrtl_flat_query_result* result );
+
 enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* tree );
 
 #ifdef __cplusplus

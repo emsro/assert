@@ -744,3 +744,112 @@ TEST_CASE( "param_client_cpp_timeout" )
         CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, err );
         CHECK_FALSE( cli.query_pending() );
 }
+
+// ============================================================================
+// C++ find-by-key tests
+// ============================================================================
+
+TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_str( "hi" ) );
+        srv.set_tree( &tree );
+
+        auto noop = [] {};
+        CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
+        spin();
+        REQUIRE( cli.ready() );
+
+        // Find "b" by key using raw callback
+        CHECK_EQ( ASRTL_SUCCESS, cli.find( &query, 1u, "b", query_cb, this ) );
+        spin_query();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 3u, received[0].id );
+        CHECK_EQ( "b", received[0].key );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[0].value.type );
+        CHECK_EQ( 0, error_called );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_u32_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "other", asrtl_flat_value_str( "x" ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+                cb_count++;
+                u32_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.find< uint32_t >( &query, 1u, "val", cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( 42u, u32_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_str_happy" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "world" ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
+                cb_count++;
+                if ( v )
+                        str_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.find< char const* >( &query, 1u, "val", cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( "world", str_val );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_not_found" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 7 ) );
+        setup_tree_and_handshake( &tree );
+
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+                cb_count++;
+                got_null = ( q->error_code != 0 );
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.find< uint32_t >( &query, 1u, "missing", cb ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK( got_null );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_c_callback" )
+{
+        asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 55 ) );
+        setup_tree_and_handshake( &tree );
+
+        auto c_cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t v ) {
+                auto* ctx     = (typed_loopback_ctx*) q->cb_ptr;
+                ctx->cb_count++;
+                ctx->u32_val = v;
+        };
+        CHECK_EQ( ASRTL_SUCCESS, cli.find< uint32_t >( &query, 1u, "val", c_cb, this ) );
+        spin_query();
+        CHECK_EQ( 1, cb_count );
+        CHECK_EQ( 55u, u32_val );
+        asrtl_flat_tree_deinit( &tree );
+}

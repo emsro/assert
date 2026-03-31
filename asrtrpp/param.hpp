@@ -176,7 +176,7 @@ struct param_client
                             c, qq, static_cast< typename traits::value_type >( raw ) );
                 };
                 q->cb_ptr = &cb;
-                return asrtr_param_client_query( q, &client_, node_id );
+                return asrtr_param_client_query( q, &client_, node_id, nullptr );
         }
 
         // Typed query with C callback + void* context
@@ -191,7 +191,7 @@ struct param_client
                 q->expected_type         = traits::expected_type;
                 q->cb.*traits::cb_member = cb;
                 q->cb_ptr                = cb_ptr;
-                return asrtr_param_client_query( q, &client_, node_id );
+                return asrtr_param_client_query( q, &client_, node_id, nullptr );
         }
 
 
@@ -205,7 +205,54 @@ struct param_client
                 q->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
                 q->cb.any        = cb;
                 q->cb_ptr        = cb_ptr;
-                return asrtr_param_client_query( q, &client_, node_id );
+                return asrtr_param_client_query( q, &client_, node_id, nullptr );
+        }
+
+        // Typed find: client.find<uint32_t>(q, parent_id, key, cb)
+        template < has_param_query_traits T, typed_param_query_callable< T > CB >
+        [[nodiscard]] asrtl_status
+        find( asrtr_param_query* q, asrtl_flat_id parent_id, char const* key, CB& cb )
+        {
+                using traits             = param_query_traits< T >;
+                q->expected_type         = traits::expected_type;
+                q->cb.*traits::cb_member = []( asrtr_param_client*       c,
+                                               asrtr_param_query*        qq,
+                                               typename traits::raw_type raw ) {
+                        ( *reinterpret_cast< CB* >( qq->cb_ptr ) )(
+                            c, qq, static_cast< typename traits::value_type >( raw ) );
+                };
+                q->cb_ptr = &cb;
+                return asrtr_param_client_query( q, &client_, parent_id, key );
+        }
+
+        // Typed find with C callback + void* context
+        template < has_param_query_traits T >
+        [[nodiscard]] asrtl_status find(
+            asrtr_param_query*                        q,
+            asrtl_flat_id                             parent_id,
+            char const*                               key,
+            typename param_query_traits< T >::cb_type cb,
+            void*                                     cb_ptr )
+        {
+                using traits             = param_query_traits< T >;
+                q->expected_type         = traits::expected_type;
+                q->cb.*traits::cb_member = cb;
+                q->cb_ptr                = cb_ptr;
+                return asrtr_param_client_query( q, &client_, parent_id, key );
+        }
+
+        // Raw find passthrough
+        [[nodiscard]] asrtl_status find(
+            asrtr_param_query* q,
+            asrtl_flat_id      parent_id,
+            char const*        key,
+            asrtr_param_any_cb cb,
+            void*              cb_ptr )
+        {
+                q->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
+                q->cb.any        = cb;
+                q->cb_ptr        = cb_ptr;
+                return asrtr_param_client_query( q, &client_, parent_id, key );
         }
 
         asrtl_status tick( uint32_t now = 0 )

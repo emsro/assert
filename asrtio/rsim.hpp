@@ -54,6 +54,7 @@ struct conn_ctx
                 reg_demo( make_demo_random_counter() );
                 reg_demo( make_demo_param_value() );
                 reg_demo( make_demo_param_count() );
+                reg_demo( make_demo_param_find() );
         }
 
         void reg_demo( demo_spec spec )

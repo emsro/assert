@@ -67,6 +67,51 @@ static enum asrtl_status asrtc_param_server_handle_query(
         return ASRTL_SUCCESS;
 }
 
+static enum asrtl_status asrtc_param_server_handle_find_by_key(
+    struct asrtc_param_server* param,
+    struct asrtl_span*         buff )
+{
+        if ( param->pending != ASRTC_PARAM_SERVER_PENDING_NONE ) {
+                ASRTL_ERR_LOG( "asrtc_param_server", "find_by_key: pending event not consumed" );
+                return ASRTL_RECV_ERR;
+        }
+        if ( !param->ack_received ) {
+                ASRTL_ERR_LOG( "asrtc_param_server", "find_by_key: ready_ack not received yet" );
+                return ASRTL_RECV_ERR;
+        }
+        if ( !param->tree || !param->enc_buff ) {
+                ASRTL_ERR_LOG( "asrtc_param_server", "find_by_key: tree or enc_buff not set" );
+                return ASRTL_RECV_ERR;
+        }
+        if ( asrtl_span_unfit_for( buff, 5 ) ) {
+                ASRTL_ERR_LOG( "asrtc_param_server", "find_by_key: message too short" );
+                return ASRTL_RECV_ERR;
+        }
+
+        asrtl_flat_id parent_id;
+        asrtl_cut_u32( &buff->b, &parent_id );
+
+        size_t   search_len = (size_t) ( buff->e - buff->b );
+        uint8_t* nul        = (uint8_t*) memchr( buff->b, '\0', search_len );
+        if ( !nul ) {
+                ASRTL_ERR_LOG( "asrtc_param_server", "find_by_key: missing key terminator" );
+                return ASRTL_RECV_ERR;
+        }
+        char const* key = (char const*) buff->b;
+
+        struct asrtl_flat_query_result qr;
+        enum asrtl_status              st = asrtl_flat_tree_find_by_key(
+            (struct asrtl_flat_tree*) param->tree, parent_id, key, &qr );
+        if ( st != ASRTL_SUCCESS ) {
+                return asrtl_msg_ctor_param_error(
+                    ASRTL_PARAM_ERR_INVALID_QUERY, parent_id, asrtc_param_server_send, param );
+        }
+
+        param->pending              = ASRTC_PARAM_SERVER_PENDING_QUERY;
+        param->pending_data.node_id = qr.id;
+        return ASRTL_SUCCESS;
+}
+
 enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now )
 {
         switch ( param->pending ) {
@@ -169,6 +214,8 @@ static enum asrtl_status asrtc_param_server_recv( void* data, struct asrtl_span 
                 return asrtc_param_server_handle_ready_ack( param, &buff );
         case ASRTL_PARAM_MSG_QUERY:
                 return asrtc_param_server_handle_query( param, &buff );
+        case ASRTL_PARAM_MSG_FIND_BY_KEY:
+                return asrtc_param_server_handle_find_by_key( param, &buff );
         default:
                 ASRTL_ERR_LOG( "asrtc_param_server", "Unknown param message id: %u", id );
                 return ASRTL_RECV_UNEXPECTED_ERR;

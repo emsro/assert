@@ -99,7 +99,15 @@ static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span
 // Nodes are present while (sp.e - sp.b) > 4.
 // ---------------------------------------------------------------------------
 
-static enum asrtl_status asrtr_cache_try_deliver( struct asrtr_param_client* client )
+enum search_mode_e
+{
+        SEARCH_BY_NODE,
+        SEARCH_BY_KEY,
+};
+
+static enum asrtl_status asrtr_cache_try_deliver(
+    struct asrtr_param_client* client,
+    enum search_mode_e         mode )
 {
         struct asrtl_span sp = {
             .b = client->cache_buf,
@@ -133,12 +141,14 @@ static enum asrtl_status asrtr_cache_try_deliver( struct asrtr_param_client* cli
                         return vst;
                 }
 
-                if ( nid == client->pending_query->node_id ) {
+                if ( ( mode == SEARCH_BY_NODE && nid == client->pending_query->node_id ) ||
+                     ( mode == SEARCH_BY_KEY && strcmp( key, client->pending_query->key ) == 0 ) ) {
                         asrtl_flat_id next_sib;
                         if ( (size_t) ( sp.e - sp.b ) > 4U )
                                 asrtl_u8d4_to_u32( sp.b, &next_sib );
                         else
                                 next_sib = client->cache_next_sibling;
+                        client->pending_query->node_id      = nid;
                         client->pending_query->key          = key;
                         client->pending_query->next_sibling = next_sib;
 
@@ -148,6 +158,16 @@ static enum asrtl_status asrtr_cache_try_deliver( struct asrtr_param_client* cli
         }
 
         client->cache_len = 0;
+        if ( mode == SEARCH_BY_KEY ) {
+                struct asrtl_span buf = {
+                    .b = client->cache_buf, .e = client->cache_buf + client->cache_capacity };
+                return asrtl_msg_rtoc_param_find_by_key(
+                    &buf,
+                    client->pending_query->node_id,
+                    client->pending_query->key,
+                    asrtr_param_client_send,
+                    client );
+        }
         return asrtl_msg_rtoc_param_query(
             client->pending_query->node_id, asrtr_param_client_send, client );
 }
@@ -259,7 +279,8 @@ enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, ui
 
         case ASRTR_PARAM_CLIENT_PENDING_DELIVER:
                 client->pending = ASRTR_PARAM_CLIENT_PENDING_NONE;
-                return asrtr_cache_try_deliver( client );
+                return asrtr_cache_try_deliver(
+                    client, client->pending_query->key ? SEARCH_BY_KEY : SEARCH_BY_NODE );
 
         case ASRTR_PARAM_CLIENT_PENDING_QUERY_ERROR: {
                 uint8_t       error_code          = client->pending_data.error.error_code;
@@ -347,7 +368,8 @@ asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* clien
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id )
+    asrtl_flat_id              node_id,
+    char const*                key )
 {
         if ( !client->ready ) {
                 ASRTL_ERR_LOG( "asrtr_param_client", "query: not ready" );
@@ -365,7 +387,7 @@ enum asrtl_status asrtr_param_client_query(
         client->pending_query = query;
         query->error_code     = 0;
         query->node_id        = node_id;
-        query->key            = NULL;
+        query->key            = key;
         query->next_sibling   = ASRTL_PARAM_NONE_ID;
         query->start          = 0;
         client->pending       = ASRTR_PARAM_CLIENT_PENDING_DELIVER;

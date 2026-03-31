@@ -116,11 +116,13 @@ struct asrtr_param_query
         uint32_t start;
 };
 
-// Submit a query — expects cb, cb_ptr, and expected_type to be pre-set
+// Submit a query — expects cb, cb_ptr, and expected_type to be pre-set.
+// If key is NULL, search by node_id; otherwise search by key.
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id );
+    asrtl_flat_id              node_id,
+    char const*                key );
 
 static inline int asrtr_param_query_pending( struct asrtr_param_client const* client )
 {
@@ -138,7 +140,7 @@ static inline enum asrtl_status asrtr_param_client_query_any(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
         query->cb.any        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_u32(
@@ -151,7 +153,7 @@ static inline enum asrtl_status asrtr_param_client_query_u32(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_U32;
         query->cb.u32        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_i32(
@@ -164,7 +166,7 @@ static inline enum asrtl_status asrtr_param_client_query_i32(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_I32;
         query->cb.i32        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_str(
@@ -177,7 +179,7 @@ static inline enum asrtl_status asrtr_param_client_query_str(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_STR;
         query->cb.str        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_float(
@@ -190,7 +192,7 @@ static inline enum asrtl_status asrtr_param_client_query_float(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_FLOAT;
         query->cb.flt        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_bool(
@@ -203,7 +205,7 @@ static inline enum asrtl_status asrtr_param_client_query_bool(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_BOOL;
         query->cb.bln        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_obj(
@@ -216,7 +218,7 @@ static inline enum asrtl_status asrtr_param_client_query_obj(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_OBJECT;
         query->cb.obj        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
 static inline enum asrtl_status asrtr_param_client_query_arr(
@@ -229,7 +231,120 @@ static inline enum asrtl_status asrtr_param_client_query_arr(
         query->expected_type = ASRTL_FLAT_VALUE_TYPE_ARRAY;
         query->cb.arr        = cb;
         query->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( query, client, node_id );
+        return asrtr_param_client_query( query, client, node_id, NULL );
+}
+
+// Typed find helpers — set expected_type + cb + cb_ptr, then submit find
+static inline enum asrtl_status asrtr_param_client_find_any(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_any_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
+        query->cb.any        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_u32(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_u32_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_U32;
+        query->cb.u32        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_i32(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_i32_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_I32;
+        query->cb.i32        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_str(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_str_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_STR;
+        query->cb.str        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_float(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_float_cb       cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_FLOAT;
+        query->cb.flt        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_bool(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_bool_cb        cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_BOOL;
+        query->cb.bln        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_obj(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_obj_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_OBJECT;
+        query->cb.obj        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
+}
+
+static inline enum asrtl_status asrtr_param_client_find_arr(
+    struct asrtr_param_query*  query,
+    struct asrtr_param_client* client,
+    asrtl_flat_id              parent_id,
+    char const*                key,
+    asrtr_param_arr_cb         cb,
+    void*                      cb_ptr )
+{
+        query->expected_type = ASRTL_FLAT_VALUE_TYPE_ARRAY;
+        query->cb.arr        = cb;
+        query->cb_ptr        = cb_ptr;
+        return asrtr_param_client_query( query, client, parent_id, key );
 }
 
 enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now );
