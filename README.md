@@ -53,10 +53,11 @@ sequenceDiagram
 
 The byte stream is multiplexed into independent **channels**, each identified by a 16-bit ID in the transported message. Two channels are defined by the library:
 
-| ID | Name   | Purpose                          |
-|----|--------|----------------------------------|
-|  2 | `CORE` | test enumeration and execution   |
-|  3 | `DIAG` | diagnostic records from the target |
+| ID | Name    | Purpose                            |
+|----|---------|------------------------------------|
+|  2 | `CORE`  | test enumeration and execution     |
+|  3 | `DIAG`  | diagnostic records from the target |
+|  4 | `PARAM` | structured parameter queries       |
 
 On each side — reactor (target) and controller (host) — functionality is composed from **modules**, one per channel. A module is a node in a linked list: it owns a channel ID and a receive callback, and can send messages back through a shared sender handle.
 
@@ -70,6 +71,17 @@ asrtr_diag     (DIAG channel)    asrtc_diag        (DIAG channel)
 
 Modules are opt-in: if a feature is not needed, its module is simply not initialised and has zero runtime cost. The same mechanism allows adding custom modules for application-specific channels without modifying the library.
 
+## Parameter channel
+
+In addition to test control and diagnostics, the framework provides a **parameter channel** (channel ID 4) for querying structured configuration data from the target at runtime.
+
+The target exposes a read-only tree of typed values — integers, floats, booleans, strings, objects, and arrays — through a flat-tree data structure. The host can:
+
+- **Query by node ID** — fetch a known node directly.
+- **Find by key** — look up a child node by name within a parent object.
+
+Responses are cached on the host side; repeated queries for nodes already in the cache are served locally without a round-trip. The client API supports both C and C++ with typed callback helpers (`query_u32`, `find_str`, …) and C++ template wrappers (`client.query<uint32_t>(…)`, `client.find<uint32_t>(…)`).
+
 ## Pure C core
 
 The core libraries — `asrtl`, `asrtr`, and `asrtc` — are intentionally written in pure C. This maximises integration flexibility:
@@ -78,3 +90,16 @@ The core libraries — `asrtl`, `asrtr`, and `asrtc` — are intentionally writt
 - The **controller** can be wrapped by any language that supports a C FFI — Python, Go, Rust, etc.
 
 The C++ wrappers (`asrtrpp`, `asrtcpp`) and the host tool (`asrtio`) are optional layers built on top. They are not required for integration.
+
+## asrtio — host tool
+
+`asrtio` is a ready-made command-line test runner built on the C++ wrappers and libuv. It connects to a target, discovers and executes all registered tests, and reports results with a progress bar.
+
+```
+asrtio [--verbose] [--timeout <ms>] [--params <json>] <subcommand>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `tcp --host <addr> --port <port>` | Connect to a target over TCP |
+| `rsim [--seed <n>]` | Run against a built-in reference simulator |
