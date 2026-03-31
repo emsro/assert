@@ -879,10 +879,7 @@ static uint8_t* build_param_error( uint8_t* buf, uint8_t error_code, asrtl_flat_
 // Each node: u32 id | key\0 | u8 type | value bytes
 // Common header: RESPONSE msg_id + node_id + key\0
 // Returns pointer past the key terminator, ready for type byte + value.
-static uint8_t* build_param_response_head(
-    uint8_t*      buf,
-    asrtl_flat_id node_id,
-    char const*   key )
+static uint8_t* build_param_response_head( uint8_t* buf, asrtl_flat_id node_id, char const* key )
 {
         uint8_t* p = buf;
         *p++       = ASRTL_PARAM_MSG_RESPONSE;
@@ -929,8 +926,8 @@ static uint8_t* build_param_response_str(
     char const*   value,
     asrtl_flat_id next_sibling_id )
 {
-        uint8_t* p = build_param_response_head( buf, node_id, key );
-        *p++       = ASRTL_FLAT_VALUE_TYPE_STR;
+        uint8_t* p  = build_param_response_head( buf, node_id, key );
+        *p++        = ASRTL_FLAT_VALUE_TYPE_STR;
         size_t vlen = strlen( value );
         memcpy( p, value, vlen );
         p += vlen;
@@ -1013,8 +1010,8 @@ struct param_client_ctx
         struct asrtr_param_query  query = {};
 
         // callback state
-        int           resp_called   = 0;
-        asrtl_flat_id resp_id       = 0;
+        int           resp_called = 0;
+        asrtl_flat_id resp_id     = 0;
         std::string   resp_key;
         uint32_t      resp_u32_val  = 0;
         uint8_t       resp_type     = 0;
@@ -1022,8 +1019,12 @@ struct param_client_ctx
         uint8_t       error_code    = 0;
         asrtl_flat_id error_node_id = 0;
         int           error_called  = 0;
+        uint32_t      t             = 100;
 
-        static void query_cb( struct asrtr_param_client*, struct asrtr_param_query* q, struct asrtl_flat_value val )
+        static void query_cb(
+            struct asrtr_param_client*,
+            struct asrtr_param_query* q,
+            struct asrtl_flat_value   val )
         {
                 auto* ctx = (param_client_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -1047,7 +1048,7 @@ struct param_client_ctx
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     call_rtr_param_client_recv( &client, buf, build_param_ready( buf, root_id ) ) );
-                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
                 coll.data.clear();
         }
 
@@ -1056,7 +1057,8 @@ struct param_client_ctx
                 head.chid = ASRTL_CORE;
                 setup_sender_collector( &sendr, &coll );
                 struct asrtl_span mb = { .b = msg_buf, .e = msg_buf + BUF_SZ };
-                REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, sendr, mb ) );
+                REQUIRE_EQ(
+                    ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, sendr, mb, 100 ) );
         }
         ~param_client_ctx()
         {
@@ -1074,11 +1076,12 @@ TEST_CASE( "asrtr_param_client_init" )
         struct asrtl_span         mb      = { .b = buf, .e = buf + sizeof buf };
         struct asrtl_span         bad     = { .b = nullptr, .e = nullptr };
 
-        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( NULL, &head, null_s, mb ) );
-        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, NULL, null_s, mb ) );
-        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, &head, null_s, bad ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( NULL, &head, null_s, mb, 0 ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, NULL, null_s, mb, 0 ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, &head, null_s, bad, 0 ) );
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_param_client_init( &client, &head, null_s, mb, 0 ) );
 
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, null_s, mb ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, null_s, mb, 100 ) );
         CHECK_EQ( ASRTL_PARAM, client.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) client.node.recv_cb );
         CHECK_EQ( &client.node, head.next );
@@ -1094,7 +1097,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_ready_sends_ack_and_sto
             call_rtr_param_client_recv( &client, buf, build_param_ready( buf, 3u ) ) );
         CHECK_EQ( 0, client.ready );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
 
         // READY_ACK sent with capacity as big-endian u32
         REQUIRE_EQ( 1u, coll.data.size() );
@@ -1114,8 +1117,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_ready_sends_ack_and_sto
 TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_query_before_ready_returns_error" )
 {
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtr_param_client_query_any( &query, &client, 2u, nullptr, nullptr ) );
+            ASRTL_ARG_ERR, asrtr_param_client_query_any( &query, &client, 2u, nullptr, nullptr ) );
         CHECK( coll.data.empty() );
 }
 
@@ -1124,12 +1126,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_query_cache_miss_sends_
         make_ready( 1u );
 
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 2u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 2u, query_cb, this ) );
         // query itself does NOT send — tick does the cache lookup + sends on miss
         CHECK( coll.data.empty() );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         REQUIRE_EQ( 1u, coll.data.size() );
         auto& msg = coll.data.front();
         CHECK_EQ( ASRTL_PARAM, msg.id );
@@ -1147,9 +1148,8 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_response_delivers_one_n
         make_ready( 1u );
 
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // cache miss → wire
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // cache miss → wire
         coll.data.clear();
 
         // Inject a RESPONSE with one node: id=10, key="abc", type=U32, value=42, next_sib=0
@@ -1158,7 +1158,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_response_delivers_one_n
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
 
         CHECK_EQ( 0, resp_called );  // pending
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 10u, resp_id );
         CHECK_EQ( "abc", resp_key );
@@ -1176,22 +1176,20 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_hit_delivers_with
 
         // First query — cache miss, sends wire, gets response
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // wire
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
         coll.data.clear();
 
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "abc", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // delivers
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // delivers
         resp_called = 0;
 
         // Second query for same node — should be a cache hit, no wire sent
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
 
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 10u, resp_id );
@@ -1206,9 +1204,8 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_error_dispatches_and_cl
         make_ready( 1u );
 
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 5u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // cache miss → wire
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 5u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // cache miss → wire
         coll.data.clear();
 
         // Inject PARAM_ERROR
@@ -1219,7 +1216,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_error_dispatches_and_cl
                 &client, buf, build_param_error( buf, ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, 5u ) ) );
         CHECK_EQ( 0, error_called );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, error_called );
         CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, error_code );
         CHECK_EQ( 5u, error_node_id );
@@ -1233,9 +1230,8 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_next_sibling_stor
         make_ready( 1u );
 
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // wire
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
         coll.data.clear();
 
         // RESPONSE with next_sibling_id = 99
@@ -1244,7 +1240,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_next_sibling_stor
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( 99u, client.cache_next_sibling );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 99u, resp_next_sib );
 }
@@ -1264,18 +1260,18 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_happy" )
         {
                 int*      called;
                 uint32_t* got;
-        } ctx = { &called, &got };
+        } ctx   = { &called, &got };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_u32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 42u, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1288,19 +1284,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_u32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "hello", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_i32 ---
@@ -1314,18 +1310,18 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_happy" )
         {
                 int*     called;
                 int32_t* got;
-        } ctx = { &called, &got };
+        } ctx   = { &called, &got };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, int32_t val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_i32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_i32( rbuf, 10u, "k", -7, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( -7, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1338,19 +1334,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, int32_t ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_i32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 99u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_str ---
@@ -1364,7 +1360,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_happy" )
         {
                 int*         called;
                 std::string* got;
-        } ctx = { &called, &got };
+        } ctx   = { &called, &got };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, char const* val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
@@ -1372,11 +1368,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_happy" )
                         *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_str( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "hello", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( "hello", got );
         CHECK_EQ( 0u, query.error_code );
@@ -1389,19 +1385,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, char const* ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_str( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_float ---
@@ -1415,19 +1411,18 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_happy" )
         {
                 int*   called;
                 float* got;
-        } ctx = { &called, &got };
+        } ctx   = { &called, &got };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, float val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_float( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_float( &query, &client, 10u, cb, &ctx ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_float( rbuf, 10u, "k", 3.14f, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 3.14f, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1440,20 +1435,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, float ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_float( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_float( &query, &client, 10u, cb, &ctx ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_bool ---
@@ -1467,19 +1461,18 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_happy" )
         {
                 int*      called;
                 uint32_t* got;
-        } ctx = { &called, &got };
+        } ctx   = { &called, &got };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_bool( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_bool( &query, &client, 10u, cb, &ctx ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_bool( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 1u, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1492,20 +1485,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_bool( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_bool( &query, &client, 10u, cb, &ctx ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "nope", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_obj ---
@@ -1513,26 +1505,24 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_type_mismatch" )
 TEST_CASE_FIXTURE( param_client_ctx, "query_obj_happy" )
 {
         make_ready( 1u );
-        int                      called = 0;
-        asrtl_flat_child_list    got    = {};
+        int                   called = 0;
+        asrtl_flat_child_list got    = {};
         struct
         {
                 int*                   called;
                 asrtl_flat_child_list* got;
-        } ctx = { &called, &got };
-        auto cb = []( asrtr_param_client*,
-                      asrtr_param_query*          q,
-                      asrtl_flat_child_list val ) {
+        } ctx   = { &called, &got };
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_obj( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_obj( rbuf, 10u, "k", 2u, 5u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 2u, got.first_child );
         CHECK_EQ( 5u, got.last_child );
@@ -1546,21 +1536,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
-        auto cb = []( asrtr_param_client*,
-                      asrtr_param_query*          q,
-                      asrtl_flat_child_list ) {
+        } ctx   = { &called };
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_obj( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- query_arr ---
@@ -1568,26 +1556,24 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
 TEST_CASE_FIXTURE( param_client_ctx, "query_arr_happy" )
 {
         make_ready( 1u );
-        int                      called = 0;
-        asrtl_flat_child_list    got    = {};
+        int                   called = 0;
+        asrtl_flat_child_list got    = {};
         struct
         {
                 int*                   called;
                 asrtl_flat_child_list* got;
-        } ctx = { &called, &got };
-        auto cb = []( asrtr_param_client*,
-                      asrtr_param_query*          q,
-                      asrtl_flat_child_list val ) {
+        } ctx   = { &called, &got };
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_arr( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_arr( rbuf, 10u, "k", 3u, 6u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 3u, got.first_child );
         CHECK_EQ( 6u, got.last_child );
@@ -1601,21 +1587,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_type_mismatch" )
         struct
         {
                 int* called;
-        } ctx = { &called };
-        auto cb = []( asrtr_param_client*,
-                      asrtr_param_query*          q,
-                      asrtl_flat_child_list ) {
+        } ctx   = { &called };
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_arr( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( ASRTR_PARAM_ERR_TYPE_MISMATCH, query.error_code );
+        CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
 
 // --- typed query: server error delivers null val ---
@@ -1627,19 +1611,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_server_error_delivers_null" )
         struct
         {
                 int* called;
-        } ctx = { &called };
+        } ctx   = { &called };
         auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_u32( &query, &client, 5u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         uint8_t buf[8];
         CHECK_EQ(
             ASRTL_SUCCESS,
             call_rtr_param_client_recv(
                 &client, buf, build_param_error( buf, ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, 5u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, query.error_code );
 }
@@ -1650,13 +1634,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_rejects_when_pending" )
 {
         make_ready( 1u );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
         // second query while first is pending
         asrtr_param_query query2 = {};
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtr_param_client_query_any( &query2, &client, 11u, query_cb, this ) );
+            ASRTL_ARG_ERR, asrtr_param_client_query_any( &query2, &client, 11u, query_cb, this ) );
 }
 
 // --- query pending flag ---
@@ -1667,18 +1649,183 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
         CHECK_FALSE( asrtr_param_query_pending( &client ) );
 
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
         CHECK( asrtr_param_query_pending( &client ) );
 
         // deliver response
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
         coll.data.clear();
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
 
         CHECK_FALSE( asrtr_param_query_pending( &client ) );
         CHECK_EQ( 1, resp_called );
+}
+
+// ============================================================================
+// Query timeout tests
+// ============================================================================
+
+struct param_timeout_ctx
+{
+        static constexpr uint32_t BUF_SZ  = 256;
+        static constexpr uint32_t TIMEOUT = 10;
+
+        struct asrtl_node         head            = {};
+        struct asrtr_param_client client          = {};
+        uint8_t                   msg_buf[BUF_SZ] = {};
+        collector                 coll;
+        asrtl_sender              sendr = {};
+        struct asrtr_param_query  query = {};
+
+        int           cb_called  = 0;
+        uint8_t       error_code = 0;
+        asrtl_flat_id resp_id    = 0;
+        uint32_t      resp_u32   = 0;
+        uint32_t      t          = 1;
+
+        static void query_cb(
+            struct asrtr_param_client*,
+            struct asrtr_param_query* q,
+            struct asrtl_flat_value   val )
+        {
+                auto* ctx = (param_timeout_ctx*) q->cb_ptr;
+                ctx->cb_called++;
+                ctx->error_code = q->error_code;
+                ctx->resp_id    = q->node_id;
+                ctx->resp_u32   = val.u32_val;
+        }
+
+        void make_ready( asrtl_flat_id root_id = 1u )
+        {
+                uint8_t buf[8];
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS,
+                    call_rtr_param_client_recv( &client, buf, build_param_ready( buf, root_id ) ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+                coll.data.clear();
+        }
+
+        param_timeout_ctx()
+        {
+                head.chid = ASRTL_CORE;
+                setup_sender_collector( &sendr, &coll );
+                struct asrtl_span mb = { .b = msg_buf, .e = msg_buf + BUF_SZ };
+                REQUIRE_EQ(
+                    ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, sendr, mb, TIMEOUT ) );
+        }
+        ~param_timeout_ctx()
+        {
+                asrtr_param_client_deinit( &client );
+        }
+};
+
+TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_fires_after_deadline" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        // first tick: DELIVER → cache miss → sends wire query
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );
+        CHECK_EQ( 0, cb_called );
+
+        // second tick: NONE with pending_query → starts timing (query_start = 105)
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 105 ) );
+        CHECK_EQ( 0, cb_called );
+
+        // tick just before timeout (105 + 10 - 1 = 114): no timeout
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 114 ) );
+        CHECK_EQ( 0, cb_called );
+
+        // tick at timeout (115 - 105 = 10 >= TIMEOUT): fires
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 115 ) );
+        CHECK_EQ( 1, cb_called );
+        CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
+        CHECK_FALSE( asrtr_param_query_pending( &client ) );
+}
+
+TEST_CASE_FIXTURE( param_timeout_ctx, "query_no_timeout_when_response_arrives" )
+{
+        make_ready( 1u );
+
+        CHECK_EQ(
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        // DELIVER tick → cache miss → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );
+
+        // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 102 ) );
+
+        // response arrives before timeout
+        uint8_t  rbuf[64];
+        uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
+        CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 105 ) );
+
+        CHECK_EQ( 1, cb_called );
+        CHECK_EQ( 0u, error_code );
+        CHECK_EQ( 42u, resp_u32 );
+}
+
+TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_resets_for_new_query" )
+{
+        make_ready( 1u );
+
+        // First query — let it timeout
+        CHECK_EQ(
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 10u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );  // DELIVER → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );  // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 200 ) );  // timeout
+        CHECK_EQ( 1, cb_called );
+        CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
+
+        // Reset state
+        cb_called  = 0;
+        error_code = 0;
+
+        // Second query — should start fresh timing
+        CHECK_EQ(
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 20u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 300 ) );  // DELIVER → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 300 ) );  // start timing
+        // not timed out yet
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 305 ) );
+        CHECK_EQ( 0, cb_called );
+
+        // now timeout
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 310 ) );
+        CHECK_EQ( 1, cb_called );
+        CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
+}
+
+TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_with_typed_callback" )
+{
+        make_ready( 1u );
+
+        int      called = 0;
+        uint32_t got    = 99;
+        struct
+        {
+                int*      called;
+                uint32_t* got;
+                uint8_t   err;
+        } ctx   = { &called, &got, 0 };
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t val ) {
+                auto* c = (decltype( ctx )*) q->cb_ptr;
+                ( *c->called )++;
+                *c->got = val;
+                c->err  = q->error_code;
+        };
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_query_u32( &query, &client, 10u, cb, &ctx ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 50 ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 50 ) );  // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 60 ) );  // timeout
+        CHECK_EQ( 1, called );
+        CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, ctx.err );
+        CHECK_EQ( 0u, got );  // zero value on timeout
 }

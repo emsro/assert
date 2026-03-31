@@ -39,7 +39,8 @@ struct conn_ctx
           , r_param(
                 r_diag.node(),
                 *this,
-                asrtl_span{ .b = param_buf, .e = param_buf + sizeof( param_buf ) } )
+                asrtl_span{ .b = param_buf, .e = param_buf + sizeof( param_buf ) },
+                100 )
         {
                 client.data = this;
 

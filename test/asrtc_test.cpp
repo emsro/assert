@@ -42,11 +42,7 @@ void check_cntr_tick( struct asrtc_controller* c, uint32_t now )
         CHECK_EQ( ASRTC_SUCCESS, st );
 }
 
-void check_recv_and_spin(
-    struct asrtc_controller* c,
-    uint8_t*                beg,
-    uint8_t*                end,
-    uint32_t*               now )
+void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
 {
         check_cntr_recv( c, (struct asrtl_span) { .b = beg, .e = end } );
         int       i = 0;
@@ -87,10 +83,7 @@ enum asrtc_status record_init_cb( void* ptr, enum asrtc_status s )
 void check_cntr_full_init( controller_ctx* ctx )
 {
         enum asrtc_status st = asrtc_cntr_init(
-            &ctx->cntr,
-            ctx->send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+            &ctx->cntr, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -117,18 +110,10 @@ void check_cntr_full_init( controller_ctx* ctx )
 TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
 {
         enum asrtc_status st;
-        st = asrtc_cntr_init(
-            NULL,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        st = asrtc_cntr_init( NULL, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_CNTR_INIT_ERR, st );
 
-        st = asrtc_cntr_init(
-            &cntr,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        st = asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         CHECK_EQ( ASRTL_CORE, cntr.node.chid );
         CHECK( asrtc_cntr_idle( &cntr ) );
@@ -249,7 +234,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         check_cntr_full_init( this );
 
         struct test_info_result p = { 0 };
-        enum asrtc_status st = asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
+        enum asrtc_status       st =
+            asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
         check_cntr_tick( &cntr, t++ );
         coll.data.pop_back();
@@ -296,11 +282,8 @@ static struct asrtl_allocator failing_allocator( void )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
 {
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr,
-            send,
-            failing_allocator(),
-            asrtc_default_error_cb() );
+        enum asrtc_status st =
+            asrtc_cntr_init( &cntr, send, failing_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -383,11 +366,8 @@ TEST_CASE_FIXTURE( controller_ctx, "realloc_str_long_string" )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
 {
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        enum asrtc_status st =
+            asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -450,11 +430,8 @@ static enum asrtc_status record_result_cb(
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
 {
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        enum asrtc_status st =
+            asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 3 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -605,8 +582,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
         struct error_result   err = {};
         struct asrtc_error_cb ecb = { .ptr = &err, .cb = &record_error_cb };
 
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr, send, asrtc_default_allocator(), ecb );
+        enum asrtc_status st = asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), ecb );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -662,11 +638,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 // empty buffer — top-level header truncation
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 {
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        enum asrtc_status st =
+            asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -688,11 +661,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 // truncated proto-version reply while in INIT/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
 {
-        enum asrtc_status st = asrtc_cntr_init(
-            &cntr,
-            send,
-            asrtc_default_allocator(),
-            asrtc_default_error_cb() );
+        enum asrtc_status st =
+            asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
@@ -1559,7 +1529,10 @@ struct param_loopback_ctx
         uint32_t                     t            = 1;
         struct asrtr_param_query     query        = {};
 
-        static void query_cb( struct asrtr_param_client*, struct asrtr_param_query* q, struct asrtl_flat_value val )
+        static void query_cb(
+            struct asrtr_param_client*,
+            struct asrtr_param_query* q,
+            struct asrtl_flat_value   val )
         {
                 auto* ctx = (param_loopback_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -1575,7 +1548,7 @@ struct param_loopback_ctx
         {
                 for ( int i = 0; i < max_iter; i++ ) {
                         asrtc_param_server_tick( &server, t++ );
-                        asrtr_param_client_tick( &client );
+                        asrtr_param_client_tick( &client, t++ );
                         if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
                              server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
                                 break;
@@ -1594,7 +1567,8 @@ struct param_loopback_ctx
                     asrtc_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
                 struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + CLI_BUF_SZ };
                 REQUIRE_EQ(
-                    ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, cli_sendr, mb ) );
+                    ASRTR_SUCCESS,
+                    asrtr_param_client_init( &client, &cli_head, cli_sendr, mb, 10 ) );
         }
 
         ~param_loopback_ctx()
@@ -1632,8 +1606,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Recursive traversal: collect all nodes
         // Query root
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, 1u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 1u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -1670,8 +1643,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query children of "sub": "x" (id=4)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any(
-                &query, &client, sub_first_child, query_cb, this ) );
+            asrtr_param_client_query_any( &query, &client, sub_first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 4u, received.size() );
         CHECK_EQ( 4u, received[3].id );
@@ -1752,7 +1724,7 @@ TEST_CASE( "param_loopback_multi_batch" )
 
         REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
         struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
-        REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, csend, mb ) );
+        REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, csend, mb, 100 ) );
 
         // Tree: root(OBJECT,1) → 4 children (U32, ids 2..5)
         struct asrtl_flat_tree tree;
@@ -1768,7 +1740,7 @@ TEST_CASE( "param_loopback_multi_batch" )
         auto     spin = [&] {
                 for ( int i = 0; i < 100; i++ ) {
                         asrtc_param_server_tick( &server, t_++ );
-                        asrtr_param_client_tick( &client );
+                        asrtr_param_client_tick( &client, t_++ );
                         if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
                              server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
                                 break;
@@ -1785,20 +1757,23 @@ TEST_CASE( "param_loopback_multi_batch" )
                 uint32_t      val;
                 asrtl_flat_id next_sib;
         };
-        std::vector< rn >       results;
+        std::vector< rn >        results;
         struct asrtr_param_query q = {};
 
-        auto resp_cb = []( struct asrtr_param_client*, struct asrtr_param_query* qq, struct asrtl_flat_value val ) {
+        auto resp_cb = []( struct asrtr_param_client*,
+                           struct asrtr_param_query* qq,
+                           struct asrtl_flat_value   val ) {
                 auto* r = (std::vector< rn >*) qq->cb_ptr;
                 r->push_back( { qq->node_id, val.u32_val, qq->next_sibling } );
         };
 
         // Query root to get first_child
         asrtl_flat_id first_child = 0;
-        auto          root_resp =
-            []( struct asrtr_param_client*, struct asrtr_param_query* qq, struct asrtl_flat_value val ) {
-                    *(asrtl_flat_id*) qq->cb_ptr = val.obj_val.first_child;
-            };
+        auto          root_resp   = []( struct asrtr_param_client*,
+                             struct asrtr_param_query* qq,
+                             struct asrtl_flat_value   val ) {
+                *(asrtl_flat_id*) qq->cb_ptr = val.obj_val.first_child;
+        };
         CHECK_EQ(
             ASRTL_SUCCESS,
             asrtr_param_client_query_any( &q, &client, 1u, root_resp, &first_child ) );
@@ -1810,8 +1785,7 @@ TEST_CASE( "param_loopback_multi_batch" )
         while ( query_id != 0u ) {
                 CHECK_EQ(
                     ASRTL_SUCCESS,
-                    asrtr_param_client_query_any(
-                        &q, &client, query_id, resp_cb, &results ) );
+                    asrtr_param_client_query_any( &q, &client, query_id, resp_cb, &results ) );
                 spin();
                 REQUIRE_FALSE( results.empty() );
                 query_id = results.back().next_sib;

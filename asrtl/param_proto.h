@@ -39,9 +39,12 @@ typedef uint8_t asrtl_param_message_id;
 // Error codes in PARAM_ERROR payload
 enum asrtl_param_err_e
 {
+        ASRTL_PARAM_ERR_NONE               = 0x00,
         ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE = 0x01,
         ASRTL_PARAM_ERR_INVALID_QUERY      = 0x02,
         ASRTL_PARAM_ERR_ENCODE_FAILURE     = 0x03,
+        ASRTL_PARAM_ERR_TYPE_MISMATCH      = 0x04,
+        ASRTL_PARAM_ERR_TIMEOUT            = 0x05,
 };
 
 typedef enum asrtl_status ( *asrtl_param_msg_callback )( void* ptr, struct asrtl_rec_span* buff );
@@ -87,7 +90,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_param_query(
 }
 
 static inline enum asrtl_status asrtl_msg_ctor_param_error(
-    uint8_t                  error_code,
+    enum asrtl_param_err_e   error_code,
     asrtl_flat_id            node_id,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )

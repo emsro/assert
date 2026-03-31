@@ -14,6 +14,54 @@
 
 #include <string.h>
 
+static void asrtr_param_dispatch_cb(
+    struct asrtr_param_client*     client,
+    struct asrtr_param_query*      q,
+    struct asrtl_flat_value const* val,
+    int                            type_ok )
+{
+        static const struct asrtl_flat_value zero_val = { 0 };
+        struct asrtl_flat_value const*       v        = type_ok ? val : &zero_val;
+
+        switch ( q->expected_type ) {
+        case ASRTL_FLAT_VALUE_TYPE_NONE:
+                if ( q->cb.any )
+                        q->cb.any( client, q, *val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_U32:
+                if ( q->cb.u32 )
+                        q->cb.u32( client, q, v->u32_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_I32:
+                if ( q->cb.i32 )
+                        q->cb.i32( client, q, v->i32_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_STR:
+                if ( q->cb.str )
+                        q->cb.str( client, q, v->str_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_FLOAT:
+                if ( q->cb.flt )
+                        q->cb.flt( client, q, v->float_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_BOOL:
+                if ( q->cb.bln )
+                        q->cb.bln( client, q, v->bool_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_OBJECT:
+                if ( q->cb.obj )
+                        q->cb.obj( client, q, v->obj_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_ARRAY:
+                if ( q->cb.arr )
+                        q->cb.arr( client, q, v->arr_val );
+                break;
+        case ASRTL_FLAT_VALUE_TYPE_NULL:
+                ASRTL_ERR_LOG( "asrtr_param_client", "unsupported expected_type NULL" );
+                break;
+        }
+}
+
 static void asrtr_param_finish_query(
     struct asrtr_param_client*     client,
     struct asrtl_flat_value const* val )
@@ -30,52 +78,10 @@ static void asrtr_param_finish_query(
                     "type mismatch: expected %u, got %u",
                     q->expected_type,
                     val->type );
-                q->error_code = ASRTR_PARAM_ERR_TYPE_MISMATCH;
+                q->error_code = ASRTL_PARAM_ERR_TYPE_MISMATCH;
         }
 
-        switch ( q->expected_type ) {
-        case ASRTL_FLAT_VALUE_TYPE_NONE:
-                if ( q->cb.any )
-                        q->cb.any( client, q, *val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_U32:
-                if ( q->cb.u32 )
-                        q->cb.u32( client, q, type_ok ? val->u32_val : 0 );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_I32:
-                if ( q->cb.i32 )
-                        q->cb.i32( client, q, type_ok ? val->i32_val : 0 );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_STR:
-                if ( q->cb.str )
-                        q->cb.str( client, q, type_ok ? val->str_val : NULL );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_FLOAT:
-                if ( q->cb.flt )
-                        q->cb.flt( client, q, type_ok ? val->float_val : 0.0f );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_BOOL:
-                if ( q->cb.bln )
-                        q->cb.bln( client, q, type_ok ? val->bool_val : 0 );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_OBJECT: {
-                if ( q->cb.obj ) {
-                        struct asrtl_flat_child_list zero = { 0, 0 };
-                        q->cb.obj( client, q, type_ok ? val->obj_val : zero );
-                }
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_ARRAY: {
-                if ( q->cb.arr ) {
-                        struct asrtl_flat_child_list zero = { 0, 0 };
-                        q->cb.arr( client, q, type_ok ? val->arr_val : zero );
-                }
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_NULL:
-                ASRTL_ERR_LOG( "asrtr_param_client", "unsupported expected_type NULL" );
-                break;
-        }
+        asrtr_param_dispatch_cb( client, q, val, type_ok );
 }
 
 static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span* buff )
@@ -218,10 +224,20 @@ static enum asrtl_status asrtr_param_client_handle_error(
 // tick — heavy processing
 // ---------------------------------------------------------------------------
 
-enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client )
+enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now )
 {
         switch ( client->pending ) {
         case ASRTR_PARAM_CLIENT_PENDING_NONE:
+                if ( client->pending_query && client->timeout > 0 ) {
+                        struct asrtr_param_query* q = client->pending_query;
+                        if ( q->start == 0 ) {
+                                q->start = now;
+                        } else if ( ( now - q->start ) >= client->timeout ) {
+                                q->error_code                    = ASRTL_PARAM_ERR_TIMEOUT;
+                                struct asrtl_flat_value zero_val = { 0 };
+                                asrtr_param_finish_query( client, &zero_val );
+                        }
+                }
                 return ASRTL_SUCCESS;
 
         case ASRTR_PARAM_CLIENT_PENDING_READY: {
@@ -293,9 +309,10 @@ enum asrtr_status asrtr_param_client_init(
     struct asrtr_param_client* client,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,
-    struct asrtl_span          msg_buffer )
+    struct asrtl_span          msg_buffer,
+    uint32_t                   timeout )
 {
-        if ( !client || !prev || !msg_buffer.b || msg_buffer.e <= msg_buffer.b ) {
+        if ( !client || !prev || !msg_buffer.b || msg_buffer.e <= msg_buffer.b || timeout == 0 ) {
                 ASRTL_ERR_LOG( "asrtr_param_client", "init: invalid arguments" );
                 return ASRTR_INIT_ERR;
         }
@@ -315,6 +332,7 @@ enum asrtr_status asrtr_param_client_init(
             .cache_len          = 0,
             .cache_next_sibling = ASRTL_PARAM_NONE_ID,
             .pending_query      = NULL,
+            .timeout            = timeout,
             .pending            = ASRTR_PARAM_CLIENT_PENDING_NONE,
         };
         prev->next = &client->node;
@@ -349,6 +367,7 @@ enum asrtl_status asrtr_param_client_query(
         query->node_id        = node_id;
         query->key            = NULL;
         query->next_sibling   = ASRTL_PARAM_NONE_ID;
+        query->start          = 0;
         client->pending       = ASRTR_PARAM_CLIENT_PENDING_DELIVER;
         return ASRTL_SUCCESS;
 }

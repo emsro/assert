@@ -42,6 +42,8 @@ struct asrtr_param_client
 
         struct asrtr_param_query* pending_query;
 
+        uint32_t timeout;
+
         enum asrtr_param_client_pending pending;
 
         union
@@ -59,7 +61,8 @@ enum asrtr_status asrtr_param_client_init(
     struct asrtr_param_client* client,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,
-    struct asrtl_span          msg_buffer );
+    struct asrtl_span          msg_buffer,
+    uint32_t                   timeout );
 
 asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client );
 
@@ -99,18 +102,18 @@ union asrtr_param_cb
         asrtr_param_arr_cb   arr;
 };
 
-#define ASRTR_PARAM_ERR_TYPE_MISMATCH 0x80
-
 struct asrtr_param_query
 {
-        uint8_t       error_code;
-        asrtl_flat_id node_id;
-        char const*   key;
-        asrtl_flat_id next_sibling;
+        enum asrtl_param_err_e error_code;
+        asrtl_flat_id          node_id;
+        char const*            key;
+        asrtl_flat_id          next_sibling;
 
         enum asrtl_flat_value_type expected_type;
         union asrtr_param_cb       cb;
         void*                      cb_ptr;
+
+        uint32_t start;
 };
 
 // Submit a query — expects cb, cb_ptr, and expected_type to be pre-set
@@ -229,7 +232,7 @@ static inline enum asrtl_status asrtr_param_client_query_arr(
         return asrtr_param_client_query( query, client, node_id );
 }
 
-enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client );
+enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now );
 
 void asrtr_param_client_deinit( struct asrtr_param_client* client );
 

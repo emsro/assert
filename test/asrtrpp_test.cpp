@@ -331,7 +331,8 @@ struct param_loopback_cpp_ctx
         asrtr::param_client       cli{
             &cli_head,
             cli_send,
-            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ } };
+            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ },
+            100 };
 
         // response state
         struct received_node
@@ -497,7 +498,8 @@ struct typed_loopback_ctx
         asrtr::param_client       cli{
             &cli_head,
             cli_send,
-            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ } };
+            asrtl_span{ .b = cli_buf, .e = cli_buf + BUF_SZ },
+            100 };
 
         uint32_t          t     = 1;
         asrtr_param_query query = {};
@@ -680,4 +682,65 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( 7u, u32_val );
         asrtl_flat_tree_deinit( &tree );
+}
+
+// ============================================================================
+// C++ query timeout tests
+// ============================================================================
+
+static asrtl_status send_ready_to_client( asrtr::param_client& cli, asrtl_flat_id root_id )
+{
+        uint8_t  buf[8];
+        uint8_t* p = buf;
+        *p++       = ASRTL_PARAM_MSG_READY;
+        asrtl_add_u32( &p, root_id );
+        auto* n = cli.node();
+        return n->recv_cb( n->recv_ptr, asrtl_span{ .b = buf, .e = p } );
+}
+
+TEST_CASE( "param_client_cpp_timeout" )
+{
+        asrtl_node head = {};
+        head.chid       = ASRTL_CORE;
+        collector    coll;
+        asrtl_sender sendr = {};
+        setup_sender_collector( &sendr, &coll );
+
+        static constexpr uint32_t BUF_SZ      = 256;
+        static constexpr uint32_t TIMEOUT     = 10;
+        uint8_t                   buf[BUF_SZ] = {};
+        asrtr::param_client cli{ &head, sendr, asrtl_span{ .b = buf, .e = buf + BUF_SZ }, TIMEOUT };
+
+        // make ready
+        REQUIRE_EQ( ASRTL_SUCCESS, send_ready_to_client( cli, 1u ) );
+        REQUIRE_EQ( ASRTL_SUCCESS, cli.tick( 0 ) );
+        coll.data.clear();
+        REQUIRE( cli.ready() );
+
+        int     called = 0;
+        uint8_t err    = 0;
+        auto    cb     = [&]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+                called++;
+                err = q->error_code;
+        };
+        asrtr_param_query query = {};
+        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 10u, cb ) );
+
+        // DELIVER tick → wire
+        CHECK_EQ( ASRTL_SUCCESS, cli.tick( 100 ) );
+        CHECK_EQ( 0, called );
+
+        // start timing
+        CHECK_EQ( ASRTL_SUCCESS, cli.tick( 100 ) );
+        CHECK_EQ( 0, called );
+
+        // just before timeout
+        CHECK_EQ( ASRTL_SUCCESS, cli.tick( 109 ) );
+        CHECK_EQ( 0, called );
+
+        // at timeout
+        CHECK_EQ( ASRTL_SUCCESS, cli.tick( 110 ) );
+        CHECK_EQ( 1, called );
+        CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, err );
+        CHECK_FALSE( cli.query_pending() );
 }

@@ -124,15 +124,19 @@ concept typed_param_query_callable =
 struct param_client
 {
         template < asrtl::sender_callable CB >
-        param_client( asrtl_node* prev, CB& send_cb, asrtl_span msg_buffer )
+        param_client( asrtl_node* prev, CB& send_cb, asrtl_span msg_buffer, uint32_t timeout )
         {
                 std::ignore = asrtr_param_client_init(
-                    &client_, prev, asrtl::make_sender( send_cb ), msg_buffer );
+                    &client_, prev, asrtl::make_sender( send_cb ), msg_buffer, timeout );
         }
 
-        param_client( asrtl_node* prev, asrtl_sender sender, asrtl_span msg_buffer )
+        param_client(
+            asrtl_node*    prev,
+            asrtl_sender   sender,
+            asrtl_span     msg_buffer,
+            uint32_t       timeout )
         {
-                std::ignore = asrtr_param_client_init( &client_, prev, sender, msg_buffer );
+                std::ignore = asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
         }
 
         param_client( param_client&& )      = delete;
@@ -204,9 +208,9 @@ struct param_client
                 return asrtr_param_client_query( q, &client_, node_id );
         }
 
-        asrtl_status tick()
+        asrtl_status tick( uint32_t now = 0 )
         {
-                return asrtr_param_client_tick( &client_ );
+                return asrtr_param_client_tick( &client_, now );
         }
 
         ~param_client()
