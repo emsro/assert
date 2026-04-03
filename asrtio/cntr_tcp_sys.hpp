@@ -139,9 +139,12 @@ struct suite_reporter
             bool             passed,
             double           duration_ms,
             uint32_t         run_idx,
-            uint32_t         run_total )                                           = 0;
-        virtual void on_diagnostic( std::string_view file, uint32_t line, std::string_view extra ) = 0;
-        virtual ~suite_reporter()                                          = default;
+            uint32_t         run_total ) = 0;
+        virtual void on_diagnostic(
+            std::string_view file,
+            uint32_t         line,
+            std::string_view extra ) = 0;
+        virtual ~suite_reporter()    = default;
 };
 
 struct _cntr_set_param_tree
@@ -175,7 +178,7 @@ struct _cntr_set_param_tree
                 sys.set_param_tree( tree, root_id, on_ack_, timeout );
         }
 };
-using cntr_set_param_tree = _sender< _cntr_set_param_tree >;
+using cntr_set_param_tree = asrtl::gen_sender< _cntr_set_param_tree, status >;
 
 inline task< void > run_test_suite(
     task_ctx&                 ctx,

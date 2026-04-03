@@ -216,7 +216,8 @@ int main( int argc, char* argv[] )
         uv_loop_t*                                         loop = uv_default_loop();
         ecor::connect_type< task< void >, final_receiver > t;
         std::shared_ptr< pbar_reporter >                   reporter;
-        task_ctx                                           ctx;
+        asrtl::malloc_free_memory_resource                 mem_res;
+        task_ctx                                           ctx{ mem_res };
         uv_idle_t                                          idle;
         CLI::App                                           app{ "App description" };
         argv = app.ensure_utf8( argv );

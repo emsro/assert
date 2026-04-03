@@ -182,7 +182,8 @@ struct recording_reporter : asrtio::suite_reporter
                 start_run_idx.push_back( ri );
                 start_run_total.push_back( rt );
         }
-        void on_test_done( std::string_view n, bool p, double ms, uint32_t ri, uint32_t rt ) override
+        void on_test_done( std::string_view n, bool p, double ms, uint32_t ri, uint32_t rt )
+            override
         {
                 done_names.emplace_back( n );
                 passed.push_back( p );
@@ -272,9 +273,10 @@ struct suite_run
 
         suite_run( uint32_t seed = 42 )
         {
-                uv_loop_t*       loop = uv_loop_new();
-                asrtio::task_ctx tctx;
-                asrtio::rsim_ctx rs{ loop, seed };
+                uv_loop_t*                         loop = uv_loop_new();
+                asrtl::malloc_free_memory_resource mem_res;
+                asrtio::task_ctx                   tctx{ mem_res };
+                asrtio::rsim_ctx                   rs{ loop, seed };
                 REQUIRE( rs.start() == asrtio::status::success );
 
                 uv_tcp_t client;
@@ -301,11 +303,11 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 11 );
-        CHECK( r.reporter.starts.size() == 11 );
-        CHECK( r.reporter.done_names.size() == 11 );
+        CHECK( r.reporter.count == 19 );
+        CHECK( r.reporter.starts.size() == r.reporter.count );
+        CHECK( r.reporter.done_names.size() == r.reporter.count );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
-        CHECK( r.reporter.done_names_at_on_done == 11 );
+        CHECK( r.reporter.done_names_at_on_done == r.reporter.count );
         for ( double ms : r.reporter.durations_ms ) {
                 CHECK( ms >= 0.0 );
                 CHECK( ms < 1000.0 );
@@ -314,7 +316,8 @@ TEST_CASE( "suite_basic" )
         // Demo suite: 3 pass (demo_pass, demo_check, demo_counter)
         //             3 fail (demo_fail, demo_check_fail, demo_require_fail)
         //             2 nondeterministic (demo_random, demo_random_counter)
-        //             3 param-aware (demo_param_value, demo_param_count, demo_param_find) — trivial pass w/o params
+        //             3 param-aware (demo_param_value, demo_param_count, demo_param_find)
+        //             7 coroutine-based task demos
         CHECK( r.reporter.done_names[0] == "demo_pass" );
         CHECK( r.reporter.done_names[1] == "demo_fail" );
         CHECK( r.reporter.done_names[2] == "demo_check" );
@@ -326,6 +329,13 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names[8] == "demo_param_value" );
         CHECK( r.reporter.done_names[9] == "demo_param_count" );
         CHECK( r.reporter.done_names[10] == "demo_param_find" );
+        CHECK( r.reporter.done_names[11] == "pass_demo_task" );
+        CHECK( r.reporter.done_names[12] == "fail_demo_task" );
+        CHECK( r.reporter.done_names[13] == "error_demo_task" );
+        CHECK( r.reporter.done_names[14] == "counter_demo_task" );
+        CHECK( r.reporter.done_names[15] == "check_demo_task" );
+        CHECK( r.reporter.done_names[16] == "check_fail_demo_task" );
+        CHECK( r.reporter.done_names[17] == "multi_step_fail_demo_task" );
         CHECK( r.reporter.passed[0] == true );
         CHECK( r.reporter.passed[1] == false );
         CHECK( r.reporter.passed[2] == true );
@@ -335,6 +345,13 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.passed[8] == true );
         CHECK( r.reporter.passed[9] == true );
         CHECK( r.reporter.passed[10] == true );
+        CHECK( r.reporter.passed[11] == true );
+        CHECK( r.reporter.passed[12] == false );
+        CHECK( r.reporter.passed[13] == false );
+        CHECK( r.reporter.passed[14] == true );
+        CHECK( r.reporter.passed[15] == true );
+        CHECK( r.reporter.passed[16] == false );
+        CHECK( r.reporter.passed[17] == false );
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -415,11 +432,8 @@ static asrtio::task< void > param_e2e_coro(
         state.param_ready = true;
         state.root_id     = conn.param().root_id();
 
-        std::ignore = conn.param().query(
-            &state.query,
-            state.root_id,
-            param_e2e_state::query_cb,
-            &state );
+        std::ignore =
+            conn.param().query( &state.query, state.root_id, param_e2e_state::query_cb, &state );
 
         while ( state.received.size() < 1 )
                 co_await ecor::suspend;
@@ -462,9 +476,10 @@ TEST_CASE( "param_tcp_e2e" )
         recording_reporter reporter;
         bool               done = false;
 
-        uv_loop_t*       loop = uv_loop_new();
-        asrtio::task_ctx tctx;
-        asrtio::rsim_ctx rs{ loop, 42 };
+        uv_loop_t*                         loop = uv_loop_new();
+        asrtl::malloc_free_memory_resource mem_res;
+        asrtio::task_ctx                   tctx{ mem_res };
+        asrtio::rsim_ctx                   rs{ loop, 42 };
         REQUIRE( rs.start() == asrtio::status::success );
 
         uv_tcp_t client;
@@ -1410,11 +1425,11 @@ TEST_CASE( "pcff_nonexistent_file" )
 // Component 8: rsim integration tests for param_config
 
 static asrtio::task< void > suite_param_coro(
-    asrtio::task_ctx&      tctx,
-    asrtio::rsim_ctx&      rs,
-    recording_reporter&    reporter,
-    asrtio::param_config&  params,
-    uv_tcp_t&              client )
+    asrtio::task_ctx&     tctx,
+    asrtio::rsim_ctx&     rs,
+    recording_reporter&   reporter,
+    asrtio::param_config& params,
+    uv_tcp_t&             client )
 {
         co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
         asrtio::steady_clock clk;
@@ -1432,9 +1447,10 @@ struct param_suite_run
 
         param_suite_run( asrtio::param_config& params, uint32_t seed = 42 )
         {
-                uv_loop_t*       loop = uv_loop_new();
-                asrtio::task_ctx tctx;
-                asrtio::rsim_ctx rs{ loop, seed };
+                uv_loop_t*                         loop = uv_loop_new();
+                asrtl::malloc_free_memory_resource mem_res;
+                asrtio::task_ctx                   tctx{ mem_res };
+                asrtio::rsim_ctx                   rs{ loop, seed };
                 REQUIRE( rs.start() == asrtio::status::success );
 
                 uv_tcp_t client;
@@ -1469,15 +1485,13 @@ TEST_CASE( "suite_param_multi_run" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 11 tests discovered, all run once except demo_pass which runs twice → 12 done events
-        CHECK_EQ( 12u, r.reporter.done_names.size() );
+        CHECK_EQ( r.reporter.count + 1, r.reporter.done_names.size() );
 
         // Find the two demo_pass entries
         std::vector< size_t > ip_indices;
-        for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
+        for ( size_t i = 0; i < r.reporter.done_names.size(); ++i )
                 if ( r.reporter.done_names[i] == "demo_pass" )
                         ip_indices.push_back( i );
-        }
         REQUIRE_EQ( 2u, ip_indices.size() );
         // They should be consecutive
         CHECK_EQ( ip_indices[0] + 1, ip_indices[1] );
@@ -1501,8 +1515,7 @@ TEST_CASE( "suite_param_skip" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 11 tests discovered, 1 skipped → 10 done events
-        CHECK_EQ( 10u, r.reporter.done_names.size() );
+        CHECK_EQ( r.reporter.count - 1, r.reporter.done_names.size() );
         // demo_pass should not appear
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "demo_pass" );
@@ -1524,8 +1537,8 @@ TEST_CASE( "suite_param_wildcard" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 10 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 12
-        CHECK_EQ( 12u, r.reporter.done_names.size() );
+        // 17 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 19
+        CHECK_EQ( r.reporter.count + 1, r.reporter.done_names.size() );
 
         // demo_pass appears exactly twice
         uint32_t ip_count = 0;
@@ -1556,8 +1569,7 @@ TEST_CASE( "suite_param_unknown_key" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // All 11 device tests run normally (unknown key is ignored)
-        CHECK_EQ( 11u, r.reporter.done_names.size() );
+        CHECK_EQ( r.reporter.count, r.reporter.done_names.size() );
         // "nonexistent_test" never appears in results
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "nonexistent_test" );

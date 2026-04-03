@@ -12,14 +12,16 @@ namespace asrtr
 using status = asrtr_status;
 using record = asrtr_record;
 
+// Test harness that stores test T which should be callable with a record reference and return a
+// status.
 template < typename T >
-struct unit
+struct unit : asrtr_test
 {
         template < typename... Args >
         unit( Args&&... args )
           : test( (Args&&) args... )
         {
-                asrtr_test_init( &atest, test.name(), static_cast< unit* >( this ), unit::cb );
+                asrtr_test_init( this, test.name(), static_cast< unit* >( this ), unit::cb );
         }
 
         unit( unit&& )      = delete;
@@ -34,8 +36,7 @@ struct unit
                 return st;
         }
 
-        T          test;
-        asrtr_test atest;
+        T test;
 };
 
 struct reactor
@@ -54,7 +55,6 @@ struct reactor
         reactor( reactor&& )      = delete;
         reactor( reactor const& ) = delete;
 
-        // XXX: reevaluate this
         asrtl_node* node()
         {
                 return &reac.node;
@@ -65,15 +65,10 @@ struct reactor
                 return asrtr_reactor_tick( &reac );
         }
 
-        template < typename D >
-        void add_test( D& test )
-        {
-                add_test( &test.atest );
-        }
 
-        void add_test( asrtr_test* test )
+        void add_test( asrtr_test& test )
         {
-                asrtr_reactor_add_test( &reac, test );
+                asrtr_reactor_add_test( &reac, &test );
         }
 
         ~reactor() = default;

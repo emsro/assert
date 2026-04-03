@@ -21,6 +21,8 @@
 #include "../asrtr/record.h"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
+#include "../asrtrpp/param_sender.hpp"
+#include "../asrtrpp/task_unit.hpp"
 
 #include <functional>
 #include <random>
@@ -243,8 +245,8 @@ inline demo_spec make_demo_param_value()
 {
         return {
             .tname = "demo_param_value",
-            .body  = [pq = detail::param_qr{}]( demo_test& self,
-                                                 asrtr::record& r ) mutable -> asrtr::status {
+            .body  = [pq = detail::param_qr{}](
+                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
@@ -259,24 +261,18 @@ inline demo_spec make_demo_param_value()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq = {};
+                            pq          = {};
                             std::ignore = self.param.query< asrtr::param_obj >(
-                                &pq.q,
-                                self.param.root_id(),
-                                detail::param_obj_qr_cb,
-                                &pq );
+                                &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
-                            auto first   = pq.first_child;
-                            pq           = {};
+                            auto first  = pq.first_child;
+                            pq          = {};
                             std::ignore = self.param.query< uint32_t >(
-                                &pq.q,
-                                first,
-                                detail::param_u32_qr_cb,
-                                &pq );
+                                &pq.q, first, detail::param_u32_qr_cb, &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
@@ -288,8 +284,7 @@ inline demo_spec make_demo_param_value()
                             } else {
                                     ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRTR_TEST_FAIL )
-                                            self.diag.record(
-                                                "demo.hpp", __LINE__, "val > 0" );
+                                            self.diag.record( "demo.hpp", __LINE__, "val > 0" );
                                     else
                                             r.state = ASRTR_TEST_PASS;
                             }
@@ -306,7 +301,7 @@ inline demo_spec make_demo_param_count()
         return {
             .tname = "demo_param_count",
             .body  = [pq = detail::param_qr{}, child_count = 0](
-                         demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
+                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             child_count  = 0;
@@ -322,24 +317,18 @@ inline demo_spec make_demo_param_count()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq = {};
+                            pq          = {};
                             std::ignore = self.param.query< asrtr::param_obj >(
-                                &pq.q,
-                                self.param.root_id(),
-                                detail::param_obj_qr_cb,
-                                &pq );
+                                &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
-                            auto first   = pq.first_child;
-                            pq           = {};
+                            auto first  = pq.first_child;
+                            pq          = {};
                             std::ignore = self.param.query< void >(
-                                &pq.q,
-                                first,
-                                detail::param_any_qr_cb,
-                                &pq );
+                                &pq.q, first, detail::param_any_qr_cb, &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
@@ -347,20 +336,16 @@ inline demo_spec make_demo_param_count()
                     case 2:
                             ++child_count;
                             if ( pq.next_sib != 0 ) {
-                                    auto next = pq.next_sib;
-                                    pq        = {};
+                                    auto next   = pq.next_sib;
+                                    pq          = {};
                                     std::ignore = self.param.query< void >(
-                                        &pq.q,
-                                        next,
-                                        detail::param_any_qr_cb,
-                                        &pq );
+                                        &pq.q, next, detail::param_any_qr_cb, &pq );
                                     r.state = ASRTR_TEST_RUNNING;
                                     return ASRTR_SUCCESS;
                             }
                             ASRTR_RECORD_CHECK( &r, child_count > 0 );
                             if ( r.state == ASRTR_TEST_FAIL )
-                                    self.diag.record(
-                                        "demo.hpp", __LINE__, "child_count > 0" );
+                                    self.diag.record( "demo.hpp", __LINE__, "child_count > 0" );
                             else
                                     r.state = ASRTR_TEST_PASS;
                             return ASRTR_SUCCESS;
@@ -375,8 +360,8 @@ inline demo_spec make_demo_param_find()
 {
         return {
             .tname = "demo_param_find",
-            .body  = [pq = detail::param_qr{}]( demo_test& self,
-                                                 asrtr::record& r ) mutable -> asrtr::status {
+            .body  = [pq = detail::param_qr{}](
+                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
@@ -391,7 +376,7 @@ inline demo_spec make_demo_param_find()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq = {};
+                            pq          = {};
                             std::ignore = self.param.find< uint32_t >(
                                 &pq.q,
                                 self.param.root_id(),
@@ -408,8 +393,7 @@ inline demo_spec make_demo_param_find()
                             } else {
                                     ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRTR_TEST_FAIL )
-                                            self.diag.record(
-                                                "demo.hpp", __LINE__, "count > 0" );
+                                            self.diag.record( "demo.hpp", __LINE__, "count > 0" );
                                     else
                                             r.state = ASRTR_TEST_PASS;
                             }
@@ -418,5 +402,136 @@ inline demo_spec make_demo_param_find()
                     return ASRTR_SUCCESS;
             } };
 }
+
+
+/// Immediately passes — simplest possible coroutine test.
+struct pass_demo_task : asrtr::task_test
+{
+        char const* name = "pass_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                co_return;
+        }
+};
+
+/// Immediately fails via test_fail.
+struct fail_demo_task : asrtr::task_test
+{
+        char const* name = "fail_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+/// Reports a test infrastructure error via test_error.
+struct error_demo_task : asrtr::task_test
+{
+        char const* name = "error_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                co_yield asrtr::with_error{ asrtr::test_error };
+        }
+};
+
+/// Multi-step pass: suspends 3 times, then completes.
+/// Coroutine equivalent of the demo_counter state machine.
+struct counter_demo_task : asrtr::task_test
+{
+        char const* name = "counter_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                for ( int i = 0; i < 3; ++i )
+                        co_await asrtr::suspend;
+        }
+};
+
+/// Checks a passing condition, then completes successfully.
+struct check_demo_task : asrtr::task_test
+{
+        char const* name = "check_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                if ( 2 + 3 != 5 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+/// Checks a failing condition — yields test_fail.
+struct check_fail_demo_task : asrtr::task_test
+{
+        char const* name = "check_fail_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                if ( 2 + 2 != 5 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+/// Suspends several times, then fails — failure after async work.
+struct multi_step_fail_demo_task : asrtr::task_test
+{
+        char const* name = "multi_step_fail_demo_task";
+
+        asrtr::task< void > exec()
+        {
+                for ( int i = 0; i < 3; ++i )
+                        co_await asrtr::suspend;
+                co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+
+/// Parameter integration into coroutine
+struct param_query_demo_task : asrtr::task_test
+{
+        char const*          name = "param_query_demo_task";
+        asrtr::param_client& pc;
+
+        param_query_demo_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+          : task_test( ctx )
+          , pc( p )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                // Query param node with ID 1
+                auto x = co_await asrtr::param< uint32_t >( pc, 1 );
+                auto y = co_await asrtr::param< int32_t >( pc, 1 );
+                if ( x != y )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+
+/// Search by name in object - coroutine
+struct param_query_find_demo_task : asrtr::task_test
+{
+        char const*          name = "param_query_find_demo_task";
+        asrtr::param_client& pc;
+
+        param_query_find_demo_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+          : task_test( ctx )
+          , pc( p )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                // Query param node with key "count" under root
+                auto x = co_await asrtr::find< uint32_t >( pc, pc.root_id(), "count" );
+                auto y = co_await asrtr::find< int32_t >( pc, pc.root_id(), "count" );
+                if ( x != y )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
 
 }  // namespace asrtio

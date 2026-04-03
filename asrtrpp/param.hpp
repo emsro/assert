@@ -131,12 +131,13 @@ struct param_client
         }
 
         param_client(
-            asrtl_node*    prev,
-            asrtl_sender   sender,
-            asrtl_span     msg_buffer,
-            uint32_t       timeout )
+            asrtl_node*  prev,
+            asrtl_sender sender,
+            asrtl_span   msg_buffer,
+            uint32_t     timeout )
         {
-                std::ignore = asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
+                std::ignore =
+                    asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
         }
 
         param_client( param_client&& )      = delete;
@@ -163,23 +164,22 @@ struct param_client
                 return asrtr_param_client_root_id( &client_ );
         }
 
-        // Typed query: client.query<uint32_t>(q, id, cb)
+        /// Query information about node node_id from param client, call cb with the value if
+        /// successful. cb will be called even on error, with an appropriate error code in
+        /// q->error_code and possibly an invalid value. T is the expected type of the value, if
+        /// value type doesn't match, cb will be called with an error.
         template < has_param_query_traits T, typed_param_query_callable< T > CB >
         [[nodiscard]] asrtl_status query( asrtr_param_query* q, asrtl_flat_id node_id, CB& cb )
         {
-                using traits             = param_query_traits< T >;
-                q->expected_type         = traits::expected_type;
-                q->cb.*traits::cb_member = []( asrtr_param_client*       c,
-                                               asrtr_param_query*        qq,
-                                               typename traits::raw_type raw ) {
-                        ( *reinterpret_cast< CB* >( qq->cb_ptr ) )(
-                            c, qq, static_cast< typename traits::value_type >( raw ) );
-                };
-                q->cb_ptr = &cb;
-                return asrtr_param_client_query( q, &client_, node_id, nullptr );
+                // XXX: little abuse of the system
+                return find< T >( q, node_id, nullptr, cb );
         }
 
-        // Typed query with C callback + void* context
+        /// Query information about node node_id from param client, call cb with the value if
+        /// successful. cb will be called even on error, with an appropriate error code in
+        /// q->error_code and possibly an invalid value. This overload expects raw function pointer
+        /// and void* context instead of a C++ callable. T is the expected type of the value, if
+        /// value type doesn't match, cb will be called with an error.
         template < has_param_query_traits T >
         [[nodiscard]] asrtl_status query(
             asrtr_param_query*                        q,
@@ -187,31 +187,31 @@ struct param_client
             typename param_query_traits< T >::cb_type cb,
             void*                                     cb_ptr )
         {
-                using traits             = param_query_traits< T >;
-                q->expected_type         = traits::expected_type;
-                q->cb.*traits::cb_member = cb;
-                q->cb_ptr                = cb_ptr;
-                return asrtr_param_client_query( q, &client_, node_id, nullptr );
+                return find< T >( q, node_id, nullptr, cb, cb_ptr );
         }
 
 
-        // Raw passthrough
+        /// Raw query with explicit expected type and C callback + void* context. This is the most
+        /// flexible overload, but the caller must ensure the callback is correct for the expected
+        /// type.
         [[nodiscard]] asrtl_status query(
             asrtr_param_query* q,
             asrtl_flat_id      node_id,
             asrtr_param_any_cb cb,
             void*              cb_ptr )
         {
-                q->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
-                q->cb.any        = cb;
-                q->cb_ptr        = cb_ptr;
-                return asrtr_param_client_query( q, &client_, node_id, nullptr );
+                return find( q, node_id, nullptr, cb, cb_ptr );
         }
 
-        // Typed find: client.find<uint32_t>(q, parent_id, key, cb)
+        /// Find child with key under node_id, call cb with the value if successful, call cb with
+        /// error if not. T is the expected type of the value, if value type doesn't match, cb will
+        /// be called with an error.
         template < has_param_query_traits T, typed_param_query_callable< T > CB >
-        [[nodiscard]] asrtl_status
-        find( asrtr_param_query* q, asrtl_flat_id parent_id, char const* key, CB& cb )
+        [[nodiscard]] asrtl_status find(
+            asrtr_param_query* q,
+            asrtl_flat_id      parent_id,
+            char const*        key,
+            CB&                cb )
         {
                 using traits             = param_query_traits< T >;
                 q->expected_type         = traits::expected_type;
@@ -225,7 +225,10 @@ struct param_client
                 return asrtr_param_client_query( q, &client_, parent_id, key );
         }
 
-        // Typed find with C callback + void* context
+        /// Find child with key under node_id, call cb with the value if successful, call cb with
+        /// error if not. This overload expects raw function pointer and void* context instead of a
+        /// C++ callable. T is the expected type of the value, if value type doesn't match, cb will
+        /// be called with an error.
         template < has_param_query_traits T >
         [[nodiscard]] asrtl_status find(
             asrtr_param_query*                        q,
@@ -241,7 +244,9 @@ struct param_client
                 return asrtr_param_client_query( q, &client_, parent_id, key );
         }
 
-        // Raw find passthrough
+        /// Raw find witout explicit expected type and C callback + void* context. This is the most
+        /// flexible overload, but the caller must ensure the callback is correct for the expected
+        /// type.
         [[nodiscard]] asrtl_status find(
             asrtr_param_query* q,
             asrtl_flat_id      parent_id,

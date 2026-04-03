@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../asrtlpp/task.hpp"
+
 #include <ecor/ecor.hpp>
 
 namespace asrtio
@@ -34,49 +36,9 @@ inline char const* status_to_str( status s )
         return "unknown_status";
 }
 
-struct malloc_free_memory_resource
-{
-        void* allocate( std::size_t n, std::size_t )
-        {
-                return malloc( n );
-        }
-
-        void deallocate( void* p, std::size_t, std::size_t ) noexcept
-        {
-                std::free( p );
-        }
-};
-
-struct task_ctx
-{
-
-        void tick()
-        {
-                core.run_once();
-        }
-
-        auto& query( ecor::get_memory_resource_t )
-        {
-                return memory_resource;
-        }
-
-        auto& query( ecor::get_task_core_t )
-        {
-                return core;
-        }
-
-private:
-        malloc_free_memory_resource res;
-        ecor::task_memory_resource  memory_resource{ res };
-        ecor::task_core             core;
-};
-
-struct task_cfg
-{
-        using extra_error_signatures = ecor::completion_signatures< ecor::set_error_t( status ) >;
-};
+using asrtl::task_ctx;
 
 template < typename T >
-using task = ecor::task< T, task_cfg >;
+using task = asrtl::task< T, status >;
 
 }  // namespace asrtio

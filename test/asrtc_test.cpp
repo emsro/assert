@@ -1807,3 +1807,137 @@ TEST_CASE( "param_loopback_multi_batch" )
         asrtc_param_server_deinit( &server );
         asrtl_flat_tree_deinit( &tree );
 }
+
+// ============================================================================
+// Phase 5 — find-by-key loopback tests
+// ============================================================================
+
+TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_u32" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "beta", asrtl_flat_value_str( "hi" ) );
+        asrtl_flat_tree_append( &tree, 1, 4, "gamma", asrtl_flat_value_bool( 1 ) );
+        asrtc_param_server_set_tree( &server, &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
+        spin();
+        REQUIRE( client.ready );
+
+        // Find "alpha" by key in root object
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
+        spin();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 2u, received[0].id );
+        CHECK_EQ( "alpha", std::string( received[0].key ) );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_U32, (uint8_t) received[0].value.type );
+        CHECK_EQ( 42u, received[0].value.u32_val );
+        CHECK_EQ( 0, error_called );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_not_found" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 42 ) );
+        asrtc_param_server_set_tree( &server, &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
+        spin();
+        REQUIRE( client.ready );
+
+        // Find a key that doesn't exist → error callback
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_find_any( &query, &client, 1u, "missing", query_cb, this ) );
+        spin();
+        CHECK_EQ( 0u, received.size() );
+        CHECK_EQ( 1, error_called );
+
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_nested" )
+{
+        // root (OBJECT, id=1)
+        //   ├── "sub" (OBJECT, id=2)
+        //   │     ├── "x" (U32=100, id=4)
+        //   │     └── "y" (STR="hello", id=5)
+        //   └── "b" (BOOL=1, id=3)
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "sub", asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_bool( 1 ) );
+        asrtl_flat_tree_append( &tree, 2, 4, "x", asrtl_flat_value_u32( 100 ) );
+        asrtl_flat_tree_append( &tree, 2, 5, "y", asrtl_flat_value_str( "hello" ) );
+        asrtc_param_server_set_tree( &server, &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
+        spin();
+        REQUIRE( client.ready );
+
+        // Find "sub" in root, then find "y" inside "sub"
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_find_any( &query, &client, 1u, "sub", query_cb, this ) );
+        spin();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 2u, received[0].id );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) received[0].value.type );
+
+        asrtl_flat_id sub_id = received[0].id;
+
+        // Now find "y" inside the sub object
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_find_any( &query, &client, sub_id, "y", query_cb, this ) );
+        spin();
+        REQUIRE_EQ( 2u, received.size() );
+        CHECK_EQ( 5u, received[1].id );
+        CHECK_EQ( "y", std::string( received[1].key ) );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[1].value.type );
+
+        CHECK_EQ( 0, error_called );
+        asrtl_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_then_query" )
+{
+        struct asrtl_flat_tree tree;
+        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
+        asrtl_flat_tree_append( &tree, 0, 1, NULL, asrtl_flat_value_object() );
+        asrtl_flat_tree_append( &tree, 1, 2, "alpha", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append( &tree, 1, 3, "beta", asrtl_flat_value_str( "hi" ) );
+        asrtc_param_server_set_tree( &server, &tree );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
+        spin();
+        REQUIRE( client.ready );
+
+        // Find by key
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtr_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
+        spin();
+        REQUIRE_EQ( 1u, received.size() );
+        CHECK_EQ( 2u, received[0].id );
+
+        // Then a normal query by id works correctly
+        CHECK_EQ(
+            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 3u, query_cb, this ) );
+        spin();
+        REQUIRE_EQ( 2u, received.size() );
+        CHECK_EQ( 3u, received[1].id );
+        CHECK_EQ( "beta", std::string( received[1].key ) );
+
+        CHECK_EQ( 0, error_called );
+        asrtl_flat_tree_deinit( &tree );
+}
