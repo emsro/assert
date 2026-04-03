@@ -67,6 +67,7 @@ struct conn_ctx
                 reg_task_demo< check_fail_demo_task >();
                 reg_task_demo< multi_step_fail_demo_task >();
                 reg_task_demo< param_query_demo_task >( r_param );
+                reg_task_demo< param_type_overview_task >( r_param );
         }
 
         void reg_demo( demo_spec spec )

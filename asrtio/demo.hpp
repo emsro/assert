@@ -27,6 +27,7 @@
 #include <functional>
 #include <random>
 #include <string>
+#include <string_view>
 
 namespace asrtio
 {
@@ -529,6 +530,84 @@ struct param_query_find_demo_task : asrtr::task_test
                 auto x = co_await asrtr::find< uint32_t >( pc, pc.root_id(), "count" );
                 auto y = co_await asrtr::find< int32_t >( pc, pc.root_id(), "count" );
                 if ( x != y )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+
+/// Type overview: fetches every supported param type by key.
+/// The param tree is expected to have children under root with keys:
+///   "u32" (uint32_t), "i32" (int32_t), "flt" (float), "str" (string),
+///   "bln" (bool), "obj" (object), "arr" (array).
+struct param_type_overview_task : asrtr::task_test
+{
+        char const*          name = "param_type_overview_task";
+        asrtr::param_client& pc;
+
+        param_type_overview_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+          : task_test( ctx )
+          , pc( p )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                auto root = pc.root_id();
+
+                auto u = co_await asrtr::find< uint32_t >( pc, root, "u32" );
+                if ( u != 42 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                auto i = co_await asrtr::find< int32_t >( pc, root, "i32" );
+                if ( i != -7 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                auto f = co_await asrtr::find< float >( pc, root, "flt" );
+                if ( f < 3.13f || f > 3.15f )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                auto s = co_await asrtr::find< char const* >( pc, root, "str" );
+                if ( std::string_view{ s } != "hello" )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                auto b = co_await asrtr::find< bool >( pc, root, "bln" );
+                if ( !b )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                asrtl_flat_child_list obj =
+                    co_await asrtr::find< asrtr::param_obj >( pc, root, "obj" );
+                if ( obj.first_child == 0 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                asrtl_flat_child_list arr =
+                    co_await asrtr::find< asrtr::param_arr >( pc, root, "arr" );
+                if ( arr.first_child == 0 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                // Iterate over array elements
+                uint32_t      count = 0;
+                asrtl_flat_id id    = arr.first_child;
+                while ( id != 0 ) {
+                        auto [val, key, next_sibling] =
+                            co_await asrtr::fetch< uint32_t >( pc, id );
+                        ++count;
+                        id = next_sibling;
+                }
+                if ( count == 0 )
+                        co_yield asrtr::with_error{ asrtr::test_fail };
+
+                // Iterate over object children and touch their keys
+                count = 0;
+                id    = obj.first_child;
+                while ( id != 0 ) {
+                        auto [val, key, next_sibling] =
+                            co_await asrtr::fetch< asrtl_flat_value >( pc, id );
+                        if ( !key || key[0] == '\0' )
+                                co_yield asrtr::with_error{ asrtr::test_fail };
+                        ++count;
+                        id = next_sibling;
+                }
+                if ( count == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
         }
 };

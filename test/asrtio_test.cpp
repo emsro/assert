@@ -303,7 +303,7 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 19 );
+        CHECK( r.reporter.count == 20 );
         CHECK( r.reporter.starts.size() == r.reporter.count );
         CHECK( r.reporter.done_names.size() == r.reporter.count );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
@@ -336,6 +336,8 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names[15] == "check_demo_task" );
         CHECK( r.reporter.done_names[16] == "check_fail_demo_task" );
         CHECK( r.reporter.done_names[17] == "multi_step_fail_demo_task" );
+        CHECK( r.reporter.done_names[18] == "param_query_demo_task" );
+        CHECK( r.reporter.done_names[19] == "param_type_overview_task" );
         CHECK( r.reporter.passed[0] == true );
         CHECK( r.reporter.passed[1] == false );
         CHECK( r.reporter.passed[2] == true );
@@ -352,6 +354,8 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.passed[15] == true );
         CHECK( r.reporter.passed[16] == false );
         CHECK( r.reporter.passed[17] == false );
+        CHECK( r.reporter.passed[18] == false );
+        CHECK( r.reporter.passed[19] == false );
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -1537,7 +1541,7 @@ TEST_CASE( "suite_param_wildcard" )
         param_suite_run r( *cfg_opt );
         REQUIRE( r.done );
 
-        // 17 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 19
+        // 18 unlisted tests get 1 run each (via wildcard), demo_pass gets 2 → 20
         CHECK_EQ( r.reporter.count + 1, r.reporter.done_names.size() );
 
         // demo_pass appears exactly twice

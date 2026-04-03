@@ -1346,7 +1346,7 @@ asrtr::task< void > ps_sequential_finds(
 {
         auto a = co_await asrtr::find< uint32_t >( c, parent, key_a );
         auto b = co_await asrtr::find< uint32_t >( c, parent, key_b );
-        *sum   = a + b;
+        *sum   = a.value + b.value;
 }
 
 asrtr::task< void > ps_second_fails(
