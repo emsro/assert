@@ -415,7 +415,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         REQUIRE( cli.ready() );
 
         // Query root
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, 1u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, 1u, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -423,7 +423,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrtl_flat_id first_child = received[0].value.obj_val.first_child;
 
         // Query first child "a"
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, first_child, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, first_child, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( "a", received[1].key );
@@ -431,7 +431,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrtl_flat_id next_sib = received[1].next_sibling;
 
         // Query next sibling "b"
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, next_sib, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, next_sib, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( "b", received[2].key );
@@ -455,7 +455,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         REQUIRE( cli.ready() );
 
         // Query non-existent node — server sends ERROR
-        CHECK_EQ( ASRTL_SUCCESS, cli.query( &query, 999u, query_cb, this ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, 999u, query_cb, this ) );
         spin_query();
 
         // The node doesn't exist, so server sends a response with NONE type
@@ -556,7 +556,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
                 cb_count++;
                 u32_val = v;
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< uint32_t >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( 42u, u32_val );
@@ -575,7 +575,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_mismatch" )
                 cb_count++;
                 got_null = ( q->error_code != 0 );
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< uint32_t >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK( got_null );
@@ -594,7 +594,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_i32_happy" )
                 cb_count++;
                 i32_val = v;
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< int32_t >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< int32_t >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( -7, i32_val );
@@ -614,7 +614,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_str_happy" )
                 if ( v )
                         str_val = v;
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< char const* >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< char const* >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( "hello", str_val );
@@ -633,7 +633,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_float_happy" )
                 cb_count++;
                 flt_val = v;
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< float >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< float >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( doctest::Approx( 3.14f ), flt_val );
@@ -653,7 +653,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
                 u32_val = v.u32_val;
         };
         // untyped query — explicit asrtl_flat_value
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< asrtl_flat_value >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< asrtl_flat_value >( &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( 99u, u32_val );
@@ -674,7 +674,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
                 cb_count++;
                 u32_val = v;
         };
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< uint32_t >( &query, 2u, cb ) );
         CHECK( cli.query_pending() );
 
         spin_query();
@@ -724,7 +724,7 @@ TEST_CASE( "param_client_cpp_timeout" )
                 err = q->error_code;
         };
         asrtr_param_query query = {};
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &query, 10u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< uint32_t >( &query, 10u, cb ) );
 
         // DELIVER tick → wire
         CHECK_EQ( ASRTL_SUCCESS, cli.tick( 100 ) );
@@ -1288,9 +1288,9 @@ struct param_sender_ctx
 // Free-function coroutines (ecor requires task_ctx& as first arg, no lambda coroutines).
 
 template < typename T >
-asrtr::task< void > ps_do_param( asrtr::task_ctx&, asrtr::param_client& c, uint16_t id )
+asrtr::task< void > ps_do_fetch( asrtr::task_ctx&, asrtr::param_client& c, uint16_t id )
 {
-        co_await asrtr::param< T >( c, id );
+        co_await asrtr::fetch< T >( c, id );
 }
 
 template < typename T >
@@ -1374,7 +1374,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_u32_happy" )
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_param< uint32_t >( ctx, cli, 1 );
+                return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
         CHECK_EQ( ASRTR_TEST_PASS, state );
         asrtl_flat_tree_deinit( &tree );
@@ -1388,7 +1388,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_i32_happy" )
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_param< int32_t >( ctx, cli, 1 );
+                return ps_do_fetch< int32_t >( ctx, cli, 1 );
         } );
         CHECK_EQ( ASRTR_TEST_PASS, state );
         asrtl_flat_tree_deinit( &tree );
@@ -1467,7 +1467,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_type_mismatch" )
 
         // Request u32 but node is a string → TYPE_MISMATCH → set_error
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_param< uint32_t >( ctx, cli, 1 );
+                return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
         CHECK_EQ( ASRTR_TEST_FAIL, state );
         asrtl_flat_tree_deinit( &tree );
@@ -1512,7 +1512,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_not_ready" )
 {
         // Don't handshake — client is not ready
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_param< uint32_t >( ctx, cli, 1 );
+                return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
         CHECK_EQ( ASRTR_TEST_FAIL, state );
 }
@@ -1539,12 +1539,12 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_query_pending" )
         // Start a raw query to occupy the pending slot
         asrtr_param_query q  = {};
         auto              cb = []( asrtr_param_client*, asrtr_param_query*, uint32_t ) {};
-        CHECK_EQ( ASRTL_SUCCESS, cli.query< uint32_t >( &q, 2u, cb, nullptr ) );
+        CHECK_EQ( ASRTL_SUCCESS, cli.fetch< uint32_t >( &q, 2u, cb, nullptr ) );
         CHECK( cli.query_pending() );
 
         // Now a param sender should fail because a query is already pending
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_param< uint32_t >( ctx, cli, 3 );
+                return ps_do_fetch< uint32_t >( ctx, cli, 3 );
         } );
         CHECK_EQ( ASRTR_TEST_FAIL, state );
 

@@ -40,20 +40,16 @@ struct param_query_sender
                 void start()
                 {
                         using traits = param_query_traits< T >;
-                        auto s       = c->find< T >(
-                            &q,
-                            node_id,
-                            key,
-                            []( asrtr_param_client*,
-                                asrtr_param_query*          q,
-                                typename traits::value_type v ) mutable {
-                                    auto& self = *reinterpret_cast< op* >( q->cb_ptr );
-                                    if ( q->error_code != ASRTL_PARAM_ERR_NONE )
-                                            self.recv.set_error( task_error::test_fail );
-                                    else
-                                            self.recv.set_value( v );
-                            },
-                            this );
+                        auto cb      = +[]( asrtr_param_client*,
+                                       asrtr_param_query*          q,
+                                       typename traits::value_type v ) mutable {
+                                auto& self = *reinterpret_cast< op* >( q->cb_ptr );
+                                if ( q->error_code != ASRTL_PARAM_ERR_NONE )
+                                        self.recv.set_error( task_error::test_fail );
+                                else
+                                        self.recv.set_value( v );
+                        };
+                        auto s = c->query< T >( &q, node_id, key, cb, this );
                         if ( s != ASRTL_SUCCESS )
                                 recv.set_error( task_error::test_fail );
                 }
@@ -68,7 +64,7 @@ struct param_query_sender
 };
 
 template < typename T >
-ecor::sender auto param( param_client& client, asrtl_flat_id node_id )
+ecor::sender auto fetch( param_client& client, asrtl_flat_id node_id )
 {
         return param_query_sender< T >{ &client, nullptr, node_id };
 }

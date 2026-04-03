@@ -433,13 +433,13 @@ static asrtio::task< void > param_e2e_coro(
         state.root_id     = conn.param().root_id();
 
         std::ignore =
-            conn.param().query( &state.query, state.root_id, param_e2e_state::query_cb, &state );
+            conn.param().fetch( &state.query, state.root_id, param_e2e_state::query_cb, &state );
 
         while ( state.received.size() < 1 )
                 co_await ecor::suspend;
 
         if ( state.received[0].value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT ) {
-                std::ignore = conn.param().query(
+                std::ignore = conn.param().fetch(
                     &state.query,
                     state.received[0].value.obj_val.first_child,
                     param_e2e_state::query_cb,
@@ -450,7 +450,7 @@ static asrtio::task< void > param_e2e_coro(
                 co_await ecor::suspend;
 
         if ( state.received[1].next_sibling != 0 ) {
-                std::ignore = conn.param().query(
+                std::ignore = conn.param().fetch(
                     &state.query,
                     state.received[1].next_sibling,
                     param_e2e_state::query_cb,

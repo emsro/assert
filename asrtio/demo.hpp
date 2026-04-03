@@ -262,7 +262,7 @@ inline demo_spec make_demo_param_value()
                                     return ASRTR_SUCCESS;
                             }
                             pq          = {};
-                            std::ignore = self.param.query< asrtr::param_obj >(
+                            std::ignore = self.param.fetch< asrtr::param_obj >(
                                 &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -271,7 +271,7 @@ inline demo_spec make_demo_param_value()
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first  = pq.first_child;
                             pq          = {};
-                            std::ignore = self.param.query< uint32_t >(
+                            std::ignore = self.param.fetch< uint32_t >(
                                 &pq.q, first, detail::param_u32_qr_cb, &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -318,7 +318,7 @@ inline demo_spec make_demo_param_count()
                                     return ASRTR_SUCCESS;
                             }
                             pq          = {};
-                            std::ignore = self.param.query< asrtr::param_obj >(
+                            std::ignore = self.param.fetch< asrtr::param_obj >(
                                 &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -327,7 +327,7 @@ inline demo_spec make_demo_param_count()
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first  = pq.first_child;
                             pq          = {};
-                            std::ignore = self.param.query< void >(
+                            std::ignore = self.param.fetch< void >(
                                 &pq.q, first, detail::param_any_qr_cb, &pq );
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -338,7 +338,7 @@ inline demo_spec make_demo_param_count()
                             if ( pq.next_sib != 0 ) {
                                     auto next   = pq.next_sib;
                                     pq          = {};
-                                    std::ignore = self.param.query< void >(
+                                    std::ignore = self.param.fetch< void >(
                                         &pq.q, next, detail::param_any_qr_cb, &pq );
                                     r.state = ASRTR_TEST_RUNNING;
                                     return ASRTR_SUCCESS;
@@ -503,8 +503,8 @@ struct param_query_demo_task : asrtr::task_test
         asrtr::task< void > exec()
         {
                 // Query param node with ID 1
-                auto x = co_await asrtr::param< uint32_t >( pc, 1 );
-                auto y = co_await asrtr::param< int32_t >( pc, 1 );
+                auto x = co_await asrtr::fetch< uint32_t >( pc, 1 );
+                auto y = co_await asrtr::fetch< int32_t >( pc, 1 );
                 if ( x != y )
                         co_yield asrtr::with_error{ asrtr::test_fail };
         }

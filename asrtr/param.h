@@ -130,7 +130,7 @@ static inline int asrtr_param_query_pending( struct asrtr_param_client const* cl
 }
 
 // Typed query helpers — set expected_type + cb + cb_ptr, then submit
-static inline enum asrtl_status asrtr_param_client_query_any(
+static inline enum asrtl_status asrtr_param_client_fetch_any(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -143,7 +143,7 @@ static inline enum asrtl_status asrtr_param_client_query_any(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_u32(
+static inline enum asrtl_status asrtr_param_client_fetch_u32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -156,7 +156,7 @@ static inline enum asrtl_status asrtr_param_client_query_u32(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_i32(
+static inline enum asrtl_status asrtr_param_client_fetch_i32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -169,7 +169,7 @@ static inline enum asrtl_status asrtr_param_client_query_i32(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_str(
+static inline enum asrtl_status asrtr_param_client_fetch_str(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -182,7 +182,7 @@ static inline enum asrtl_status asrtr_param_client_query_str(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_float(
+static inline enum asrtl_status asrtr_param_client_fetch_float(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -195,7 +195,7 @@ static inline enum asrtl_status asrtr_param_client_query_float(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_bool(
+static inline enum asrtl_status asrtr_param_client_fetch_bool(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -208,7 +208,7 @@ static inline enum asrtl_status asrtr_param_client_query_bool(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_obj(
+static inline enum asrtl_status asrtr_param_client_fetch_obj(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,
@@ -221,7 +221,7 @@ static inline enum asrtl_status asrtr_param_client_query_obj(
         return asrtr_param_client_query( query, client, node_id, NULL );
 }
 
-static inline enum asrtl_status asrtr_param_client_query_arr(
+static inline enum asrtl_status asrtr_param_client_fetch_arr(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
     asrtl_flat_id              node_id,

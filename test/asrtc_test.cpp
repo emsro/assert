@@ -1606,7 +1606,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Recursive traversal: collect all nodes
         // Query root
         CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 1u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 1u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -1617,7 +1617,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query first child of root ("sub", id=2)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, first_child, query_cb, this ) );
+            asrtr_param_client_fetch_any( &query, &client, first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 2u, received[1].id );
@@ -1631,7 +1631,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query next sibling of "sub" → "b" (id=3)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, sub_next_sib, query_cb, this ) );
+            asrtr_param_client_fetch_any( &query, &client, sub_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( 3u, received[2].id );
@@ -1643,7 +1643,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query children of "sub": "x" (id=4)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, sub_first_child, query_cb, this ) );
+            asrtr_param_client_fetch_any( &query, &client, sub_first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 4u, received.size() );
         CHECK_EQ( 4u, received[3].id );
@@ -1656,7 +1656,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query "y" (id=5)
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &query, &client, x_next_sib, query_cb, this ) );
+            asrtr_param_client_fetch_any( &query, &client, x_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 5u, received.size() );
         CHECK_EQ( 5u, received[4].id );
@@ -1776,7 +1776,7 @@ TEST_CASE( "param_loopback_multi_batch" )
         };
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtr_param_client_query_any( &q, &client, 1u, root_resp, &first_child ) );
+            asrtr_param_client_fetch_any( &q, &client, 1u, root_resp, &first_child ) );
         spin();
         REQUIRE_NE( 0u, first_child );
 
@@ -1785,7 +1785,7 @@ TEST_CASE( "param_loopback_multi_batch" )
         while ( query_id != 0u ) {
                 CHECK_EQ(
                     ASRTL_SUCCESS,
-                    asrtr_param_client_query_any( &q, &client, query_id, resp_cb, &results ) );
+                    asrtr_param_client_fetch_any( &q, &client, query_id, resp_cb, &results ) );
                 spin();
                 REQUIRE_FALSE( results.empty() );
                 query_id = results.back().next_sib;
@@ -1932,7 +1932,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_then_query" )
 
         // Then a normal query by id works correctly
         CHECK_EQ(
-            ASRTL_SUCCESS, asrtr_param_client_query_any( &query, &client, 3u, query_cb, this ) );
+            ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 3u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 3u, received[1].id );
