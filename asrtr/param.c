@@ -99,7 +99,7 @@ static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span
 // Nodes are present while (sp.e - sp.b) > 4.
 // ---------------------------------------------------------------------------
 
-enum search_mode_e
+enum asrtr_search_mode_e
 {
         SEARCH_BY_NODE,
         SEARCH_BY_KEY,
@@ -107,7 +107,7 @@ enum search_mode_e
 
 static enum asrtl_status asrtr_cache_try_deliver(
     struct asrtr_param_client* client,
-    enum search_mode_e         mode )
+    enum asrtr_search_mode_e   mode )
 {
         struct asrtl_span sp = {
             .b = client->cache_buf,
