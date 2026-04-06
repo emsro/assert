@@ -112,7 +112,7 @@ sequenceDiagram
     Host->>Target: RESPONSE (node_id, key, type, value, …)
     Target->>Host: FIND_BY_KEY (parent_id, key)
     Host->>Target: RESPONSE (node_id, key, type, value, …)
-    Note over Host,Target: Responses are cached; repeated queries are served locally
+    Note over Host,Target: Responses are cached – repeated queries are served locally
 ```
 
 ## Collector channel
