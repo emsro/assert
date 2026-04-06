@@ -1,7 +1,10 @@
 #pragma once
 
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/diag.h"
+#include "../asrtr/status_to_str.h"
 
 #include <cstdint>
 
@@ -13,7 +16,12 @@ struct diag
         template < typename CB >
         diag( asrtl_node* prev, CB& send_cb )
         {
-                std::ignore = asrtr_diag_init( &diag_, prev, asrtl::make_sender( send_cb ) );
+                if ( auto s = asrtr_diag_init( &diag_, prev, asrtl::make_sender( send_cb ) );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_diag", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         diag( diag&& )      = delete;

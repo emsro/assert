@@ -49,26 +49,22 @@ struct cntr_tcp_sys
                 return clk_;
         }
 
-        template < typename CB >
-        void set_param_tree(
-            asrtl_flat_tree const*    tree,
-            asrtl::flat_id            root_id,
-            CB&                       on_ack,
-            std::chrono::milliseconds timeout )
-        {
-                c_param.set_tree( tree );
-                std::ignore = c_param.send_ready(
-                    root_id, on_ack, static_cast< uint32_t >( timeout.count() ) );
-        }
-
         void tick()
         {
                 auto now = static_cast< uint32_t >( clk_.now().count() );
                 if ( auto s = cntr.tick( now ); s != ASRTC_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
-                std::ignore = c_param.tick( now );
-                std::ignore = c_collect.tick( now );
+                if ( auto s = c_param.tick( now ); s != ASRTL_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Param tick failed: %s",
+                            asrtl_status_to_str( s ) );
+                if ( auto s = c_collect.tick( now ); s != ASRTL_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Collect tick failed: %s",
+                            asrtl_status_to_str( s ) );
         }
 
 
@@ -91,32 +87,24 @@ struct cntr_tcp_sys
                 } );
         }
 
-        /// Severs the TCP connection but keeps the idle ticker alive so that
-        /// tick-driven timeouts can still fire and unblock suspended coroutines.
-        /// Full handle cleanup happens later in async_close().
         void disconnect()
         {
-                if ( closed_ )
+                if ( disconnected_ )
                         return;
-                closed_ = true;
+                disconnected_ = true;
                 uv_close( (uv_handle_t*) client, nullptr );
-        }
-
-        bool closed() const
-        {
-                return closed_;
         }
 
         friend task< void > async_close( task_ctx&, cntr_tcp_sys& );
 
 private:
-        bool                                                             closed_ = false;
+        bool                                                             disconnected_ = false;
         uv_idle_t                                                        idle_handle;
         uv_tcp_t*                                                        client;
         clock const&                                                     clk_;
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
             [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
-                    if ( closed_ )
+                    if ( disconnected_ )
                             return ASRTL_SEND_ERR;
                     return rx.write( (uv_stream_t*) client, id, *buff );
             } };
@@ -144,7 +132,7 @@ inline task< void > async_close( task_ctx&, cntr_tcp_sys& sys )
 {
         uv_idle_stop( &sys.idle_handle );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
-        if ( !sys.closed_ )
+        if ( !sys.disconnected_ )
                 co_await uv_close_handle{ (uv_handle_t*) sys.client };
 }
 
@@ -194,13 +182,20 @@ struct _cntr_set_param_tree
         void start( OP& op )
         {
                 sys.c_param.set_tree( tree );
-                std::ignore = sys.c_param.send_ready(
-                    root_id,
-                    []( void* p, asrtc_status ) {
-                            static_cast< OP* >( p )->recv.set_value();
-                    },
-                    &op,
-                    static_cast< uint32_t >( timeout.count() ) );
+                if ( auto s = sys.c_param.send_ready(
+                         root_id,
+                         []( void* p, asrtc_status ) {
+                                 static_cast< OP* >( p )->recv.set_value();
+                         },
+                         &op,
+                         static_cast< uint32_t >( timeout.count() ) );
+                     s != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Param send_ready failed: %s",
+                            asrtl_status_to_str( s ) );
+                        op.recv.set_error( status::send_failed );
+                }
         }
 };
 using cntr_set_param_tree = asrtl::gen_sender< _cntr_set_param_tree, status >;
@@ -226,13 +221,20 @@ struct _cntr_collect_ready
         template < typename OP >
         void start( OP& op )
         {
-                std::ignore = sys.c_collect.send_ready(
-                    root_id,
-                    []( void* p, asrtc_status ) {
-                            static_cast< OP* >( p )->recv.set_value();
-                    },
-                    &op,
-                    static_cast< uint32_t >( timeout.count() ) );
+                if ( auto s = sys.c_collect.send_ready(
+                         root_id,
+                         []( void* p, asrtc_status ) {
+                                 static_cast< OP* >( p )->recv.set_value();
+                         },
+                         &op,
+                         static_cast< uint32_t >( timeout.count() ) );
+                     s != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Collect send_ready failed: %s",
+                            asrtl_status_to_str( s ) );
+                        op.recv.set_error( status::send_failed );
+                }
         }
 };
 using cntr_collect_ready = asrtl::gen_sender< _cntr_collect_ready, status >;

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../asrtc/diag.h"
+#include "../asrtc/status_to_str.h"
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
@@ -19,7 +22,13 @@ struct diag
             CB&                    send_cb,
             struct asrtl_allocator alloc = asrtl_default_allocator() )
         {
-                std::ignore = asrtc_diag_init( &diag_, prev, asrtl::make_sender( send_cb ), alloc );
+                if ( auto s = asrtc_diag_init(
+                         &diag_, prev, asrtl::make_sender( send_cb ), alloc );
+                     s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtc_diag", "init failed: %s", asrtc_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         diag( diag&& )      = delete;
@@ -49,7 +58,9 @@ struct diag
 
         ~diag()
         {
-                std::ignore = asrtc_diag_deinit( &diag_ );
+                if ( auto s = asrtc_diag_deinit( &diag_ ); s != ASRTC_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtc_diag", "deinit failed: %s", asrtc_status_to_str( s ) );
         }
 
 private:

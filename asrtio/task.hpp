@@ -15,6 +15,7 @@ enum class status
         init_failed,
         bind_failed,
         listen_failed,
+        send_failed,
 };
 
 inline char const* status_to_str( status s )
@@ -32,6 +33,8 @@ inline char const* status_to_str( status s )
                 return "bind_failed";
         case status::listen_failed:
                 return "listen_failed";
+        case status::send_failed:
+                return "send_failed";
         }
         return "unknown_status";
 }

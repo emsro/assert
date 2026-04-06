@@ -107,8 +107,16 @@ struct conn_ctx
                         ASRTL_ERR_LOG(
                             "test_rsim", "Reactor tick failed: %s", asrtr_status_to_str( s ) );
                 }
-                std::ignore = r_param.tick();
-                std::ignore = r_collect.tick();
+                if ( auto s = r_param.tick(); s != ASRTL_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "test_rsim",
+                            "Param tick failed: %s",
+                            asrtl_status_to_str( s ) );
+                if ( auto s = r_collect.tick(); s != ASRTL_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "test_rsim",
+                            "Collect tick failed: %s",
+                            asrtl_status_to_str( s ) );
         }
 
         cobs_node rx;

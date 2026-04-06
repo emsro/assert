@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../asrtc/collect.h"
+#include "../asrtc/status_to_str.h"
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
@@ -16,11 +19,6 @@ namespace asrtc
 struct collect_server
 {
         /// Construct and link into the node chain.
-        /// @param prev           Previous node in channel chain.
-        /// @param send_cb        Callable matching asrtl_status(chann_id, rec_span*).
-        /// @param alloc          Allocator for internal flat_tree storage.
-        /// @param tree_block_cap Initial block capacity for flat_tree.
-        /// @param tree_node_cap  Initial node capacity for flat_tree.
         template < typename CB >
         collect_server(
             asrtl_node*            prev,
@@ -29,8 +27,20 @@ struct collect_server
             uint32_t               tree_block_cap,
             uint32_t               tree_node_cap )
         {
-                std::ignore = asrtc_collect_server_init(
-                    &server_, prev, asrtl::make_sender( send_cb ), alloc, tree_block_cap, tree_node_cap );
+                if ( auto s = asrtc_collect_server_init(
+                         &server_,
+                         prev,
+                         asrtl::make_sender( send_cb ),
+                         alloc,
+                         tree_block_cap,
+                         tree_node_cap );
+                     s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtc_collect",
+                            "init failed: %s",
+                            asrtc_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         collect_server( collect_server&& )      = delete;

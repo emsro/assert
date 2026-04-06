@@ -1,8 +1,11 @@
 #pragma once
 
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/param.h"
+#include "../asrtr/status_to_str.h"
 
 #include <concepts>
 #include <cstdint>
@@ -98,8 +101,13 @@ struct param_client
         template < asrtl::sender_callable CB >
         param_client( asrtl_node* prev, CB& send_cb, asrtl_span msg_buffer, uint32_t timeout )
         {
-                std::ignore = asrtr_param_client_init(
-                    &client_, prev, asrtl::make_sender( send_cb ), msg_buffer, timeout );
+                if ( auto s = asrtr_param_client_init(
+                         &client_, prev, asrtl::make_sender( send_cb ), msg_buffer, timeout );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         param_client(
@@ -108,8 +116,12 @@ struct param_client
             asrtl_span   msg_buffer,
             uint32_t     timeout )
         {
-                std::ignore =
-                    asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
+                if ( auto s = asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         param_client( param_client&& )      = delete;

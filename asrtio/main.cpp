@@ -14,6 +14,7 @@
 #include <list>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <uv.h>
 #include <vector>
 
@@ -126,8 +127,11 @@ task< void > run_tcp(
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
-        uv_tcp_t      client;
-        std::ignore = uv_tcp_init( loop, &client );
+        uv_tcp_t client;
+        if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
+                ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
+                throw std::runtime_error( "uv_tcp_init failed" );
+        }
         co_await tcp_connect{ &client, host, port };
         steady_clock clk;
         cntr_tcp_sys sys{ &client, clk };
@@ -152,7 +156,10 @@ task< void > run_rsim(
         rs.start();
 
         uv_tcp_t client;
-        std::ignore = uv_tcp_init( loop, &client );
+        if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
+                ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
+                throw std::runtime_error( "uv_tcp_init failed" );
+        }
         co_await tcp_connect{ &client, "0.0.0.0", rs.port() };
         steady_clock clk;
         cntr_tcp_sys sys{ &client, clk };

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../asrtc/param.h"
+#include "../asrtc/status_to_str.h"
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 
@@ -12,8 +15,13 @@ struct param_server
         template < typename CB >
         param_server( asrtl_node* prev, CB& send_cb, struct asrtl_allocator alloc )
         {
-                std::ignore =
-                    asrtc_param_server_init( &server_, prev, asrtl::make_sender( send_cb ), alloc );
+                if ( auto s = asrtc_param_server_init(
+                         &server_, prev, asrtl::make_sender( send_cb ), alloc );
+                     s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtc_param", "init failed: %s", asrtc_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         param_server( param_server&& )      = delete;

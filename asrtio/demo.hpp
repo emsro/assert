@@ -19,11 +19,11 @@
 
 #include "../asrtr/diag.h"
 #include "../asrtr/record.h"
-#include "../asrtrpp/collect.hpp"
-#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/param_sender.hpp"
+#include "../asrtrpp/collect.hpp"
+#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/task_unit.hpp"
 
 #include <functional>
@@ -264,18 +264,28 @@ inline demo_spec make_demo_param_value()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq          = {};
-                            std::ignore = self.param.fetch< asrtl::obj >(
-                                &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                            pq = {};
+                            if ( auto s = self.param.fetch< asrtl::obj >(
+                                     &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                                 s != ASRTL_SUCCESS ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    r.state = ASRTR_TEST_FAIL;
+                                    return ASRTR_SUCCESS;
+                            }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
-                            auto first  = pq.first_child;
-                            pq          = {};
-                            std::ignore = self.param.fetch< uint32_t >(
-                                &pq.q, first, detail::param_u32_qr_cb, &pq );
+                            auto first = pq.first_child;
+                            pq = {};
+                            if ( auto s = self.param.fetch< uint32_t >(
+                                     &pq.q, first, detail::param_u32_qr_cb, &pq );
+                                 s != ASRTL_SUCCESS ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    r.state = ASRTR_TEST_FAIL;
+                                    return ASRTR_SUCCESS;
+                            }
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
@@ -320,18 +330,28 @@ inline demo_spec make_demo_param_count()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq          = {};
-                            std::ignore = self.param.fetch< asrtl::obj >(
-                                &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                            pq = {};
+                            if ( auto s = self.param.fetch< asrtl::obj >(
+                                     &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                                 s != ASRTL_SUCCESS ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    r.state = ASRTR_TEST_FAIL;
+                                    return ASRTR_SUCCESS;
+                            }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
-                            auto first  = pq.first_child;
-                            pq          = {};
-                            std::ignore = self.param.fetch< void >(
-                                &pq.q, first, detail::param_any_qr_cb, &pq );
+                            auto first = pq.first_child;
+                            pq = {};
+                            if ( auto s = self.param.fetch< void >(
+                                     &pq.q, first, detail::param_any_qr_cb, &pq );
+                                 s != ASRTL_SUCCESS ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    r.state = ASRTR_TEST_FAIL;
+                                    return ASRTR_SUCCESS;
+                            }
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
@@ -339,10 +359,16 @@ inline demo_spec make_demo_param_count()
                     case 2:
                             ++child_count;
                             if ( pq.next_sib != 0 ) {
-                                    auto next   = pq.next_sib;
-                                    pq          = {};
-                                    std::ignore = self.param.fetch< void >(
-                                        &pq.q, next, detail::param_any_qr_cb, &pq );
+                                    auto next = pq.next_sib;
+                                    pq = {};
+                                    if ( auto s = self.param.fetch< void >(
+                                             &pq.q, next, detail::param_any_qr_cb, &pq );
+                                         s != ASRTL_SUCCESS ) {
+                                            self.diag.record(
+                                                "demo.hpp", __LINE__, "fetch failed" );
+                                            r.state = ASRTR_TEST_FAIL;
+                                            return ASRTR_SUCCESS;
+                                    }
                                     r.state = ASRTR_TEST_RUNNING;
                                     return ASRTR_SUCCESS;
                             }
@@ -379,13 +405,18 @@ inline demo_spec make_demo_param_find()
                                     r.state = ASRTR_TEST_PASS;
                                     return ASRTR_SUCCESS;
                             }
-                            pq          = {};
-                            std::ignore = self.param.find< uint32_t >(
-                                &pq.q,
-                                self.param.root_id(),
-                                "count",
-                                detail::param_u32_qr_cb,
-                                &pq );
+                            pq = {};
+                            if ( auto s = self.param.find< uint32_t >(
+                                     &pq.q,
+                                     self.param.root_id(),
+                                     "count",
+                                     detail::param_u32_qr_cb,
+                                     &pq );
+                                 s != ASRTL_SUCCESS ) {
+                                    self.diag.record( "demo.hpp", __LINE__, "find failed" );
+                                    r.state = ASRTR_TEST_FAIL;
+                                    return ASRTR_SUCCESS;
+                            }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
                             return ASRTR_SUCCESS;
@@ -576,19 +607,22 @@ struct param_type_overview_task : asrtr::task_test
                 if ( !b )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list obj = co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
+                asrtl_flat_child_list obj =
+                    co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
                 if ( obj.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list arr = co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
+                asrtl_flat_child_list arr =
+                    co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
                 if ( arr.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
                 // Iterate over array elements
-                uint32_t       count = 0;
-                asrtl::flat_id id    = arr.first_child;
+                uint32_t          count = 0;
+                asrtl::flat_id    id    = arr.first_child;
                 while ( id != 0 ) {
-                        auto [val, key, next_sibling] = co_await asrtr::fetch< uint32_t >( pc, id );
+                        auto [val, key, next_sibling] =
+                            co_await asrtr::fetch< uint32_t >( pc, id );
                         ++count;
                         id = next_sibling;
                 }
@@ -616,7 +650,7 @@ struct param_type_overview_task : asrtr::task_test
 /// Produces: root OBJECT → "value" U32=42, "tag" STR="demo"
 struct collect_demo_task : asrtr::task_test
 {
-        char const*            name = "collect_demo_task";
+        char const*           name = "collect_demo_task";
         asrtr::collect_client& cc;
 
         collect_demo_task( asrtr::task_ctx& ctx, asrtr::collect_client& c )
@@ -629,8 +663,8 @@ struct collect_demo_task : asrtr::task_test
         {
                 auto root = cc.root_id();
                 auto obj  = co_await asrtr::append< asrtl::obj >( cc, root );
-                co_await asrtr::append< uint32_t >( cc, obj, "value", 42u );
-                co_await asrtr::append< char const* >( cc, obj, "tag", "demo" );
+                co_await asrtr::append( cc, obj, "value", 42u );
+                co_await asrtr::append( cc, obj, "tag", "demo" );
         }
 };
 

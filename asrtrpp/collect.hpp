@@ -1,8 +1,11 @@
 #pragma once
 
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/collect.h"
+#include "../asrtr/status_to_str.h"
 
 #include <concepts>
 
@@ -80,13 +83,23 @@ struct collect_client
         template < asrtl::sender_callable CB >
         collect_client( asrtl_node* prev, CB& send_cb )
         {
-                std::ignore =
-                    asrtr_collect_client_init( &client_, prev, asrtl::make_sender( send_cb ) );
+                if ( auto s = asrtr_collect_client_init(
+                         &client_, prev, asrtl::make_sender( send_cb ) );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_collect", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         collect_client( asrtl_node* prev, asrtl_sender sender )
         {
-                std::ignore = asrtr_collect_client_init( &client_, prev, sender );
+                if ( auto s = asrtr_collect_client_init( &client_, prev, sender );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_collect", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         collect_client( collect_client&& )      = delete;

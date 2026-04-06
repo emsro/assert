@@ -1,8 +1,11 @@
 #pragma once
 
+#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/log.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
+#include "../asrtr/status_to_str.h"
 
 #include <span>
 
@@ -44,12 +47,21 @@ struct reactor
         template < asrtl::sender_callable CB >
         reactor( CB& send_cb, char const* desc )
         {
-                std::ignore = asrtr_reactor_init( &reac, asrtl::make_sender( send_cb ), desc );
+                if ( auto s = asrtr_reactor_init( &reac, asrtl::make_sender( send_cb ), desc );
+                     s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_reactor", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         reactor( asrtl_sender sender, char const* desc )
         {
-                std::ignore = asrtr_reactor_init( &reac, sender, desc );
+                if ( auto s = asrtr_reactor_init( &reac, sender, desc ); s != ASRTR_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtr_reactor", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ASSERT( false );
+                }
         }
 
         reactor( reactor&& )      = delete;

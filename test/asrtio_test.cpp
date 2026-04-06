@@ -424,8 +424,7 @@ static asrtio::task< void > param_e2e_coro(
         asrtio::steady_clock clk;
         asrtio::cntr_tcp_sys sys{ &client, clk };
         sys.start();
-        auto noop = [] {};
-        sys.set_param_tree( tree, 1u, noop, 1000ms );
+        co_await asrtio::cntr_set_param_tree{ sys, tree, 1u, 1000ms };
         asrtio::param_config no_params;
         co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, no_params );
 
@@ -438,29 +437,35 @@ static asrtio::task< void > param_e2e_coro(
         state.param_ready = true;
         state.root_id     = conn.param().root_id();
 
-        std::ignore =
-            conn.param().fetch( &state.query, state.root_id, param_e2e_state::query_cb, &state );
+        REQUIRE_EQ(
+            ASRTL_SUCCESS,
+            conn.param().fetch(
+                &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
 
         while ( state.received.size() < 1 )
                 co_await ecor::suspend;
 
         if ( state.received[0].value.type == ASRTL_FLAT_CTYPE_OBJECT ) {
-                std::ignore = conn.param().fetch(
-                    &state.query,
-                    state.received[0].value.data.cont.first_child,
-                    param_e2e_state::query_cb,
-                    &state );
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS,
+                    conn.param().fetch(
+                        &state.query,
+                        state.received[0].value.data.cont.first_child,
+                        param_e2e_state::query_cb,
+                        &state ) );
         }
 
         while ( state.received.size() < 2 )
                 co_await ecor::suspend;
 
         if ( state.received[1].next_sibling != 0 ) {
-                std::ignore = conn.param().fetch(
-                    &state.query,
-                    state.received[1].next_sibling,
-                    param_e2e_state::query_cb,
-                    &state );
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS,
+                    conn.param().fetch(
+                        &state.query,
+                        state.received[1].next_sibling,
+                        param_e2e_state::query_cb,
+                        &state ) );
         }
 
         while ( state.received.size() < 3 )
