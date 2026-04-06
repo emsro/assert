@@ -72,6 +72,24 @@ asrtr_diag     (DIAG channel)    asrtc_diag        (DIAG channel)
 
 Modules are opt-in: if a feature is not needed, its module is simply not initialised and has zero runtime cost. The same mechanism allows adding custom modules for application-specific channels without modifying the library.
 
+## Diagnostic channel
+
+The **diagnostic channel** (channel ID 3) carries source-location records from the target to the host. When a test assertion fails (via `ASRTR_CHECK` or `ASRTR_REQUIRE`), the reactor sends a RECORD message containing the filename, line number, and the failed expression. The controller collects these so that can be drained after each test.
+
+```mermaid
+sequenceDiagram
+    participant Host as Controller (host)
+    participant Target as Reactor (target)
+
+    Note over Target: assertion fails
+    Target->>Host: RECORD (file, line, expression)
+    Note over Target: another assertion fails
+    Target->>Host: RECORD (file, line, expression)
+    Note over Host: host drains records after test
+```
+
+The flow is unidirectional — the target fires records and the host accumulates them. There is no acknowledgement or handshake; records are best-effort within the existing reliable byte stream.
+
 ## Parameter channel
 
 In addition to test control and diagnostics, the framework provides a **parameter channel** (channel ID 4) for querying structured configuration data from the target at runtime.
@@ -82,6 +100,20 @@ The target exposes a read-only tree of typed values — integers, floats, boolea
 - **Find by key** — look up a child node by name within a parent object.
 
 Responses are cached on the host side; repeated queries for nodes already in the cache are served locally without a round-trip. The client API supports both C and C++ with typed callback helpers (`query_u32`, `find_str`, …) and C++ template wrappers (`client.query<uint32_t>(…)`, `client.find<uint32_t>(…)`).
+
+```mermaid
+sequenceDiagram
+    participant Host as Controller (host)
+    participant Target as Reactor (target)
+
+    Host->>Target: READY (root_id)
+    Target->>Host: READY_ACK (max_msg_size)
+    Target->>Host: QUERY (node_id)
+    Host->>Target: RESPONSE (node_id, key, type, value, …)
+    Target->>Host: FIND_BY_KEY (parent_id, key)
+    Host->>Target: RESPONSE (node_id, key, type, value, …)
+    Note over Host,Target: Responses are cached; repeated queries are served locally
+```
 
 ## Collector channel
 
