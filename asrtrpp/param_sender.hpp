@@ -11,9 +11,9 @@ struct param_result
 {
         using value_type = typename param_query_traits< T >::value_type;
 
-        value_type    value;
-        char const*   key;  // Points to internal buffer of param client, valid until next query
-        asrtl_flat_id next_sibling;
+        value_type        value;
+        char const*       key;  // Points to internal buffer of param client, valid until next query
+        asrtl::flat_id    next_sibling;
 
         operator value_type() const
         {
@@ -33,7 +33,7 @@ struct param_query_sender
 
         param_client* client_;
         char const*   key;
-        asrtl_flat_id node_id;
+        asrtl::flat_id node_id;
 
         template < ecor::receiver R >
         struct op
@@ -41,10 +41,10 @@ struct param_query_sender
                 asrtr_param_query q;
                 param_client*     c;
                 char const*       key;
-                asrtl_flat_id     node_id;
+                asrtl::flat_id    node_id;
                 R                 recv;
 
-                op( R&& r, param_client* client, char const* k, asrtl_flat_id id )
+                op( R&& r, param_client* client, char const* k, asrtl::flat_id id )
                   : c( client )
                   , key( k )
                   , node_id( id )
@@ -83,13 +83,13 @@ struct param_query_sender
 };
 
 template < typename T >
-ecor::sender auto fetch( param_client& client, asrtl_flat_id node_id )
+ecor::sender auto fetch( param_client& client, asrtl::flat_id node_id )
 {
         return param_query_sender< T >{ &client, nullptr, node_id };
 }
 
 template < typename T >
-ecor::sender auto find( param_client& client, asrtl_flat_id parent_id, char const* key )
+ecor::sender auto find( param_client& client, asrtl::flat_id parent_id, char const* key )
 {
         return param_query_sender< T >{ &client, key, parent_id };
 }

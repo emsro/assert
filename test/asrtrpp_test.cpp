@@ -337,10 +337,10 @@ struct param_loopback_cpp_ctx
         // response state
         struct received_node
         {
-                asrtl_flat_id    id;
+                asrtl::flat_id   id;
                 std::string      key;
                 asrtl_flat_value value;
-                asrtl_flat_id    next_sibling;
+                asrtl::flat_id   next_sibling;
         };
         std::vector< received_node > received;
         int                          error_called = 0;
@@ -387,7 +387,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
 {
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
         srv.set_tree( &tree );
 
         CHECK_FALSE( cli.ready() );
@@ -404,9 +404,10 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
 {
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
-        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_str( "hi" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
         auto noop = [] {};
@@ -419,23 +420,23 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         spin_query();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
-        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_OBJECT, (uint8_t) received[0].value.type );
-        asrtl_flat_id first_child = received[0].value.obj_val.first_child;
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_CTYPE_OBJECT, (uint8_t) received[0].value.type );
+        asrtl::flat_id first_child = received[0].value.data.cont.first_child;
 
         // Query first child "a"
         CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, first_child, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( "a", received[1].key );
-        CHECK_EQ( 10u, received[1].value.u32_val );
-        asrtl_flat_id next_sib = received[1].next_sibling;
+        CHECK_EQ( 10u, received[1].value.data.s.u32_val );
+        asrtl::flat_id next_sib = received[1].next_sibling;
 
         // Query next sibling "b"
         CHECK_EQ( ASRTL_SUCCESS, cli.fetch( &query, next_sib, query_cb, this ) );
         spin_query();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( "b", received[2].key );
-        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[2].value.type );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_STYPE_STR, (uint8_t) received[2].value.type );
         CHECK_EQ( 0u, received[2].next_sibling );
 
         CHECK_EQ( 0, error_called );
@@ -446,7 +447,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
 {
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
         srv.set_tree( &tree );
 
         auto noop = [] {};
@@ -548,8 +549,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
@@ -567,8 +569,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_mismatch" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "nope" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_STR, { .str_val = "nope" } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
@@ -586,8 +589,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_i32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_i32( -7 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_I32, { .i32_val = -7 } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, int32_t v ) {
@@ -605,8 +609,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_str_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "hello" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
@@ -625,8 +630,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_float_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_float( 3.14f ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_FLOAT, { .float_val = 3.14f } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, float v ) {
@@ -644,13 +650,14 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 99 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, asrtl_flat_value v ) {
                 cb_count++;
-                u32_val = v.u32_val;
+                u32_val = v.data.s.u32_val;
         };
         // untyped query — explicit asrtl_flat_value
         CHECK_EQ( ASRTL_SUCCESS, cli.fetch< asrtl_flat_value >( &query, 2u, cb ) );
@@ -664,8 +671,8 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 7 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } );
         setup_tree_and_handshake( &tree );
 
         CHECK_FALSE( cli.query_pending() );
@@ -688,7 +695,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
 // C++ query timeout tests
 // ============================================================================
 
-static asrtl_status send_ready_to_client( asrtr::param_client& cli, asrtl_flat_id root_id )
+static asrtl_status send_ready_to_client( asrtr::param_client& cli, asrtl::flat_id root_id )
 {
         uint8_t  buf[8];
         uint8_t* p = buf;
@@ -753,9 +760,10 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
 {
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
-        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_str( "hi" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
         auto noop = [] {};
@@ -769,7 +777,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 3u, received[0].id );
         CHECK_EQ( "b", received[0].key );
-        CHECK_EQ( (uint8_t) ASRTL_FLAT_VALUE_TYPE_STR, (uint8_t) received[0].value.type );
+        CHECK_EQ( (uint8_t) ASRTL_FLAT_STYPE_STR, (uint8_t) received[0].value.type );
         CHECK_EQ( 0, error_called );
 
         asrtl_flat_tree_deinit( &tree );
@@ -779,9 +787,11 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_u32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 42 ) );
-        asrtl_flat_tree_append( &tree, 1, 3, "other", asrtl_flat_value_str( "x" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 3, "other", ASRTL_FLAT_STYPE_STR, { .str_val = "x" } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
@@ -799,8 +809,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_str_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "world" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_STR, { .str_val = "world" } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
@@ -819,8 +830,8 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_not_found" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 7 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
@@ -838,8 +849,9 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_c_callback" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 55 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 55 } );
         setup_tree_and_handshake( &tree );
 
         auto c_cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t v ) {
@@ -1370,7 +1382,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_u32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append_scalar(
+            &tree, 0, 1, nullptr, ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1384,7 +1397,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_i32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_i32( -5 ) );
+        asrtl_flat_tree_append_scalar(
+            &tree, 0, 1, nullptr, ASRTL_FLAT_STYPE_I32, { .i32_val = -5 } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1400,8 +1414,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_u32_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "count", asrtl_flat_value_u32( 7 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "count", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1415,8 +1430,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_str_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "msg", asrtl_flat_value_str( "hello" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "msg", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1430,8 +1446,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_float_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "pi", asrtl_flat_value_float( 3.14f ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "pi", ASRTL_FLAT_STYPE_FLOAT, { .float_val = 3.14f } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1445,12 +1462,12 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_obj_happy" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "sub", asrtl_flat_value_object() );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_cont( &tree, 1, 2, "sub", ASRTL_FLAT_CTYPE_OBJECT );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
-                return ps_do_find< asrtr::param_obj >( ctx, cli, 1, "sub" );
+                return ps_do_find< asrtl::obj >( ctx, cli, 1, "sub" );
         } );
         CHECK_EQ( ASRTR_TEST_PASS, state );
         asrtl_flat_tree_deinit( &tree );
@@ -1462,7 +1479,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_type_mismatch" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_str( "nope" ) );
+        asrtl_flat_tree_append_scalar(
+            &tree, 0, 1, nullptr, ASRTL_FLAT_STYPE_STR, { .str_val = "nope" } );
         setup_tree_and_handshake( &tree );
 
         // Request u32 but node is a string → TYPE_MISMATCH → set_error
@@ -1477,8 +1495,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_type_mismatch" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "nope" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_STR, { .str_val = "nope" } );
         setup_tree_and_handshake( &tree );
 
         // Request u32 but "val" is a string → TYPE_MISMATCH
@@ -1495,8 +1514,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_key_not_found" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_u32( 5 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 5 } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
@@ -1531,9 +1550,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_query_pending" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 1 ) );
-        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_u32( 2 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } );
+        asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } );
         setup_tree_and_handshake( &tree );
 
         // Start a raw query to occupy the pending slot
@@ -1559,8 +1578,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_value_in_coroutine" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "count", asrtl_flat_value_u32( 42 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "count", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
         setup_tree_and_handshake( &tree );
 
         uint32_t captured = 0;
@@ -1576,8 +1596,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_value_in_coroutine" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "msg", asrtl_flat_value_str( "hi" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "msg", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         setup_tree_and_handshake( &tree );
 
         std::string captured;
@@ -1595,8 +1616,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_error_propagates_in_coroutine" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "val", asrtl_flat_value_str( "nope" ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 2, "val", ASRTL_FLAT_STYPE_STR, { .str_val = "nope" } );
         setup_tree_and_handshake( &tree );
 
         bool reached = false;
@@ -1614,9 +1636,9 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_sequential_queries_in_coroutine" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
-        asrtl_flat_tree_append( &tree, 1, 3, "b", asrtl_flat_value_u32( 20 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } );
+        asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } );
         setup_tree_and_handshake( &tree );
 
         uint32_t sum   = 0;
@@ -1634,8 +1656,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
 {
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 16 );
-        asrtl_flat_tree_append( &tree, 0, 1, nullptr, asrtl_flat_value_object() );
-        asrtl_flat_tree_append( &tree, 1, 2, "a", asrtl_flat_value_u32( 10 ) );
+        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } );
         setup_tree_and_handshake( &tree );
 
         uint32_t first_val = 0;
@@ -1647,4 +1669,166 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
         CHECK_EQ( 10u, first_val );
         CHECK_FALSE( reached );
         asrtl_flat_tree_deinit( &tree );
+}
+
+// ---------------------------------------------------------------------------
+// collect_client (C++ wrapper)
+// ---------------------------------------------------------------------------
+
+#include "../asrtrpp/collect.hpp"
+
+static inline asrtl_status inject_collect_msg( asrtl_node* n, uint8_t* b, uint8_t* e )
+{
+        return n->recv_cb( n->recv_ptr, (asrtl_span) { .b = b, .e = e } );
+}
+
+static inline uint8_t* make_coll_ready(
+    uint8_t* buf, asrtl::flat_id root_id, asrtl::flat_id next_node_id = 1 )
+{
+        uint8_t* p = buf;
+        *p++       = ASRTL_COLLECT_MSG_READY;
+        asrtl_add_u32( &p, root_id );
+        asrtl_add_u32( &p, next_node_id );
+        return p;
+}
+
+struct collect_cpp_ctx
+{
+        collector             coll;
+        collect_sender        send_fn{ &coll };
+        asrtl_node            head{};
+        asrtr::collect_client cc{ &head, send_fn };
+
+        void make_active( asrtl::flat_id root_id = 1u )
+        {
+                uint8_t buf[16];
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS,
+                    inject_collect_msg( cc.node(), buf, make_coll_ready( buf, root_id ) ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, cc.tick() );
+                coll.data.clear();
+        }
+};
+
+TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_handshake" )
+{
+        uint8_t buf[16];
+        CHECK_EQ(
+            ASRTL_SUCCESS, inject_collect_msg( cc.node(), buf, make_coll_ready( buf, 42u ) ) );
+
+        CHECK_EQ( ASRTL_SUCCESS, cc.tick() );
+        CHECK_EQ( 42u, cc.root_id() );
+
+        REQUIRE_EQ( 1u, coll.data.size() );
+        CHECK_EQ( ASRTL_COLL, coll.data.front().id );
+        CHECK_EQ( ASRTL_COLLECT_MSG_READY_ACK, coll.data.front().data[0] );
+}
+
+TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
+{
+        make_active();
+
+        asrtl::flat_id obj = 0;
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< asrtl::obj >( 0, "root", obj ) );
+        CHECK_NE( 0u, obj );
+
+        asrtl::flat_id arr = 0;
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< asrtl::arr >( obj, "items", arr ) );
+        CHECK_NE( 0u, arr );
+
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< uint32_t >( obj, "count", 42 ) );
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< int32_t >( obj, "offset", -7 ) );
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< char const* >( obj, "name", "hello" ) );
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< bool >( obj, "flag", true ) );
+        CHECK_EQ( ASRTL_SUCCESS, cc.append< float >( obj, "ratio", 3.14f ) );
+
+        // 1 object + 1 array + 5 scalars = 7 messages
+        CHECK_EQ( 7u, coll.data.size() );
+}
+
+// ---------------------------------------------------------------------------
+// collect_sender (coroutine support)
+// ---------------------------------------------------------------------------
+
+#include "../asrtrpp/collect_sender.hpp"
+
+asrtr::task< void > cs_do_append_scalar(
+    asrtr::task_ctx&,
+    asrtr::collect_client& cc,
+    asrtl::flat_id         parent )
+{
+        co_await asrtr::append( cc, parent, "count", 42 );
+        co_await asrtr::append( cc, parent, "offset", -7 );
+        co_await asrtr::append( cc, parent, "name", "hello" );
+        co_await asrtr::append( cc, parent, "flag", true );
+        co_await asrtr::append( cc, parent, "ratio", 3.14f );
+}
+
+asrtr::task< void > cs_do_append_tree( asrtr::task_ctx&, asrtr::collect_client& cc )
+{
+        auto root = co_await asrtr::append< asrtl::obj >( cc, 0, "root" );
+        auto arr  = co_await asrtr::append< asrtl::arr >( cc, root, "items" );
+        co_await asrtr::append( cc, arr, 10 );
+        co_await asrtr::append( cc, arr, 20 );
+        co_await asrtr::append( cc, root, "label", "test" );
+}
+
+struct collect_sender_ctx : collect_cpp_ctx
+{
+        asrtl::malloc_free_memory_resource mem;
+        asrtr::task_ctx                    tctx{ mem };
+
+        template < typename F >
+        asrtr_test_state run_task( F&& make_task )
+        {
+                struct test_recv
+                {
+                        using receiver_concept = ecor::receiver_t;
+                        asrtr_test_state* out;
+
+                        void set_value()
+                        {
+                                *out = ASRTR_TEST_PASS;
+                        }
+                        void set_error( asrtr::task_error )
+                        {
+                                *out = ASRTR_TEST_FAIL;
+                        }
+                        void set_error( ecor::task_error )
+                        {
+                                *out = ASRTR_TEST_FAIL;
+                        }
+                        void set_stopped()
+                        {
+                                *out = ASRTR_TEST_FAIL;
+                        }
+                };
+                asrtr_test_state result = ASRTR_TEST_INIT;
+                auto             op     = make_task( tctx ).connect( test_recv{ &result } );
+                op.start();
+                for ( int i = 0; i < 100 && result == ASRTR_TEST_INIT; i++ )
+                        tctx.tick();
+                return result;
+        }
+};
+
+TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_scalars" )
+{
+        make_active();
+        auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
+                return cs_do_append_scalar( ctx, cc, 0 );
+        } );
+        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( 5u, coll.data.size() );
+}
+
+TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
+{
+        make_active();
+        auto state = run_task( [&]( asrtr::task_ctx& ctx ) {
+                return cs_do_append_tree( ctx, cc );
+        } );
+        CHECK_EQ( ASRTR_TEST_PASS, state );
+        // 1 obj + 1 arr + 2 u32 + 1 str = 5 messages
+        CHECK_EQ( 5u, coll.data.size() );
 }

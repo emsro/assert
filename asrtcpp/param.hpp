@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../asrtc/param.h"
+#include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 
 namespace asrtc
@@ -29,7 +30,7 @@ struct param_server
         }
 
         template < typename CB >
-        [[nodiscard]] asrtl_status send_ready( asrtl_flat_id root_id, CB& ack_cb, uint32_t timeout )
+        [[nodiscard]] asrtl_status send_ready( asrtl::flat_id root_id, CB& ack_cb, uint32_t timeout )
         {
                 return asrtc_param_server_send_ready(
                     &server_,
@@ -39,6 +40,16 @@ struct param_server
                             ( *reinterpret_cast< CB* >( p ) )();
                     },
                     &ack_cb );
+        }
+
+        [[nodiscard]] asrtl_status send_ready(
+            asrtl::flat_id           root_id,
+            asrtc_param_ready_ack_cb ack_cb,
+            void*                    ack_cb_ptr,
+            uint32_t                 timeout )
+        {
+                return asrtc_param_server_send_ready(
+                    &server_, root_id, timeout, ack_cb, ack_cb_ptr );
         }
 
         asrtl_status tick( uint32_t now )

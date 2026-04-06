@@ -24,39 +24,39 @@ static void asrtr_param_dispatch_cb(
         struct asrtl_flat_value const*       v        = type_ok ? val : &zero_val;
 
         switch ( q->expected_type ) {
-        case ASRTL_FLAT_VALUE_TYPE_NONE:
+        case ASRTL_FLAT_STYPE_NONE:
                 if ( q->cb.any )
                         q->cb.any( client, q, *val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_U32:
+        case ASRTL_FLAT_STYPE_U32:
                 if ( q->cb.u32 )
-                        q->cb.u32( client, q, v->u32_val );
+                        q->cb.u32( client, q, v->data.s.u32_val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_I32:
+        case ASRTL_FLAT_STYPE_I32:
                 if ( q->cb.i32 )
-                        q->cb.i32( client, q, v->i32_val );
+                        q->cb.i32( client, q, v->data.s.i32_val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_STR:
+        case ASRTL_FLAT_STYPE_STR:
                 if ( q->cb.str )
-                        q->cb.str( client, q, v->str_val );
+                        q->cb.str( client, q, v->data.s.str_val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_FLOAT:
+        case ASRTL_FLAT_STYPE_FLOAT:
                 if ( q->cb.flt )
-                        q->cb.flt( client, q, v->float_val );
+                        q->cb.flt( client, q, v->data.s.float_val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_BOOL:
+        case ASRTL_FLAT_STYPE_BOOL:
                 if ( q->cb.bln )
-                        q->cb.bln( client, q, v->bool_val );
+                        q->cb.bln( client, q, v->data.s.bool_val );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_OBJECT:
+        case ASRTL_FLAT_CTYPE_OBJECT:
                 if ( q->cb.obj )
-                        q->cb.obj( client, q, v->obj_val );
+                        q->cb.obj( client, q, v->data.cont );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_ARRAY:
+        case ASRTL_FLAT_CTYPE_ARRAY:
                 if ( q->cb.arr )
-                        q->cb.arr( client, q, v->arr_val );
+                        q->cb.arr( client, q, v->data.cont );
                 break;
-        case ASRTL_FLAT_VALUE_TYPE_NULL:
+        case ASRTL_FLAT_STYPE_NULL:
                 ASRTL_ERR_LOG( "asrtr_param_client", "unsupported expected_type NULL" );
                 break;
         }
@@ -70,7 +70,7 @@ static void asrtr_param_finish_query(
         client->pending_query       = NULL;
 
         int has_error = q->error_code != 0;
-        int type_ok   = !has_error && ( q->expected_type == ASRTL_FLAT_VALUE_TYPE_NONE ||
+        int type_ok   = !has_error && ( q->expected_type == ASRTL_FLAT_STYPE_NONE ||
                                       val->type == q->expected_type );
         if ( !has_error && !type_ok ) {
                 ASRTL_ERR_LOG(
@@ -87,7 +87,7 @@ static void asrtr_param_finish_query(
 static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span* buff )
 {
         struct asrtr_param_client* client = (struct asrtr_param_client*) p;
-        return asrtl_send( &client->sendr, ASRTL_PARAM, buff );
+        return asrtl_send( &client->sendr, ASRTL_PARA, buff );
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +340,7 @@ enum asrtr_status asrtr_param_client_init(
         *client = ( struct asrtr_param_client ){
             .node =
                 ( struct asrtl_node ){
-                    .chid     = ASRTL_PARAM,
+                    .chid     = ASRTL_PARA,
                     .recv_ptr = client,
                     .recv_cb  = asrtr_param_client_recv,
                     .next     = NULL,

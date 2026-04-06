@@ -129,58 +129,12 @@ static inline enum asrtl_status asrtl_msg_ctor_param_error(
 // including node_id, key, or type byte).
 static inline size_t asrtl_param_value_wire_size( struct asrtl_flat_value v )
 {
-        switch ( v.type ) {
-        case ASRTL_FLAT_VALUE_TYPE_STR:
-                return strlen( v.str_val ) + 1U;
-        case ASRTL_FLAT_VALUE_TYPE_U32:
-        case ASRTL_FLAT_VALUE_TYPE_BOOL:
-        case ASRTL_FLAT_VALUE_TYPE_FLOAT:
-        case ASRTL_FLAT_VALUE_TYPE_I32:
-                return 4U;
-        case ASRTL_FLAT_VALUE_TYPE_ARRAY:
-                return 8U;
-        default:
-                return 0U;
-        }
+        return asrtl_flat_value_wire_size( v );
 }
 
 static inline void asrtl_param_write_value( uint8_t** p, struct asrtl_flat_value v )
 {
-        switch ( v.type ) {
-        case ASRTL_FLAT_VALUE_TYPE_NONE:
-        case ASRTL_FLAT_VALUE_TYPE_NULL:
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_STR: {
-                size_t sl = strlen( v.str_val );
-                memcpy( *p, v.str_val, sl );
-                *p += sl;
-                *( *p )++ = '\0';
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_U32:
-                asrtl_add_u32( p, v.u32_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_I32:
-                asrtl_add_i32( p, v.i32_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_BOOL:
-                asrtl_add_u32( p, v.bool_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_FLOAT: {
-                uint32_t bits;
-                memcpy( &bits, &v.float_val, sizeof bits );
-                asrtl_add_u32( p, bits );
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_OBJECT:
-                asrtl_add_u32( p, v.obj_val.first_child );
-                asrtl_add_u32( p, v.obj_val.last_child );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_ARRAY:
-                asrtl_add_u32( p, v.arr_val.first_child );
-                asrtl_add_u32( p, v.arr_val.last_child );
-                break;
-        }
+        asrtl_flat_value_write( p, v );
 }
 
 static inline enum asrtl_status asrtl_param_decode_value(
@@ -188,59 +142,7 @@ static inline enum asrtl_status asrtl_param_decode_value(
     uint8_t                  raw_type,
     struct asrtl_flat_value* val )
 {
-        val->type = (enum asrtl_flat_value_type) raw_type;
-        switch ( raw_type ) {
-        case ASRTL_FLAT_VALUE_TYPE_NONE:
-        case ASRTL_FLAT_VALUE_TYPE_NULL:
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_STR: {
-                size_t   search_len = (size_t) ( buff->e - buff->b ) - 4U;
-                uint8_t* snul       = (uint8_t*) memchr( buff->b, '\0', search_len );
-                if ( !snul )
-                        return ASRTL_RECV_ERR;
-                val->str_val = (char const*) buff->b;
-                buff->b      = snul + 1;
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_U32:
-                if ( asrtl_span_unfit_for( buff, 4 ) )
-                        return ASRTL_RECV_ERR;
-                asrtl_cut_u32( &buff->b, &val->u32_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_I32:
-                if ( asrtl_span_unfit_for( buff, 4 ) )
-                        return ASRTL_RECV_ERR;
-                asrtl_cut_i32( &buff->b, &val->i32_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_BOOL:
-                if ( asrtl_span_unfit_for( buff, 4 ) )
-                        return ASRTL_RECV_ERR;
-                asrtl_cut_u32( &buff->b, &val->bool_val );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_FLOAT: {
-                if ( asrtl_span_unfit_for( buff, 4 ) )
-                        return ASRTL_RECV_ERR;
-                uint32_t bits;
-                asrtl_cut_u32( &buff->b, &bits );
-                memcpy( &val->float_val, &bits, sizeof bits );
-                break;
-        }
-        case ASRTL_FLAT_VALUE_TYPE_OBJECT:
-                if ( asrtl_span_unfit_for( buff, 8 ) )
-                        return ASRTL_RECV_ERR;
-                asrtl_cut_u32( &buff->b, &val->obj_val.first_child );
-                asrtl_cut_u32( &buff->b, &val->obj_val.last_child );
-                break;
-        case ASRTL_FLAT_VALUE_TYPE_ARRAY:
-                if ( asrtl_span_unfit_for( buff, 8 ) )
-                        return ASRTL_RECV_ERR;
-                asrtl_cut_u32( &buff->b, &val->arr_val.first_child );
-                asrtl_cut_u32( &buff->b, &val->arr_val.last_child );
-                break;
-        default:
-                return ASRTL_RECV_ERR;
-        }
-        return ASRTL_SUCCESS;
+        return asrtl_flat_value_decode( buff, raw_type, val );
 }
 
 // Encodes msg_id + N sibling nodes (null-terminated keys/values) + trailing u32
@@ -273,7 +175,7 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
                 if ( not_found ) {
                         qr.id           = current;
                         qr.key          = NULL;
-                        qr.value.type   = ASRTL_FLAT_VALUE_TYPE_NONE;
+                        qr.value.type   = ASRTL_FLAT_STYPE_NONE;
                         qr.next_sibling = ASRTL_PARAM_NONE_ID;
                 }
 

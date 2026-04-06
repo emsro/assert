@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../asrtc/status_to_str.h"
+#include "../asrtcpp/collect.hpp"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
 #include "../asrtcpp/param.hpp"
@@ -38,6 +39,11 @@ struct cntr_tcp_sys
                 return c_param;
         }
 
+        asrtc::collect_server& collect()
+        {
+                return c_collect;
+        }
+
         clock const& clk() const
         {
                 return clk_;
@@ -46,7 +52,7 @@ struct cntr_tcp_sys
         template < typename CB >
         void set_param_tree(
             asrtl_flat_tree const*    tree,
-            asrtl_flat_id             root_id,
+            asrtl::flat_id            root_id,
             CB&                       on_ack,
             std::chrono::milliseconds timeout )
         {
@@ -62,6 +68,7 @@ struct cntr_tcp_sys
                         ASRTL_ERR_LOG(
                             "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
                 std::ignore = c_param.tick( now );
+                std::ignore = c_collect.tick( now );
         }
 
 
@@ -115,6 +122,8 @@ public:
 
         asrtc::diag         c_diag{ cntr.node(), cntr_send };
         asrtc::param_server c_param{ c_diag.node(), cntr_send, asrtl_default_allocator() };
+        asrtc::collect_server
+            c_collect{ c_param.node(), cntr_send, asrtl_default_allocator(), 64, 256 };
 
         cobs_node rx;
 };
@@ -153,14 +162,13 @@ struct _cntr_set_param_tree
 
         cntr_tcp_sys&             sys;
         asrtl_flat_tree const*    tree;
-        asrtl_flat_id             root_id;
+        asrtl::flat_id            root_id;
         std::chrono::milliseconds timeout;
-        std::function< void() >   on_ack_;
 
         _cntr_set_param_tree(
             cntr_tcp_sys&             s,
             asrtl_flat_tree const*    t,
-            asrtl_flat_id             rid,
+            asrtl::flat_id            rid,
             std::chrono::milliseconds timeout )
           : sys( s )
           , tree( t )
@@ -172,13 +180,49 @@ struct _cntr_set_param_tree
         template < typename OP >
         void start( OP& op )
         {
-                on_ack_ = [&op] {
-                        op.recv.set_value();
-                };
-                sys.set_param_tree( tree, root_id, on_ack_, timeout );
+                sys.c_param.set_tree( tree );
+                std::ignore = sys.c_param.send_ready(
+                    root_id,
+                    []( void* p, asrtc_status ) {
+                            static_cast< OP* >( p )->recv.set_value();
+                    },
+                    &op,
+                    static_cast< uint32_t >( timeout.count() ) );
         }
 };
 using cntr_set_param_tree = asrtl::gen_sender< _cntr_set_param_tree, status >;
+
+struct _cntr_collect_ready
+{
+        using value_sig = ecor::set_value_t();
+
+        cntr_tcp_sys&             sys;
+        asrtl::flat_id            root_id;
+        std::chrono::milliseconds timeout;
+
+        _cntr_collect_ready(
+            cntr_tcp_sys&             s,
+            asrtl::flat_id            rid,
+            std::chrono::milliseconds timeout )
+          : sys( s )
+          , root_id( rid )
+          , timeout( timeout )
+        {
+        }
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                std::ignore = sys.c_collect.send_ready(
+                    root_id,
+                    []( void* p, asrtc_status ) {
+                            static_cast< OP* >( p )->recv.set_value();
+                    },
+                    &op,
+                    static_cast< uint32_t >( timeout.count() ) );
+        }
+};
+using cntr_collect_ready = asrtl::gen_sender< _cntr_collect_ready, status >;
 
 inline task< void > run_test_suite(
     task_ctx&                 ctx,
@@ -214,6 +258,9 @@ inline task< void > run_test_suite(
                                     sys, &params.tree, roots[ri], timeout };
 
                         reporter.on_test_start( name, ri + 1, run_total );
+
+                        co_await cntr_collect_ready{ sys, 0, timeout };
+
                         auto          t0  = sys.clk().now();
                         asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid, timeout };
 

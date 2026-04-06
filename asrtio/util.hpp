@@ -5,6 +5,7 @@
 #include "../asrtcpp/controller.hpp"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
+#include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtl/status_to_str.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/util.hpp"
@@ -138,20 +139,20 @@ struct cobs_node
 bool _flat_tree_from_json_impl(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
-    asrtl_flat_id         parent,
+    asrtl::flat_id        parent,
     char const*           key,
-    asrtl_flat_id&        next_id );
+    asrtl::flat_id&       next_id );
 
 inline bool flat_tree_from_json(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
-    asrtl_flat_id&        next_id )
+    asrtl::flat_id&       next_id )
 {
         return _flat_tree_from_json_impl( tree, j, 0, nullptr, next_id );
 }
 
 
-bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl_flat_id node_id, nlohmann::json& out );
+bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl::flat_id node_id, nlohmann::json& out );
 
 inline bool flat_tree_to_json( asrtl_flat_tree& tree, nlohmann::json& out )
 {

@@ -4,5 +4,5 @@ project(asrtc VERSION 0.0)
 
 set(CMAKE_C_STANDARD 11)
 
-add_library(asrtc controller.c diag.c param.c)
+add_library(asrtc collect.c controller.c diag.c param.c)
 target_link_libraries(asrtc PUBLIC asrtl)

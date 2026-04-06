@@ -58,6 +58,7 @@ The byte stream is multiplexed into independent **channels**, each identified by
 |  2 | `CORE`  | test enumeration and execution     |
 |  3 | `DIAG`  | diagnostic records from the target |
 |  4 | `PARAM` | structured parameter queries       |
+|  5 | `COLL`  | structured data collection         |
 
 On each side — reactor (target) and controller (host) — functionality is composed from **modules**, one per channel. A module is a node in a linked list: it owns a channel ID and a receive callback, and can send messages back through a shared sender handle.
 
@@ -81,6 +82,27 @@ The target exposes a read-only tree of typed values — integers, floats, boolea
 - **Find by key** — look up a child node by name within a parent object.
 
 Responses are cached on the host side; repeated queries for nodes already in the cache are served locally without a round-trip. The client API supports both C and C++ with typed callback helpers (`query_u32`, `find_str`, …) and C++ template wrappers (`client.query<uint32_t>(…)`, `client.find<uint32_t>(…)`).
+
+## Collector channel
+
+The **collector channel** (channel ID 5) lets test code on the target push structured results — measurements, traces, collected samples — up to the host during a test run. The host assembles the incoming data into a `flat_tree` that can be inspected or exported after the test ends.
+
+```mermaid
+sequenceDiagram
+    participant Host as Controller (host)
+    participant Target as Reactor (target)
+
+    Host->>Target: READY (root_id, next_node_id)
+    Target->>Host: READY_ACK
+    Target->>Host: APPEND (node)
+    Target->>Host: APPEND (node)
+    Target->>Host: APPEND (node)
+    Note over Host,Target: Test ends, host reads the built tree
+```
+
+The controller signals readiness with a READY message, the reactor acknowledges, then pushes APPEND messages — one per tree node, fire-and-forget (no per-append ACK). The controller assembles incoming nodes into a `flat_tree`. If an append fails (duplicate node, invalid parent, tree full), the controller sends an ERROR and the session is aborted.
+
+Node IDs are auto-assigned: the READY message carries a `next_node_id` counter that both sides use to stay in sync without per-node negotiation.
 
 ## Pure C core
 

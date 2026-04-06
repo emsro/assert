@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/param.h"
 
@@ -10,85 +11,56 @@
 namespace asrtr
 {
 
-// Special tag types for object/array
-struct param_obj
-{
-};
-struct param_arr
-{
-};
-
 // Trait system to pick C-API callback based on requested type
 template < typename T >
 struct param_query_traits;
 
 template <>
-struct param_query_traits< uint32_t >
+struct param_query_traits< uint32_t > : asrtl::flat_type_traits< uint32_t >
 {
-        using raw_type                      = uint32_t;
-        using value_type                    = uint32_t;
         using cb_type                       = asrtr_param_u32_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_U32;
         static constexpr auto cb_member     = &asrtr_param_cb::u32;
 };
 
 template <>
-struct param_query_traits< int32_t >
+struct param_query_traits< int32_t > : asrtl::flat_type_traits< int32_t >
 {
-        using raw_type                      = int32_t;
-        using value_type                    = int32_t;
         using cb_type                       = asrtr_param_i32_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_I32;
         static constexpr auto cb_member     = &asrtr_param_cb::i32;
 };
 
 template <>
-struct param_query_traits< float >
+struct param_query_traits< float > : asrtl::flat_type_traits< float >
 {
-        using raw_type                      = float;
-        using value_type                    = float;
         using cb_type                       = asrtr_param_float_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_FLOAT;
         static constexpr auto cb_member     = &asrtr_param_cb::flt;
 };
 
 template <>
-struct param_query_traits< char const* >
+struct param_query_traits< char const* > : asrtl::flat_type_traits< char const* >
 {
-        using raw_type                      = char const*;
-        using value_type                    = char const*;
         using cb_type                       = asrtr_param_str_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_STR;
         static constexpr auto cb_member     = &asrtr_param_cb::str;
 };
 
 template <>
-struct param_query_traits< bool >
+struct param_query_traits< bool > : asrtl::flat_type_traits< bool >
 {
-        using raw_type                      = uint32_t;
-        using value_type                    = bool;
         using cb_type                       = asrtr_param_bool_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_BOOL;
         static constexpr auto cb_member     = &asrtr_param_cb::bln;
 };
 
 template <>
-struct param_query_traits< param_obj >
+struct param_query_traits< asrtl::obj > : asrtl::flat_type_traits< asrtl::obj >
 {
-        using raw_type                      = asrtl_flat_child_list;
-        using value_type                    = asrtl_flat_child_list;
         using cb_type                       = asrtr_param_obj_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_OBJECT;
         static constexpr auto cb_member     = &asrtr_param_cb::obj;
 };
 
 template <>
-struct param_query_traits< param_arr >
+struct param_query_traits< asrtl::arr > : asrtl::flat_type_traits< asrtl::arr >
 {
-        using raw_type                      = asrtl_flat_child_list;
-        using value_type                    = asrtl_flat_child_list;
         using cb_type                       = asrtr_param_arr_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_ARRAY;
         static constexpr auto cb_member     = &asrtr_param_cb::arr;
 };
 
@@ -98,7 +70,7 @@ struct param_query_traits< asrtl_flat_value >
         using raw_type                      = asrtl_flat_value;
         using value_type                    = asrtl_flat_value;
         using cb_type                       = asrtr_param_any_cb;
-        static constexpr auto expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
+        static constexpr auto flat_type     = ASRTL_FLAT_STYPE_NONE;
         static constexpr auto cb_member     = &asrtr_param_cb::any;
 };
 
@@ -159,7 +131,7 @@ struct param_client
         }
 
 
-        [[nodiscard]] asrtl_flat_id root_id() const
+        [[nodiscard]] asrtl::flat_id root_id() const
         {
                 return asrtr_param_client_root_id( &client_ );
         }
@@ -169,7 +141,7 @@ struct param_client
         /// q->error_code and possibly an invalid value. T is the expected type of the value, if
         /// value type doesn't match, cb will be called with an error.
         template < has_param_query_traits T, typed_param_query_callable< T > CB >
-        [[nodiscard]] asrtl_status fetch( asrtr_param_query* q, asrtl_flat_id node_id, CB& cb )
+        [[nodiscard]] asrtl_status fetch( asrtr_param_query* q, asrtl::flat_id node_id, CB& cb )
         {
                 return query< T >( q, node_id, nullptr, cb );
         }
@@ -179,7 +151,7 @@ struct param_client
         template < has_param_query_traits T >
         [[nodiscard]] asrtl_status fetch(
             asrtr_param_query*                        q,
-            asrtl_flat_id                             node_id,
+            asrtl::flat_id                            node_id,
             typename param_query_traits< T >::cb_type cb,
             void*                                     cb_ptr )
         {
@@ -189,7 +161,7 @@ struct param_client
         /// Raw fetch without explicit expected type and C callback + void* context.
         [[nodiscard]] asrtl_status fetch(
             asrtr_param_query* q,
-            asrtl_flat_id      node_id,
+            asrtl::flat_id     node_id,
             asrtr_param_any_cb cb,
             void*              cb_ptr )
         {
@@ -200,7 +172,7 @@ struct param_client
         template < has_param_query_traits T, typed_param_query_callable< T > CB >
         [[nodiscard]] asrtl_status find(
             asrtr_param_query* q,
-            asrtl_flat_id      parent_id,
+            asrtl::flat_id     parent_id,
             char const*        key,
             CB&                cb )
         {
@@ -211,7 +183,7 @@ struct param_client
         template < has_param_query_traits T >
         [[nodiscard]] asrtl_status find(
             asrtr_param_query*                        q,
-            asrtl_flat_id                             parent_id,
+            asrtl::flat_id                            parent_id,
             char const*                               key,
             typename param_query_traits< T >::cb_type cb,
             void*                                     cb_ptr )
@@ -222,7 +194,7 @@ struct param_client
         /// Raw find without explicit expected type and C callback + void* context.
         [[nodiscard]] asrtl_status find(
             asrtr_param_query* q,
-            asrtl_flat_id      parent_id,
+            asrtl::flat_id     parent_id,
             char const*        key,
             asrtr_param_any_cb cb,
             void*              cb_ptr )
@@ -233,12 +205,12 @@ struct param_client
         template < has_param_query_traits T, typed_param_query_callable< T > CB >
         [[nodiscard]] asrtl_status query(
             asrtr_param_query* q,
-            asrtl_flat_id      node_id,
+            asrtl::flat_id     node_id,
             char const*        key,
             CB&                cb )
         {
                 using traits             = param_query_traits< T >;
-                q->expected_type         = traits::expected_type;
+                q->expected_type         = traits::flat_type;
                 q->cb.*traits::cb_member = []( asrtr_param_client*       c,
                                                asrtr_param_query*        qq,
                                                typename traits::raw_type raw ) {
@@ -252,13 +224,13 @@ struct param_client
         template < has_param_query_traits T >
         [[nodiscard]] asrtl_status query(
             asrtr_param_query*                        q,
-            asrtl_flat_id                             node_id,
+            asrtl::flat_id                            node_id,
             char const*                               key,
             typename param_query_traits< T >::cb_type cb,
             void*                                     cb_ptr )
         {
                 using traits             = param_query_traits< T >;
-                q->expected_type         = traits::expected_type;
+                q->expected_type         = traits::flat_type;
                 q->cb.*traits::cb_member = cb;
                 q->cb_ptr                = cb_ptr;
                 return asrtr_param_client_query( q, &client_, node_id, key );
@@ -266,12 +238,12 @@ struct param_client
 
         [[nodiscard]] asrtl_status query(
             asrtr_param_query* q,
-            asrtl_flat_id      node_id,
+            asrtl::flat_id     node_id,
             char const*        key,
             asrtr_param_any_cb cb,
             void*              cb_ptr )
         {
-                q->expected_type = ASRTL_FLAT_VALUE_TYPE_NONE;
+                q->expected_type = ASRTL_FLAT_STYPE_NONE;
                 q->cb.any        = cb;
                 q->cb_ptr        = cb_ptr;
                 return asrtr_param_client_query( q, &client_, node_id, key );

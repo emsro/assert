@@ -34,24 +34,36 @@ extern "C" {
 
 #include "./allocator.h"
 #include "./status.h"
+#include "./util.h"
 
 #include <stdint.h>
+#include <string.h>
 
 typedef uint32_t asrtl_flat_id;
 
-/// Value type 0 is reserved — indicates an uninitialized node slot.
-enum asrtl_flat_value_type
+/// Scalar value types — leaf data carried by nodes.
+enum asrtl_flat_stype
 {
-        ASRTL_FLAT_VALUE_TYPE_NONE   = 0,
-        ASRTL_FLAT_VALUE_TYPE_STR    = 1,
-        ASRTL_FLAT_VALUE_TYPE_U32    = 2,
-        ASRTL_FLAT_VALUE_TYPE_FLOAT  = 3,
-        ASRTL_FLAT_VALUE_TYPE_OBJECT = 4,
-        ASRTL_FLAT_VALUE_TYPE_ARRAY  = 5,
-        ASRTL_FLAT_VALUE_TYPE_BOOL   = 6,
-        ASRTL_FLAT_VALUE_TYPE_NULL   = 7,
-        ASRTL_FLAT_VALUE_TYPE_I32    = 8,
+        ASRTL_FLAT_STYPE_NONE  = 0,
+        ASRTL_FLAT_STYPE_STR   = 1,
+        ASRTL_FLAT_STYPE_U32   = 2,
+        ASRTL_FLAT_STYPE_FLOAT = 3,
+        ASRTL_FLAT_STYPE_BOOL  = 4,
+        ASRTL_FLAT_STYPE_NULL  = 5,
+        ASRTL_FLAT_STYPE_I32   = 6,
 };
+
+/// Container value types — nodes that hold child lists.
+enum asrtl_flat_ctype
+{
+        ASRTL_FLAT_CTYPE_NONE   = 0,
+        ASRTL_FLAT_CTYPE_OBJECT = 7,
+        ASRTL_FLAT_CTYPE_ARRAY  = 8,
+};
+
+/// Common type for both scalar and container type tags.  The enum values do
+/// not overlap (except NONE = 0), so a single uint8_t can hold either.
+typedef uint8_t asrtl_flat_value_type;
 
 struct asrtl_flat_child_list
 {
@@ -59,56 +71,26 @@ struct asrtl_flat_child_list
         asrtl_flat_id last_child;
 };
 
-struct asrtl_flat_value
+union asrtl_flat_scalar
 {
-        enum asrtl_flat_value_type type;
-        union
-        {
-                char const*                  str_val;
-                uint32_t                     u32_val;
-                int32_t                      i32_val;
-                float                        float_val;
-                struct asrtl_flat_child_list obj_val;
-                struct asrtl_flat_child_list arr_val;
-                uint32_t                     bool_val;
-        };
+        char const* str_val;
+        uint32_t    u32_val;
+        int32_t     i32_val;
+        float       float_val;
+        uint32_t    bool_val;
 };
 
-/// Value constructors. Strings are copied into the tree on append.
-static inline struct asrtl_flat_value asrtl_flat_value_null( void )
+union asrtl_flat_data
 {
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_NULL };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_bool( uint32_t val )
+        union asrtl_flat_scalar      s;
+        struct asrtl_flat_child_list cont;
+};
+
+struct asrtl_flat_value
 {
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_BOOL, .bool_val = val };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_u32( uint32_t val )
-{
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_U32, .u32_val = val };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_str( char const* val )
-{
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_STR, .str_val = val };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_i32( int32_t val )
-{
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_I32, .i32_val = val };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_float( float val )
-{
-        return ( struct asrtl_flat_value ){ .type = ASRTL_FLAT_VALUE_TYPE_FLOAT, .float_val = val };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_object( void )
-{
-        return ( struct asrtl_flat_value ){
-            .type = ASRTL_FLAT_VALUE_TYPE_OBJECT, .obj_val = { 0, 0 } };
-}
-static inline struct asrtl_flat_value asrtl_flat_value_array( void )
-{
-        return ( struct asrtl_flat_value ){
-            .type = ASRTL_FLAT_VALUE_TYPE_ARRAY, .arr_val = { 0, 0 } };
-}
+        asrtl_flat_value_type type;
+        union asrtl_flat_data data;
+};
 
 struct asrtl_flat_node
 {
@@ -151,15 +133,24 @@ enum asrtl_status asrtl_flat_tree_init(
     uint32_t                block_capacity,
     uint32_t                node_capacity );
 
-/// Insert a node. Grows blocks if node_id exceeds capacity.
+/// Insert a scalar leaf node. Grows blocks if node_id exceeds capacity.
 /// parent_id=0 for root nodes. OBJECT parents require non-NULL key,
 /// ARRAY parents require NULL key. Rejects duplicate node_ids.
-enum asrtl_status asrtl_flat_tree_append(
+enum asrtl_status asrtl_flat_tree_append_scalar(
     struct asrtl_flat_tree* tree,
     asrtl_flat_id           parent_id,
     asrtl_flat_id           node_id,
     char const*             key,
-    struct asrtl_flat_value value );
+    asrtl_flat_value_type   type,
+    union asrtl_flat_scalar scalar );
+
+/// Insert a container node (OBJECT or ARRAY). Same rules as append_scalar.
+enum asrtl_status asrtl_flat_tree_append_cont(
+    struct asrtl_flat_tree* tree,
+    asrtl_flat_id           parent_id,
+    asrtl_flat_id           node_id,
+    char const*             key,
+    asrtl_flat_value_type   type );
 
 struct asrtl_flat_query_result
 {
@@ -183,6 +174,74 @@ enum asrtl_status asrtl_flat_tree_find_by_key(
     struct asrtl_flat_query_result* result );
 
 enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* tree );
+
+/// Returns the number of bytes the value payload occupies on the wire (not
+/// including node_id, key, or type byte).
+static inline size_t asrtl_flat_value_wire_size( struct asrtl_flat_value v )
+{
+        switch ( v.type ) {
+        case ASRTL_FLAT_STYPE_STR:
+                return v.data.s.str_val ? strlen( v.data.s.str_val ) + 1U : 1U;
+        case ASRTL_FLAT_STYPE_U32:
+        case ASRTL_FLAT_STYPE_BOOL:
+        case ASRTL_FLAT_STYPE_FLOAT:
+        case ASRTL_FLAT_STYPE_I32:
+                return 4U;
+        case ASRTL_FLAT_CTYPE_OBJECT:
+        case ASRTL_FLAT_CTYPE_ARRAY:
+                return 8U;
+        default:
+                return 0U;
+        }
+}
+
+/// Serialize a flat_value into the buffer at *p, advancing *p past the written
+/// bytes.  Does not write the type byte — caller is responsible for that.
+static inline void asrtl_flat_value_write( uint8_t** p, struct asrtl_flat_value v )
+{
+        switch ( v.type ) {
+        case ASRTL_FLAT_STYPE_NONE:
+        case ASRTL_FLAT_STYPE_NULL:
+                break;
+        case ASRTL_FLAT_STYPE_STR: {
+                size_t sl = strlen( v.data.s.str_val );
+                memcpy( *p, v.data.s.str_val, sl );
+                *p += sl;
+                *( *p )++ = '\0';
+                break;
+        }
+        case ASRTL_FLAT_STYPE_U32:
+                asrtl_add_u32( p, v.data.s.u32_val );
+                break;
+        case ASRTL_FLAT_STYPE_I32:
+                asrtl_add_i32( p, v.data.s.i32_val );
+                break;
+        case ASRTL_FLAT_STYPE_BOOL:
+                asrtl_add_u32( p, v.data.s.bool_val );
+                break;
+        case ASRTL_FLAT_STYPE_FLOAT: {
+                uint32_t bits;
+                memcpy( &bits, &v.data.s.float_val, sizeof bits );
+                asrtl_add_u32( p, bits );
+                break;
+        }
+        case ASRTL_FLAT_CTYPE_OBJECT:
+                asrtl_add_u32( p, v.data.cont.first_child );
+                asrtl_add_u32( p, v.data.cont.last_child );
+                break;
+        case ASRTL_FLAT_CTYPE_ARRAY:
+                asrtl_add_u32( p, v.data.cont.first_child );
+                asrtl_add_u32( p, v.data.cont.last_child );
+                break;
+        }
+}
+
+/// Decode a flat_value from the buffer, advancing buff->b past the consumed
+/// bytes.  raw_type is the type byte already read by the caller.
+enum asrtl_status asrtl_flat_value_decode(
+    struct asrtl_span*       buff,
+    uint8_t                  raw_type,
+    struct asrtl_flat_value* val );
 
 #ifdef __cplusplus
 }

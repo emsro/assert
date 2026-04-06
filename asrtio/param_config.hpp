@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../asrtl/flat_tree.h"
+#include "../asrtlpp/flat_type_traits.hpp"
 
 #include <filesystem>
 #include <iosfwd>
@@ -32,13 +33,13 @@ struct param_config
         param_config( param_config&& )                 = delete;
         param_config& operator=( param_config&& )      = delete;
 
-        std::vector< asrtl_flat_id >                          wildcard;
-        std::map< std::string, std::vector< asrtl_flat_id > > tests;
+        std::vector< asrtl::flat_id >                          wildcard;
+        std::map< std::string, std::vector< asrtl::flat_id > > tests;
 
         struct run_view
         {
-                bool                             skip = false;
-                std::span< asrtl_flat_id const > roots;
+                bool                              skip = false;
+                std::span< asrtl::flat_id const > roots;
         };
 
         run_view runs_for( std::string const& name ) const;

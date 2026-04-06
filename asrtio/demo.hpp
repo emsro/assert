@@ -19,6 +19,8 @@
 
 #include "../asrtr/diag.h"
 #include "../asrtr/record.h"
+#include "../asrtrpp/collect.hpp"
+#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/param_sender.hpp"
@@ -206,9 +208,9 @@ namespace detail
 
 struct param_qr
 {
-        asrtl_flat_id     first_child = 0;
+        asrtl::flat_id    first_child = 0;
         uint32_t          u32_val     = 0;
-        asrtl_flat_id     next_sib    = 0;
+        asrtl::flat_id    next_sib    = 0;
         asrtr_param_query q           = {};
 };
 
@@ -263,7 +265,7 @@ inline demo_spec make_demo_param_value()
                                     return ASRTR_SUCCESS;
                             }
                             pq          = {};
-                            std::ignore = self.param.fetch< asrtr::param_obj >(
+                            std::ignore = self.param.fetch< asrtl::obj >(
                                 &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -319,7 +321,7 @@ inline demo_spec make_demo_param_count()
                                     return ASRTR_SUCCESS;
                             }
                             pq          = {};
-                            std::ignore = self.param.fetch< asrtr::param_obj >(
+                            std::ignore = self.param.fetch< asrtl::obj >(
                                 &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
@@ -574,22 +576,19 @@ struct param_type_overview_task : asrtr::task_test
                 if ( !b )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list obj =
-                    co_await asrtr::find< asrtr::param_obj >( pc, root, "obj" );
+                asrtl_flat_child_list obj = co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
                 if ( obj.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list arr =
-                    co_await asrtr::find< asrtr::param_arr >( pc, root, "arr" );
+                asrtl_flat_child_list arr = co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
                 if ( arr.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
                 // Iterate over array elements
-                uint32_t      count = 0;
-                asrtl_flat_id id    = arr.first_child;
+                uint32_t       count = 0;
+                asrtl::flat_id id    = arr.first_child;
                 while ( id != 0 ) {
-                        auto [val, key, next_sibling] =
-                            co_await asrtr::fetch< uint32_t >( pc, id );
+                        auto [val, key, next_sibling] = co_await asrtr::fetch< uint32_t >( pc, id );
                         ++count;
                         id = next_sibling;
                 }
@@ -609,6 +608,29 @@ struct param_type_overview_task : asrtr::task_test
                 }
                 if ( count == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
+        }
+};
+
+
+/// Collector demo: appends a small tree via the collect channel.
+/// Produces: root OBJECT → "value" U32=42, "tag" STR="demo"
+struct collect_demo_task : asrtr::task_test
+{
+        char const*            name = "collect_demo_task";
+        asrtr::collect_client& cc;
+
+        collect_demo_task( asrtr::task_ctx& ctx, asrtr::collect_client& c )
+          : task_test( ctx )
+          , cc( c )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                auto root = cc.root_id();
+                auto obj  = co_await asrtr::append< asrtl::obj >( cc, root );
+                co_await asrtr::append< uint32_t >( cc, obj, "value", 42u );
+                co_await asrtr::append< char const* >( cc, obj, "tag", "demo" );
         }
 };
 

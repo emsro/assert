@@ -40,7 +40,7 @@ enum asrtl_status asrtl_flat_block_init(
         }
         for ( uint32_t i = 0; i < node_capacity; i++ )
                 block->nodes[i] =
-                    ( struct asrtl_flat_node ){ .value = { .type = ASRTL_FLAT_VALUE_TYPE_NONE } };
+                    ( struct asrtl_flat_node ){ .value = { .type = ASRTL_FLAT_STYPE_NONE } };
         block->node_count = 0;
         return ASRTL_SUCCESS;
 }
@@ -51,8 +51,8 @@ static void asrtl_flat_free_node_strings(
 {
         if ( node->key )
                 asrtl_free( alloc, (void**) &node->key );
-        if ( node->value.type == ASRTL_FLAT_VALUE_TYPE_STR && node->value.str_val )
-                asrtl_free( alloc, (void**) &node->value.str_val );
+        if ( node->value.type == ASRTL_FLAT_STYPE_STR && node->value.data.s.str_val )
+                asrtl_free( alloc, (void**) &node->value.data.s.str_val );
 }
 
 enum asrtl_status asrtl_flat_block_deinit(
@@ -66,7 +66,7 @@ enum asrtl_status asrtl_flat_block_deinit(
         }
         if ( block->nodes != NULL ) {
                 for ( uint32_t i = 0; i < node_capacity; i++ )
-                        if ( block->nodes[i].value.type != ASRTL_FLAT_VALUE_TYPE_NONE )
+                        if ( block->nodes[i].value.type != ASRTL_FLAT_STYPE_NONE )
                                 asrtl_flat_free_node_strings( alloc, &block->nodes[i] );
                 asrtl_free( alloc, (void**) &block->nodes );
         }
@@ -138,7 +138,8 @@ static inline enum asrtl_status asrtl_flat_set_node(
     struct asrtl_flat_node* node,
     struct asrtl_allocator* alloc,
     char const*             key,
-    struct asrtl_flat_value value )
+    asrtl_flat_value_type   type,
+    union asrtl_flat_data   data )
 {
         if ( !node ) {
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "set_node: NULL node" );
@@ -153,10 +154,11 @@ static inline enum asrtl_status asrtl_flat_set_node(
         } else {
                 node->key = NULL;
         }
-        node->value = value;
-        if ( value.type == ASRTL_FLAT_VALUE_TYPE_STR && value.str_val ) {
-                node->value.str_val = asrtl_flat_strdup( alloc, value.str_val );
-                if ( !node->value.str_val ) {
+        node->value.type = type;
+        node->value.data = data;
+        if ( type == ASRTL_FLAT_STYPE_STR && data.s.str_val ) {
+                node->value.data.s.str_val = asrtl_flat_strdup( alloc, data.s.str_val );
+                if ( !node->value.data.s.str_val ) {
                         ASRTL_ERR_LOG( "asrtl_flat_tree", "set_node: str_val alloc failed" );
                         asrtl_free( alloc, (void**) &node->key );
                         return ASRTL_ALLOC_ERR;
@@ -194,74 +196,98 @@ static enum asrtl_status asrtl_flat_ensure_capacity(
         return ASRTL_SUCCESS;
 }
 
-static inline struct asrtl_flat_child_list* asrtl_flat_get_child_list(
-    struct asrtl_flat_node* parent,
-    asrtl_flat_id           parent_id,
-    char const*             key )
-{
-        if ( parent->value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT ) {
-                if ( key == NULL ) {
-                        ASRTL_ERR_LOG( "asrtl_flat_tree", "object node must have a key" );
-                        return NULL;
-                }
-                return &parent->value.obj_val;
-        }
-        if ( parent->value.type == ASRTL_FLAT_VALUE_TYPE_ARRAY ) {
-                if ( key != NULL ) {
-                        ASRTL_ERR_LOG( "asrtl_flat_tree", "array node cannot have a key" );
-                        return NULL;
-                }
-                return &parent->value.arr_val;
-        }
-        ASRTL_ERR_LOG(
-            "asrtl_flat_tree",
-            "parent_id=%u is not a container (type=%d)",
-            parent_id,
-            parent->value.type );
-        return NULL;
-}
-
-static enum asrtl_status asrtl_flat_link_child(
+/// Validate parent/key constraints and locate the insertion points.
+/// On success, *link and *tail point to the two uint32_t slots that must
+/// receive the new node_id to complete the linkage.  For parent_id==0
+/// (root-level), both are set to NULL and the caller skips the write.
+static enum asrtl_status asrtl_flat_prepare_link(
     struct asrtl_flat_tree* t,
     asrtl_flat_id           parent_id,
-    asrtl_flat_id           node_id,
-    char const*             key )
+    char const*             key,
+    asrtl_flat_id**         link,
+    asrtl_flat_id**         tail )
 {
+        *link = NULL;
+        *tail = NULL;
+
         if ( parent_id == 0 )
                 return ASRTL_SUCCESS;
 
         struct asrtl_flat_node* parent = asrtl_flat_get_node( t, parent_id );
         if ( !parent ) {
-                ASRTL_ERR_LOG( "asrtl_flat_tree", "link_child: parent_id=%u not found", parent_id );
+                ASRTL_ERR_LOG(
+                    "asrtl_flat_tree", "prepare_link: parent_id=%u not found", parent_id );
                 return ASRTL_ARG_ERR;
         }
 
-        struct asrtl_flat_child_list* child_list =
-            asrtl_flat_get_child_list( parent, parent_id, key );
-        if ( !child_list )
-                return ASRTL_ARG_ERR;
-
-        if ( child_list->first_child == 0 ) {
-                child_list->first_child = node_id;
+        if ( parent->value.type == ASRTL_FLAT_CTYPE_OBJECT ) {
+                if ( key == NULL ) {
+                        ASRTL_ERR_LOG( "asrtl_flat_tree", "object node must have a key" );
+                        return ASRTL_KEY_REQUIRED_ERR;
+                }
+        } else if ( parent->value.type == ASRTL_FLAT_CTYPE_ARRAY ) {
+                if ( key != NULL ) {
+                        ASRTL_ERR_LOG( "asrtl_flat_tree", "array node cannot have a key" );
+                        return ASRTL_KEY_FORBIDDEN_ERR;
+                }
         } else {
-                struct asrtl_flat_node* last_child =
-                    asrtl_flat_get_node( t, child_list->last_child );
-                if ( !last_child ) {
-                        ASRTL_ERR_LOG( "asrtl_flat_tree", "link_child: last_child node missing" );
+                ASRTL_ERR_LOG(
+                    "asrtl_flat_tree",
+                    "parent_id=%u is not a container (type=%d)",
+                    parent_id,
+                    parent->value.type );
+                return ASRTL_ARG_ERR;
+        }
+
+        struct asrtl_flat_child_list* cl = &parent->value.data.cont;
+        // Walk children: check for duplicate keys (objects) and find tail.
+        if ( cl->first_child == 0 ) {
+                *link = &cl->first_child;
+        } else if ( key ) {
+                asrtl_flat_id           cid   = cl->first_child;
+                struct asrtl_flat_node* child = NULL;
+                while ( cid != 0 ) {
+                        child = asrtl_flat_get_node( t, cid );
+                        if ( !child ) {
+                                ASRTL_ERR_LOG(
+                                    "asrtl_flat_tree", "prepare_link: child node %u missing", cid );
+                                return ASRTL_INTERNAL_ERR;
+                        }
+                        if ( child->key && strcmp( child->key, key ) == 0 ) {
+                                ASRTL_ERR_LOG(
+                                    "asrtl_flat_tree",
+                                    "append: duplicate key '%s' under parent_id=%u",
+                                    key,
+                                    parent_id );
+                                return ASRTL_ARG_ERR;
+                        }
+                        if ( child->next_sibling == 0 )
+                                break;
+                        cid = child->next_sibling;
+                }
+                *link = &child->next_sibling;
+        } else {
+                struct asrtl_flat_node* child = asrtl_flat_get_node( t, cl->last_child );
+                if ( !child ) {
+                        ASRTL_ERR_LOG(
+                            "asrtl_flat_tree",
+                            "prepare_link: last child node %u missing",
+                            cl->last_child );
                         return ASRTL_INTERNAL_ERR;
                 }
-                last_child->next_sibling = node_id;
+                *link = &child->next_sibling;
         }
-        child_list->last_child = node_id;
+        *tail = &cl->last_child;
         return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtl_flat_tree_append(
+static enum asrtl_status asrtl_flat_tree_append_impl(
     struct asrtl_flat_tree* t,
     asrtl_flat_id           parent_id,
     asrtl_flat_id           node_id,
     char const*             key,
-    struct asrtl_flat_value value )
+    asrtl_flat_value_type   type,
+    union asrtl_flat_data   data )
 {
         if ( !t ) {
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "append: NULL tree" );
@@ -285,16 +311,49 @@ enum asrtl_status asrtl_flat_tree_append(
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "append: node_id=%u not reachable", node_id );
                 return ASRTL_ARG_ERR;
         }
-        if ( node->value.type != ASRTL_FLAT_VALUE_TYPE_NONE ) {
+        if ( node->value.type != ASRTL_FLAT_STYPE_NONE ) {
                 ASRTL_ERR_LOG( "asrtl_flat_tree", "append: node_id=%u already exists", node_id );
                 return ASRTL_ARG_ERR;
         }
 
-        st = asrtl_flat_set_node( node, &t->alloc, key, value );
+        asrtl_flat_id* link = NULL;
+        asrtl_flat_id* tail = NULL;
+        st                  = asrtl_flat_prepare_link( t, parent_id, key, &link, &tail );
         if ( st != ASRTL_SUCCESS )
                 return st;
 
-        return asrtl_flat_link_child( t, parent_id, node_id, key );
+        st = asrtl_flat_set_node( node, &t->alloc, key, type, data );
+        if ( st != ASRTL_SUCCESS )
+                return st;
+
+        if ( link && tail ) {
+                *link = node_id;
+                *tail = node_id;
+        }
+        return ASRTL_SUCCESS;
+}
+
+enum asrtl_status asrtl_flat_tree_append_scalar(
+    struct asrtl_flat_tree* tree,
+    asrtl_flat_id           parent_id,
+    asrtl_flat_id           node_id,
+    char const*             key,
+    asrtl_flat_value_type   type,
+    union asrtl_flat_scalar scalar )
+{
+        union asrtl_flat_data data = { .s = scalar };
+        return asrtl_flat_tree_append_impl( tree, parent_id, node_id, key, type, data );
+}
+
+enum asrtl_status asrtl_flat_tree_append_cont(
+    struct asrtl_flat_tree* tree,
+    asrtl_flat_id           parent_id,
+    asrtl_flat_id           node_id,
+    char const*             key,
+    asrtl_flat_value_type   type )
+{
+        union asrtl_flat_data data = { .cont = { 0, 0 } };
+        return asrtl_flat_tree_append_impl( tree, parent_id, node_id, key, type, data );
 }
 
 enum asrtl_status asrtl_flat_tree_query(
@@ -336,8 +395,8 @@ enum asrtl_status asrtl_flat_tree_find_by_key(
         }
 
         asrtl_flat_id child_id = 0;
-        if ( parent->value.type == ASRTL_FLAT_VALUE_TYPE_OBJECT )
-                child_id = parent->value.obj_val.first_child;
+        if ( parent->value.type == ASRTL_FLAT_CTYPE_OBJECT )
+                child_id = parent->value.data.cont.first_child;
         else {
                 ASRTL_ERR_LOG(
                     "asrtl_flat_tree", "find_by_key: parent_id=%u is not an object", parent_id );
@@ -373,5 +432,57 @@ enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* t )
         for ( uint32_t i = 0; i < t->block_capacity; i++ )
                 asrtl_flat_block_deinit( &t->blocks[i], &t->alloc, t->node_capacity );
         asrtl_free( &t->alloc, (void**) &t->blocks );
+        return ASRTL_SUCCESS;
+}
+
+enum asrtl_status asrtl_flat_value_decode(
+    struct asrtl_span*       buff,
+    uint8_t                  raw_type,
+    struct asrtl_flat_value* val )
+{
+        *val        = ( struct asrtl_flat_value ){ 0 };
+        val->type   = (asrtl_flat_value_type) raw_type;
+        size_t need = asrtl_flat_value_wire_size( *val );
+        if ( need > 0 && asrtl_span_unfit_for( buff, (uint32_t) need ) )
+                return ASRTL_RECV_ERR;
+        switch ( raw_type ) {
+        case ASRTL_FLAT_STYPE_NONE:
+        case ASRTL_FLAT_STYPE_NULL:
+                break;
+        case ASRTL_FLAT_STYPE_STR: {
+                size_t   search_len = (size_t) ( buff->e - buff->b );
+                uint8_t* snul       = (uint8_t*) memchr( buff->b, '\0', search_len );
+                if ( !snul )
+                        return ASRTL_RECV_ERR;
+                val->data.s.str_val = (char const*) buff->b;
+                buff->b             = snul + 1;
+                break;
+        }
+        case ASRTL_FLAT_STYPE_U32:
+                asrtl_cut_u32( &buff->b, &val->data.s.u32_val );
+                break;
+        case ASRTL_FLAT_STYPE_I32:
+                asrtl_cut_i32( &buff->b, &val->data.s.i32_val );
+                break;
+        case ASRTL_FLAT_STYPE_BOOL:
+                asrtl_cut_u32( &buff->b, &val->data.s.bool_val );
+                break;
+        case ASRTL_FLAT_STYPE_FLOAT: {
+                uint32_t bits;
+                asrtl_cut_u32( &buff->b, &bits );
+                memcpy( &val->data.s.float_val, &bits, sizeof bits );
+                break;
+        }
+        case ASRTL_FLAT_CTYPE_OBJECT:
+                asrtl_cut_u32( &buff->b, &val->data.cont.first_child );
+                asrtl_cut_u32( &buff->b, &val->data.cont.last_child );
+                break;
+        case ASRTL_FLAT_CTYPE_ARRAY:
+                asrtl_cut_u32( &buff->b, &val->data.cont.first_child );
+                asrtl_cut_u32( &buff->b, &val->data.cont.last_child );
+                break;
+        default:
+                break;
+        }
         return ASRTL_SUCCESS;
 }
