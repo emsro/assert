@@ -197,6 +197,40 @@ static enum asrtl_status asrtl_flat_ensure_capacity(
 }
 
 /// Validate parent/key constraints and locate the insertion points.
+/// Walk keyed children to find the tail and reject duplicate keys.
+/// Returns the next_sibling slot of the last child, or error on duplicate/broken chain.
+static enum asrtl_status asrtl_flat_find_keyed_tail(
+    struct asrtl_flat_tree* t,
+    asrtl_flat_id           first_child,
+    asrtl_flat_id           parent_id,
+    char const*             key,
+    asrtl_flat_id**         link )
+{
+        asrtl_flat_id           cid   = first_child;
+        struct asrtl_flat_node* child = NULL;
+        while ( cid != 0 ) {
+                child = asrtl_flat_get_node( t, cid );
+                if ( !child ) {
+                        ASRTL_ERR_LOG(
+                            "asrtl_flat_tree", "prepare_link: child node %u missing", cid );
+                        return ASRTL_INTERNAL_ERR;
+                }
+                if ( child->key && strcmp( child->key, key ) == 0 ) {
+                        ASRTL_ERR_LOG(
+                            "asrtl_flat_tree",
+                            "append: duplicate key '%s' under parent_id=%u",
+                            key,
+                            parent_id );
+                        return ASRTL_ARG_ERR;
+                }
+                if ( child->next_sibling == 0 )
+                        break;
+                cid = child->next_sibling;
+        }
+        *link = &child->next_sibling;
+        return ASRTL_SUCCESS;
+}
+
 /// On success, *link and *tail point to the two uint32_t slots that must
 /// receive the new node_id to complete the linkage.  For parent_id==0
 /// (root-level), both are set to NULL and the caller skips the write.
@@ -240,32 +274,13 @@ static enum asrtl_status asrtl_flat_prepare_link(
         }
 
         struct asrtl_flat_child_list* cl = &parent->value.data.cont;
-        // Walk children: check for duplicate keys (objects) and find tail.
         if ( cl->first_child == 0 ) {
                 *link = &cl->first_child;
         } else if ( key ) {
-                asrtl_flat_id           cid   = cl->first_child;
-                struct asrtl_flat_node* child = NULL;
-                while ( cid != 0 ) {
-                        child = asrtl_flat_get_node( t, cid );
-                        if ( !child ) {
-                                ASRTL_ERR_LOG(
-                                    "asrtl_flat_tree", "prepare_link: child node %u missing", cid );
-                                return ASRTL_INTERNAL_ERR;
-                        }
-                        if ( child->key && strcmp( child->key, key ) == 0 ) {
-                                ASRTL_ERR_LOG(
-                                    "asrtl_flat_tree",
-                                    "append: duplicate key '%s' under parent_id=%u",
-                                    key,
-                                    parent_id );
-                                return ASRTL_ARG_ERR;
-                        }
-                        if ( child->next_sibling == 0 )
-                                break;
-                        cid = child->next_sibling;
-                }
-                *link = &child->next_sibling;
+                enum asrtl_status s =
+                    asrtl_flat_find_keyed_tail( t, cl->first_child, parent_id, key, link );
+                if ( s != ASRTL_SUCCESS )
+                        return s;
         } else {
                 struct asrtl_flat_node* child = asrtl_flat_get_node( t, cl->last_child );
                 if ( !child ) {
@@ -474,9 +489,6 @@ enum asrtl_status asrtl_flat_value_decode(
                 break;
         }
         case ASRTL_FLAT_CTYPE_OBJECT:
-                asrtl_cut_u32( &buff->b, &val->data.cont.first_child );
-                asrtl_cut_u32( &buff->b, &val->data.cont.last_child );
-                break;
         case ASRTL_FLAT_CTYPE_ARRAY:
                 asrtl_cut_u32( &buff->b, &val->data.cont.first_child );
                 asrtl_cut_u32( &buff->b, &val->data.cont.last_child );

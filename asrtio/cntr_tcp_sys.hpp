@@ -87,25 +87,37 @@ struct cntr_tcp_sys
                                     "asrtio_main",
                                     "Read error: %s",
                                     uv_strerror( static_cast< int >( nread ) ) );
-                        close();
+                        disconnect();
                 } );
         }
 
-        void close()
+        /// Severs the TCP connection but keeps the idle ticker alive so that
+        /// tick-driven timeouts can still fire and unblock suspended coroutines.
+        /// Full handle cleanup happens later in async_close().
+        void disconnect()
         {
-                uv_idle_stop( &idle_handle );
-                uv_close( (uv_handle_t*) &idle_handle, nullptr );
+                if ( closed_ )
+                        return;
+                closed_ = true;
                 uv_close( (uv_handle_t*) client, nullptr );
+        }
+
+        bool closed() const
+        {
+                return closed_;
         }
 
         friend task< void > async_close( task_ctx&, cntr_tcp_sys& );
 
 private:
+        bool                                                             closed_ = false;
         uv_idle_t                                                        idle_handle;
         uv_tcp_t*                                                        client;
         clock const&                                                     clk_;
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
             [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
+                    if ( closed_ )
+                            return ASRTL_SEND_ERR;
                     return rx.write( (uv_stream_t*) client, id, *buff );
             } };
 
@@ -115,7 +127,7 @@ public:
             [this]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
                     auto s = std::format( "Source: {}, code: {}", sr, ec );
                     ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
-                    close();
+                    disconnect();
                     return ASRTC_SUCCESS;
             } };
 
@@ -132,7 +144,8 @@ inline task< void > async_close( task_ctx&, cntr_tcp_sys& sys )
 {
         uv_idle_stop( &sys.idle_handle );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
-        co_await uv_close_handle{ (uv_handle_t*) sys.client };
+        if ( !sys.closed_ )
+                co_await uv_close_handle{ (uv_handle_t*) sys.client };
 }
 
 

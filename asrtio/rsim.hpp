@@ -25,7 +25,7 @@ namespace asrtio
 struct conn_ctx
 {
         uv_tcp_t                                     client;
-        bool                                         closed = false;
+        bool                                         disconnected = false;
         std::mt19937                                 rng;
         asrtr::reactor                               reac;
         asrtr::diag                                  r_diag;
@@ -125,14 +125,14 @@ struct conn_ctx
                                     "Read error: %s",
                                     uv_strerror( static_cast< int >( nread ) ) );
                         }
-                        close();
+                        disconnect();
                 } );
         }
 
-        void close()
+        void disconnect()
         {
-                if ( !closed ) {
-                        closed = true;
+                if ( !disconnected ) {
+                        disconnected = true;
                         ASRTL_INF_LOG( "asrtio", "Closing rsim reactor connection" );
                         uv_close( (uv_handle_t*) &client, nullptr );
                 }
@@ -141,9 +141,9 @@ struct conn_ctx
 
 inline task< void > async_close( task_ctx&, conn_ctx& ctx )
 {
-        if ( ctx.closed )
+        if ( ctx.disconnected )
                 co_return;
-        ctx.closed = true;
+        ctx.disconnected = true;
         ASRTL_INF_LOG( "asrtio", "Asynchronously closing rsim reactor connection" );
         co_await uv_close_handle{ (uv_handle_t*) &ctx.client };
 }
@@ -179,7 +179,7 @@ struct rsim_ctx
         void tick()
         {
                 std::erase_if( conns, []( conn_ctx const& c ) {
-                        return c.closed;
+                        return c.disconnected;
                 } );
                 for ( auto& c : conns )
                         c.tick();
@@ -222,7 +222,7 @@ struct rsim_ctx
                                 ASRTL_INF_LOG( "test_rsim", "Accepted connection" );
                                 ctx.start();
                         } else {
-                                ctx.close();
+                                ctx.disconnect();
                         }
                 } );
                 if ( r != 0 ) {
@@ -240,7 +240,7 @@ struct rsim_ctx
                 uv_idle_stop( &idle );
                 uv_close( (uv_handle_t*) &idle, nullptr );
                 for ( auto& c : conns )
-                        c.close();
+                        c.disconnect();
                 uv_close( (uv_handle_t*) &server, nullptr );
         }
 

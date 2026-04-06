@@ -59,6 +59,8 @@ static void asrtr_param_dispatch_cb(
         case ASRTL_FLAT_STYPE_NULL:
                 ASRTL_ERR_LOG( "asrtr_param_client", "unsupported expected_type NULL" );
                 break;
+        default:
+                break;
         }
 }
 

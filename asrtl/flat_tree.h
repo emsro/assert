@@ -226,12 +226,11 @@ static inline void asrtl_flat_value_write( uint8_t** p, struct asrtl_flat_value 
                 break;
         }
         case ASRTL_FLAT_CTYPE_OBJECT:
-                asrtl_add_u32( p, v.data.cont.first_child );
-                asrtl_add_u32( p, v.data.cont.last_child );
-                break;
         case ASRTL_FLAT_CTYPE_ARRAY:
                 asrtl_add_u32( p, v.data.cont.first_child );
                 asrtl_add_u32( p, v.data.cont.last_child );
+                break;
+        default:
                 break;
         }
 }
