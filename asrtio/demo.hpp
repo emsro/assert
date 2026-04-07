@@ -19,11 +19,11 @@
 
 #include "../asrtr/diag.h"
 #include "../asrtr/record.h"
+#include "../asrtrpp/collect.hpp"
+#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/param_sender.hpp"
-#include "../asrtrpp/collect.hpp"
-#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/task_unit.hpp"
 
 #include <functional>
@@ -278,7 +278,7 @@ inline demo_spec make_demo_param_value()
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
-                            pq = {};
+                            pq         = {};
                             if ( auto s = self.param.fetch< uint32_t >(
                                      &pq.q, first, detail::param_u32_qr_cb, &pq );
                                  s != ASRTL_SUCCESS ) {
@@ -344,7 +344,7 @@ inline demo_spec make_demo_param_count()
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
-                            pq = {};
+                            pq         = {};
                             if ( auto s = self.param.fetch< void >(
                                      &pq.q, first, detail::param_any_qr_cb, &pq );
                                  s != ASRTL_SUCCESS ) {
@@ -360,7 +360,7 @@ inline demo_spec make_demo_param_count()
                             ++child_count;
                             if ( pq.next_sib != 0 ) {
                                     auto next = pq.next_sib;
-                                    pq = {};
+                                    pq        = {};
                                     if ( auto s = self.param.fetch< void >(
                                              &pq.q, next, detail::param_any_qr_cb, &pq );
                                          s != ASRTL_SUCCESS ) {
@@ -607,22 +607,19 @@ struct param_type_overview_task : asrtr::task_test
                 if ( !b )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list obj =
-                    co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
+                asrtl_flat_child_list obj = co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
                 if ( obj.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
-                asrtl_flat_child_list arr =
-                    co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
+                asrtl_flat_child_list arr = co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
                 if ( arr.first_child == 0 )
                         co_yield asrtr::with_error{ asrtr::test_fail };
 
                 // Iterate over array elements
-                uint32_t          count = 0;
-                asrtl::flat_id    id    = arr.first_child;
+                uint32_t       count = 0;
+                asrtl::flat_id id    = arr.first_child;
                 while ( id != 0 ) {
-                        auto [val, key, next_sibling] =
-                            co_await asrtr::fetch< uint32_t >( pc, id );
+                        auto [val, key, next_sibling] = co_await asrtr::fetch< uint32_t >( pc, id );
                         ++count;
                         id = next_sibling;
                 }
@@ -650,7 +647,7 @@ struct param_type_overview_task : asrtr::task_test
 /// Produces: root OBJECT → "value" U32=42, "tag" STR="demo"
 struct collect_demo_task : asrtr::task_test
 {
-        char const*           name = "collect_demo_task";
+        char const*            name = "collect_demo_task";
         asrtr::collect_client& cc;
 
         collect_demo_task( asrtr::task_ctx& ctx, asrtr::collect_client& c )
