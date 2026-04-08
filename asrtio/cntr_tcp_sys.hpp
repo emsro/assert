@@ -57,14 +57,10 @@ struct cntr_tcp_sys
                             "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
                 if ( auto s = c_param.tick( now ); s != ASRTL_SUCCESS )
                         ASRTL_ERR_LOG(
-                            "asrtio_main",
-                            "Param tick failed: %s",
-                            asrtl_status_to_str( s ) );
+                            "asrtio_main", "Param tick failed: %s", asrtl_status_to_str( s ) );
                 if ( auto s = c_collect.tick( now ); s != ASRTL_SUCCESS )
                         ASRTL_ERR_LOG(
-                            "asrtio_main",
-                            "Collect tick failed: %s",
-                            asrtl_status_to_str( s ) );
+                            "asrtio_main", "Collect tick failed: %s", asrtl_status_to_str( s ) );
         }
 
 
@@ -75,7 +71,7 @@ struct cntr_tcp_sys
                 uv_idle_start( &idle_handle, []( uv_idle_t* h ) {
                         static_cast< cntr_tcp_sys* >( h->data )->tick();
                 } );
-                rx.start( (uv_stream_t*) client, cntr.node(), [this]( ssize_t nread ) {
+                rx.start( (uv_stream_t*) client, cntr.node(), "asrtio_cntr", [this]( ssize_t nread ) {
                         if ( nread == UV_EOF )
                                 ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
                         else
@@ -83,6 +79,8 @@ struct cntr_tcp_sys
                                     "asrtio_main",
                                     "Read error: %s",
                                     uv_strerror( static_cast< int >( nread ) ) );
+                        ASRTL_INF_LOG(
+                            "asrtio_main", "Stopping cntr_tcp_sys system and closing connection" );
                         disconnect();
                 } );
         }
@@ -95,7 +93,7 @@ struct cntr_tcp_sys
                 uv_close( (uv_handle_t*) client, nullptr );
         }
 
-        friend task< void > async_close( task_ctx&, cntr_tcp_sys& );
+        friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
 private:
         bool                                                             disconnected_ = false;
@@ -128,7 +126,7 @@ public:
         cobs_node rx;
 };
 
-inline task< void > async_close( task_ctx&, cntr_tcp_sys& sys )
+inline task< void > async_destroy( task_ctx&, cntr_tcp_sys& sys )
 {
         uv_idle_stop( &sys.idle_handle );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };

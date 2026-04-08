@@ -14,7 +14,6 @@
 #include <list>
 #include <memory>
 #include <sstream>
-#include <stdexcept>
 #include <uv.h>
 #include <vector>
 
@@ -120,6 +119,7 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 
 task< void > run_tcp(
     task_ctx&                       ctx,
+    arena&                          arena,
     uv_loop_t*                      loop,
     std::string_view                host,
     uint16_t                        port,
@@ -127,49 +127,47 @@ task< void > run_tcp(
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
-        uv_tcp_t client;
+        uv_tcp_t      client;
         if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                throw std::runtime_error( "uv_tcp_init failed" );
+                co_await ecor::just_error( status::init_failed );
         }
         co_await tcp_connect{ &client, host, port };
         steady_clock clk;
-        cntr_tcp_sys sys{ &client, clk };
-        sys.start();
+        auto         sys = arena.make< cntr_tcp_sys >( &client, clk );
+        sys->start();
 
-        co_await run_test_suite( ctx, sys, reporter, timeout, *params );
+        co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
         g_bar->finish();
         g_bar.reset();
-
-        co_await async_close( ctx, sys );
 };
 
 task< void > run_rsim(
     task_ctx&                       ctx,
+    arena&                          arena,
     uv_loop_t*                      loop,
     uint32_t                        seed,
     std::chrono::milliseconds       timeout,
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
-        rsim_ctx      rs{ loop, seed };
-        rs.start();
+        auto          rs = arena.make< rsim_ctx >( loop, seed );
+        rs->start();
 
         uv_tcp_t client;
         if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                throw std::runtime_error( "uv_tcp_init failed" );
+                co_await ecor::just_error( status::init_failed );
         }
-        co_await tcp_connect{ &client, "0.0.0.0", rs.port() };
+        co_await tcp_connect{ &client, "0.0.0.0", rs->port() };
         steady_clock clk;
-        cntr_tcp_sys sys{ &client, clk };
-        sys.start();
+        auto         sys = arena.make< cntr_tcp_sys >( &client, clk );
+        sys->start();
 
-        co_await run_test_suite( ctx, sys, reporter, timeout, *params );
+        co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
+        ASRTL_INF_LOG( "asrtio", "run test suite finished" );
         g_bar->finish();
         g_bar.reset();
-        co_await async_close( ctx, sys );
-        co_await async_close( ctx, rs );
 }
 
 struct tcp_opts
@@ -185,6 +183,7 @@ struct final_receiver
 
         void set_value()
         {
+                ASRTL_INF_LOG( "asrtio_main", "Task completed successfully" );
                 stop_idle();
         }
 
@@ -202,6 +201,7 @@ struct final_receiver
 
         void set_stopped()
         {
+                ASRTL_INF_LOG( "asrtio_main", "Task stopped" );
                 stop_idle();
         }
 
@@ -220,13 +220,14 @@ struct final_receiver
 int main( int argc, char* argv[] )
 {
         using namespace asrtio;
-        uv_loop_t*                                         loop = uv_default_loop();
-        ecor::connect_type< task< void >, final_receiver > t;
-        std::shared_ptr< pbar_reporter >                   reporter;
-        asrtl::malloc_free_memory_resource                 mem_res;
-        task_ctx                                           ctx{ mem_res };
-        uv_idle_t                                          idle;
-        CLI::App                                           app{ "App description" };
+        uv_loop_t* loop = uv_default_loop();
+        std::optional< asrtio::complete_arena_connect_result< task< void >, final_receiver > > t;
+        std::shared_ptr< pbar_reporter >   reporter;
+        asrtl::malloc_free_memory_resource mem_res;
+        task_ctx                           ctx{ mem_res };
+        arena                              ar{ ctx, mem_res };
+        uv_idle_t                          idle;
+        CLI::App                           app{ "App description" };
         argv = app.ensure_utf8( argv );
 
         auto opt       = std::make_shared< tcp_opts >();
@@ -255,14 +256,15 @@ int main( int argc, char* argv[] )
                                 std::exit( 1 );
                         }
                 }
-                g_bar = std::make_shared< pbar::terminal_progress >();
-                t = make_task( timeout, std::move( params ) ).connect( final_receiver{ &idle } );
+                g_bar  = std::make_shared< pbar::terminal_progress >();
+                auto s = make_task( timeout, std::move( params ) ) | asrtio::complete_arena( ar );
+                t.emplace( std::move( s ).connect( final_receiver{ &idle } ) );
         };
 
         sub->callback( [&, opt] {
                 launch( [&, opt]( auto timeout, auto params ) {
                         return run_tcp(
-                            ctx, loop, opt->host, opt->port, timeout, std::move( params ) );
+                            ctx, ar, loop, opt->host, opt->port, timeout, std::move( params ) );
                 } );
         } );
 
@@ -280,7 +282,7 @@ int main( int argc, char* argv[] )
                                 })" );
                                 params = param_config_from_stream( in );
                         }
-                        return run_rsim( ctx, loop, *rsim_seed, timeout, std::move( params ) );
+                        return run_rsim( ctx, ar, loop, *rsim_seed, timeout, std::move( params ) );
                 } );
         } );
 
@@ -300,7 +302,7 @@ int main( int argc, char* argv[] )
                 ctx.tick();
         } );
 
-        t.start();
+        t->start();
 
         uv_run( loop, UV_RUN_DEFAULT );
         uv_loop_close( loop );

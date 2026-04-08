@@ -40,8 +40,90 @@ inline char const* status_to_str( status s )
 }
 
 using asrtl::task_ctx;
+using mem_res = asrtl::malloc_free_memory_resource;
+using arena   = ecor::async_arena< task_ctx, mem_res >;
+
+template < typename T >
+using async_ptr = ecor::async_ptr< T, task_ctx, mem_res >;
 
 template < typename T >
 using task = asrtl::task< T, status >;
+
+// XXX: specific version of just sender? maybe move to ecor?
+template < typename S >
+struct _complete_arena_sender
+{
+
+        using sender_concept = ecor::sender_t;
+
+        arena& a;
+        S      s;
+
+        template < typename R >
+        struct recv
+        {
+                using receiver_concept = ecor::receiver_t;
+                using arena_sender     = decltype( std::declval< arena >().async_destroy() );
+
+                ecor::connect_type< arena_sender, R > _op;
+
+                recv( arena& a, R r )
+                  : _op( a.async_destroy().connect( std::move( r ) ) )
+                {
+                }
+
+                recv( recv&& ) noexcept = default;
+
+                void set_value()
+                {
+                        _op.start();
+                }
+
+                void set_error( auto ) noexcept
+                {
+                        _op.start();
+                }
+
+                void set_stopped() noexcept
+                {
+                        _op.start();
+                }
+
+                auto get_env() const noexcept
+                {
+                        return ecor::empty_env{};
+                }
+
+                ~recv() noexcept = default;
+        };
+
+        template < typename R >
+        auto connect( R&& r ) &&
+        {
+                return std::move( s ).connect( recv{ a, std::forward< R >( r ) } );
+        }
+};
+
+struct _complete_closure
+{
+        arena& a;
+};
+
+template < typename S >
+auto operator|( S&& s, _complete_closure&& c )
+{
+        return _complete_arena_sender< std::decay_t< S > >{ c.a, std::forward< S >( s ) };
+}
+
+inline auto complete_arena( arena& a )
+{
+        return _complete_closure{ a };
+}
+
+template < typename S, typename R >
+using complete_arena_connect_result =
+    decltype( ( std::declval< S >() | complete_arena( std::declval< arena& >() ) )
+                  .connect( std::declval< R >() ) );
+
 
 }  // namespace asrtio

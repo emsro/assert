@@ -32,6 +32,7 @@ struct _tcp_connect
         void start( OP& op )
         {
                 if ( uv_ip4_addr( host.data(), port, &dest ) != 0 ) {
+                        ASRTL_ERR_LOG( "asrtio_main", "Failed to resolve address" );
                         op.recv.set_error( status::connect_failed );
                         return;
                 }
@@ -42,12 +43,19 @@ struct _tcp_connect
                     (const struct sockaddr*) &dest,
                     []( uv_connect_t* req, int status ) {
                             auto& op = *static_cast< OP* >( req->data );
-                            if ( status < 0 )
+                            if ( status < 0 ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "TCP connect failed: %s",
+                                        uv_strerror( status ) );
                                     op.recv.set_error( status::connect_failed );
-                            else
+                            } else {
                                     op.recv.set_value();
+                            }
                     } );
                 if ( res != 0 ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main", "TCP connect request failed: %s", uv_strerror( res ) );
                         op.recv.set_error( status::connect_failed );
                         return;
                 }
@@ -74,10 +82,15 @@ struct _cntr_start
         {
                 auto x = cntr.start(
                     [&op]( asrtc::status s ) {
-                            if ( s != ASRTC_SUCCESS )
+                            if ( s != ASRTC_SUCCESS ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Controller start callback failed: %s",
+                                        asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::init_failed );
-                            else
+                            } else {
                                     op.recv.set_value();
+                            }
                             return s;
                     },
                     static_cast< uint32_t >( timeout.count() ) );
@@ -109,6 +122,10 @@ struct _cntr_query_test_count
                 auto s = cntr.query_test_count(
                     [&op]( asrtc::status s, uint32_t count ) {
                             if ( s != ASRTC_SUCCESS ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Query test count failed: %s",
+                                        asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
                                     return ASRTC_SUCCESS;
                             }
@@ -117,6 +134,10 @@ struct _cntr_query_test_count
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main",
+                            "Query test count failed: %s",
+                            asrtc_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
                         return;
                 }
@@ -149,6 +170,10 @@ struct _cntr_query_test_info
                     id,
                     [&op]( asrtc::status s, uint16_t tid, std::string_view desc ) {
                             if ( s != ASRTC_SUCCESS ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Query test info failed: %s",
+                                        asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
                                     return ASRTC_SUCCESS;
                             }
@@ -157,6 +182,8 @@ struct _cntr_query_test_info
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main", "Query test info failed: %s", asrtc_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
                         return;
                 }
@@ -186,6 +213,10 @@ struct _cntr_exec_test
                     id,
                     [&op]( asrtc::status s, asrtc::result const& res ) {
                             if ( s != ASRTC_SUCCESS ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Test execution failed: %s",
+                                        asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
                                     return ASRTC_SUCCESS;
                             }
@@ -194,6 +225,8 @@ struct _cntr_exec_test
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtio_main", "Test execution failed: %s", asrtc_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
                         return;
                 }

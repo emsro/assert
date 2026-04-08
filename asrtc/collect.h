@@ -81,13 +81,6 @@ struct asrtc_collect_server
 
 /// Initialise a collect server and link it into the node chain.
 ///
-/// @param server         Server instance (caller-owned, zeroed on success).
-/// @param prev           Previous node in the channel chain; prev->next is set.
-/// @param sender         Sender handle shared with other modules on this side.
-/// @param alloc          Allocator used for the internal flat_tree.
-/// @param tree_block_cap Initial block capacity for flat_tree storage.
-/// @param tree_node_cap  Initial node capacity for flat_tree storage.
-/// @return ASRTC_SUCCESS, or ASRTC_CNTR_INIT_ERR on invalid args / alloc failure.
 enum asrtc_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
     struct asrtl_node*           prev,
@@ -104,12 +97,6 @@ enum asrtc_status asrtc_collect_server_init(
 ///
 /// May be called from IDLE or ACTIVE state (to start a new session).
 ///
-/// @param server     Initialised server instance.
-/// @param root_id    Root node ID the reactor should use as the tree root.
-/// @param timeout    Deadline in tick-clock units (deadline = now + timeout).
-/// @param ack_cb     Callback fired from tick() when READY_ACK arrives or timeout.
-/// @param ack_cb_ptr User context pointer forwarded to ack_cb.
-/// @return ASRTL_SUCCESS, or ASRTL_ARG_ERR if state is invalid.
 enum asrtl_status asrtc_collect_server_send_ready(
     struct asrtc_collect_server* server,
     asrtl_flat_id                root_id,
@@ -120,13 +107,9 @@ enum asrtl_status asrtc_collect_server_send_ready(
 /// Process pending work: READY_ACK handshake, APPEND tree insertion, timeouts.
 ///
 /// Must be called periodically (typically from an idle/timer callback).
-/// @param server Initialised server instance.
-/// @param now    Current tick-clock time (for timeout checks).
-/// @return ASRTL_SUCCESS on normal operation.
 enum asrtl_status asrtc_collect_server_tick( struct asrtc_collect_server* server, uint32_t now );
 
-/// Access the built flat_tree (valid after collection session).
-/// The returned pointer is valid until the next send_ready() or deinit().
+/// Access the built flat_tree.
 struct asrtl_flat_tree const* asrtc_collect_server_tree(
     struct asrtc_collect_server const* server );
 

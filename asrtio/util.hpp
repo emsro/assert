@@ -5,9 +5,9 @@
 #include "../asrtcpp/controller.hpp"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
-#include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtl/status_to_str.h"
 #include "../asrtl/util.h"
+#include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/util.hpp"
 
 #include <cstring>
@@ -40,6 +40,7 @@ struct cobs_node
         asrtl_node*                      node;
         asrtl_cobs_ibuffer               recv;
         uint8_t                          ibuffer[1024];
+        char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
         asrtl::status write( uv_stream_t* client, asrtl::chann_id id, asrtl::rec_span& buff )
@@ -52,7 +53,7 @@ struct cobs_node
                 asrtl_add_u16( &pp, id );
                 for ( asrtl::rec_span* sp = &buff; sp != nullptr; sp = sp->next ) {
                         if ( size + ( sp->e - sp->b ) > sizeof( buffer ) - 8 ) {
-                                ASRTL_ERR_LOG( "asrtio", "Buffer overflow in COBS encoding" );
+                                ASRTL_ERR_LOG( module, "Buffer overflow in COBS encoding" );
                                 return ASRTL_SEND_ERR;
                         }
                         memcpy( pp, sp->b, sp->e - sp->b );
@@ -63,14 +64,14 @@ struct cobs_node
                 auto              s = asrtl_cobs_encode_buffer( { .b = p, .e = p + size }, &sp );
                 if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtio", "COBS encoding failed: %s", asrtl_status_to_str( s ) );
+                            module, "COBS encoding failed: %s", asrtl_status_to_str( s ) );
                         return ASRTL_SEND_ERR;
                 }
 
                 auto* data = new uint8_t[sp.e - sp.b];
                 memcpy( data, sp.b, sp.e - sp.b );
                 ASRTL_DBG_LOG(
-                    "asrtio", "Sending to channel %u: %u bytes, total: %u", id, size, sp.e - sp.b );
+                    module, "Sending to channel %u: %u bytes, total: %u", id, size, sp.e - sp.b );
 
                 auto* req      = new uv_write_t{};
                 req->data      = data;
@@ -93,19 +94,21 @@ struct cobs_node
                 auto              s = asrtl_chann_cobs_dispatch( &recv, node, sp );
                 if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtio", "COBS dispatch failed: %s", asrtl_status_to_str( s ) );
-                        on_error( s );
+                            module, "COBS dispatch failed: %s", asrtl_status_to_str( s ) );
+                        on_error( UV_UNKNOWN );
                 }
         }
 
         void start(
             uv_stream_t*                     client,
             asrtl_node*                      node,
+            char const*                      mod,
             std::function< void( ssize_t ) > on_error )
         {
                 asrtl_cobs_ibuffer_init(
                     &recv, (struct asrtl_span) { .b = ibuffer, .e = ibuffer + sizeof ibuffer } );
                 this->node     = node;
+                this->module   = mod;
                 this->on_error = std::move( on_error );
                 client->data   = this;
                 uv_read_start(
@@ -117,11 +120,11 @@ struct cobs_node
                     []( uv_stream_t* h, ssize_t nread, uv_buf_t const* buf ) {
                             auto& self = *static_cast< cobs_node* >( h->data );
                             if ( nread == UV_EOF ) {
-                                    ASRTL_DBG_LOG( "asrtio", "Connection closed" );
+                                    ASRTL_DBG_LOG( self.module, "Connection closed" );
                                     self.on_error( nread );
                             } else if ( nread < 0 ) {
                                     ASRTL_ERR_LOG(
-                                        "asrtio",
+                                        self.module,
                                         "Read error: %s",
                                         uv_strerror( static_cast< int >( nread ) ) );
                                     self.on_error( nread );

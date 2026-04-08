@@ -251,19 +251,21 @@ struct test_receiver
 
 static asrtio::task< void > suite_coro(
     asrtio::task_ctx&   tctx,
-    asrtio::rsim_ctx&   rs,
+    uv_loop_t*          loop,
+    uint32_t            seed,
+    asrtio::arena&      arena,
     recording_reporter& reporter,
     uv_tcp_t&           client )
 {
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
+        REQUIRE( rs->start() == asrtio::status::success );
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
         asrtio::steady_clock clk;
-        asrtio::cntr_tcp_sys sys{ &client, clk };
-        sys.start();
+        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        sys->start();
         asrtio::param_config no_params;
-        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, no_params );
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params );
         reporter.done_names_at_on_done = (int) reporter.done_names.size();
-        co_await asrtio::async_close( tctx, sys );
-        co_await asrtio::async_close( tctx, rs );
 }
 
 struct suite_run
@@ -276,8 +278,7 @@ struct suite_run
                 uv_loop_t*                         loop = uv_loop_new();
                 asrtl::malloc_free_memory_resource mem_res;
                 asrtio::task_ctx                   tctx{ mem_res };
-                asrtio::rsim_ctx                   rs{ loop, seed };
-                REQUIRE( rs.start() == asrtio::status::success );
+                asrtio::arena                      arena{ tctx, mem_res };
 
                 uv_tcp_t client;
                 uv_tcp_init( loop, &client );
@@ -289,7 +290,8 @@ struct suite_run
                         static_cast< asrtio::task_ctx* >( h->data )->tick();
                 } );
 
-                auto op = suite_coro( tctx, rs, reporter, client )
+                auto op = ( suite_coro( tctx, loop, seed, arena, reporter, client ) |
+                            asrtio::complete_arena( arena ) )
                               .connect( test_receiver{ &done, &idle } );
                 op.start();
 
@@ -414,22 +416,26 @@ struct param_e2e_state
 
 static asrtio::task< void > param_e2e_coro(
     asrtio::task_ctx&      tctx,
-    asrtio::rsim_ctx&      rs,
+    uv_loop_t*             loop,
+    uint32_t               seed,
+    asrtio::arena&         arena,
     recording_reporter&    reporter,
     param_e2e_state&       state,
     asrtl_flat_tree const* tree,
     uv_tcp_t&              client )
 {
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
+        REQUIRE( rs->start() == asrtio::status::success );
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
         asrtio::steady_clock clk;
-        asrtio::cntr_tcp_sys sys{ &client, clk };
-        sys.start();
-        co_await asrtio::cntr_set_param_tree{ sys, tree, 1u, 1000ms };
+        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        sys->start();
+        co_await asrtio::cntr_set_param_tree{ *sys, tree, 1u, 1000ms };
         asrtio::param_config no_params;
-        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, no_params );
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params );
 
-        REQUIRE_FALSE( rs.conns.empty() );
-        auto& conn = rs.conns.front();
+        REQUIRE_FALSE( rs->conns.empty() );
+        auto& conn = rs->conns.front();
 
         while ( !conn.param().ready() )
                 co_await ecor::suspend;
@@ -439,8 +445,7 @@ static asrtio::task< void > param_e2e_coro(
 
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            conn.param().fetch(
-                &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
+            conn.param().fetch( &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
 
         while ( state.received.size() < 1 )
                 co_await ecor::suspend;
@@ -470,9 +475,6 @@ static asrtio::task< void > param_e2e_coro(
 
         while ( state.received.size() < 3 )
                 co_await ecor::suspend;
-
-        co_await asrtio::async_close( tctx, sys );
-        co_await asrtio::async_close( tctx, rs );
 }
 
 TEST_CASE( "param_tcp_e2e" )
@@ -480,8 +482,9 @@ TEST_CASE( "param_tcp_e2e" )
         asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 8, 32 );
         asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
-        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 42} );
-        asrtl_flat_tree_append_scalar( &tree, 1, 3, "y", ASRTL_FLAT_STYPE_STR, {.str_val = "hello"} );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
+        asrtl_flat_tree_append_scalar(
+            &tree, 1, 3, "y", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } );
 
         param_e2e_state    state;
         recording_reporter reporter;
@@ -490,8 +493,7 @@ TEST_CASE( "param_tcp_e2e" )
         uv_loop_t*                         loop = uv_loop_new();
         asrtl::malloc_free_memory_resource mem_res;
         asrtio::task_ctx                   tctx{ mem_res };
-        asrtio::rsim_ctx                   rs{ loop, 42 };
-        REQUIRE( rs.start() == asrtio::status::success );
+        asrtio::arena                      arena{ tctx, mem_res };
 
         uv_tcp_t client;
         uv_tcp_init( loop, &client );
@@ -503,7 +505,8 @@ TEST_CASE( "param_tcp_e2e" )
                 static_cast< asrtio::task_ctx* >( h->data )->tick();
         } );
 
-        auto op = param_e2e_coro( tctx, rs, reporter, state, &tree, client )
+        auto op = ( param_e2e_coro( tctx, loop, 42, arena, reporter, state, &tree, client ) |
+                    asrtio::complete_arena( arena ) )
                       .connect( test_receiver{ &done, &idle } );
         op.start();
 
@@ -731,8 +734,8 @@ TEST_CASE( "ftfj_simple_array" )
 
         // Walk children: 3 elements
         asrtl::flat_id id    = root.value.data.cont.first_child;
-        int           count = 0;
-        uint32_t      vals[3];
+        int            count = 0;
+        uint32_t       vals[3];
         while ( id != 0 ) {
                 auto r = query( tree, id );
                 CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -809,7 +812,7 @@ TEST_CASE( "ftfj_mixed_types" )
 
         // Walk all children and collect types by key
         asrtl::flat_id id    = root.value.data.cont.first_child;
-        int           count = 0;
+        int            count = 0;
         while ( id != 0 ) {
                 auto r = query( tree, id );
                 if ( strcmp( r.key, "n" ) == 0 )
@@ -992,7 +995,7 @@ TEST_CASE( "ftfj_error_append_failure_in_nested" )
         // Let the root object append succeed, then fail on the child
         ctx.fail_at_call = ctx.alloc_calls + 2;
 
-        auto          j       = nlohmann::json::parse( R"({"a": 1})" );
+        auto           j       = nlohmann::json::parse( R"({"a": 1})" );
         asrtl::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
@@ -1437,18 +1440,20 @@ TEST_CASE( "pcff_nonexistent_file" )
 
 static asrtio::task< void > suite_param_coro(
     asrtio::task_ctx&     tctx,
-    asrtio::rsim_ctx&     rs,
+    uv_loop_t*            loop,
+    uint32_t              seed,
+    asrtio::arena&        arena,
     recording_reporter&   reporter,
     asrtio::param_config& params,
     uv_tcp_t&             client )
 {
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs.port() };
+        auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
+        REQUIRE( rs->start() == asrtio::status::success );
+        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
         asrtio::steady_clock clk;
-        asrtio::cntr_tcp_sys sys{ &client, clk };
-        sys.start();
-        co_await asrtio::run_test_suite( tctx, sys, reporter, 1000ms, params );
-        co_await asrtio::async_close( tctx, sys );
-        co_await asrtio::async_close( tctx, rs );
+        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        sys->start();
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params );
 }
 
 struct param_suite_run
@@ -1461,8 +1466,7 @@ struct param_suite_run
                 uv_loop_t*                         loop = uv_loop_new();
                 asrtl::malloc_free_memory_resource mem_res;
                 asrtio::task_ctx                   tctx{ mem_res };
-                asrtio::rsim_ctx                   rs{ loop, seed };
-                REQUIRE( rs.start() == asrtio::status::success );
+                asrtio::arena                      arena{ tctx, mem_res };
 
                 uv_tcp_t client;
                 uv_tcp_init( loop, &client );
@@ -1474,7 +1478,8 @@ struct param_suite_run
                         static_cast< asrtio::task_ctx* >( h->data )->tick();
                 } );
 
-                auto op = suite_param_coro( tctx, rs, reporter, params, client )
+                auto op = ( suite_param_coro( tctx, loop, 42, arena, reporter, params, client ) |
+                            asrtio::complete_arena( arena ) )
                               .connect( test_receiver{ &done, &idle } );
                 op.start();
 

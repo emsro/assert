@@ -124,7 +124,7 @@ struct conn_ctx
 
         void start()
         {
-                rx.start( (uv_stream_t*) &client, reac.node(), [&]( ssize_t nread ) {
+                rx.start( (uv_stream_t*) &client, reac.node(), "asrtio_rsim", [&]( ssize_t nread ) {
                         if ( nread == UV_EOF ) {
                                 ASRTL_DBG_LOG( "test_rsim", "Connection closed by remote" );
                         } else {
@@ -252,10 +252,10 @@ struct rsim_ctx
                 uv_close( (uv_handle_t*) &server, nullptr );
         }
 
-        friend task< void > async_close( task_ctx&, rsim_ctx& );
+        friend task< void > async_destroy( task_ctx&, rsim_ctx& );
 };
 
-inline task< void > async_close( task_ctx& ctx, rsim_ctx& rs )
+inline task< void > async_destroy( task_ctx& ctx, rsim_ctx& rs )
 {
         if ( rs.closed )
                 co_return;
