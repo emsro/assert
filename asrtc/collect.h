@@ -29,7 +29,6 @@ enum asrtc_collect_server_state
         ASRTC_COLLECT_SERVER_READY_SENT,
         ASRTC_COLLECT_SERVER_READY_ACK_RECV,
         ASRTC_COLLECT_SERVER_ACTIVE,
-        ASRTC_COLLECT_SERVER_APPEND_RECV,
 };
 
 struct asrtc_collect_ready_data
@@ -39,14 +38,6 @@ struct asrtc_collect_ready_data
         void*                      ack_cb_ptr;
         uint32_t                   timeout;
         uint32_t                   deadline;
-};
-
-struct asrtc_collect_append_data
-{
-        asrtl_flat_id parent_id;
-        asrtl_flat_id node_id;
-        uint8_t*      buf;
-        uint32_t      len;
 };
 
 /// Controller-side collect server (ASRTL_COLL channel).
@@ -72,11 +63,7 @@ struct asrtc_collect_server
         enum asrtc_collect_server_state state;
         asrtl_flat_id                   next_node_id;
 
-        union
-        {
-                struct asrtc_collect_ready_data  ready;
-                struct asrtc_collect_append_data append;
-        } cmd;
+        struct asrtc_collect_ready_data cmd;
 };
 
 /// Initialise a collect server and link it into the node chain.

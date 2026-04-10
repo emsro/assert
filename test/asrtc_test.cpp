@@ -2148,6 +2148,44 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_before_active_retur
         CHECK_EQ( ASRTL_RECV_ERR, call_collect_recv( &server, abuf, ae ) );
 }
 
+TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_back_to_back_appends" )
+{
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
+        coll.data.pop_front();
+
+        uint8_t buf[8];
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+
+        // Append root object
+        uint8_t                 abuf[128];
+        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
+        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
+
+        // Second append WITHOUT tick() in between — simulates burst arrival
+        struct asrtl_flat_value val{ .type = ASRTL_FLAT_STYPE_U32 };
+        val.data.s.u32_val = 42;
+        ae                 = build_collect_append( abuf, 1, 2, "alpha", &val );
+        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
+
+        // Tick to finalize
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
+
+        // Verify both nodes made it into the tree
+        struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
+        struct asrtl_flat_query_result qr;
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( (struct asrtl_flat_tree*) tree, 1, &qr ) );
+        CHECK_EQ( ASRTL_FLAT_CTYPE_OBJECT, qr.value.type );
+
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( (struct asrtl_flat_tree*) tree, 2, &qr ) );
+        CHECK_EQ( ASRTL_FLAT_STYPE_U32, qr.value.type );
+        CHECK_EQ( 42u, qr.value.data.s.u32_val );
+}
+
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_duplicate_sends_error" )
 {
         CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
@@ -2291,7 +2329,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ready_ack_reinits_tree" )
         CHECK_NE( ASRTL_SUCCESS, asrtl_flat_tree_query( (struct asrtl_flat_tree*) tree, 1, &qr ) );
 }
 
-TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_returns_recv_err" )
+TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends_error_and_resets" )
 {
         CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
         coll.data.pop_front();
@@ -2301,17 +2339,17 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_retur
         asrtc_collect_server_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 
-        // Make the next allocation fail
+        // Make the next allocation fail (will hit inside flat_tree_append)
         uint32_t calls_before    = alloc_ctx.alloc_calls;
         alloc_ctx.fail_at_call   = calls_before + 1;
 
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae  = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_RECV_ERR, call_collect_recv( &server, abuf, ae ) );
+        call_collect_recv( &server, abuf, ae );
 
-        // No pending work should be left
-        CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
+        // Tree alloc failure → error sent to reactor, server resets to idle
+        CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
 }
 
 // ============================================================================
