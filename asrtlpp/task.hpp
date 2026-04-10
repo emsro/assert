@@ -40,6 +40,11 @@ struct task_ctx
                 return core;
         }
 
+        void reschedule( ecor::schedulable& s )
+        {
+                core.reschedule( s );
+        }
+
 private:
         ecor::task_memory_resource memory_resource;
         ecor::task_core            core;

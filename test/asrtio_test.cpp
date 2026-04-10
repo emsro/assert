@@ -227,21 +227,25 @@ struct test_receiver
                 *flag = true;
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
+                ASRTL_INF_LOG( "asrtio_test", "Test receiver: Task completed successfully" );
         }
         void set_error( asrtio::status ) noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
+                ASRTL_ERR_LOG( "asrtio_test", "Test receiver: Task completed with error" );
         }
         void set_error( ecor::task_error ) noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
+                ASRTL_ERR_LOG( "asrtio_test", "Test receiver: Task completed with task_error" );
         }
         void set_stopped() noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
+                ASRTL_INF_LOG( "asrtio_test", "Test receiver: Task stopped" );
         }
         ecor::empty_env get_env() const noexcept
         {
@@ -250,18 +254,18 @@ struct test_receiver
 };
 
 static asrtio::task< void > suite_coro(
-    asrtio::task_ctx&   tctx,
-    uv_loop_t*          loop,
-    uint32_t            seed,
-    asrtio::arena&      arena,
-    recording_reporter& reporter,
-    uv_tcp_t&           client )
+    asrtio::task_ctx&           tctx,
+    uv_loop_t*                  loop,
+    uint32_t                    seed,
+    asrtio::arena&              arena,
+    asrtio::clock&              clk,
+    recording_reporter&         reporter,
+    std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == asrtio::status::success );
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
-        asrtio::steady_clock clk;
-        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::param_config no_params;
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params );
@@ -279,9 +283,10 @@ struct suite_run
                 asrtl::malloc_free_memory_resource mem_res;
                 asrtio::task_ctx                   tctx{ mem_res };
                 asrtio::arena                      arena{ tctx, mem_res };
+                asrtio::steady_clock               clk;
 
-                uv_tcp_t client;
-                uv_tcp_init( loop, &client );
+                auto client = std::make_shared< uv_tcp_t >();
+                uv_tcp_init( loop, client.get() );
 
                 uv_idle_t idle;
                 idle.data = &tctx;
@@ -290,7 +295,7 @@ struct suite_run
                         static_cast< asrtio::task_ctx* >( h->data )->tick();
                 } );
 
-                auto op = ( suite_coro( tctx, loop, seed, arena, reporter, client ) |
+                auto op = ( suite_coro( tctx, loop, seed, arena, clk, reporter, client ) |
                             asrtio::complete_arena( arena ) )
                               .connect( test_receiver{ &done, &idle } );
                 op.start();
@@ -415,20 +420,20 @@ struct param_e2e_state
 };
 
 static asrtio::task< void > param_e2e_coro(
-    asrtio::task_ctx&      tctx,
-    uv_loop_t*             loop,
-    uint32_t               seed,
-    asrtio::arena&         arena,
-    recording_reporter&    reporter,
-    param_e2e_state&       state,
-    asrtl_flat_tree const* tree,
-    uv_tcp_t&              client )
+    asrtio::task_ctx&           tctx,
+    uv_loop_t*                  loop,
+    uint32_t                    seed,
+    asrtio::arena&              arena,
+    asrtio::clock&              clk,
+    recording_reporter&         reporter,
+    param_e2e_state&            state,
+    asrtl_flat_tree const*      tree,
+    std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == asrtio::status::success );
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
-        asrtio::steady_clock clk;
-        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         co_await asrtio::cntr_set_param_tree{ *sys, tree, 1u, 1000ms };
         asrtio::param_config no_params;
@@ -494,9 +499,10 @@ TEST_CASE( "param_tcp_e2e" )
         asrtl::malloc_free_memory_resource mem_res;
         asrtio::task_ctx                   tctx{ mem_res };
         asrtio::arena                      arena{ tctx, mem_res };
+        asrtio::steady_clock               clk;
 
-        uv_tcp_t client;
-        uv_tcp_init( loop, &client );
+        auto client = std::make_shared< uv_tcp_t >();
+        uv_tcp_init( loop, client.get() );
 
         uv_idle_t idle;
         idle.data = &tctx;
@@ -505,7 +511,7 @@ TEST_CASE( "param_tcp_e2e" )
                 static_cast< asrtio::task_ctx* >( h->data )->tick();
         } );
 
-        auto op = ( param_e2e_coro( tctx, loop, 42, arena, reporter, state, &tree, client ) |
+        auto op = ( param_e2e_coro( tctx, loop, 42, arena, clk, reporter, state, &tree, client ) |
                     asrtio::complete_arena( arena ) )
                       .connect( test_receiver{ &done, &idle } );
         op.start();
@@ -1439,19 +1445,19 @@ TEST_CASE( "pcff_nonexistent_file" )
 // Component 8: rsim integration tests for param_config
 
 static asrtio::task< void > suite_param_coro(
-    asrtio::task_ctx&     tctx,
-    uv_loop_t*            loop,
-    uint32_t              seed,
-    asrtio::arena&        arena,
-    recording_reporter&   reporter,
-    asrtio::param_config& params,
-    uv_tcp_t&             client )
+    asrtio::task_ctx&           tctx,
+    uv_loop_t*                  loop,
+    uint32_t                    seed,
+    asrtio::arena&              arena,
+    asrtio::clock&              clk,
+    recording_reporter&         reporter,
+    asrtio::param_config&       params,
+    std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == asrtio::status::success );
-        co_await asrtio::tcp_connect{ &client, "127.0.0.1", rs->port() };
-        asrtio::steady_clock clk;
-        auto                 sys = arena.make< asrtio::cntr_tcp_sys >( &client, clk );
+        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params );
 }
@@ -1467,9 +1473,10 @@ struct param_suite_run
                 asrtl::malloc_free_memory_resource mem_res;
                 asrtio::task_ctx                   tctx{ mem_res };
                 asrtio::arena                      arena{ tctx, mem_res };
+                asrtio::steady_clock               clk;
 
-                uv_tcp_t client;
-                uv_tcp_init( loop, &client );
+                auto client = std::make_shared< uv_tcp_t >();
+                uv_tcp_init( loop, client.get() );
 
                 uv_idle_t idle;
                 idle.data = &tctx;
@@ -1478,9 +1485,10 @@ struct param_suite_run
                         static_cast< asrtio::task_ctx* >( h->data )->tick();
                 } );
 
-                auto op = ( suite_param_coro( tctx, loop, 42, arena, reporter, params, client ) |
-                            asrtio::complete_arena( arena ) )
-                              .connect( test_receiver{ &done, &idle } );
+                auto op =
+                    ( suite_param_coro( tctx, loop, 42, arena, clk, reporter, params, client ) |
+                      asrtio::complete_arena( arena ) )
+                        .connect( test_receiver{ &done, &idle } );
                 op.start();
 
                 uv_run( loop, UV_RUN_DEFAULT );

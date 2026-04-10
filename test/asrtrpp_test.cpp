@@ -1076,15 +1076,16 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_error" )
 // cb is no-op when state is not INIT (coroutine already started)
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_noop_after_start" )
 {
+        asrtr_record rec{};
+        rec.state = ASRTR_TEST_INIT;
+
         asrtr::task_unit< tu_multi_pass > u{ tu_multi_pass{ ctx } };
 
         asrtr_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrtr::task_unit< tu_multi_pass >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
-        rec.inpt  = &input;
+        rec.inpt = &input;
 
         // Start the coroutine
         auto st = asrtr::task_unit< tu_multi_pass >::cb( &rec );

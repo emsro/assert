@@ -23,7 +23,7 @@ namespace asrtio
 struct cntr_tcp_sys
 {
 
-        cntr_tcp_sys( uv_tcp_t* client, clock const& clk )
+        cntr_tcp_sys( std::shared_ptr< uv_tcp_t > client, clock const& clk )
           : client( client )
           , clk_( clk )
         {
@@ -71,18 +71,23 @@ struct cntr_tcp_sys
                 uv_idle_start( &idle_handle, []( uv_idle_t* h ) {
                         static_cast< cntr_tcp_sys* >( h->data )->tick();
                 } );
-                rx.start( (uv_stream_t*) client, cntr.node(), "asrtio_cntr", [this]( ssize_t nread ) {
-                        if ( nread == UV_EOF )
-                                ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
-                        else
-                                ASRTL_ERR_LOG(
-                                    "asrtio_main",
-                                    "Read error: %s",
-                                    uv_strerror( static_cast< int >( nread ) ) );
-                        ASRTL_INF_LOG(
-                            "asrtio_main", "Stopping cntr_tcp_sys system and closing connection" );
-                        disconnect();
-                } );
+                rx.start(
+                    (uv_stream_t*) client.get(),
+                    cntr.node(),
+                    "asrtio_cntr",
+                    [this]( ssize_t nread ) {
+                            if ( nread == UV_EOF )
+                                    ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
+                            else
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Read error: %s",
+                                        uv_strerror( static_cast< int >( nread ) ) );
+                            ASRTL_INF_LOG(
+                                "asrtio_main",
+                                "Stopping cntr_tcp_sys system and closing connection" );
+                            disconnect();
+                    } );
         }
 
         void disconnect()
@@ -90,7 +95,7 @@ struct cntr_tcp_sys
                 if ( disconnected_ )
                         return;
                 disconnected_ = true;
-                uv_close( (uv_handle_t*) client, nullptr );
+                uv_close( (uv_handle_t*) client.get(), nullptr );
         }
 
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
@@ -98,13 +103,13 @@ struct cntr_tcp_sys
 private:
         bool                                                             disconnected_ = false;
         uv_idle_t                                                        idle_handle;
-        uv_tcp_t*                                                        client;
+        std::shared_ptr< uv_tcp_t >                                      client;
         clock const&                                                     clk_;
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
             [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
                     if ( disconnected_ )
                             return ASRTL_SEND_ERR;
-                    return rx.write( (uv_stream_t*) client, id, *buff );
+                    return rx.write( (uv_stream_t*) client.get(), id, *buff );
             } };
 
 public:
@@ -131,7 +136,7 @@ inline task< void > async_destroy( task_ctx&, cntr_tcp_sys& sys )
         uv_idle_stop( &sys.idle_handle );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
         if ( !sys.disconnected_ )
-                co_await uv_close_handle{ (uv_handle_t*) sys.client };
+                co_await uv_close_handle{ (uv_handle_t*) sys.client.get() };
 }
 
 

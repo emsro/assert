@@ -120,6 +120,7 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
 task< void > run_tcp(
     task_ctx&                       ctx,
     arena&                          arena,
+    steady_clock&                   clk,
     uv_loop_t*                      loop,
     std::string_view                host,
     uint16_t                        port,
@@ -127,14 +128,13 @@ task< void > run_tcp(
     std::unique_ptr< param_config > params )
 {
         pbar_reporter reporter{ *g_bar };
-        uv_tcp_t      client;
-        if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
+        auto          client = std::make_shared< uv_tcp_t >();
+        if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
                 co_await ecor::just_error( status::init_failed );
         }
-        co_await tcp_connect{ &client, host, port };
-        steady_clock clk;
-        auto         sys = arena.make< cntr_tcp_sys >( &client, clk );
+        co_await tcp_connect{ client.get(), host, port };
+        auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
         co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
@@ -145,6 +145,7 @@ task< void > run_tcp(
 task< void > run_rsim(
     task_ctx&                       ctx,
     arena&                          arena,
+    steady_clock&                   clk,
     uv_loop_t*                      loop,
     uint32_t                        seed,
     std::chrono::milliseconds       timeout,
@@ -154,14 +155,13 @@ task< void > run_rsim(
         auto          rs = arena.make< rsim_ctx >( loop, seed );
         rs->start();
 
-        uv_tcp_t client;
-        if ( auto r = uv_tcp_init( loop, &client ); r != 0 ) {
+        auto client = std::make_shared< uv_tcp_t >();
+        if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
                 co_await ecor::just_error( status::init_failed );
         }
-        co_await tcp_connect{ &client, "0.0.0.0", rs->port() };
-        steady_clock clk;
-        auto         sys = arena.make< cntr_tcp_sys >( &client, clk );
+        co_await tcp_connect{ client.get(), "0.0.0.0", rs->port() };
+        auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
         co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
@@ -226,6 +226,7 @@ int main( int argc, char* argv[] )
         asrtl::malloc_free_memory_resource mem_res;
         task_ctx                           ctx{ mem_res };
         arena                              ar{ ctx, mem_res };
+        steady_clock                       clk;
         uv_idle_t                          idle;
         CLI::App                           app{ "App description" };
         argv = app.ensure_utf8( argv );
@@ -264,7 +265,14 @@ int main( int argc, char* argv[] )
         sub->callback( [&, opt] {
                 launch( [&, opt]( auto timeout, auto params ) {
                         return run_tcp(
-                            ctx, ar, loop, opt->host, opt->port, timeout, std::move( params ) );
+                            ctx,
+                            ar,
+                            clk,
+                            loop,
+                            opt->host,
+                            opt->port,
+                            timeout,
+                            std::move( params ) );
                 } );
         } );
 
@@ -282,7 +290,8 @@ int main( int argc, char* argv[] )
                                 })" );
                                 params = param_config_from_stream( in );
                         }
-                        return run_rsim( ctx, ar, loop, *rsim_seed, timeout, std::move( params ) );
+                        return run_rsim(
+                            ctx, ar, clk, loop, *rsim_seed, timeout, std::move( params ) );
                 } );
         } );
 

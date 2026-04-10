@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../asrtl/log.h"
 #include "../asrtlpp/task.hpp"
 
 #include <ecor/ecor.hpp>
@@ -60,47 +61,95 @@ struct _complete_arena_sender
         S      s;
 
         template < typename R >
-        struct recv
+        struct op : ecor::schedulable
         {
-                using receiver_concept = ecor::receiver_t;
-                using arena_sender     = decltype( std::declval< arena >().async_destroy() );
+                using operation_state_concept = ecor::operation_state_t;
+                using arena_sender            = decltype( std::declval< arena >().async_destroy() );
 
-                ecor::connect_type< arena_sender, R > _op;
+                struct recv;
 
-                recv( arena& a, R r )
-                  : _op( a.async_destroy().connect( std::move( r ) ) )
+                using op1_t = ecor::connect_type< S, recv >;
+                using op2_t = ecor::connect_type< arena_sender, R >;
+
+                struct recv
+                {
+                        using receiver_concept = ecor::receiver_t;
+
+                        op& o;
+
+                        recv( op& o )
+                          : o( o )
+                        {
+                        }
+
+                        recv( recv&& ) noexcept = default;
+
+                        void set_value()
+                        {
+                                ASRTL_INF_LOG(
+                                    "asrtio_task", "Task completed, starting arena cleanup" );
+                                o.advance();
+                        }
+
+                        void set_error( auto ) noexcept
+                        {
+                                ASRTL_INF_LOG(
+                                    "asrtio_task",
+                                    "Task completed with error, starting arena cleanup" );
+                                o.advance();
+                        }
+
+                        void set_stopped() noexcept
+                        {
+                                ASRTL_INF_LOG(
+                                    "asrtio_task", "Task stopped, starting arena cleanup" );
+                                o.advance();
+                        }
+
+                        auto get_env() const noexcept
+                        {
+                                return ecor::empty_env{};
+                        }
+
+                        ~recv() noexcept = default;
+                };
+
+                arena&                                       a;
+                S                                            s;
+                R                                            r;
+                std::variant< std::monostate, op1_t, op2_t > ops;
+
+                op( arena& a, S s, R r )
+                  : a( a )
+                  , s( std::move( s ) )
+                  , r( std::move( r ) )
                 {
                 }
 
-                recv( recv&& ) noexcept = default;
-
-                void set_value()
+                void start()
                 {
-                        _op.start();
+                        auto& op = ops.template emplace< op1_t >(
+                            std::move( s ).connect( recv{ *this } ) );
+                        op.start();
                 }
 
-                void set_error( auto ) noexcept
+                void advance()
                 {
-                        _op.start();
+                        a.ctx().reschedule( *this );
                 }
 
-                void set_stopped() noexcept
+                void resume() override
                 {
-                        _op.start();
+                        auto& op = ops.template emplace< op2_t >(
+                            a.async_destroy().connect( std::move( r ) ) );
+                        op.start();
                 }
-
-                auto get_env() const noexcept
-                {
-                        return ecor::empty_env{};
-                }
-
-                ~recv() noexcept = default;
         };
 
         template < typename R >
         auto connect( R&& r ) &&
         {
-                return std::move( s ).connect( recv{ a, std::forward< R >( r ) } );
+                return op< R >( a, std::move( s ), (R&&) r );
         }
 };
 
