@@ -240,7 +240,7 @@ enum asrtc_status asrtc_stream_server_init(
             .sendr = sender,
             .alloc = alloc,
         };
-        memset( server->lookup, 0, sizeof server->lookup );
+        memset( (void*) server->lookup, 0, sizeof server->lookup );
         prev->next = &server->node;
         return ASRTC_SUCCESS;
 }

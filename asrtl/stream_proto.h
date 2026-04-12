@@ -84,7 +84,6 @@ static inline uint8_t asrtl_strm_field_size( asrtl_strm_field_type type_tag )
                 return 4;
         case ASRTL_STRM_FIELD_LBRACKET:
         case ASRTL_STRM_FIELD_RBRACKET:
-                return 0;
         default:
                 return 0;
         }
@@ -137,7 +136,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_strm_define(
         hdr[2] = (uint8_t) field_count;
 
         uint8_t field_bytes[255];
-        for ( uint8_t i = 0; i < field_count; i++ )
+        for ( uint16_t i = 0; i < field_count; i++ )
                 field_bytes[i] = (uint8_t) fields[i];
 
         struct asrtl_rec_span field_span = {
