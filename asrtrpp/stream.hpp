@@ -13,10 +13,6 @@
 namespace asrtr
 {
 
-// ---------------------------------------------------------------------------
-// field type traits: map C++ type → wire tag + encode
-// ---------------------------------------------------------------------------
-
 template < typename T >
 struct strm_field_traits;
 
@@ -111,6 +107,10 @@ struct strm_field_traits< bool >
 };
 
 
+/// Reactor-side stream client.
+///
+/// Provides define(), emit(), tick(), and reset().  All operations are
+/// asynchronous: define/emit enqueue a message and fire a done_cb via tick().
 struct stream_client
 {
         template < typename CB >
@@ -171,6 +171,11 @@ private:
         asrtr_stream_client client_;
 };
 
+/// Compile-time typed stream schema.
+///
+/// Constructed by stream_define_sender after a successful DEFINE.  Provides
+/// emit(args..., done_cb, done_ptr) which encodes field values into a
+/// fixed-size buffer and sends a DATA message.
 template < typename... Ts >
 struct stream_schema
 {
@@ -203,9 +208,9 @@ struct stream_schema
 
         stream_schema& operator=( stream_schema&& o ) noexcept
         {
-                client_     = o.client_;
-                schema_id_  = o.schema_id_;
-                o.client_   = nullptr;
+                client_    = o.client_;
+                schema_id_ = o.schema_id_;
+                o.client_  = nullptr;
                 return *this;
         }
 
@@ -217,10 +222,7 @@ struct stream_schema
                 return client_->emit( schema_id_, buf, emit_size, done_cb, done_ptr );
         }
 
-        asrtr_status emit_raw(
-            uint8_t const*       buf,
-            asrtr_stream_done_cb done_cb,
-            void*                done_ptr )
+        asrtr_status emit_raw( uint8_t const* buf, asrtr_stream_done_cb done_cb, void* done_ptr )
         {
                 return client_->emit( schema_id_, buf, emit_size, done_cb, done_ptr );
         }

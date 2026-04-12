@@ -11,15 +11,18 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../asrtcpp/controller.hpp"
 #include "../asrtio/cntr_tcp_sys.hpp"
+#include "../asrtio/output_fs.hpp"
 #include "../asrtio/rsim.hpp"
 #include "../asrtio/util.hpp"
 #include "../asrtl/chann.h"
 #include "../asrtl/cobs.h"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
+#include "../asrtl/stream_proto.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/util.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "stub_fs.hpp"
 
 #include <chrono>
 #include <doctest/doctest.h>
@@ -274,7 +277,8 @@ static asrtio::task< void > suite_coro(
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::param_config no_params;
-        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params );
+        asrtio::null_fs      nfs;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, nfs, {} );
         reporter.done_names_at_on_done = (int) reporter.done_names.size();
 }
 
@@ -316,7 +320,7 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 22 );
+        CHECK( r.reporter.count == 23 );
         CHECK( r.reporter.starts.size() == r.reporter.count );
         CHECK( r.reporter.done_names.size() == r.reporter.count );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
@@ -330,7 +334,8 @@ TEST_CASE( "suite_basic" )
         //             3 fail (demo_fail, demo_check_fail, demo_require_fail)
         //             2 nondeterministic (demo_random, demo_random_counter)
         //             3 param-aware (demo_param_value, demo_param_count, demo_param_find)
-        //             8 coroutine-based task demos (incl. collect_demo_task, stream_demo_task)
+        //             9 coroutine-based task demos (incl. collect_demo_task,
+        //               stream_demo_task, stream_sensor_demo_task)
         CHECK( r.reporter.done_names[0] == "demo_pass" );
         CHECK( r.reporter.done_names[1] == "demo_fail" );
         CHECK( r.reporter.done_names[2] == "demo_check" );
@@ -353,6 +358,7 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names[19] == "param_type_overview_task" );
         CHECK( r.reporter.done_names[20] == "collect_demo_task" );
         CHECK( r.reporter.done_names[21] == "stream_demo_task" );
+        CHECK( r.reporter.done_names[22] == "stream_sensor_demo_task" );
         CHECK( r.reporter.passed[0] == true );
         CHECK( r.reporter.passed[1] == false );
         CHECK( r.reporter.passed[2] == true );
@@ -373,6 +379,7 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.passed[19] == false );
         CHECK( r.reporter.passed[20] == true );
         CHECK( r.reporter.passed[21] == true );
+        CHECK( r.reporter.passed[22] == true );
 }
 
 TEST_CASE( "suite_deterministic" )
@@ -445,7 +452,8 @@ static asrtio::task< void > param_e2e_coro(
         sys->start();
         co_await asrtio::cntr_set_param_tree{ *sys, tree, 1u, 1000ms };
         asrtio::param_config no_params;
-        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params );
+        asrtio::null_fs      nfs;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, nfs, {} );
 
         REQUIRE_FALSE( rs->conns.empty() );
         auto& conn = rs->conns.front();
@@ -1467,7 +1475,8 @@ static asrtio::task< void > suite_param_coro(
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
-        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params );
+        asrtio::null_fs nfs;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params, nfs, {} );
 }
 
 struct param_suite_run
@@ -1605,4 +1614,381 @@ TEST_CASE( "suite_param_unknown_key" )
         // "nonexistent_test" never appears in results
         for ( auto const& name : r.reporter.done_names )
                 CHECK_NE( name, "nonexistent_test" );
+}
+
+// ---------------------------------------------------------------------------
+// Component 9: run_test_suite output file verification
+// ---------------------------------------------------------------------------
+
+template < typename CoroFactory >
+static bool run_coro( CoroFactory&& factory )
+{
+        uv_loop_t*                         loop = uv_loop_new();
+        asrtl::malloc_free_memory_resource mem_res;
+        asrtio::task_ctx                   tctx{ mem_res };
+        asrtio::arena                      arena{ tctx, mem_res };
+        asrtio::steady_clock               clk;
+
+        auto client = std::make_shared< uv_tcp_t >();
+        uv_tcp_init( loop, client.get() );
+
+        uv_idle_t idle;
+        idle.data = &tctx;
+        uv_idle_init( loop, &idle );
+        uv_idle_start( &idle, []( uv_idle_t* h ) {
+                static_cast< asrtio::task_ctx* >( h->data )->tick();
+        } );
+
+        bool done = false;
+        auto op   = ( factory( tctx, loop, arena, clk, client ) | asrtio::complete_arena( arena ) )
+                      .connect( test_receiver{ &done, &idle } );
+        op.start();
+
+        uv_run( loop, UV_RUN_DEFAULT );
+        drain_loop( loop );
+        return done;
+}
+
+static asrtio::task< void > suite_output_coro(
+    asrtio::task_ctx&           tctx,
+    uv_loop_t*                  loop,
+    asrtio::arena&              arena,
+    asrtio::clock&              clk,
+    recording_reporter&         reporter,
+    stub_fs&                    sfs,
+    std::shared_ptr< uv_tcp_t > client )
+{
+        auto rs = arena.make< asrtio::rsim_ctx >( loop, 42u );
+        REQUIRE( rs->start() == asrtio::status::success );
+        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
+        sys->start();
+        asrtio::param_config no_params;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, sfs, "out" );
+}
+
+TEST_CASE( "suite_output_files" )
+{
+        recording_reporter reporter;
+        stub_fs            sfs;
+
+        bool done = run_coro( [&]( asrtio::task_ctx&           tctx,
+                                   uv_loop_t*                  loop,
+                                   asrtio::arena&              arena,
+                                   asrtio::clock&              clk,
+                                   std::shared_ptr< uv_tcp_t > client ) {
+                return suite_output_coro( tctx, loop, arena, clk, reporter, sfs, client );
+        } );
+
+        REQUIRE( done );
+
+        // Directories were created for test runs
+        CHECK_FALSE( sfs.dirs.empty() );
+
+        // --- diag.csv for demo_fail: contains the intentional failure record ---
+        {
+                auto it = sfs.files.find( "out/demo_fail/0/diag.csv" );
+                REQUIRE( it != sfs.files.end() );
+                auto const& csv = it->second;
+                CHECK( csv.find( "file,line,extra" ) != std::string::npos );
+                CHECK( csv.find( "demo.hpp" ) != std::string::npos );
+                CHECK( csv.find( "intentional" ) != std::string::npos );
+        }
+
+        // --- diag.csv for demo_pass: header only, no failure records ---
+        {
+                auto it = sfs.files.find( "out/demo_pass/0/diag.csv" );
+                REQUIRE( it != sfs.files.end() );
+                CHECK_EQ( std::string{ "file,line,extra\n" }, it->second );
+        }
+
+        // --- collect.json for collect_demo_task ---
+        {
+                auto it = sfs.files.find( "out/collect_demo_task/0/collect.json" );
+                REQUIRE( it != sfs.files.end() );
+                auto const& content = it->second;
+                auto        j       = nlohmann::json::parse( content );
+                CHECK( j.is_object() );
+                CHECK( content.find( "\"value\"" ) != std::string::npos );
+                CHECK( content.find( "42" ) != std::string::npos );
+                CHECK( content.find( "\"tag\"" ) != std::string::npos );
+                CHECK( content.find( "\"demo\"" ) != std::string::npos );
+        }
+
+        // --- stream.0.csv for stream_demo_task ---
+        {
+                auto it = sfs.files.find( "out/stream_demo_task/0/stream.0.csv" );
+                REQUIRE( it != sfs.files.end() );
+                auto const& csv = it->second;
+                CHECK( csv.find( "u32,float" ) != std::string::npos );
+                // 3 data rows: (0,0), (100,1.5), (200,3)
+                CHECK( csv.find( "\n0,0\n" ) != std::string::npos );
+                CHECK( csv.find( "\n100,1.5\n" ) != std::string::npos );
+                CHECK( csv.find( "\n200,3\n" ) != std::string::npos );
+        }
+
+        // --- stream.0.csv for stream_sensor_demo_task ---
+        {
+                auto it = sfs.files.find( "out/stream_sensor_demo_task/0/stream.0.csv" );
+                REQUIRE( it != sfs.files.end() );
+                auto const& csv = it->second;
+                CHECK( csv.find( "u32,float,u8,u8" ) != std::string::npos );
+                // 100 data rows; spot-check first and last
+                CHECK( csv.find( "\n0,20," ) != std::string::npos );
+                CHECK( csv.find( "\n990,29.9" ) != std::string::npos );
+        }
+
+        // --- no collect.json for tests that don't collect ---
+        CHECK( sfs.files.find( "out/demo_pass/0/collect.json" ) == sfs.files.end() );
+
+        // --- no stream CSVs for tests that don't stream ---
+        bool has_stream_for_pass = false;
+        for ( auto const& [path, _] : sfs.files )
+                if ( path.find( "demo_pass/0/stream." ) != std::string::npos )
+                        has_stream_for_pass = true;
+        CHECK_FALSE( has_stream_for_pass );
+}
+
+// ---------------------------------------------------------------------------
+// write_stream_csv tests
+// ---------------------------------------------------------------------------
+
+TEST_CASE( "write_stream_csv: single u8 field" )
+{
+        stub_fs fs;
+
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        uint8_t                      data[]   = { 42 };
+        asrtc_stream_record          rec      = { .next = nullptr, .data = data };
+        asrtc_stream_schema          sc       = {
+                           .schema_id   = 0,
+                           .field_count = 1,
+                           .record_size = 1,
+                           .fields      = fields,
+                           .first       = &rec,
+                           .last        = &rec,
+                           .count       = 1,
+        };
+
+        asrtio::write_stream_csv( fs, "out/stream.0.csv", sc );
+
+        REQUIRE( fs.files.count( "out/stream.0.csv" ) == 1 );
+        CHECK_EQ( fs.files["out/stream.0.csv"], "u8\n42\n" );
+}
+
+TEST_CASE( "write_stream_csv: multi-field u32,i8" )
+{
+        stub_fs fs;
+
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U32, ASRTL_STRM_FIELD_I8 };
+        uint8_t                      data[5];
+        uint8_t*                     p = data;
+        asrtl_add_u32( &p, 1000 );
+        *p++ = static_cast< uint8_t >( static_cast< int8_t >( -3 ) );
+
+        asrtc_stream_record rec = { .next = nullptr, .data = data };
+        asrtc_stream_schema sc  = {
+             .schema_id   = 5,
+             .field_count = 2,
+             .record_size = 5,
+             .fields      = fields,
+             .first       = &rec,
+             .last        = &rec,
+             .count       = 1,
+        };
+
+        asrtio::write_stream_csv( fs, "out/stream.5.csv", sc );
+
+        REQUIRE( fs.files.count( "out/stream.5.csv" ) == 1 );
+        CHECK_EQ( fs.files["out/stream.5.csv"], "u32,i8\n1000,-3\n" );
+}
+
+TEST_CASE( "write_stream_csv: multiple records" )
+{
+        stub_fs fs;
+
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U16 };
+        uint8_t                      data1[2];
+        uint8_t                      data2[2];
+        uint8_t*                     p1 = data1;
+        uint8_t*                     p2 = data2;
+        asrtl_add_u16( &p1, 100 );
+        asrtl_add_u16( &p2, 200 );
+
+        asrtc_stream_record rec2 = { .next = nullptr, .data = data2 };
+        asrtc_stream_record rec1 = { .next = &rec2, .data = data1 };
+        asrtc_stream_schema sc   = {
+              .schema_id   = 0,
+              .field_count = 1,
+              .record_size = 2,
+              .fields      = fields,
+              .first       = &rec1,
+              .last        = &rec2,
+              .count       = 2,
+        };
+
+        asrtio::write_stream_csv( fs, "s.csv", sc );
+
+        REQUIRE( fs.files.count( "s.csv" ) == 1 );
+        CHECK_EQ( fs.files["s.csv"], "u16\n100\n200\n" );
+}
+
+TEST_CASE( "write_stream_csv: empty schema (no records)" )
+{
+        stub_fs fs;
+
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_BOOL };
+        asrtc_stream_schema          sc       = {
+                           .schema_id   = 0,
+                           .field_count = 1,
+                           .record_size = 1,
+                           .fields      = fields,
+                           .first       = nullptr,
+                           .last        = nullptr,
+                           .count       = 0,
+        };
+
+        asrtio::write_stream_csv( fs, "empty.csv", sc );
+
+        REQUIRE( fs.files.count( "empty.csv" ) == 1 );
+        CHECK_EQ( fs.files["empty.csv"], "bool\n" );
+}
+
+TEST_CASE( "write_stream_csv: float field" )
+{
+        stub_fs fs;
+
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_FLOAT };
+        uint8_t                      data[4];
+        uint8_t*                     p   = data;
+        float                        val = 3.14f;
+        uint32_t                     bits;
+        std::memcpy( &bits, &val, 4 );
+        asrtl_add_u32( &p, bits );
+
+        asrtc_stream_record rec = { .next = nullptr, .data = data };
+        asrtc_stream_schema sc  = {
+             .schema_id   = 0,
+             .field_count = 1,
+             .record_size = 4,
+             .fields      = fields,
+             .first       = &rec,
+             .last        = &rec,
+             .count       = 1,
+        };
+
+        asrtio::write_stream_csv( fs, "f.csv", sc );
+
+        REQUIRE( fs.files.count( "f.csv" ) == 1 );
+        // Check that it starts with the header and a reasonable float value
+        auto const& content = fs.files["f.csv"];
+        CHECK( content.starts_with( "float\n" ) );
+        CHECK( content.find( "3.14" ) != std::string::npos );
+}
+
+// ---------------------------------------------------------------------------
+// write_strm_field tests
+// ---------------------------------------------------------------------------
+
+TEST_CASE( "write_strm_field: all types" )
+{
+        SUBCASE( "u8" )
+        {
+                uint8_t            data[] = { 255 };
+                uint8_t*           p      = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_U8, p );
+                CHECK_EQ( os.str(), "255" );
+                CHECK_EQ( p, data + 1 );
+        }
+        SUBCASE( "u16" )
+        {
+                uint8_t  data[2];
+                uint8_t* p = data;
+                asrtl_add_u16( &p, 1234 );
+                p = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_U16, p );
+                CHECK_EQ( os.str(), "1234" );
+                CHECK_EQ( p, data + 2 );
+        }
+        SUBCASE( "u32" )
+        {
+                uint8_t  data[4];
+                uint8_t* p = data;
+                asrtl_add_u32( &p, 70000 );
+                p = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_U32, p );
+                CHECK_EQ( os.str(), "70000" );
+                CHECK_EQ( p, data + 4 );
+        }
+        SUBCASE( "i8" )
+        {
+                uint8_t  data[] = { static_cast< uint8_t >( static_cast< int8_t >( -1 ) ) };
+                uint8_t* p      = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_I8, p );
+                CHECK_EQ( os.str(), "-1" );
+                CHECK_EQ( p, data + 1 );
+        }
+        SUBCASE( "i16" )
+        {
+                uint8_t  data[2];
+                uint8_t* p = data;
+                asrtl_add_u16( &p, static_cast< uint16_t >( static_cast< int16_t >( -500 ) ) );
+                p = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_I16, p );
+                CHECK_EQ( os.str(), "-500" );
+                CHECK_EQ( p, data + 2 );
+        }
+        SUBCASE( "i32" )
+        {
+                uint8_t  data[4];
+                uint8_t* p = data;
+                asrtl_add_i32( &p, -100000 );
+                p = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_I32, p );
+                CHECK_EQ( os.str(), "-100000" );
+                CHECK_EQ( p, data + 4 );
+        }
+        SUBCASE( "bool true" )
+        {
+                uint8_t            data[] = { 1 };
+                uint8_t*           p      = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_BOOL, p );
+                CHECK_EQ( os.str(), "true" );
+        }
+        SUBCASE( "bool false" )
+        {
+                uint8_t            data[] = { 0 };
+                uint8_t*           p      = data;
+                std::ostringstream os;
+                asrtio::write_strm_field( os, ASRTL_STRM_FIELD_BOOL, p );
+                CHECK_EQ( os.str(), "false" );
+        }
+}
+
+// ---------------------------------------------------------------------------
+// asrtl_strm_field_type_to_str tests
+// ---------------------------------------------------------------------------
+
+TEST_CASE( "strm_field_type_to_str" )
+{
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_U8 ) ), "u8" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_U16 ) ), "u16" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_U32 ) ), "u32" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_I8 ) ), "i8" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_I16 ) ), "i16" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_I32 ) ), "i32" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_FLOAT ) ), "float" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_BOOL ) ), "bool" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_LBRACKET ) ), "[" );
+        CHECK_EQ( std::string( asrtl_strm_field_type_to_str( ASRTL_STRM_FIELD_RBRACKET ) ), "]" );
+        CHECK_EQ(
+            std::string( asrtl_strm_field_type_to_str( (enum asrtl_strm_field_type_e) 0xFF ) ),
+            "?" );
 }

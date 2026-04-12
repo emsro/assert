@@ -12,7 +12,7 @@ namespace asrtr
 template < typename... Ts >
 struct stream_define_sender
 {
-        using sender_concept = ecor::sender_t;
+        using sender_concept        = ecor::sender_t;
         using completion_signatures = ecor::completion_signatures<
             ecor::set_value_t( stream_schema< Ts... > ),
             ecor::set_error_t( task_error ) >;
@@ -32,8 +32,9 @@ struct stream_define_sender
                         auto cb = +[]( void* ptr, enum asrtl_status status ) {
                                 auto& self = *static_cast< op* >( ptr );
                                 if ( status == ASRTL_SUCCESS )
-                                        self.recv.set_value( stream_schema< Ts... >{
-                                            self.client_, self.schema_id_ } );
+                                        self.recv.set_value(
+                                            stream_schema< Ts... >{
+                                                self.client_, self.schema_id_ } );
                                 else
                                         self.recv.set_error( task_error::test_fail );
                         };
@@ -55,6 +56,8 @@ struct stream_define_sender
         }
 };
 
+/// Define a stream schema.  Returns a sender that completes with a
+/// stream_schema<Ts...> once the DEFINE message has been acknowledged.
 template < typename... Ts >
 ecor::sender auto define( stream_client& client, uint8_t schema_id )
 {
@@ -67,10 +70,9 @@ ecor::sender auto define( stream_client& client, uint8_t schema_id )
 template < typename... Ts >
 struct stream_emit_sender
 {
-        using sender_concept        = ecor::sender_t;
-        using completion_signatures = ecor::completion_signatures<
-            ecor::set_value_t(),
-            ecor::set_error_t( task_error ) >;
+        using sender_concept = ecor::sender_t;
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( task_error ) >;
 
         stream_schema< Ts... >* schema_;
         uint8_t                 buf_[stream_schema< Ts... >::emit_size];
@@ -106,6 +108,8 @@ struct stream_emit_sender
         }
 };
 
+/// Emit one record.  Returns a sender that completes once the DATA message
+/// has been sent.
 template < typename... Ts >
 ecor::sender auto emit( stream_schema< Ts... >& schema, Ts... args )
 {

@@ -28,6 +28,8 @@ enum asrtl_strm_message_id_e
 };
 typedef uint8_t asrtl_strm_message_id;
 
+typedef enum asrtl_status ( *asrtl_strm_msg_callback )( void* ptr, struct asrtl_rec_span* buff );
+
 /// Field type tags.
 enum asrtl_strm_field_type_e
 {
@@ -44,6 +46,7 @@ enum asrtl_strm_field_type_e
 };
 typedef uint8_t asrtl_strm_field_type;
 
+/// Highest valid field type tag value.
 #define ASRTL_STRM_FIELD_TAG_MAX 0x0A
 
 /// Error codes sent from controller to reactor.
@@ -56,8 +59,6 @@ enum asrtl_strm_err_e
         ASRTL_STRM_ERR_DUPLICATE_SCHEMA = 0x04,
         ASRTL_STRM_ERR_INVALID_DEFINE   = 0x05,
 };
-
-typedef enum asrtl_status ( *asrtl_strm_msg_callback )( void* ptr, struct asrtl_rec_span* buff );
 
 /// Returns 1 if type_tag is a valid field type, 0 otherwise.
 static inline uint8_t asrtl_strm_field_valid( uint8_t type_tag )
@@ -86,6 +87,35 @@ static inline uint8_t asrtl_strm_field_size( asrtl_strm_field_type type_tag )
                 return 0;
         default:
                 return 0;
+        }
+}
+
+/// Return a human-readable label for a field type tag (e.g. "u32", "float").
+static inline char const* asrtl_strm_field_type_to_str( enum asrtl_strm_field_type_e ft )
+{
+        switch ( ft ) {
+        case ASRTL_STRM_FIELD_U8:
+                return "u8";
+        case ASRTL_STRM_FIELD_U16:
+                return "u16";
+        case ASRTL_STRM_FIELD_U32:
+                return "u32";
+        case ASRTL_STRM_FIELD_I8:
+                return "i8";
+        case ASRTL_STRM_FIELD_I16:
+                return "i16";
+        case ASRTL_STRM_FIELD_I32:
+                return "i32";
+        case ASRTL_STRM_FIELD_FLOAT:
+                return "float";
+        case ASRTL_STRM_FIELD_BOOL:
+                return "bool";
+        case ASRTL_STRM_FIELD_LBRACKET:
+                return "[";
+        case ASRTL_STRM_FIELD_RBRACKET:
+                return "]";
+        default:
+                return "?";
         }
 }
 

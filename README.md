@@ -59,6 +59,7 @@ The byte stream is multiplexed into independent **channels**, each identified by
 |  3 | `DIAG`  | diagnostic records from the target |
 |  4 | `PARAM` | structured parameter queries       |
 |  5 | `COLL`  | structured data collection         |
+|  6 | `STRM`  | high-throughput data streaming     |
 
 On each side — reactor (target) and controller (host) — functionality is composed from **modules**, one per channel. A module is a node in a linked list: it owns a channel ID and a receive callback, and can send messages back through a shared sender handle.
 
@@ -135,6 +136,52 @@ sequenceDiagram
 The controller signals readiness with a READY message, the reactor acknowledges, then pushes APPEND messages — one per tree node, fire-and-forget (no per-append ACK). The controller assembles incoming nodes into a `flat_tree`. If an append fails (duplicate node, invalid parent, tree full), the controller sends an ERROR and the session is aborted.
 
 Node IDs are auto-assigned: the READY message carries a `next_node_id` counter that both sides use to stay in sync without per-node negotiation.
+
+## Stream channel
+
+The **stream channel** (channel ID 6) provides high-throughput transfer of typed, fixed-size records from the target to the host. It is designed for measurement data — sensor samples, timing traces, performance counters — where per-record overhead must be minimal.
+
+The reactor defines one or more **schemas**, each a sequence of typed fields (u8, u16, u32, i8, i16, i32, float, bool). The schema definition is sent once; after that, each DATA message carries only the raw field bytes — no keys, no type tags, no length prefixes. Multiple schemas can be active simultaneously and records for different schemas may interleave.
+
+```mermaid
+sequenceDiagram
+    participant Host as Controller (host)
+    participant Target as Reactor (target)
+
+    Target->>Host: DEFINE (schema=0, fields=[u32, float])
+    Target->>Host: DATA (schema=0, raw bytes)
+    Target->>Host: DATA (schema=0, raw bytes)
+    Target->>Host: DATA (schema=0, raw bytes)
+    Note over Host,Target: Test ends, host takes all records
+```
+
+Schemas are scoped to the current test — they are cleared on test boundaries. The controller stores received records in per-schema linked lists and hands them out via take semantics (move ownership, clear internal state).
+
+### Field types
+
+| Tag  | Name   | Wire size | C type     |
+|------|--------|-----------|------------|
+| 0x01 | u8     | 1         | `uint8_t`  |
+| 0x02 | u16    | 2         | `uint16_t` |
+| 0x03 | u32    | 4         | `uint32_t` |
+| 0x04 | i8     | 1         | `int8_t`   |
+| 0x05 | i16    | 2         | `int16_t`  |
+| 0x06 | i32    | 4         | `int32_t`  |
+| 0x07 | float  | 4         | `float`    |
+| 0x08 | bool   | 1         | `bool`     |
+
+All multi-byte values use big-endian encoding.
+
+### C++ usage (reactor side)
+
+```cpp
+// In a task_test::exec() coroutine:
+auto schema = co_await asrtr::define< uint32_t, float >( stream_client, 0 );
+
+for ( uint32_t i = 0; i < 100; ++i )
+        co_await asrtr::emit( schema, i * 10, 20.0f + 0.1f * i );
+```
+
 
 ## Pure C core
 

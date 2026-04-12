@@ -9,6 +9,10 @@
 namespace asrtc
 {
 
+/// Owning handle for a collection of stream schemas and their records.
+///
+/// Returned by stream_server::take().  Movable, not copyable.  Frees all
+/// schemas, records, and the backing array on destruction.
 struct stream_schemas
 {
         stream_schemas() = default;
@@ -56,6 +60,11 @@ private:
         asrtc_stream_schemas s_{};
 };
 
+/// Controller-side stream server.
+///
+/// Receives DEFINE and DATA messages from the reactor, stores records in
+/// per-schema linked lists.  Call take() after each test to retrieve all
+/// schemas and their records.
 struct stream_server
 {
         template < typename CB >

@@ -689,5 +689,31 @@ struct stream_demo_task : asrtr::task_test
         }
 };
 
+/// Stream sensor demo: defines a sensor schema (U32 timestamp, FLOAT
+/// temperature, U8 humidity, U8 status) and streams 100 synthetic records.
+struct stream_sensor_demo_task : asrtr::task_test
+{
+        char const*           name = "stream_sensor_demo_task";
+        asrtr::stream_client& sc;
+
+        stream_sensor_demo_task( asrtr::task_ctx& ctx, asrtr::stream_client& s )
+          : task_test( ctx )
+          , sc( s )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                auto schema =
+                    co_await asrtr::define< uint32_t, float, uint8_t, uint8_t >( sc, 0 );
+                for ( uint32_t i = 0; i < 100; ++i )
+                        co_await asrtr::emit(
+                            schema,
+                            i * 10,
+                            20.0F + 0.1F * static_cast< float >( i ),
+                            static_cast< uint8_t >( 50 + i % 50 ),
+                            static_cast< uint8_t >( i % 4 ) );
+        }
+};
 
 }  // namespace asrtio

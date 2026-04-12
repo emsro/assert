@@ -76,6 +76,7 @@ struct conn_ctx
                 reg_task_demo< param_type_overview_task >( r_param );
                 reg_task_demo< collect_demo_task >( r_collect );
                 reg_task_demo< stream_demo_task >( r_stream );
+                reg_task_demo< stream_sensor_demo_task >( r_stream );
         }
 
         void reg_demo( demo_spec spec )

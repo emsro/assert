@@ -10,11 +10,14 @@
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
 #include "./euv.hpp"
+#include "./output_fs.hpp"
 #include "./param_config.hpp"
 #include "./task.hpp"
 #include "./util.hpp"
 
 #include <chrono>
+#include <cstring>
+#include <optional>
 #include <set>
 #include <uv.h>
 
@@ -265,12 +268,139 @@ struct _cntr_collect_ready
 };
 using cntr_collect_ready = asrtl::gen_sender< _cntr_collect_ready, status >;
 
+inline void write_strm_field( std::ostream& os, enum asrtl_strm_field_type_e ft, uint8_t*& p )
+{
+        switch ( ft ) {
+        case ASRTL_STRM_FIELD_U8:
+                os << static_cast< unsigned >( *p++ );
+                break;
+        case ASRTL_STRM_FIELD_U16: {
+                uint16_t v;
+                asrtl_cut_u16( &p, &v );
+                os << v;
+                break;
+        }
+        case ASRTL_STRM_FIELD_U32: {
+                uint32_t v;
+                asrtl_cut_u32( &p, &v );
+                os << v;
+                break;
+        }
+        case ASRTL_STRM_FIELD_I8:
+                os << static_cast< int >( static_cast< int8_t >( *p++ ) );
+                break;
+        case ASRTL_STRM_FIELD_I16: {
+                uint16_t uv;
+                asrtl_cut_u16( &p, &uv );
+                os << static_cast< int16_t >( uv );
+                break;
+        }
+        case ASRTL_STRM_FIELD_I32: {
+                int32_t v;
+                asrtl_cut_i32( &p, &v );
+                os << v;
+                break;
+        }
+        case ASRTL_STRM_FIELD_FLOAT: {
+                uint32_t bits;
+                asrtl_cut_u32( &p, &bits );
+                float v;
+                std::memcpy( &v, &bits, 4 );
+                os << v;
+                break;
+        }
+        case ASRTL_STRM_FIELD_BOOL:
+                os << ( *p++ ? "true" : "false" );
+                break;
+        default:
+                break;
+        }
+}
+
+inline void write_stream_csv( output_fs& fs, std::filesystem::path const& path,
+                              asrtc_stream_schema const& sc )
+{
+        auto  w  = fs.open_write( path );
+        auto& os = w.stream();
+        for ( uint8_t fi = 0; fi < sc.field_count; ++fi ) {
+                if ( fi > 0 )
+                        os << ",";
+                os << asrtl_strm_field_type_to_str( sc.fields[fi] );
+        }
+        os << "\n";
+        for ( auto* rec = sc.first; rec; rec = rec->next ) {
+                uint8_t* p = rec->data;
+                for ( uint8_t fi = 0; fi < sc.field_count; ++fi ) {
+                        if ( fi > 0 )
+                                os << ",";
+                        write_strm_field( os, sc.fields[fi], p );
+                }
+                os << "\n";
+        }
+}
+
+inline void handle_stream( cntr_tcp_sys& sys, suite_reporter& reporter,
+                          std::string_view name, output_fs& fs,
+                          std::filesystem::path const& run_dir, bool do_output )
+{
+        auto schemas = sys.stream().take();
+        if ( schemas->schema_count == 0 )
+                return;
+        reporter.on_stream_data( name, schemas );
+        if ( !do_output )
+                return;
+        auto const& ss = *schemas;
+        for ( uint32_t si = 0; si < ss.schema_count; ++si ) {
+                auto const& sc = ss.schemas[si];
+                write_stream_csv(
+                    fs,
+                    run_dir / ( "stream." + std::to_string( sc.schema_id ) + ".csv" ),
+                    sc );
+        }
+}
+
+inline void handle_collect( cntr_tcp_sys& sys, suite_reporter& reporter,
+                           std::string_view name, output_fs& fs,
+                           std::filesystem::path const& path, bool do_output )
+{
+        auto const* tree = sys.collect().tree();
+        if ( !tree )
+                return;
+        reporter.on_collect_data( name, tree );
+        if ( !do_output )
+                return;
+        nlohmann::json j;
+        if ( flat_tree_to_json( const_cast< asrtl_flat_tree& >( *tree ), j ) ) {
+                auto w = fs.open_write( path );
+                w.stream() << j.dump( 2 ) << "\n";
+        }
+}
+
+inline void handle_diag( cntr_tcp_sys& sys, suite_reporter& reporter,
+                        output_fs& fs, std::filesystem::path const& path,
+                        bool do_output )
+{
+        std::optional< file_writer > w;
+        if ( do_output ) {
+                w.emplace( fs.open_write( path ) );
+                w->stream() << "file,line,extra\n";
+        }
+        while ( auto rec = sys.take_diag_record() ) {
+                char const* extra = rec->extra ? rec->extra : "";
+                reporter.on_diagnostic( rec->file, rec->line, extra );
+                if ( w )
+                        w->stream() << rec->file << "," << rec->line << "," << extra << "\n";
+        }
+}
+
 inline task< void > run_test_suite(
     task_ctx&                 ctx,
     cntr_tcp_sys&             sys,
     suite_reporter&           reporter,
     std::chrono::milliseconds timeout,
-    param_config const&       params )
+    param_config const&       params,
+    output_fs&                fs,
+    std::filesystem::path     output_dir )
 {
         co_await cntr_start{ sys.cntr, timeout };
 
@@ -306,16 +436,15 @@ inline task< void > run_test_suite(
                         auto          t0  = sys.clk().now();
                         asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid, timeout };
 
-                        while ( auto rec = sys.take_diag_record() )
-                                reporter.on_diagnostic(
-                                    rec->file, rec->line, rec->extra ? rec->extra : "" );
+                        bool const do_output = !output_dir.empty();
+                        auto const run_dir   = output_dir / name / std::to_string( ri );
 
-                        if ( auto const* tree = sys.collect().tree(); tree )
-                                reporter.on_collect_data( name, tree );
-
-                        auto schemas = sys.stream().take();
-                        if ( schemas->schema_count > 0 )
-                                reporter.on_stream_data( name, schemas );
+                        if ( do_output )
+                                fs.create_directories( run_dir );
+                        handle_diag( sys, reporter, fs, run_dir / "diag.csv", do_output );
+                        handle_collect(
+                            sys, reporter, name, fs, run_dir / "collect.json", do_output );
+                        handle_stream( sys, reporter, name, fs, run_dir, do_output );
 
                         double ms     = static_cast< double >( ( sys.clk().now() - t0 ).count() );
                         bool   passed = ( res.res == ASRTC_TEST_SUCCESS );

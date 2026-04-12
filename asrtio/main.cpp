@@ -4,7 +4,9 @@
 #include "../asrtlpp/fmt.hpp"
 #include "./cntr_tcp_sys.hpp"
 #include "./euv.hpp"
+#include "./output_fs.hpp"
 #include "./pbar.hpp"
+#include "./real_fs.hpp"
 #include "./rsim.hpp"
 #include "./util.hpp"
 
@@ -24,141 +26,6 @@ using namespace std::literals::chrono_literals;
 namespace asrtio
 {
 using asrtl::opt;
-
-static std::string flat_node_json( asrtl_flat_tree* tree, asrtl_flat_id id )
-{
-        asrtl_flat_query_result res;
-        if ( asrtl_flat_tree_query( tree, id, &res ) != ASRTL_SUCCESS )
-                return "null";
-
-        switch ( res.value.type ) {
-        case ASRTL_FLAT_STYPE_STR: {
-                std::string s = "\"";
-                if ( res.value.data.s.str_val )
-                        for ( char const* p = res.value.data.s.str_val; *p; ++p ) {
-                                if ( *p == '"' )
-                                        s += "\\\"";
-                                else if ( *p == '\\' )
-                                        s += "\\\\";
-                                else
-                                        s += *p;
-                        }
-                return s + "\"";
-        }
-        case ASRTL_FLAT_STYPE_U32:
-                return std::to_string( res.value.data.s.u32_val );
-        case ASRTL_FLAT_STYPE_I32:
-                return std::to_string( res.value.data.s.i32_val );
-        case ASRTL_FLAT_STYPE_FLOAT:
-                return std::to_string( res.value.data.s.float_val );
-        case ASRTL_FLAT_STYPE_BOOL:
-                return res.value.data.s.bool_val ? "true" : "false";
-        case ASRTL_FLAT_STYPE_NULL:
-        case ASRTL_FLAT_STYPE_NONE:
-                return "null";
-        case ASRTL_FLAT_CTYPE_OBJECT: {
-                std::string s  = "{";
-                auto        cid = res.value.data.cont.first_child;
-                bool        first = true;
-                while ( cid != 0 ) {
-                        asrtl_flat_query_result child;
-                        if ( asrtl_flat_tree_query( tree, cid, &child ) != ASRTL_SUCCESS )
-                                break;
-                        if ( !first )
-                                s += ",";
-                        first = false;
-                        if ( child.key )
-                                s += std::string( "\"" ) + child.key + "\":";
-                        s += flat_node_json( tree, cid );
-                        cid = child.next_sibling;
-                }
-                return s + "}";
-        }
-        case ASRTL_FLAT_CTYPE_ARRAY: {
-                std::string s  = "[";
-                auto        cid = res.value.data.cont.first_child;
-                bool        first = true;
-                while ( cid != 0 ) {
-                        asrtl_flat_query_result child;
-                        if ( asrtl_flat_tree_query( tree, cid, &child ) != ASRTL_SUCCESS )
-                                break;
-                        if ( !first )
-                                s += ",";
-                        first = false;
-                        s += flat_node_json( tree, cid );
-                        cid = child.next_sibling;
-                }
-                return s + "]";
-        }
-        default:
-                return "null";
-        }
-}
-
-static char const* strm_field_label( asrtl_strm_field_type t )
-{
-        switch ( (enum asrtl_strm_field_type_e) t ) {
-        case ASRTL_STRM_FIELD_U8:
-                return "u8";
-        case ASRTL_STRM_FIELD_U16:
-                return "u16";
-        case ASRTL_STRM_FIELD_U32:
-                return "u32";
-        case ASRTL_STRM_FIELD_I8:
-                return "i8";
-        case ASRTL_STRM_FIELD_I16:
-                return "i16";
-        case ASRTL_STRM_FIELD_I32:
-                return "i32";
-        case ASRTL_STRM_FIELD_FLOAT:
-                return "float";
-        case ASRTL_STRM_FIELD_BOOL:
-                return "bool";
-        default:
-                return "?";
-        }
-}
-
-static std::string decode_strm_field( uint8_t*& p, asrtl_strm_field_type t )
-{
-        switch ( (enum asrtl_strm_field_type_e) t ) {
-        case ASRTL_STRM_FIELD_U8:
-                return std::to_string( *p++ );
-        case ASRTL_STRM_FIELD_I8:
-                return std::to_string( static_cast< int8_t >( *p++ ) );
-        case ASRTL_STRM_FIELD_BOOL:
-                return ( *p++ ) ? "true" : "false";
-        case ASRTL_STRM_FIELD_U16: {
-                uint16_t v;
-                asrtl_cut_u16( &p, &v );
-                return std::to_string( v );
-        }
-        case ASRTL_STRM_FIELD_I16: {
-                uint16_t v;
-                asrtl_cut_u16( &p, &v );
-                return std::to_string( static_cast< int16_t >( v ) );
-        }
-        case ASRTL_STRM_FIELD_U32: {
-                uint32_t v;
-                asrtl_cut_u32( &p, &v );
-                return std::to_string( v );
-        }
-        case ASRTL_STRM_FIELD_I32: {
-                int32_t v;
-                asrtl_cut_i32( &p, &v );
-                return std::to_string( v );
-        }
-        case ASRTL_STRM_FIELD_FLOAT: {
-                uint32_t bits;
-                asrtl_cut_u32( &p, &bits );
-                float v;
-                std::memcpy( &v, &bits, sizeof( v ) );
-                return std::to_string( v );
-        }
-        default:
-                return "?";
-        }
-}
 
 struct pbar_reporter : suite_reporter
 {
@@ -210,45 +77,48 @@ struct pbar_reporter : suite_reporter
                 bar.log( pbar::colored_wall_time() + "    " + pbar::fg( loc, pbar::colors::red ) );
         }
 
-        void on_collect_data( std::string_view name, asrtl_flat_tree const* tree ) override
-        {
-                auto json = flat_node_json( const_cast< asrtl_flat_tree* >( tree ), 1 );
-                bar.log( pbar::colored_wall_time() + "    " +
-                         pbar::fg( std::string{ name }, pbar::colors::cyan ) +
-                         " collect: " + json );
-        }
+        void on_collect_data( std::string_view, asrtl_flat_tree const* ) override {}
 
-        void on_stream_data(
-            std::string_view              name,
-            asrtc::stream_schemas const& schemas ) override
-        {
-                for ( uint32_t si = 0; si < schemas->schema_count; ++si ) {
-                        auto const& s = schemas->schemas[si];
-                        std::string csv;
-                        for ( uint8_t fi = 0; fi < s.field_count; ++fi ) {
-                                if ( fi > 0 )
-                                        csv += ',';
-                                csv += strm_field_label( s.fields[fi] );
-                        }
-                        csv += '\n';
-                        for ( auto const* rec = s.first; rec; rec = rec->next ) {
-                                auto* p = rec->data;
-                                for ( uint8_t fi = 0; fi < s.field_count; ++fi ) {
-                                        if ( fi > 0 )
-                                                csv += ',';
-                                        csv += decode_strm_field( p, s.fields[fi] );
-                                }
-                                csv += '\n';
-                        }
-                        bar.log( pbar::colored_wall_time() + "    " +
-                                 pbar::fg( std::string{ name }, pbar::colors::cyan ) +
-                                 " stream[" + std::to_string( s.schema_id ) + "]:\n" + csv );
-                }
-        }
+        void on_stream_data( std::string_view, asrtc::stream_schemas const& ) override {}
 };
 
 std::shared_ptr< pbar::terminal_progress > g_bar;
 asrtl_log_level                            g_log_level = ASRTL_LOG_ERROR;
+std::ostream*                              g_log_file  = nullptr;
+
+static std::string plain_log_line(
+    enum asrtl_log_level level,
+    char const*          module,
+    char const*          fmt,
+    va_list              args )
+{
+        char msgbuf[1024];
+        vsnprintf( msgbuf, sizeof( msgbuf ), fmt, args );
+        char const* ls;
+        if ( level == ASRTL_LOG_ERROR )
+                ls = "ERROR";
+        else if ( level == ASRTL_LOG_INFO )
+                ls = "INFO ";
+        else
+                ls = "DEBUG";
+        auto      now   = std::chrono::system_clock::now();
+        auto      now_t = std::chrono::system_clock::to_time_t( now );
+        auto      us    = std::chrono::duration_cast< std::chrono::microseconds >(
+                       now.time_since_epoch() ) %
+                     std::chrono::seconds( 1 );
+        struct tm ti{};
+        localtime_r( &now_t, &ti );
+        char ts[16];
+        std::snprintf(
+            ts,
+            sizeof( ts ),
+            "%02d%02d%02d.%06d",
+            ti.tm_hour,
+            ti.tm_min,
+            ti.tm_sec,
+            static_cast< int >( us.count() ) );
+        return std::string( ts ) + "  " + ( module ? module : "-" ) + "  " + ls + "  " + msgbuf;
+}
 
 static std::string pbar_format_log(
     enum asrtl_log_level level,
@@ -277,6 +147,13 @@ static std::string pbar_format_log(
 extern "C" {
 void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... )
 {
+        if ( g_log_file ) {
+                va_list fargs;
+                va_start( fargs, fmt );
+                auto fline = plain_log_line( level, module, fmt, fargs );
+                va_end( fargs );
+                *g_log_file << fline << '\n';
+        }
         if ( level < g_log_level )
                 return;
         va_list args;
@@ -298,7 +175,9 @@ task< void > run_tcp(
     std::string_view                host,
     uint16_t                        port,
     std::chrono::milliseconds       timeout,
-    std::unique_ptr< param_config > params )
+    std::unique_ptr< param_config > params,
+    output_fs&                      fs,
+    std::filesystem::path           output_dir )
 {
         pbar_reporter reporter{ *g_bar };
         auto          client = std::make_shared< uv_tcp_t >();
@@ -310,7 +189,7 @@ task< void > run_tcp(
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
-        co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
+        co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
         g_bar->finish();
         g_bar.reset();
 };
@@ -322,7 +201,9 @@ task< void > run_rsim(
     uv_loop_t*                      loop,
     uint32_t                        seed,
     std::chrono::milliseconds       timeout,
-    std::unique_ptr< param_config > params )
+    std::unique_ptr< param_config > params,
+    output_fs&                      fs,
+    std::filesystem::path           output_dir )
 {
         pbar_reporter reporter{ *g_bar };
         auto          rs = arena.make< rsim_ctx >( loop, seed );
@@ -337,7 +218,7 @@ task< void > run_rsim(
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
-        co_await run_test_suite( ctx, *sys, reporter, timeout, *params );
+        co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
         ASRTL_INF_LOG( "asrtio", "run test suite finished" );
         g_bar->finish();
         g_bar.reset();
@@ -395,8 +276,9 @@ int main( int argc, char* argv[] )
         using namespace asrtio;
         uv_loop_t* loop = uv_default_loop();
         std::optional< asrtio::complete_arena_connect_result< task< void >, final_receiver > > t;
-        std::shared_ptr< pbar_reporter >   reporter;
         asrtl::malloc_free_memory_resource mem_res;
+        real_fs                            rfs;
+        null_fs                            nfs;
         task_ctx                           ctx{ mem_res };
         arena                              ar{ ctx, mem_res };
         steady_clock                       clk;
@@ -417,12 +299,17 @@ int main( int argc, char* argv[] )
 
         uint32_t    timeout_ms = 5000u;
         std::string params_file;
+        std::string output_dir;
         app.add_option( "--timeout", timeout_ms, "Timeout in milliseconds" );
         app.add_option( "--params", params_file, "Path to JSON param config file" );
+        app.add_option( "--output", output_dir, "Output directory for test data files" );
 
         auto launch = [&]( auto make_task ) {
                 auto timeout = std::chrono::milliseconds{ timeout_ms };
-                auto params  = std::make_unique< param_config >();
+                if ( output_dir.empty() )
+                        ASRTL_INF_LOG(
+                            "asrtio", "No --output specified; data files will not be written" );
+                auto params = std::make_unique< param_config >();
                 if ( !params_file.empty() ) {
                         params = param_config_from_file( params_file );
                         if ( !params ) {
@@ -445,7 +332,9 @@ int main( int argc, char* argv[] )
                             opt->host,
                             opt->port,
                             timeout,
-                            std::move( params ) );
+                            std::move( params ),
+                            output_dir.empty() ? static_cast< output_fs& >( nfs ) : rfs,
+                            output_dir );
                 } );
         } );
 
@@ -464,7 +353,15 @@ int main( int argc, char* argv[] )
                                 params = param_config_from_stream( in );
                         }
                         return run_rsim(
-                            ctx, ar, clk, loop, *rsim_seed, timeout, std::move( params ) );
+                            ctx,
+                            ar,
+                            clk,
+                            loop,
+                            *rsim_seed,
+                            timeout,
+                            std::move( params ),
+                            output_dir.empty() ? static_cast< output_fs& >( nfs ) : rfs,
+                            output_dir );
                 } );
         } );
 
@@ -477,6 +374,13 @@ int main( int argc, char* argv[] )
         else
                 g_log_level = ASRTL_LOG_ERROR;
 
+        std::optional< file_writer > log_writer;
+        if ( !output_dir.empty() ) {
+                rfs.create_directories( output_dir );
+                log_writer.emplace( rfs.open_write( std::filesystem::path{ output_dir } / "asrtio.log" ) );
+                g_log_file = &log_writer->stream();
+        }
+
         idle.data = &ctx;
         uv_idle_init( loop, &idle );
         uv_idle_start( &idle, []( uv_idle_t* handle ) {
@@ -488,6 +392,9 @@ int main( int argc, char* argv[] )
 
         uv_run( loop, UV_RUN_DEFAULT );
         uv_loop_close( loop );
+
+        g_log_file = nullptr;
+        log_writer.reset();
 
         return 0;
 }
