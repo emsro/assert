@@ -1012,16 +1012,16 @@ struct param_client_ctx
         struct asrtr_param_query  query = {};
 
         // callback state
-        int            resp_called   = 0;
-        asrtl::flat_id resp_id        = 0;
+        int            resp_called = 0;
+        asrtl::flat_id resp_id     = 0;
         std::string    resp_key;
-        uint32_t       resp_u32_val   = 0;
-        uint8_t        resp_type      = 0;
-        asrtl::flat_id resp_next_sib  = 0;
-        uint8_t        error_code     = 0;
-        asrtl::flat_id error_node_id  = 0;
-        int           error_called  = 0;
-        uint32_t      t             = 100;
+        uint32_t       resp_u32_val  = 0;
+        uint8_t        resp_type     = 0;
+        asrtl::flat_id resp_next_sib = 0;
+        uint8_t        error_code    = 0;
+        asrtl::flat_id error_node_id = 0;
+        int            error_called  = 0;
+        uint32_t       t             = 100;
 
         static void query_cb(
             struct asrtr_param_client*,
@@ -1682,8 +1682,8 @@ struct param_timeout_ctx
         asrtl_sender              sendr = {};
         struct asrtr_param_query  query = {};
 
-        int           cb_called  = 0;
-        uint8_t       error_code = 0;
+        int            cb_called  = 0;
+        uint8_t        error_code = 0;
         asrtl::flat_id resp_id    = 0;
         uint32_t       resp_u32   = 0;
         uint32_t       t          = 1;
@@ -1844,7 +1844,10 @@ static inline enum asrtl_status call_collect_client_recv(
         return c->node.recv_cb( c->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
 }
 
-static uint8_t* build_coll_ready( uint8_t* buf, asrtl::flat_id root_id, asrtl::flat_id next_node_id = 1 )
+static uint8_t* build_coll_ready(
+    uint8_t*       buf,
+    asrtl::flat_id root_id,
+    asrtl::flat_id next_node_id = 1 )
 {
         uint8_t* p = buf;
         *p++       = ASRTL_COLLECT_MSG_READY;
@@ -2015,4 +2018,559 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrtr_collect_client_tick_idle_is_noop" 
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_IDLE, client.state );
         CHECK( coll.data.empty() );
+}
+
+// =====================================================================
+// stream client tests
+// =====================================================================
+
+#include "../asrtr/stream.h"
+
+/// Sender that collects messages and optionally fires done_cb synchronously.
+struct strm_sender_ctx
+{
+        collector* coll       = nullptr;
+        bool       fail_send  = false;
+        bool       sync_done  = true;   ///< call done_cb synchronously (like loopback)
+        bool       defer_done = false;  ///< don't call done_cb at all (async)
+
+        // Stash for deferred done_cb firing
+        asrtl_send_done_cb stashed_cb  = nullptr;
+        void*              stashed_ptr = nullptr;
+};
+
+static enum asrtl_status strm_sender_cb(
+    void*                  data,
+    asrtl_chann_id         id,
+    struct asrtl_rec_span* buff,
+    asrtl_send_done_cb     done_cb,
+    void*                  done_ptr )
+{
+        auto* ctx = static_cast< strm_sender_ctx* >( data );
+        if ( ctx->fail_send )
+                return ASRTL_SEND_ERR;
+
+        // Collect the data
+        if ( ctx->coll )
+                sender_collect( ctx->coll, id, buff, nullptr, nullptr );
+
+        if ( ctx->defer_done ) {
+                ctx->stashed_cb  = done_cb;
+                ctx->stashed_ptr = done_ptr;
+        } else if ( ctx->sync_done && done_cb ) {
+                done_cb( done_ptr, ASRTL_SUCCESS );
+        }
+        return ASRTL_SUCCESS;
+}
+
+/// fire previously deferred done_cb
+static void strm_fire_deferred( strm_sender_ctx* ctx, enum asrtl_status status )
+{
+        REQUIRE( ctx->stashed_cb );
+        ctx->stashed_cb( ctx->stashed_ptr, status );
+        ctx->stashed_cb  = nullptr;
+        ctx->stashed_ptr = nullptr;
+}
+
+struct strm_client_ctx
+{
+        collector       coll;
+        strm_sender_ctx sctx{ .coll = &coll, .sync_done = true, .defer_done = false };
+        asrtl_sender    sender{ .ptr = &sctx, .cb = strm_sender_cb };
+        asrtl_node      root{
+                 .chid     = ASRTL_CORE,
+                 .recv_ptr = nullptr,
+                 .recv_cb  = nullptr,
+                 .next     = nullptr };
+        asrtr_stream_client client = {};
+
+        strm_client_ctx()
+        {
+                CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_init( &client, &root, sender ) );
+        }
+        ~strm_client_ctx()
+        {
+                coll.data.clear();
+        }
+};
+
+// --- init ---
+
+TEST_CASE( "strm_client_init: null client" )
+{
+        asrtl_node   root   = {};
+        asrtl_sender sender = {};
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_stream_client_init( nullptr, &root, sender ) );
+}
+
+TEST_CASE( "strm_client_init: null prev" )
+{
+        asrtr_stream_client client = {};
+        asrtl_sender        sender = {};
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_stream_client_init( &client, nullptr, sender ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_init: valid" )
+{
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRTL_STRM, client.node.chid );
+        CHECK_EQ( &client.node, root.next );
+}
+
+// --- define ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: null client" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_ARG_ERR, asrtr_stream_client_define( nullptr, 1, fields, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: null fields" )
+{
+        CHECK_EQ(
+            ASRTR_ARG_ERR, asrtr_stream_client_define( &client, 1, nullptr, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: zero field_count" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_ARG_ERR, asrtr_stream_client_define( &client, 1, fields, 0, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: valid sets DEFINE_SEND" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8, ASRTL_STRM_FIELD_U16 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 5, fields, 2, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_STRM_DEFINE_SEND, client.state );
+        CHECK_EQ( 5, client.op.define.schema_id );
+        CHECK_EQ( 2, client.op.define.field_count );
+        CHECK_EQ( fields, client.op.define.fields );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: stores done_cb" )
+{
+        bool                 called = false;
+        asrtr_stream_done_cb cb     = []( void* p, enum asrtl_status ) {
+                *static_cast< bool* >( p ) = true;
+        };
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, cb, &called ) );
+        CHECK_EQ( cb, client.done_cb );
+        CHECK_EQ( &called, client.done_cb_ptr );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: not idle returns BUSY_ERR" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+        // Now in DEFINE_SEND, second define should fail
+        CHECK_EQ(
+            ASRTR_BUSY_ERR, asrtr_stream_client_define( &client, 1, fields, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: BUSY for each non-idle state" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+
+        SUBCASE( "DEFINE_SEND" )
+        {
+                client.state = ASRTR_STRM_DEFINE_SEND;
+        }
+        SUBCASE( "WAIT" )
+        {
+                client.state = ASRTR_STRM_WAIT;
+        }
+        SUBCASE( "DONE" )
+        {
+                client.state = ASRTR_STRM_DONE;
+        }
+        SUBCASE( "ERROR" )
+        {
+                client.state = ASRTR_STRM_ERROR;
+        }
+
+        CHECK_EQ(
+            ASRTR_BUSY_ERR, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+}
+
+// --- tick ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: null client" )
+{
+        CHECK_EQ( ASRTR_INTERNAL_ERR, asrtr_stream_client_tick( nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: idle is noop" )
+{
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK( coll.data.empty() );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: WAIT is noop" )
+{
+        client.state = ASRTR_STRM_WAIT;
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_WAIT, client.state );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: ERROR is noop" )
+{
+        client.state = ASRTR_STRM_ERROR;
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND sends and sync-completes" )
+{
+        enum asrtl_strm_field_type_e fields[]   = { ASRTL_STRM_FIELD_U32, ASRTL_STRM_FIELD_I8 };
+        bool                         done_fired = false;
+        asrtl_status                 done_st    = ASRTL_SIZE_ERR;
+        auto                         done_cb    = []( void* p, enum asrtl_status s ) {
+                auto* pair = static_cast< std::pair< bool*, asrtl_status* >* >( p );
+                *pair->first  = true;
+                *pair->second = s;
+        };
+        auto pair = std::make_pair( &done_fired, &done_st );
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 3, fields, 2, done_cb, &pair ) );
+
+        // sync_done = true (default), so tick sends define and done_cb fires —
+        // but completion is never handled inline, so state is DONE after first tick
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK( !done_fired );
+
+        // Second tick fires the done_cb
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK( done_fired );
+        CHECK_EQ( ASRTL_SUCCESS, done_st );
+        // One message should have been sent
+        REQUIRE_EQ( 1u, coll.data.size() );
+        CHECK_EQ( ASRTL_STRM, coll.data[0].id );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND with deferred done" )
+{
+        sctx.sync_done                        = false;
+        sctx.defer_done                       = true;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        // Should be in WAIT, done hasn't fired yet
+        CHECK_EQ( ASRTR_STRM_WAIT, client.state );
+
+        // Fire the deferred done
+        strm_fire_deferred( &sctx, ASRTL_SUCCESS );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+
+        // Tick should fire the (NULL) done_cb and return to IDLE
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND send failure" )
+{
+        sctx.fail_send                        = true;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SEND_ERR, asrtr_stream_client_tick( &client ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback" )
+{
+        sctx.sync_done                        = false;
+        sctx.defer_done                       = true;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        bool                         cb_fired = false;
+        asrtl_status                 cb_st    = {};
+        auto                         done_cb  = []( void* p, enum asrtl_status s ) {
+                auto* pair = static_cast< std::pair< bool*, asrtl_status* >* >( p );
+                *pair->first  = true;
+                *pair->second = s;
+        };
+        auto pair = std::make_pair( &cb_fired, &cb_st );
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, done_cb, &pair ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_WAIT, client.state );
+
+        strm_fire_deferred( &sctx, ASRTL_SUCCESS );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK( !cb_fired );
+
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK( cb_fired );
+        CHECK_EQ( ASRTL_SUCCESS, cb_st );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE with NULL callback" )
+{
+        sctx.sync_done                        = false;
+        sctx.defer_done                       = true;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        strm_fire_deferred( &sctx, ASRTL_SUCCESS );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        coll.data.clear();
+}
+
+// --- record ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null client" )
+{
+        uint8_t data[] = { 1 };
+        CHECK_EQ(
+            ASRTR_ARG_ERR, asrtr_stream_client_emit( nullptr, 0, data, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null data with nonzero size" )
+{
+        CHECK_EQ(
+            ASRTR_ARG_ERR,
+            asrtr_stream_client_emit( &client, 0, nullptr, 5, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null data with zero size is error" )
+{
+        CHECK_EQ(
+            ASRTR_ARG_ERR,
+            asrtr_stream_client_emit( &client, 0, nullptr, 0, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: error state" )
+{
+        client.state   = ASRTR_STRM_ERROR;
+        uint8_t data[] = { 1 };
+        CHECK_EQ(
+            ASRTR_INTERNAL_ERR,
+            asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: send failure" )
+{
+        sctx.fail_send = true;
+        uint8_t data[] = { 1 };
+        CHECK_EQ(
+            ASRTR_SEND_ERR,
+            asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: valid sends DATA message" )
+{
+        uint8_t data[] = { 0xAA, 0xBB };
+        CHECK_EQ(
+            ASRTR_SUCCESS,
+            asrtr_stream_client_emit( &client, 7, data, 2, nullptr, nullptr ) );
+        // send_done fires synchronously in test fixture → state is DONE, tick() needed
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        REQUIRE_EQ( 1u, coll.data.size() );
+        CHECK_EQ( ASRTL_STRM, coll.data[0].id );
+        REQUIRE_EQ( 4u, coll.data[0].data.size() );
+        CHECK_EQ( ASRTL_STRM_MSG_DATA, coll.data[0].data[0] );
+        CHECK_EQ( 7, coll.data[0].data[1] );
+        CHECK_EQ( 0xAA, coll.data[0].data[2] );
+        CHECK_EQ( 0xBB, coll.data[0].data[3] );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: done_cb fires via tick" )
+{
+        asrtl_status cb_status = {};
+        auto         cb        = []( void* p, enum asrtl_status s ) {
+                *static_cast< asrtl_status* >( p ) = s;
+        };
+        uint8_t data[] = { 1 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 0, data, 1, cb, &cb_status ) );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, cb_status );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( nullptr, client.done_cb );
+        CHECK_EQ( nullptr, client.done_cb_ptr );
+        coll.data.clear();
+}
+
+// --- recv ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: empty buffer is noop" )
+{
+        uint8_t           buf[1];
+        struct asrtl_span sp = { .b = buf, .e = buf };
+        CHECK_EQ( ASRTL_SUCCESS, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: error message sets ERROR state" )
+{
+        uint8_t           buf[] = { ASRTL_STRM_MSG_ERROR, ASRTL_STRM_ERR_UNKNOWN_SCHEMA };
+        struct asrtl_span sp    = { .b = buf, .e = buf + 2 };
+        CHECK_EQ( ASRTL_SUCCESS, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+        CHECK_EQ( ASRTL_STRM_ERR_UNKNOWN_SCHEMA, client.err_code );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: error message too short" )
+{
+        uint8_t           buf[] = { ASRTL_STRM_MSG_ERROR };
+        struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
+        CHECK_EQ( ASRTL_RECV_ERR, client.node.recv_cb( client.node.recv_ptr, sp ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: unknown message id" )
+{
+        uint8_t           buf[] = { 0xFF };
+        struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
+        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, client.node.recv_cb( client.node.recv_ptr, sp ) );
+}
+
+// --- send_done preserves ERROR ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: send_done preserves ERROR state" )
+{
+        sctx.sync_done                        = false;
+        sctx.defer_done                       = true;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_WAIT, client.state );
+
+        // Simulate controller error arriving before send completes
+        uint8_t           err_buf[] = { ASRTL_STRM_MSG_ERROR, ASRTL_STRM_ERR_INVALID_DEFINE };
+        struct asrtl_span sp        = { .b = err_buf, .e = err_buf + 2 };
+        client.node.recv_cb( client.node.recv_ptr, sp );
+        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+
+        // Now send completes — should NOT overwrite ERROR
+        strm_fire_deferred( &sctx, ASRTL_SUCCESS );
+        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+        coll.data.clear();
+}
+
+// --- reset ---
+
+TEST_CASE( "strm_client_reset: null client" )
+{
+        CHECK_EQ( ASRTR_INIT_ERR, asrtr_stream_client_reset( nullptr ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: IDLE" )
+{
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_reset( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: DEFINE_SEND returns BUSY" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr );
+        CHECK_EQ( ASRTR_BUSY_ERR, asrtr_stream_client_reset( &client ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: WAIT returns BUSY" )
+{
+        client.state = ASRTR_STRM_WAIT;
+        CHECK_EQ( ASRTR_BUSY_ERR, asrtr_stream_client_reset( &client ) );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: DONE resets to IDLE" )
+{
+        client.state = ASRTR_STRM_DONE;
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_reset( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: ERROR resets to IDLE" )
+{
+        client.state    = ASRTR_STRM_ERROR;
+        client.err_code = ASRTL_STRM_ERR_UNKNOWN_SCHEMA;
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_reset( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRTL_STRM_ERR_SUCCESS, client.err_code );
+}
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: clears done_cb" )
+{
+        client.state       = ASRTR_STRM_DONE;
+        client.done_cb     = []( void*, enum asrtl_status ) {};
+        client.done_cb_ptr = (void*) 0xBEEF;
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_reset( &client ) );
+        CHECK_EQ( nullptr, client.done_cb );
+        CHECK_EQ( nullptr, client.done_cb_ptr );
+}
+
+// --- full define→tick→idle cycle ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: full define→tick cycle with callback" )
+{
+        asrtl_status cb_status = {};
+        auto         cb        = []( void* p, enum asrtl_status s ) {
+                *static_cast< asrtl_status* >( p ) = s;
+        };
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U16 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 2, fields, 1, cb, &cb_status ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRTL_SUCCESS, cb_status );
+
+        // Verify define message payload
+        REQUIRE_EQ( 1u, coll.data.size() );
+        auto& msg = coll.data[0].data;
+        REQUIRE_GE( msg.size(), 4u );
+        CHECK_EQ( ASRTL_STRM_MSG_DEFINE, msg[0] );
+        CHECK_EQ( 2, msg[1] );
+        CHECK_EQ( 1, msg[2] );
+        CHECK_EQ( ASRTL_STRM_FIELD_U16, msg[3] );
+        coll.data.clear();
+}
+
+// --- define then record ---
+
+TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: define then record" )
+{
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRTR_SUCCESS, asrtr_stream_client_define( &client, 1, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        coll.data.clear();
+
+        uint8_t rec_data[] = { 42 };
+        CHECK_EQ(
+            ASRTR_SUCCESS,
+            asrtr_stream_client_emit( &client, 1, rec_data, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        REQUIRE_EQ( 1u, coll.data.size() );
+        CHECK_EQ( ASRTL_STRM_MSG_DATA, coll.data[0].data[0] );
+        CHECK_EQ( 1, coll.data[0].data[1] );
+        CHECK_EQ( 42, coll.data[0].data[2] );
+        coll.data.clear();
 }

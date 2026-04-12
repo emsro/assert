@@ -50,7 +50,9 @@ static void assert_data_ll_contain_str(
 static enum asrtl_status sender_collect(
     void*                  data,
     asrtl_chann_id         id,
-    struct asrtl_rec_span* buff )
+    struct asrtl_rec_span* buff,
+    asrtl_send_done_cb     done_cb,
+    void*                  done_ptr )
 {
         assert( data );
         collector* c     = (collector*) data;
@@ -64,6 +66,8 @@ static enum asrtl_status sender_collect(
         struct asrtl_span sp{ .b = dst, .e = dst + total };
         asrtl_rec_span_to_span( &sp, buff );
         c->data.push_back( p );
+        if ( done_cb )
+                done_cb( done_ptr, ASRTL_SUCCESS );
         return ASRTL_SUCCESS;
 }
 

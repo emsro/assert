@@ -24,6 +24,8 @@
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/param_sender.hpp"
+#include "../asrtrpp/stream.hpp"
+#include "../asrtrpp/stream_sender.hpp"
 #include "../asrtrpp/task_unit.hpp"
 
 #include <functional>
@@ -662,6 +664,28 @@ struct collect_demo_task : asrtr::task_test
                 auto obj  = co_await asrtr::append< asrtl::obj >( cc, root );
                 co_await asrtr::append( cc, obj, "value", 42u );
                 co_await asrtr::append( cc, obj, "tag", "demo" );
+        }
+};
+
+
+/// Stream demo: defines a schema with two fields (U32 + FLOAT) and sends
+/// three records.
+struct stream_demo_task : asrtr::task_test
+{
+        char const*           name = "stream_demo_task";
+        asrtr::stream_client& sc;
+
+        stream_demo_task( asrtr::task_ctx& ctx, asrtr::stream_client& s )
+          : task_test( ctx )
+          , sc( s )
+        {
+        }
+
+        asrtr::task< void > exec()
+        {
+                auto schema = co_await asrtr::define< uint32_t, float >( sc, 0 );
+                for ( uint32_t i = 0; i < 3; ++i )
+                        co_await asrtr::emit( schema, i * 100, 1.5F * i );
         }
 };
 

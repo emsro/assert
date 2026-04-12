@@ -9,6 +9,7 @@
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "../asrtrpp/stream.hpp"
 #include "./demo.hpp"
 #include "./euv.hpp"
 #include "./task.hpp"
@@ -32,6 +33,7 @@ struct conn_ctx
         uint8_t                                      param_buf[256] = {};
         asrtr::param_client                          r_param;
         asrtr::collect_client                        r_collect;
+        asrtr::stream_client                         r_stream;
         std::list< asrtr::unit< demo_test > >        demo_tests;
         std::vector< std::shared_ptr< asrtr_test > > task_demo_tests;
 
@@ -48,6 +50,7 @@ struct conn_ctx
                 asrtl_span{ .b = param_buf, .e = param_buf + sizeof( param_buf ) },
                 100 )
           , r_collect( r_param.node(), *this )
+          , r_stream( r_collect.node(), *this )
         {
                 client.data = this;
 
@@ -72,6 +75,7 @@ struct conn_ctx
                 reg_task_demo< param_query_demo_task >( r_param );
                 reg_task_demo< param_type_overview_task >( r_param );
                 reg_task_demo< collect_demo_task >( r_collect );
+                reg_task_demo< stream_demo_task >( r_stream );
         }
 
         void reg_demo( demo_spec spec )
@@ -94,9 +98,16 @@ struct conn_ctx
                 return r_param;
         }
 
-        asrtl::status operator()( asrtl::chann_id id, asrtl::rec_span* buff )
+        asrtl::status operator()(
+            asrtl::chann_id    id,
+            asrtl::rec_span*   buff,
+            asrtl_send_done_cb done_cb,
+            void*              done_ptr )
         {
-                return rx.write( (uv_stream_t*) &client, id, *buff );
+                auto st = rx.write( (uv_stream_t*) &client, id, *buff );
+                if ( done_cb )
+                        done_cb( done_ptr, st );
+                return st;
         }
 
         void tick()
@@ -117,6 +128,11 @@ struct conn_ctx
                             "test_rsim",
                             "Collect tick failed: %s",
                             asrtl_status_to_str( s ) );
+                if ( auto s = r_stream.tick(); s != ASRTR_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "test_rsim",
+                            "Stream tick failed: %s",
+                            asrtr_status_to_str( s ) );
         }
 
         cobs_node rx;

@@ -5,6 +5,7 @@
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
 #include "../asrtcpp/param.hpp"
+#include "../asrtcpp/stream.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
@@ -44,6 +45,11 @@ struct cntr_tcp_sys
                 return c_collect;
         }
 
+        asrtc::stream_server& stream()
+        {
+                return c_stream;
+        }
+
         clock const& clk() const
         {
                 return clk_;
@@ -61,6 +67,9 @@ struct cntr_tcp_sys
                 if ( auto s = c_collect.tick( now ); s != ASRTL_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main", "Collect tick failed: %s", asrtl_status_to_str( s ) );
+                if ( auto s = c_stream.tick( now ); s != ASRTC_SUCCESS )
+                        ASRTL_ERR_LOG(
+                            "asrtio_main", "Stream tick failed: %s", asrtc_status_to_str( s ) );
         }
 
 
@@ -105,11 +114,18 @@ private:
         uv_idle_t                                                        idle_handle;
         std::shared_ptr< uv_tcp_t >                                      client;
         clock const&                                                     clk_;
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > cntr_send{
-            [this]( asrtl_chann_id id, asrtl_rec_span* buff ) -> asrtl_status {
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            cntr_send{ [this]( asrtl_chann_id     id,
+                              asrtl_rec_span*    buff,
+                              asrtl_send_done_cb done_cb,
+                              void*              done_ptr ) -> asrtl_status {
                     if ( disconnected_ )
                             return ASRTL_SEND_ERR;
-                    return rx.write( (uv_stream_t*) client.get(), id, *buff );
+                    auto st = rx.write( (uv_stream_t*) client.get(), id, *buff );
+                    if ( done_cb )
+                            done_cb( done_ptr, st );
+                    return st;
             } };
 
 public:
@@ -127,6 +143,7 @@ public:
         asrtc::param_server c_param{ c_diag.node(), cntr_send, asrtl_default_allocator() };
         asrtc::collect_server
             c_collect{ c_param.node(), cntr_send, asrtl_default_allocator(), 64, 256 };
+        asrtc::stream_server c_stream{ c_collect.node(), cntr_send, asrtl_default_allocator() };
 
         cobs_node rx;
 };
@@ -156,8 +173,14 @@ struct suite_reporter
         virtual void on_diagnostic(
             std::string_view file,
             uint32_t         line,
-            std::string_view extra ) = 0;
-        virtual ~suite_reporter()    = default;
+            std::string_view extra )               = 0;
+        virtual void on_collect_data(
+            std::string_view       name,
+            asrtl_flat_tree const* tree )           = 0;
+        virtual void on_stream_data(
+            std::string_view              name,
+            asrtc::stream_schemas const& schemas ) = 0;
+        virtual ~suite_reporter()                   = default;
 };
 
 struct _cntr_set_param_tree
@@ -277,6 +300,7 @@ inline task< void > run_test_suite(
 
                         reporter.on_test_start( name, ri + 1, run_total );
 
+                        sys.stream().clear();
                         co_await cntr_collect_ready{ sys, 0, timeout };
 
                         auto          t0  = sys.clk().now();
@@ -285,6 +309,14 @@ inline task< void > run_test_suite(
                         while ( auto rec = sys.take_diag_record() )
                                 reporter.on_diagnostic(
                                     rec->file, rec->line, rec->extra ? rec->extra : "" );
+
+                        if ( auto const* tree = sys.collect().tree(); tree )
+                                reporter.on_collect_data( name, tree );
+
+                        auto schemas = sys.stream().take();
+                        if ( schemas->schema_count > 0 )
+                                reporter.on_stream_data( name, schemas );
+
                         double ms     = static_cast< double >( ( sys.clk().now() - t0 ).count() );
                         bool   passed = ( res.res == ASRTC_TEST_SUCCESS );
                         reporter.on_test_done( name, passed, ms, ri + 1, run_total );

@@ -1,5 +1,6 @@
 
 #include "../asrtl/log.h"
+#include "../asrtl/stream_proto.h"
 #include "../asrtlpp/fmt.hpp"
 #include "./cntr_tcp_sys.hpp"
 #include "./euv.hpp"
@@ -11,6 +12,7 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <list>
 #include <memory>
 #include <sstream>
@@ -22,6 +24,141 @@ using namespace std::literals::chrono_literals;
 namespace asrtio
 {
 using asrtl::opt;
+
+static std::string flat_node_json( asrtl_flat_tree* tree, asrtl_flat_id id )
+{
+        asrtl_flat_query_result res;
+        if ( asrtl_flat_tree_query( tree, id, &res ) != ASRTL_SUCCESS )
+                return "null";
+
+        switch ( res.value.type ) {
+        case ASRTL_FLAT_STYPE_STR: {
+                std::string s = "\"";
+                if ( res.value.data.s.str_val )
+                        for ( char const* p = res.value.data.s.str_val; *p; ++p ) {
+                                if ( *p == '"' )
+                                        s += "\\\"";
+                                else if ( *p == '\\' )
+                                        s += "\\\\";
+                                else
+                                        s += *p;
+                        }
+                return s + "\"";
+        }
+        case ASRTL_FLAT_STYPE_U32:
+                return std::to_string( res.value.data.s.u32_val );
+        case ASRTL_FLAT_STYPE_I32:
+                return std::to_string( res.value.data.s.i32_val );
+        case ASRTL_FLAT_STYPE_FLOAT:
+                return std::to_string( res.value.data.s.float_val );
+        case ASRTL_FLAT_STYPE_BOOL:
+                return res.value.data.s.bool_val ? "true" : "false";
+        case ASRTL_FLAT_STYPE_NULL:
+        case ASRTL_FLAT_STYPE_NONE:
+                return "null";
+        case ASRTL_FLAT_CTYPE_OBJECT: {
+                std::string s  = "{";
+                auto        cid = res.value.data.cont.first_child;
+                bool        first = true;
+                while ( cid != 0 ) {
+                        asrtl_flat_query_result child;
+                        if ( asrtl_flat_tree_query( tree, cid, &child ) != ASRTL_SUCCESS )
+                                break;
+                        if ( !first )
+                                s += ",";
+                        first = false;
+                        if ( child.key )
+                                s += std::string( "\"" ) + child.key + "\":";
+                        s += flat_node_json( tree, cid );
+                        cid = child.next_sibling;
+                }
+                return s + "}";
+        }
+        case ASRTL_FLAT_CTYPE_ARRAY: {
+                std::string s  = "[";
+                auto        cid = res.value.data.cont.first_child;
+                bool        first = true;
+                while ( cid != 0 ) {
+                        asrtl_flat_query_result child;
+                        if ( asrtl_flat_tree_query( tree, cid, &child ) != ASRTL_SUCCESS )
+                                break;
+                        if ( !first )
+                                s += ",";
+                        first = false;
+                        s += flat_node_json( tree, cid );
+                        cid = child.next_sibling;
+                }
+                return s + "]";
+        }
+        default:
+                return "null";
+        }
+}
+
+static char const* strm_field_label( asrtl_strm_field_type t )
+{
+        switch ( (enum asrtl_strm_field_type_e) t ) {
+        case ASRTL_STRM_FIELD_U8:
+                return "u8";
+        case ASRTL_STRM_FIELD_U16:
+                return "u16";
+        case ASRTL_STRM_FIELD_U32:
+                return "u32";
+        case ASRTL_STRM_FIELD_I8:
+                return "i8";
+        case ASRTL_STRM_FIELD_I16:
+                return "i16";
+        case ASRTL_STRM_FIELD_I32:
+                return "i32";
+        case ASRTL_STRM_FIELD_FLOAT:
+                return "float";
+        case ASRTL_STRM_FIELD_BOOL:
+                return "bool";
+        default:
+                return "?";
+        }
+}
+
+static std::string decode_strm_field( uint8_t*& p, asrtl_strm_field_type t )
+{
+        switch ( (enum asrtl_strm_field_type_e) t ) {
+        case ASRTL_STRM_FIELD_U8:
+                return std::to_string( *p++ );
+        case ASRTL_STRM_FIELD_I8:
+                return std::to_string( static_cast< int8_t >( *p++ ) );
+        case ASRTL_STRM_FIELD_BOOL:
+                return ( *p++ ) ? "true" : "false";
+        case ASRTL_STRM_FIELD_U16: {
+                uint16_t v;
+                asrtl_cut_u16( &p, &v );
+                return std::to_string( v );
+        }
+        case ASRTL_STRM_FIELD_I16: {
+                uint16_t v;
+                asrtl_cut_u16( &p, &v );
+                return std::to_string( static_cast< int16_t >( v ) );
+        }
+        case ASRTL_STRM_FIELD_U32: {
+                uint32_t v;
+                asrtl_cut_u32( &p, &v );
+                return std::to_string( v );
+        }
+        case ASRTL_STRM_FIELD_I32: {
+                int32_t v;
+                asrtl_cut_i32( &p, &v );
+                return std::to_string( v );
+        }
+        case ASRTL_STRM_FIELD_FLOAT: {
+                uint32_t bits;
+                asrtl_cut_u32( &p, &bits );
+                float v;
+                std::memcpy( &v, &bits, sizeof( v ) );
+                return std::to_string( v );
+        }
+        default:
+                return "?";
+        }
+}
 
 struct pbar_reporter : suite_reporter
 {
@@ -71,6 +208,42 @@ struct pbar_reporter : suite_reporter
                 if ( !extra.empty() )
                         loc += " " + std::string{ extra };
                 bar.log( pbar::colored_wall_time() + "    " + pbar::fg( loc, pbar::colors::red ) );
+        }
+
+        void on_collect_data( std::string_view name, asrtl_flat_tree const* tree ) override
+        {
+                auto json = flat_node_json( const_cast< asrtl_flat_tree* >( tree ), 1 );
+                bar.log( pbar::colored_wall_time() + "    " +
+                         pbar::fg( std::string{ name }, pbar::colors::cyan ) +
+                         " collect: " + json );
+        }
+
+        void on_stream_data(
+            std::string_view              name,
+            asrtc::stream_schemas const& schemas ) override
+        {
+                for ( uint32_t si = 0; si < schemas->schema_count; ++si ) {
+                        auto const& s = schemas->schemas[si];
+                        std::string csv;
+                        for ( uint8_t fi = 0; fi < s.field_count; ++fi ) {
+                                if ( fi > 0 )
+                                        csv += ',';
+                                csv += strm_field_label( s.fields[fi] );
+                        }
+                        csv += '\n';
+                        for ( auto const* rec = s.first; rec; rec = rec->next ) {
+                                auto* p = rec->data;
+                                for ( uint8_t fi = 0; fi < s.field_count; ++fi ) {
+                                        if ( fi > 0 )
+                                                csv += ',';
+                                        csv += decode_strm_field( p, s.fields[fi] );
+                                }
+                                csv += '\n';
+                        }
+                        bar.log( pbar::colored_wall_time() + "    " +
+                                 pbar::fg( std::string{ name }, pbar::colors::cyan ) +
+                                 " stream[" + std::to_string( s.schema_id ) + "]:\n" + csv );
+                }
         }
 };
 

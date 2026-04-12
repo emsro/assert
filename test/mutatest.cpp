@@ -253,21 +253,35 @@ void exec( std::ostream& os, test_case const& tc )
                 return flat;
         };
 
-        auto r_cb = [&]( asrtl::chann_id, asrtl::rec_span* buff ) {
+        auto r_cb = [&]( asrtl::chann_id,
+                        asrtl::rec_span*   buff,
+                        asrtl_send_done_cb done_cb,
+                        void*              done_ptr ) {
                 print_msg( os, ASRTL_REACTOR, ASRTL_CONTROLLER, buff );
-                auto flat = flatten( buff );
-                check >> c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
-                return ASRTL_SUCCESS;
+                auto              flat = flatten( buff );
+                enum asrtl_status st =
+                    c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
+                check >> st;
+                if ( done_cb )
+                        done_cb( done_ptr, st );
+                return st;
         };
         asrtr::reactor           r{ r_cb, "Test reactor" };
         asrtr::unit< noop_test > t1{};
         r.add_test( t1 );
 
-        auto c_send = [&]( asrtl_chann_id, asrtl_rec_span* buff ) {
+        auto c_send = [&]( asrtl_chann_id,
+                          asrtl_rec_span*    buff,
+                          asrtl_send_done_cb done_cb,
+                          void*              done_ptr ) {
                 print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
-                auto flat = flatten( buff );
-                check >> r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
-                return ASRTL_SUCCESS;
+                auto              flat = flatten( buff );
+                enum asrtl_status st =
+                    r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
+                check >> st;
+                if ( done_cb )
+                        done_cb( done_ptr, st );
+                return st;
         };
 
         c.emplace( c_send, [&]( asrtl::source s, asrtl::ecode ec ) {

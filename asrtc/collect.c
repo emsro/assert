@@ -35,7 +35,7 @@ static char const* asrtc_collect_server_state_to_str( enum asrtc_collect_server_
 static enum asrtl_status asrtc_collect_server_send( void* p, struct asrtl_rec_span* buff )
 {
         struct asrtc_collect_server* server = (struct asrtc_collect_server*) p;
-        return asrtl_send( &server->sendr, ASRTL_COLL, buff );
+        return asrtl_send( &server->sendr, ASRTL_COLL, buff, NULL, NULL );
 }
 
 // ---------------------------------------------------------------------------

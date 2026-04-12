@@ -194,6 +194,12 @@ struct recording_reporter : asrtio::suite_reporter
         void on_diagnostic( std::string_view, uint32_t, std::string_view ) override
         {
         }
+        void on_collect_data( std::string_view, asrtl_flat_tree const* ) override
+        {
+        }
+        void on_stream_data( std::string_view, asrtc::stream_schemas const& ) override
+        {
+        }
 };
 
 // Drain a uv_loop: close any remaining handles, run until empty, then free.
@@ -310,7 +316,7 @@ TEST_CASE( "suite_basic" )
         ASRTL_DBG_LOG( "asrtio_test", "Running suite_basic" );
         suite_run r;
         REQUIRE( r.done );
-        CHECK( r.reporter.count == 21 );
+        CHECK( r.reporter.count == 22 );
         CHECK( r.reporter.starts.size() == r.reporter.count );
         CHECK( r.reporter.done_names.size() == r.reporter.count );
         REQUIRE( r.reporter.done_names_at_on_done != -1 );
@@ -324,7 +330,7 @@ TEST_CASE( "suite_basic" )
         //             3 fail (demo_fail, demo_check_fail, demo_require_fail)
         //             2 nondeterministic (demo_random, demo_random_counter)
         //             3 param-aware (demo_param_value, demo_param_count, demo_param_find)
-        //             8 coroutine-based task demos (incl. collect_demo_task)
+        //             8 coroutine-based task demos (incl. collect_demo_task, stream_demo_task)
         CHECK( r.reporter.done_names[0] == "demo_pass" );
         CHECK( r.reporter.done_names[1] == "demo_fail" );
         CHECK( r.reporter.done_names[2] == "demo_check" );
@@ -346,6 +352,7 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.done_names[18] == "param_query_demo_task" );
         CHECK( r.reporter.done_names[19] == "param_type_overview_task" );
         CHECK( r.reporter.done_names[20] == "collect_demo_task" );
+        CHECK( r.reporter.done_names[21] == "stream_demo_task" );
         CHECK( r.reporter.passed[0] == true );
         CHECK( r.reporter.passed[1] == false );
         CHECK( r.reporter.passed[2] == true );
@@ -365,6 +372,7 @@ TEST_CASE( "suite_basic" )
         CHECK( r.reporter.passed[18] == false );
         CHECK( r.reporter.passed[19] == false );
         CHECK( r.reporter.passed[20] == true );
+        CHECK( r.reporter.passed[21] == true );
 }
 
 TEST_CASE( "suite_deterministic" )

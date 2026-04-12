@@ -10,8 +10,8 @@ namespace asrtr
 
 enum task_error
 {
-        test_fail,
-        test_error
+        test_fail,  // test failed due to a failed check or unmet condition
+        test_error  //  test errored due to an infrastructure issue (e.g. param query failure)
 };
 
 template < typename T >

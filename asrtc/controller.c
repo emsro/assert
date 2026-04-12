@@ -21,7 +21,7 @@ static inline enum asrtl_status asrtc_send( void* p, struct asrtl_rec_span* buff
 {
         struct asrtc_controller* c = (struct asrtc_controller*) p;
         ASRTL_ASSERT( c && buff && buff->b && buff->e );
-        return asrtl_send( &c->sendr, ASRTL_CORE, buff );
+        return asrtl_send( &c->sendr, ASRTL_CORE, buff, NULL, NULL );
 }
 
 static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t now )

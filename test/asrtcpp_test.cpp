@@ -93,27 +93,40 @@ struct paired_ctx
         // Must be declared before `r` so it is constructed (and valid) before the reactor
         // captures &r_send as its sender pointer.  asrtlpp/sender.hpp stores &CB, so the
         // lambda object must outlive the reactor.
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_send;
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            r_send;
 
         // Stable send callable for the controller; must outlive `c`.
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_send{
-            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                    auto  flat = flatten( buff );
-                    auto  sp   = asrtl::cnv( std::span{ flat } );
-                    auto* rn   = r.node();
-                    rn->recv_cb( rn->recv_ptr, sp );
-                    return ASRTL_SUCCESS;
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            c_send{ [this]( asrtl_chann_id,
+                           asrtl_rec_span*    buff,
+                           asrtl_send_done_cb done_cb,
+                           void*              done_ptr ) {
+                    auto              flat = flatten( buff );
+                    auto              sp   = asrtl::cnv( std::span{ flat } );
+                    auto*             rn   = r.node();
+                    enum asrtl_status st   = rn->recv_cb( rn->recv_ptr, sp );
+                    if ( done_cb )
+                            done_cb( done_ptr, st );
+                    return st;
             } };
 
         asrtr::reactor r;
 
         paired_ctx()
-          : r_send( [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                  auto  flat = flatten( buff );
-                  auto  sp   = asrtl::cnv( std::span{ flat } );
-                  auto* cn   = ( *c ).node();
-                  cn->recv_cb( cn->recv_ptr, sp );
-                  return ASRTL_SUCCESS;
+          : r_send( [this]( asrtl_chann_id,
+                           asrtl_rec_span*    buff,
+                           asrtl_send_done_cb done_cb,
+                           void*              done_ptr ) {
+                  auto              flat = flatten( buff );
+                  auto              sp   = asrtl::cnv( std::span{ flat } );
+                  auto*             cn   = ( *c ).node();
+                  enum asrtl_status st   = cn->recv_cb( cn->recv_ptr, sp );
+                  if ( done_cb )
+                          done_cb( done_ptr, st );
+                  return st;
           } )
           , r( r_send, "paired_reactor" )
         {
@@ -333,25 +346,37 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 struct diag_paired_ctx : paired_ctx
 {
         // c_diag sends → r_diag (controller-to-reactor direction)
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > c_diag_send{
-            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                    auto  flat = flatten( buff );
-                    auto  sp   = asrtl::cnv( std::span{ flat } );
-                    auto* rn   = r_diag.node();
-                    rn->recv_cb( rn->recv_ptr, sp );
-                    return ASRTL_SUCCESS;
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            c_diag_send{ [this]( asrtl_chann_id,
+                                asrtl_rec_span*    buff,
+                                asrtl_send_done_cb done_cb,
+                                void*              done_ptr ) {
+                    auto              flat = flatten( buff );
+                    auto              sp   = asrtl::cnv( std::span{ flat } );
+                    auto*             rn   = r_diag.node();
+                    enum asrtl_status st   = rn->recv_cb( rn->recv_ptr, sp );
+                    if ( done_cb )
+                            done_cb( done_ptr, st );
+                    return st;
             } };
 
         asrtc::diag c_diag{ ( *c ).node(), c_diag_send };
 
         // r_diag sends → c_diag (reactor-to-controller direction)
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > r_diag_send{
-            [this]( asrtl_chann_id, asrtl_rec_span* buff ) {
-                    auto  flat = flatten( buff );
-                    auto  sp   = asrtl::cnv( std::span{ flat } );
-                    auto* rn   = c_diag.node();
-                    rn->recv_cb( rn->recv_ptr, sp );
-                    return ASRTL_SUCCESS;
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            r_diag_send{ [this]( asrtl_chann_id,
+                                asrtl_rec_span*    buff,
+                                asrtl_send_done_cb done_cb,
+                                void*              done_ptr ) {
+                    auto              flat = flatten( buff );
+                    auto              sp   = asrtl::cnv( std::span{ flat } );
+                    auto*             rn   = c_diag.node();
+                    enum asrtl_status st   = rn->recv_cb( rn->recv_ptr, sp );
+                    if ( done_cb )
+                            done_cb( done_ptr, st );
+                    return st;
             } };
 
         asrtr::diag r_diag{ r.node(), r_diag_send };
@@ -422,9 +447,14 @@ struct param_server_ctx : paired_ctx
 {
         collector param_coll;
 
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > param_send{
-            [this]( asrtl_chann_id id, asrtl_rec_span* buff ) {
-                    return sender_collect( &param_coll, id, buff );
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            param_send{ [this]( asrtl_chann_id     id,
+                               asrtl_rec_span*    buff,
+                               asrtl_send_done_cb done_cb,
+                               void*              done_ptr ) {
+                    return sender_collect(
+                        &param_coll, id, buff, done_cb, done_ptr );
             } };
 
         asrtc::param_server srv{ ( *c ).node(), param_send, asrtl_default_allocator() };
@@ -520,9 +550,13 @@ struct collect_server_ctx
 {
         collector coll;
 
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span* ) > send_fn{
-            [this]( asrtl_chann_id id, asrtl_rec_span* buff ) {
-                    return sender_collect( &coll, id, buff );
+        std::function< asrtl_status(
+            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            send_fn{ [this]( asrtl_chann_id     id,
+                            asrtl_rec_span*    buff,
+                            asrtl_send_done_cb done_cb,
+                            void*              done_ptr ) {
+                    return sender_collect( &coll, id, buff, done_cb, done_ptr );
             } };
 
         asrtl_node head{};

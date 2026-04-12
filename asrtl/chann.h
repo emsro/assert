@@ -20,6 +20,7 @@ extern "C" {
 #include "./span.h"
 #include "./status.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 enum asrtl_chann_id_e
@@ -29,6 +30,7 @@ enum asrtl_chann_id_e
         ASRTL_DIAG = 3,
         ASRTL_PARA = 4,
         ASRTL_COLL = 5,
+        ASRTL_STRM = 6,
 };
 
 typedef uint16_t asrtl_chann_id;
@@ -55,8 +57,15 @@ enum asrtl_status asrtl_chann_cobs_dispatch(
     struct asrtl_node*         head,
     struct asrtl_span          in_buff );
 
-typedef enum asrtl_status (
-    *asrtl_send_callback )( void* ptr, asrtl_chann_id id, struct asrtl_rec_span* buff );
+/// Callback invoked when a send operation completes.
+typedef void ( *asrtl_send_done_cb )( void* ptr, enum asrtl_status status );
+
+typedef enum asrtl_status ( *asrtl_send_callback )(
+    void*                  ptr,
+    asrtl_chann_id         id,
+    struct asrtl_rec_span* buff,
+    asrtl_send_done_cb     done_cb,
+    void*                  done_ptr );
 
 /// Sender structure holding callback and pointer for send operations.
 struct asrtl_sender
@@ -69,11 +78,13 @@ struct asrtl_sender
 static inline enum asrtl_status asrtl_send(
     struct asrtl_sender*   r,
     asrtl_chann_id         chid,
-    struct asrtl_rec_span* buff )
+    struct asrtl_rec_span* buff,
+    asrtl_send_done_cb     done_cb,
+    void*                  done_ptr )
 {
         ASRTL_ASSERT( r );
         ASRTL_ASSERT( r->cb );
-        return r->cb( r->ptr, chid, buff );
+        return r->cb( r->ptr, chid, buff, done_cb, done_ptr );
 }
 
 #ifdef __cplusplus

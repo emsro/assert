@@ -62,7 +62,7 @@ enum asrtr_status asrtr_diag_init(
 static inline enum asrtl_status asrtr_diag_send_cb( void* ptr, struct asrtl_rec_span* sp )
 {
         struct asrtr_diag* diag = (struct asrtr_diag*) ptr;
-        return asrtl_send( &diag->sendr, ASRTL_DIAG, sp );
+        return asrtl_send( &diag->sendr, ASRTL_DIAG, sp, NULL, NULL );
 }
 
 void asrtr_diag_record(
@@ -86,7 +86,7 @@ void asrtr_diag_record(
 static inline enum asrtl_status asrtr_send( void* r, struct asrtl_rec_span* sp )
 {
         ASRTL_ASSERT( r && sp );
-        return asrtl_send( &( (struct asrtr_reactor*) r )->sendr, ASRTL_CORE, sp );
+        return asrtl_send( &( (struct asrtr_reactor*) r )->sendr, ASRTL_CORE, sp, NULL, NULL );
 }
 
 enum asrtr_status asrtr_reactor_init(

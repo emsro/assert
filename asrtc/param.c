@@ -15,7 +15,7 @@
 static enum asrtl_status asrtc_param_server_send( void* p, struct asrtl_rec_span* buff )
 {
         struct asrtc_param_server* param = (struct asrtc_param_server*) p;
-        return asrtl_send( &param->sendr, ASRTL_PARA, buff );
+        return asrtl_send( &param->sendr, ASRTL_PARA, buff, NULL, NULL );
 }
 
 static enum asrtl_status asrtc_param_server_handle_ready_ack(
@@ -194,7 +194,7 @@ enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uin
                     .e    = param->enc_buff + out_len,
                     .next = NULL,
                 };
-                return asrtl_send( &param->sendr, ASRTL_PARA, &span );
+                return asrtl_send( &param->sendr, ASRTL_PARA, &span, NULL, NULL );
         }
         }
         return ASRTL_SUCCESS;

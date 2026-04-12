@@ -13,6 +13,7 @@
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/log.h"
 #include "../asrtl/param_proto.h"
+#include "../asrtl/stream_proto.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 
@@ -2019,3 +2020,116 @@ struct ParamCapture
                 return ASRTL_SUCCESS;
         }
 };
+
+// ---------------------------------------------------------------------------
+// stream_proto.h — rtoc serializer tests
+// ---------------------------------------------------------------------------
+
+struct strm_capture
+{
+        uint8_t  buf[512] = {};
+        uint32_t len      = 0;
+
+        static enum asrtl_status cb( void* ptr, struct asrtl_rec_span* sp )
+        {
+                auto* self = static_cast< strm_capture* >( ptr );
+                for ( ; sp; sp = sp->next ) {
+                        size_t n = (size_t) ( sp->e - sp->b );
+                        memcpy( self->buf + self->len, sp->b, n );
+                        self->len += (uint32_t) n;
+                }
+                return ASRTL_SUCCESS;
+        }
+};
+
+TEST_CASE( "strm_proto: define serializes header and fields" )
+{
+        strm_capture cap;
+        enum asrtl_strm_field_type_e fields[] = {
+            ASRTL_STRM_FIELD_U8, ASRTL_STRM_FIELD_FLOAT, ASRTL_STRM_FIELD_I16 };
+
+        CHECK_EQ(
+            asrtl_msg_rtoc_strm_define( 7, fields, 3, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+
+        REQUIRE_EQ( cap.len, 6u );
+        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DEFINE );
+        CHECK_EQ( cap.buf[1], 7 );
+        CHECK_EQ( cap.buf[2], 3 );
+        CHECK_EQ( cap.buf[3], ASRTL_STRM_FIELD_U8 );
+        CHECK_EQ( cap.buf[4], ASRTL_STRM_FIELD_FLOAT );
+        CHECK_EQ( cap.buf[5], ASRTL_STRM_FIELD_I16 );
+}
+
+TEST_CASE( "strm_proto: define single field" )
+{
+        strm_capture                  cap;
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_BOOL };
+
+        CHECK_EQ(
+            asrtl_msg_rtoc_strm_define( 0, fields, 1, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+
+        REQUIRE_EQ( cap.len, 4u );
+        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DEFINE );
+        CHECK_EQ( cap.buf[1], 0 );
+        CHECK_EQ( cap.buf[2], 1 );
+        CHECK_EQ( cap.buf[3], ASRTL_STRM_FIELD_BOOL );
+}
+
+TEST_CASE( "strm_proto: define rejects field_count > 255" )
+{
+        strm_capture                  cap;
+        enum asrtl_strm_field_type_e fields[1] = { ASRTL_STRM_FIELD_U8 };
+
+        CHECK_EQ(
+            asrtl_msg_rtoc_strm_define( 0, fields, 256, strm_capture::cb, &cap ), ASRTL_ARG_ERR );
+        CHECK_EQ( cap.len, 0u );
+}
+
+TEST_CASE( "strm_proto: data serializes header and payload" )
+{
+        strm_capture    cap;
+        uint8_t const  payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+
+        CHECK_EQ(
+            asrtl_msg_rtoc_strm_data( 12, payload, 4, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+
+        REQUIRE_EQ( cap.len, 6u );
+        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DATA );
+        CHECK_EQ( cap.buf[1], 12 );
+        CHECK_EQ( cap.buf[2], 0xAA );
+        CHECK_EQ( cap.buf[3], 0xBB );
+        CHECK_EQ( cap.buf[4], 0xCC );
+        CHECK_EQ( cap.buf[5], 0xDD );
+}
+
+TEST_CASE( "strm_proto: data with zero-length payload" )
+{
+        strm_capture cap;
+
+        CHECK_EQ(
+            asrtl_msg_rtoc_strm_data( 0, nullptr, 0, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+
+        REQUIRE_EQ( cap.len, 2u );
+        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DATA );
+        CHECK_EQ( cap.buf[1], 0 );
+}
+
+TEST_CASE( "strm_proto: define propagates callback error" )
+{
+        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
+                return ASRTL_SEND_ERR;
+        };
+        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+
+        CHECK_EQ( asrtl_msg_rtoc_strm_define( 0, fields, 1, fail_cb, nullptr ), ASRTL_SEND_ERR );
+}
+
+TEST_CASE( "strm_proto: data propagates callback error" )
+{
+        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
+                return ASRTL_SEND_ERR;
+        };
+        uint8_t const payload[] = { 0x01 };
+
+        CHECK_EQ( asrtl_msg_rtoc_strm_data( 0, payload, 1, fail_cb, nullptr ), ASRTL_SEND_ERR );
+}

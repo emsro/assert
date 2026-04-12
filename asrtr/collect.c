@@ -15,7 +15,7 @@
 static enum asrtl_status asrtr_collect_client_send( void* p, struct asrtl_rec_span* buff )
 {
         struct asrtr_collect_client* client = (struct asrtr_collect_client*) p;
-        return asrtl_send( &client->sendr, ASRTL_COLL, buff );
+        return asrtl_send( &client->sendr, ASRTL_COLL, buff, NULL, NULL );
 }
 
 // ---------------------------------------------------------------------------

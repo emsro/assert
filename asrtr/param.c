@@ -89,7 +89,7 @@ static void asrtr_param_finish_query(
 static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span* buff )
 {
         struct asrtr_param_client* client = (struct asrtr_param_client*) p;
-        return asrtl_send( &client->sendr, ASRTL_PARA, buff );
+        return asrtl_send( &client->sendr, ASRTL_PARA, buff, NULL, NULL );
 }
 
 // ---------------------------------------------------------------------------
