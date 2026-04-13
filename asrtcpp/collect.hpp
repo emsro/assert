@@ -4,6 +4,7 @@
 #include "../asrtc/status_to_str.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
@@ -51,30 +52,14 @@ struct collect_server
                 return &server_.node;
         }
 
-        /// Send READY with a lambda/functor ACK callback.
-        template < typename CB >
-        [[nodiscard]] asrtl_status
-        send_ready( asrtl::flat_id root_id, CB& ack_cb, uint32_t timeout )
-        {
-                return asrtc_collect_server_send_ready(
-                    &server_,
-                    root_id,
-                    timeout,
-                    []( void* p, asrtc_status ) {
-                            ( *reinterpret_cast< CB* >( p ) )();
-                    },
-                    &ack_cb );
-        }
-
-        /// Send READY with a C-style function-pointer ACK callback.
+        /// Send READY with a callback (lambda/functor or raw fn-ptr + void*).
         [[nodiscard]] asrtl_status send_ready(
-            asrtl::flat_id             root_id,
-            asrtc_collect_ready_ack_cb ack_cb,
-            void*                      ack_cb_ptr,
-            uint32_t                   timeout )
+            asrtl::flat_id                                  root_id,
+            asrtl::callback< asrtc_collect_ready_ack_cb >   ack_cb,
+            uint32_t                                        timeout )
         {
                 return asrtc_collect_server_send_ready(
-                    &server_, root_id, timeout, ack_cb, ack_cb_ptr );
+                    &server_, root_id, timeout, ack_cb.fn, ack_cb.ptr );
         }
 
         asrtl_status tick( uint32_t now )

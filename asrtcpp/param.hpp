@@ -4,6 +4,7 @@
 #include "../asrtc/status_to_str.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
 
@@ -37,27 +38,13 @@ struct param_server
                 asrtc_param_server_set_tree( &server_, tree );
         }
 
-        template < typename CB >
-        [[nodiscard]] asrtl_status send_ready( asrtl::flat_id root_id, CB& ack_cb, uint32_t timeout )
-        {
-                return asrtc_param_server_send_ready(
-                    &server_,
-                    root_id,
-                    timeout,
-                    []( void* p, asrtc_status ) {
-                            ( *reinterpret_cast< CB* >( p ) )();
-                    },
-                    &ack_cb );
-        }
-
         [[nodiscard]] asrtl_status send_ready(
-            asrtl::flat_id           root_id,
-            asrtc_param_ready_ack_cb ack_cb,
-            void*                    ack_cb_ptr,
-            uint32_t                 timeout )
+            asrtl::flat_id                                root_id,
+            asrtl::callback< asrtc_param_ready_ack_cb >   ack_cb,
+            uint32_t                                      timeout )
         {
                 return asrtc_param_server_send_ready(
-                    &server_, root_id, timeout, ack_cb, ack_cb_ptr );
+                    &server_, root_id, timeout, ack_cb.fn, ack_cb.ptr );
         }
 
         asrtl_status tick( uint32_t now )

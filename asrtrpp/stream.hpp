@@ -3,6 +3,7 @@
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
+#include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/status_to_str.h"
 #include "../asrtr/stream.h"
@@ -137,11 +138,10 @@ struct stream_client
             uint8_t                             schema_id,
             enum asrtl_strm_field_type_e const* fields,
             uint8_t                             field_count,
-            asrtr_stream_done_cb                done_cb,
-            void*                               done_ptr )
+            asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
                 return asrtr_stream_client_define(
-                    &client_, schema_id, fields, field_count, done_cb, done_ptr );
+                    &client_, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
         }
 
         asrtr_status tick()
@@ -153,11 +153,10 @@ struct stream_client
             uint8_t              schema_id,
             uint8_t const*       buf,
             uint16_t             size,
-            asrtr_stream_done_cb done_cb,
-            void*                done_ptr )
+            asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
                 return asrtr_stream_client_emit(
-                    &client_, schema_id, buf, size, done_cb, done_ptr );
+                    &client_, schema_id, buf, size, done_cb.fn, done_cb.ptr );
         }
 
         asrtr_status reset()
@@ -184,12 +183,11 @@ struct stream_schema
         stream_schema(
             stream_client&       client,
             uint8_t              schema_id,
-            asrtr_stream_done_cb done_cb,
-            void*                done_ptr )
+            asrtl::callback< asrtr_stream_done_cb > done_cb )
           : client_( &client )
           , schema_id_( schema_id )
         {
-                auto s = client_->define( schema_id_, fields_, sizeof...( Ts ), done_cb, done_ptr );
+                auto s = client_->define( schema_id_, fields_, sizeof...( Ts ), done_cb );
                 if ( s != ASRTR_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_stream_schema", "define failed" );
                         ASRTL_ASSERT( false );
@@ -214,17 +212,17 @@ struct stream_schema
                 return *this;
         }
 
-        asrtr_status emit( Ts... args, asrtr_stream_done_cb done_cb, void* done_ptr )
+        asrtr_status emit( Ts... args, asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
                 uint8_t  buf[emit_size];
                 uint8_t* p = buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
-                return client_->emit( schema_id_, buf, emit_size, done_cb, done_ptr );
+                return client_->emit( schema_id_, buf, emit_size, done_cb );
         }
 
-        asrtr_status emit_raw( uint8_t const* buf, asrtr_stream_done_cb done_cb, void* done_ptr )
+        asrtr_status emit_raw( uint8_t const* buf, asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
-                return client_->emit( schema_id_, buf, emit_size, done_cb, done_ptr );
+                return client_->emit( schema_id_, buf, emit_size, done_cb );
         }
 
         stream_schema( stream_client* c, uint8_t id )

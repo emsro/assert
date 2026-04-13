@@ -407,7 +407,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
         srv.set_tree( &tree );
 
         CHECK_FALSE( cli.ready() );
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         CHECK( cli.ready() );
@@ -426,7 +426,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
             &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -466,7 +466,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
         srv.set_tree( &tree );
 
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -553,7 +553,7 @@ struct typed_loopback_ctx
         void setup_tree_and_handshake( asrtl_flat_tree* tree )
         {
                 srv.set_tree( tree );
-                auto noop = [] {};
+                auto noop = []( asrtc_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         srv.tick( t++ );
@@ -794,7 +794,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
             &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -1278,7 +1278,7 @@ struct param_sender_ctx
         void setup_tree_and_handshake( asrtl_flat_tree* tree )
         {
                 srv.set_tree( tree );
-                auto noop = [] {};
+                auto noop = []( asrtc_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         srv.tick( t++ );
@@ -1946,7 +1946,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: define + tick cycle" )
         auto                    done_cb  = []( void* p, enum asrtl_status s ) {
                 *static_cast< asrtl_status* >( p ) = s;
         };
-        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, done_cb, &done_st ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, { done_cb, &done_st } ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTL_SUCCESS, done_st );
@@ -1955,12 +1955,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: define + tick cycle" )
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: record via wrapper" )
 {
         asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
-        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         uint8_t data[] = { 99 };
-        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -1982,12 +1982,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u8 define + emit" )
         auto         done_cb = []( void* p, enum asrtl_status s ) {
                 *static_cast< asrtl_status* >( p ) = s;
         };
-        asrtr::stream_schema< uint8_t > schema( client, 0, done_cb, &done_st );
+        asrtr::stream_schema< uint8_t > schema( client, 0, { done_cb, &done_st } );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTL_SUCCESS, done_st );
 
-        schema.emit( 42, nullptr, nullptr );
+        schema.emit( 42, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -1998,12 +1998,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u8 define + emit" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u16 encoding" )
 {
-        asrtr::stream_schema< uint16_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint16_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( 2u, decltype( schema )::emit_size );
 
-        schema.emit( 0x1234, nullptr, nullptr );
+        schema.emit( 0x1234, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2017,12 +2017,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u16 encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u32 encoding" )
 {
-        asrtr::stream_schema< uint32_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint32_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( 4u, decltype( schema )::emit_size );
 
-        schema.emit( 0xDEADBEEF, nullptr, nullptr );
+        schema.emit( 0xDEADBEEF, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2034,11 +2034,11 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u32 encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i8 encoding" )
 {
-        asrtr::stream_schema< int8_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< int8_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
-        schema.emit( -42, nullptr, nullptr );
+        schema.emit( -42, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2048,11 +2048,11 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i8 encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i16 encoding" )
 {
-        asrtr::stream_schema< int16_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< int16_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
-        schema.emit( -1000, nullptr, nullptr );
+        schema.emit( -1000, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2064,11 +2064,11 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i16 encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i32 encoding" )
 {
-        asrtr::stream_schema< int32_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< int32_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
-        schema.emit( -100000, nullptr, nullptr );
+        schema.emit( -100000, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2081,12 +2081,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i32 encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: float encoding" )
 {
-        asrtr::stream_schema< float > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< float > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( 4u, decltype( schema )::emit_size );
 
-        schema.emit( 3.14f, nullptr, nullptr );
+        schema.emit( 3.14f, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2100,14 +2100,14 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: float encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: bool encoding" )
 {
-        asrtr::stream_schema< bool > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< bool > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( 1u, decltype( schema )::emit_size );
 
-        schema.emit( true, nullptr, nullptr );
+        schema.emit( true, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
-        schema.emit( false, nullptr, nullptr );
+        schema.emit( false, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2119,12 +2119,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: bool encoding" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit" )
 {
-        asrtr::stream_schema< uint8_t, uint32_t, bool > schema( client, 5, nullptr, nullptr );
+        asrtr::stream_schema< uint8_t, uint32_t, bool > schema( client, 5, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( 6u, decltype( schema )::emit_size );  // 1+4+1
 
-        schema.emit( 0xAB, 0x12345678, true, nullptr, nullptr );
+        schema.emit( 0xAB, 0x12345678, true, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2140,12 +2140,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple emits streamed" )
 {
-        asrtr::stream_schema< uint8_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint8_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         for ( uint8_t i = 0; i < 10; i++ ) {
-                schema.emit( i, nullptr, nullptr );
+                schema.emit( i, {} );
                 CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         }
 
@@ -2163,17 +2163,17 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple emits streamed" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple schemas on same client" )
 {
-        asrtr::stream_schema< uint8_t > s0( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint8_t > s0( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
-        asrtr::stream_schema< uint16_t > s1( client, 1, nullptr, nullptr );
+        asrtr::stream_schema< uint16_t > s1( client, 1, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
-        s0.emit( 0xAA, nullptr, nullptr );
+        s0.emit( 0xAA, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
-        s1.emit( 0xBBCC, nullptr, nullptr );
+        s1.emit( 0xBBCC, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2191,11 +2191,11 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple schemas on same client" 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp_server: clear" )
 {
         asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
-        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         uint8_t data[] = { 1 };
-        client.emit( 0, data, 1, nullptr, nullptr );
+        client.emit( 0, data, 1, {} );
         client.tick();
 
         server.clear();
@@ -2209,7 +2209,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp_server: clear" )
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit done_cb fires via tick" )
 {
         asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
-        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
@@ -2218,7 +2218,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit done_cb fires via tick" )
                 *static_cast< asrtl_status* >( p ) = s;
         };
         uint8_t data[] = { 42 };
-        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, done_cb, &cb_status ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, { done_cb, &cb_status } ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTL_SUCCESS, cb_status );
 
@@ -2230,12 +2230,12 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit done_cb fires via tick" )
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit with null done_cb succeeds" )
 {
         asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
-        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.define( 0, fields, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         uint8_t data[] = { 7 };
-        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRTR_SUCCESS, client.emit( 0, data, 1, {} ) );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
         auto result = server.take();
@@ -2249,7 +2249,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: emit done_cb fires via tick" )
         auto         done_cb = []( void* p, enum asrtl_status s ) {
                 *static_cast< asrtl_status* >( p ) = s;
         };
-        asrtr::stream_schema< uint8_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint8_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
@@ -2257,7 +2257,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: emit done_cb fires via tick" )
         auto         rec_cb = []( void* p, enum asrtl_status s ) {
                 *static_cast< asrtl_status* >( p ) = s;
         };
-        schema.emit( uint8_t( 55 ), rec_cb, &rec_st );
+        schema.emit( uint8_t( 55 ), { rec_cb, &rec_st } );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTL_SUCCESS, rec_st );
 
@@ -2268,7 +2268,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: emit done_cb fires via tick" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit done_cb" )
 {
-        asrtr::stream_schema< uint8_t, uint16_t > schema( client, 0, nullptr, nullptr );
+        asrtr::stream_schema< uint8_t, uint16_t > schema( client, 0, {} );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
 
@@ -2276,7 +2276,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit done_cb" )
         auto         rec_cb = []( void* p, enum asrtl_status s ) {
                 *static_cast< asrtl_status* >( p ) = s;
         };
-        schema.emit( uint8_t( 0xAB ), uint16_t( 0x1234 ), rec_cb, &rec_st );
+        schema.emit( uint8_t( 0xAB ), uint16_t( 0x1234 ), { rec_cb, &rec_st } );
         CHECK_EQ( ASRTR_SUCCESS, client.tick() );
         CHECK_EQ( ASRTL_SUCCESS, rec_st );
 

@@ -42,8 +42,7 @@ struct stream_define_sender
                             schema_id_,
                             stream_schema< Ts... >::fields_,
                             sizeof...( Ts ),
-                            cb,
-                            this );
+                            { cb, this } );
                         if ( s != ASRTR_SUCCESS )
                                 recv.set_error( task_error::test_fail );
                 }
@@ -93,7 +92,7 @@ struct stream_emit_sender
                                 else
                                         self.recv.set_error( task_error::test_fail );
                         };
-                        auto st = schema_->emit_raw( buf_, cb, this );
+                        auto st = schema_->emit_raw( buf_, { cb, this } );
                         if ( st != ASRTR_SUCCESS )
                                 recv.set_error( task_error::test_fail );
                 }

@@ -474,7 +474,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
         asrtl_flat_tree_append_scalar( &tree, 1, 2, "k", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
 
         srv.set_tree( &tree );
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
 
         REQUIRE_EQ( 1u, param_coll.data.size() );
@@ -494,7 +494,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
         srv.set_tree( &tree );
 
         int  ack_count = 0;
-        auto on_ack    = [&] {
+        auto on_ack    = [&]( asrtc_status ) {
                 ++ack_count;
         };
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, on_ack, 1000 ) );
@@ -566,7 +566,7 @@ struct collect_server_ctx
 
         void make_active( asrtl::flat_id root_id = 0 )
         {
-                auto noop = [] {};
+                auto noop = []( asrtc_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( root_id, noop, 1000 ) );
                 coll.data.clear();
                 uint8_t buf[16];
@@ -591,7 +591,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_next_node_id_starts_at_1"
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 {
-        auto noop = [] {};
+        auto noop = []( asrtc_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 5u, noop, 1000 ) );
 
         REQUIRE_EQ( 1u, coll.data.size() );
@@ -608,7 +608,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_ready_ack_fires_cb" )
 {
         int  ack_count = 0;
-        auto on_ack    = [&] {
+        auto on_ack    = [&]( asrtc_status ) {
                 ++ack_count;
         };
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, on_ack, 1000 ) );

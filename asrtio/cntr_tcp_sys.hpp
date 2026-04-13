@@ -213,10 +213,10 @@ struct _cntr_set_param_tree
                 sys.c_param.set_tree( tree );
                 if ( auto s = sys.c_param.send_ready(
                          root_id,
-                         []( void* p, asrtc_status ) {
-                                 static_cast< OP* >( p )->recv.set_value();
-                         },
-                         &op,
+                         { +[]( void* p, asrtc_status ) {
+                               static_cast< OP* >( p )->recv.set_value();
+                           },
+                           &op },
                          static_cast< uint32_t >( timeout.count() ) );
                      s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
@@ -252,10 +252,10 @@ struct _cntr_collect_ready
         {
                 if ( auto s = sys.c_collect.send_ready(
                          root_id,
-                         []( void* p, asrtc_status ) {
-                                 static_cast< OP* >( p )->recv.set_value();
-                         },
-                         &op,
+                         { +[]( void* p, asrtc_status ) {
+                               static_cast< OP* >( p )->recv.set_value();
+                           },
+                           &op },
                          static_cast< uint32_t >( timeout.count() ) );
                      s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
