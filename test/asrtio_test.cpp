@@ -538,6 +538,9 @@ TEST_CASE( "param_tcp_e2e" )
         CHECK( done );
         CHECK( state.param_ready );
         CHECK_EQ( 1u, state.root_id );
+
+        asrtl_flat_tree_deinit( &tree );
+
         REQUIRE_GE( state.received.size(), 3u );
 
         // Root node: OBJECT
@@ -553,8 +556,6 @@ TEST_CASE( "param_tcp_e2e" )
         CHECK_EQ( (uint8_t) ASRTL_FLAT_STYPE_STR, (uint8_t) state.received[2].value.type );
 
         CHECK_EQ( 0, state.errors );
-
-        asrtl_flat_tree_deinit( &tree );
 }
 
 // ============================================================================

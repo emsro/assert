@@ -265,12 +265,12 @@ struct asrtc_stream_schemas asrtc_stream_server_take( struct asrtc_stream_server
         if ( !arr )
                 return result;
 
-        // Move schemas into the array
+        // Move schemas into the array, freeing the original allocations
         uint32_t idx = 0;
         for ( uint16_t i = 0; i < ASRTC_STREAM_MAX_SCHEMAS; i++ ) {
                 if ( server->lookup[i] ) {
-                        arr[idx]          = *server->lookup[i];
-                        server->lookup[i] = NULL;
+                        arr[idx] = *server->lookup[i];
+                        asrtl_free( &server->alloc, (void**) &server->lookup[i] );
                         idx++;
                 }
         }

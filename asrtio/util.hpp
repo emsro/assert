@@ -39,7 +39,7 @@ struct cobs_node
 {
         asrtl_node*                      node;
         asrtl_cobs_ibuffer               recv;
-        uint8_t                          ibuffer[1024];
+        uint8_t                          ibuffer[4096];
         char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
