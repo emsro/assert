@@ -74,7 +74,7 @@ static inline void asrtl_node_link( struct asrtl_node* after, struct asrtl_node*
         ASRTL_ASSERT( node );
         node->next = after->next;
         node->prev = after;
-        if ( after->next )
+        if ( after->next != NULL )
                 after->next->prev = node;
         after->next = node;
 }
@@ -83,9 +83,9 @@ static inline void asrtl_node_link( struct asrtl_node* after, struct asrtl_node*
 static inline void asrtl_node_unlink( struct asrtl_node* node )
 {
         ASRTL_ASSERT( node );
-        if ( node->prev )
+        if ( node->prev != NULL )
                 node->prev->next = node->next;
-        if ( node->next )
+        if ( node->next != NULL )
                 node->next->prev = node->prev;
         node->next = NULL;
         node->prev = NULL;
@@ -107,8 +107,8 @@ static inline enum asrtl_status asrtl_chann_tick( struct asrtl_node* node, uint3
 
 static inline void asrtl_chann_tick_successors( struct asrtl_node* node, uint32_t now )
 {
-        for ( struct asrtl_node* p = node; p; p = p->next ) {
-                enum asrtl_status s = asrtl_chann_tick( p, now );
+        for ( struct asrtl_node* p = node; p != NULL; p = p->next ) {
+                enum asrtl_status const s = asrtl_chann_tick( p, now );
                 if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "asrtl_chann",
