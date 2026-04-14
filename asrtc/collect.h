@@ -91,11 +91,6 @@ enum asrtl_status asrtc_collect_server_send_ready(
     asrtc_collect_ready_ack_cb   ack_cb,
     void*                        ack_cb_ptr );
 
-/// Process pending work: READY_ACK handshake, APPEND tree insertion, timeouts.
-///
-/// Must be called periodically (typically from an idle/timer callback).
-enum asrtl_status asrtc_collect_server_tick( struct asrtc_collect_server* server, uint32_t now );
-
 /// Access the built flat_tree.
 struct asrtl_flat_tree const* asrtc_collect_server_tree(
     struct asrtc_collect_server const* server );

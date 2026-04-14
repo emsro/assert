@@ -92,14 +92,12 @@ static enum asrtl_status asrtr_param_client_send( void* p, struct asrtl_rec_span
         return asrtl_send( &client->sendr, ASRTL_PARA, buff, NULL, NULL );
 }
 
-// ---------------------------------------------------------------------------
 // Cache lookup — walk cache_buf, parsing each node.
 // On hit: deliver via finish_query.  On miss: clear cache + send wire QUERY.
 //
 // cache_buf layout: [node1][node2]...[nodeN][u32 wire_next_sibling_id]
 // Each node: u32 node_id | key\0 | u8 type | type-specific value
 // Nodes are present while (sp.e - sp.b) > 4.
-// ---------------------------------------------------------------------------
 
 enum asrtr_search_mode_e
 {
@@ -242,11 +240,8 @@ static enum asrtl_status asrtr_param_client_handle_error(
         return ASRTL_SUCCESS;
 }
 
-// ---------------------------------------------------------------------------
-// tick — heavy processing
-// ---------------------------------------------------------------------------
 
-enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now )
+static enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now )
 {
         switch ( client->pending ) {
         case ASRTR_PARAM_CLIENT_PENDING_NONE:
@@ -299,9 +294,6 @@ enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, ui
         return ASRTL_SUCCESS;
 }
 
-// ---------------------------------------------------------------------------
-// recv dispatch
-// ---------------------------------------------------------------------------
 
 static enum asrtl_status asrtr_param_client_recv( void* data, struct asrtl_span buff )
 {
@@ -324,9 +316,20 @@ static enum asrtl_status asrtr_param_client_recv( void* data, struct asrtl_span 
         }
 }
 
-// ---------------------------------------------------------------------------
-// public API
-// ---------------------------------------------------------------------------
+static enum asrtl_status asrtr_param_client_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtr_param_client* client = (struct asrtr_param_client*) p;
+
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtr_param_client_tick( client, *(uint32_t*) arg );
+        case ASRTL_EVENT_RECV:
+                return asrtr_param_client_recv( client, *(struct asrtl_span*) arg );
+        default:
+                break;
+        }
+        return ASRTL_SUCCESS;
+}
 
 enum asrtr_status asrtr_param_client_init(
     struct asrtr_param_client* client,
@@ -343,8 +346,8 @@ enum asrtr_status asrtr_param_client_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_PARA,
-                    .recv_ptr = client,
-                    .recv_cb  = asrtr_param_client_recv,
+                    .e_cb_ptr = client,
+                    .e_cb     = asrtr_param_client_event,
                     .next     = NULL,
                 },
             .sendr              = sender,

@@ -21,60 +21,60 @@ struct param_query_traits;
 template <>
 struct param_query_traits< uint32_t > : asrtl::flat_type_traits< uint32_t >
 {
-        using cb_type                       = asrtr_param_u32_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::u32;
+        using cb_type                   = asrtr_param_u32_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::u32;
 };
 
 template <>
 struct param_query_traits< int32_t > : asrtl::flat_type_traits< int32_t >
 {
-        using cb_type                       = asrtr_param_i32_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::i32;
+        using cb_type                   = asrtr_param_i32_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::i32;
 };
 
 template <>
 struct param_query_traits< float > : asrtl::flat_type_traits< float >
 {
-        using cb_type                       = asrtr_param_float_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::flt;
+        using cb_type                   = asrtr_param_float_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::flt;
 };
 
 template <>
 struct param_query_traits< char const* > : asrtl::flat_type_traits< char const* >
 {
-        using cb_type                       = asrtr_param_str_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::str;
+        using cb_type                   = asrtr_param_str_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::str;
 };
 
 template <>
 struct param_query_traits< bool > : asrtl::flat_type_traits< bool >
 {
-        using cb_type                       = asrtr_param_bool_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::bln;
+        using cb_type                   = asrtr_param_bool_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::bln;
 };
 
 template <>
 struct param_query_traits< asrtl::obj > : asrtl::flat_type_traits< asrtl::obj >
 {
-        using cb_type                       = asrtr_param_obj_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::obj;
+        using cb_type                   = asrtr_param_obj_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::obj;
 };
 
 template <>
 struct param_query_traits< asrtl::arr > : asrtl::flat_type_traits< asrtl::arr >
 {
-        using cb_type                       = asrtr_param_arr_cb;
-        static constexpr auto cb_member     = &asrtr_param_cb::arr;
+        using cb_type                   = asrtr_param_arr_cb;
+        static constexpr auto cb_member = &asrtr_param_cb::arr;
 };
 
 template <>
 struct param_query_traits< asrtl_flat_value >
 {
-        using raw_type                      = asrtl_flat_value;
-        using value_type                    = asrtl_flat_value;
-        using cb_type                       = asrtr_param_any_cb;
-        static constexpr auto flat_type     = ASRTL_FLAT_STYPE_NONE;
-        static constexpr auto cb_member     = &asrtr_param_cb::any;
+        using raw_type                  = asrtl_flat_value;
+        using value_type                = asrtl_flat_value;
+        using cb_type                   = asrtr_param_any_cb;
+        static constexpr auto flat_type = ASRTL_FLAT_STYPE_NONE;
+        static constexpr auto cb_member = &asrtr_param_cb::any;
 };
 
 // Convenience aliases
@@ -104,8 +104,7 @@ struct param_client
                 if ( auto s = asrtr_param_client_init(
                          &client_, prev, asrtl::make_sender( send_cb ), msg_buffer, timeout );
                      s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ERR_LOG( "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }
@@ -116,10 +115,10 @@ struct param_client
             asrtl_span   msg_buffer,
             uint32_t     timeout )
         {
-                if ( auto s = asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
+                if ( auto s =
+                         asrtr_param_client_init( &client_, prev, sender, msg_buffer, timeout );
                      s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
+                        ASRTL_ERR_LOG( "asrtr_param", "init failed: %s", asrtr_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }
@@ -259,11 +258,6 @@ struct param_client
                 q->cb.any        = cb;
                 q->cb_ptr        = cb_ptr;
                 return asrtr_param_client_query( q, &client_, node_id, key );
-        }
-
-        asrtl_status tick( uint32_t now = 0 )
-        {
-                return asrtr_param_client_tick( &client_, now );
         }
 
         ~param_client()

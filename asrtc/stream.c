@@ -220,6 +220,18 @@ static enum asrtl_status asrtc_stream_server_recv( void* data, struct asrtl_span
         }
 }
 
+static enum asrtl_status asrtc_stream_server_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtc_stream_server* server = (struct asrtc_stream_server*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return ASRTL_SUCCESS;
+        case ASRTL_EVENT_RECV:
+                return asrtc_stream_server_recv( server, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtc_stream_server", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
 
 enum asrtc_status asrtc_stream_server_init(
     struct asrtc_stream_server* server,
@@ -233,8 +245,8 @@ enum asrtc_status asrtc_stream_server_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_STRM,
-                    .recv_ptr = server,
-                    .recv_cb  = asrtc_stream_server_recv,
+                    .e_cb_ptr = server,
+                    .e_cb     = asrtc_stream_server_event,
                     .next     = NULL,
                 },
             .sendr = sender,
@@ -307,11 +319,4 @@ void asrtc_stream_server_clear( struct asrtc_stream_server* server )
 void asrtc_stream_server_deinit( struct asrtc_stream_server* server )
 {
         asrtc_stream_server_clear( server );
-}
-
-enum asrtc_status asrtc_stream_server_tick( struct asrtc_stream_server* server, uint32_t now )
-{
-        (void) server;
-        (void) now;
-        return ASRTC_SUCCESS;
 }

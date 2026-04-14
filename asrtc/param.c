@@ -112,7 +112,7 @@ static enum asrtl_status asrtc_param_server_handle_find_by_key(
         return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now )
+static enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now )
 {
         switch ( param->pending ) {
         case ASRTC_PARAM_SERVER_PENDING_NONE:
@@ -222,6 +222,19 @@ static enum asrtl_status asrtc_param_server_recv( void* data, struct asrtl_span 
         }
 }
 
+static enum asrtl_status asrtc_param_server_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtc_param_server* param = (struct asrtc_param_server*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtc_param_server_tick( param, *(uint32_t*) arg );
+        case ASRTL_EVENT_RECV:
+                return asrtc_param_server_recv( param, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtc_param_server", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
+
 enum asrtc_status asrtc_param_server_init(
     struct asrtc_param_server* param,
     struct asrtl_node*         prev,
@@ -234,8 +247,8 @@ enum asrtc_status asrtc_param_server_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_PARA,
-                    .recv_ptr = param,
-                    .recv_cb  = asrtc_param_server_recv,
+                    .e_cb_ptr = param,
+                    .e_cb     = asrtc_param_server_event,
                     .next     = NULL,
                 },
             .sendr        = sender,

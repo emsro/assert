@@ -76,7 +76,6 @@ enum asrtr_status asrtr_reactor_init(
     struct asrtr_reactor* reac,
     struct asrtl_sender   sender,
     char const*           desc );
-enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac );
 
 enum asrtr_status asrtr_test_init(
     struct asrtr_test*  t,
@@ -84,8 +83,6 @@ enum asrtr_status asrtr_test_init(
     void*               ptr,
     asrtr_test_callback start_f );
 enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
-
-enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff );
 
 #ifdef __cplusplus
 }

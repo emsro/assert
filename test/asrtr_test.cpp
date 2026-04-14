@@ -59,7 +59,7 @@ void check_diag_init( struct asrtr_diag* diag, struct asrtl_node* prev, struct a
 
 void check_reactor_recv( struct asrtr_reactor* reac, struct asrtl_span msg )
 {
-        enum asrtl_status st = asrtr_reactor_recv( reac, msg );
+        enum asrtl_status st = asrtl_chann_recv( &reac->node, msg );
         CHECK_EQ( ASRTL_SUCCESS, st );
 }
 
@@ -71,8 +71,8 @@ void check_reactor_recv_flags( struct asrtr_reactor* reac, struct asrtl_span msg
 
 void check_reactor_tick( struct asrtr_reactor* reac )
 {
-        enum asrtr_status st = asrtr_reactor_tick( reac );
-        CHECK_EQ( ASRTR_SUCCESS, st );
+        enum asrtl_status st = asrtl_chann_tick( &reac->node, 0 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         CHECK_EQ( 0x00, reac->flags & ~ASRTR_PASSIVE_FLAGS );
 }
 
@@ -467,8 +467,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_unknown_flag" )
         // set only unknown flag bits (known flags are 0x01..0x20); the else branch must signal an
         // error
         reac.flags           = 0x40;
-        enum asrtr_status st = asrtr_reactor_tick( &reac );
-        CHECK_NE( ASRTR_SUCCESS, st );
+        enum asrtl_status st = asrtl_chann_tick( &reac.node, 0 );
+        CHECK_NE( ASRTL_SUCCESS, st );
 }
 
 // R03: duplicate TEST_INFO before tick must be rejected
@@ -485,7 +485,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_info_repeat" )
         check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TI );
 
         // second recv before tick — must be rejected
-        enum asrtl_status st = asrtr_reactor_recv( &reac, (struct asrtl_span) { buffer, sp.b } );
+        enum asrtl_status st = asrtl_chann_recv( &reac.node, (struct asrtl_span) { buffer, sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
@@ -506,7 +506,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_start_repeat" )
         check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TSTART );
 
         // second recv before tick — must be rejected
-        enum asrtl_status st = asrtr_reactor_recv( &reac, (struct asrtl_span) { buffer, sp.b } );
+        enum asrtl_status st = asrtl_chann_recv( &reac.node, (struct asrtl_span) { buffer, sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
@@ -579,8 +579,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
         CHECK( ( reac.flags & ASRTR_FLAG_DESC ) );
 
         // First tick: DESC handled (highest priority in if-else chain)
-        enum asrtr_status st = asrtr_reactor_tick( &reac );
-        CHECK_EQ( ASRTR_SUCCESS, st );
+        enum asrtl_status st = asrtl_chann_tick( &reac.node, 0 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         {
                 auto& collected = coll.data.back();
                 assert_collected_core_hdr( collected, 0x06, ASRTL_MSG_DESC );
@@ -591,8 +591,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
         CHECK( !( reac.flags & ASRTR_FLAG_DESC ) );
 
         // Second tick: TC handled
-        st = asrtr_reactor_tick( &reac );
-        CHECK_EQ( ASRTR_SUCCESS, st );
+        st = asrtl_chann_tick( &reac.node, 0 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         {
                 auto& collected = coll.data.back();
                 assert_collected_core_hdr( collected, 0x04, ASRTL_MSG_TEST_COUNT );
@@ -830,21 +830,21 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_recv_truncated" )
         // Truncated TEST_INFO: only message ID, no u16 tid
         sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
-        rst = asrtr_reactor_recv( &reac, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Truncated TEST_START: only ID + partial tid(2), missing run_id(4)
         sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_START );
         asrtl_add_u16( &sp.b, 0 );  // tid only, no run_id
-        rst = asrtr_reactor_recv( &reac, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Trailing bytes: PROTO_VERSION request + extra bytes
         sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
         asrtl_add_u16( &sp.b, 0xFFFF );  // extra bytes after a no-payload message
-        rst = asrtr_reactor_recv( &reac, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 }
 
@@ -857,7 +857,7 @@ static inline enum asrtl_status call_rtr_param_client_recv(
     uint8_t*                   b,
     uint8_t*                   e )
 {
-        return p->node.recv_cb( p->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( &p->node, (struct asrtl_span) { .b = b, .e = e } );
 }
 
 static uint8_t* build_param_ready( uint8_t* buf, asrtl::flat_id root_id )
@@ -1050,7 +1050,7 @@ struct param_client_ctx
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     call_rtr_param_client_recv( &client, buf, build_param_ready( buf, root_id ) ) );
-                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
                 coll.data.clear();
         }
 
@@ -1085,7 +1085,7 @@ TEST_CASE( "asrtr_param_client_init" )
 
         CHECK_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &head, null_s, mb, 100 ) );
         CHECK_EQ( ASRTL_PARA, client.node.chid );
-        CHECK_NE( nullptr, (void*) (uintptr_t) client.node.recv_cb );
+        CHECK_NE( nullptr, (void*) (uintptr_t) client.node.e_cb_ptr );
         CHECK_EQ( &client.node, head.next );
         CHECK_EQ( 0, client.ready );
         asrtr_param_client_deinit( &client );
@@ -1099,7 +1099,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_ready_sends_ack_and_sto
             call_rtr_param_client_recv( &client, buf, build_param_ready( buf, 3u ) ) );
         CHECK_EQ( 0, client.ready );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
 
         // READY_ACK sent with capacity as big-endian u32
         REQUIRE_EQ( 1u, coll.data.size() );
@@ -1132,7 +1132,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_query_cache_miss_sends_
         // query itself does NOT send — tick does the cache lookup + sends on miss
         CHECK( coll.data.empty() );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         REQUIRE_EQ( 1u, coll.data.size() );
         auto& msg = coll.data.front();
         CHECK_EQ( ASRTL_PARA, msg.id );
@@ -1151,7 +1151,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_response_delivers_one_n
 
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // cache miss → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // cache miss → wire
         coll.data.clear();
 
         // Inject a RESPONSE with one node: id=10, key="abc", type=U32, value=42, next_sib=0
@@ -1160,7 +1160,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_response_delivers_one_n
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
 
         CHECK_EQ( 0, resp_called );  // pending
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 10u, resp_id );
         CHECK_EQ( "abc", resp_key );
@@ -1179,19 +1179,19 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_hit_delivers_with
         // First query — cache miss, sends wire, gets response
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // wire
         coll.data.clear();
 
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "abc", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // delivers
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // delivers
         resp_called = 0;
 
         // Second query for same node — should be a cache hit, no wire sent
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
 
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 10u, resp_id );
@@ -1207,7 +1207,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_error_dispatches_and_cl
 
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 5u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // cache miss → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // cache miss → wire
         coll.data.clear();
 
         // Inject PARAM_ERROR
@@ -1218,7 +1218,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_error_dispatches_and_cl
                 &client, buf, build_param_error( buf, ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, 5u ) ) );
         CHECK_EQ( 0, error_called );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, error_called );
         CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, error_code );
         CHECK_EQ( 5u, error_node_id );
@@ -1233,7 +1233,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_next_sibling_stor
 
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // wire
         coll.data.clear();
 
         // RESPONSE with next_sibling_id = 99
@@ -1242,7 +1242,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrtr_param_client_cache_next_sibling_stor
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( 99u, client.cache_next_sibling );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, resp_called );
         CHECK_EQ( 99u, resp_next_sib );
 }
@@ -1269,11 +1269,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_u32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );  // wire
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 42u, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1292,11 +1292,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_u32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "hello", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1319,11 +1319,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_i32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_i32( rbuf, 10u, "k", -7, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( -7, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1342,11 +1342,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_i32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 99u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1370,11 +1370,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_happy" )
                         *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_str( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "hello", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( "hello", got );
         CHECK_EQ( 0u, query.error_code );
@@ -1393,11 +1393,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_str( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1420,11 +1420,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_float( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_float( rbuf, 10u, "k", 3.14f, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 3.14f, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1443,11 +1443,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_float( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1470,11 +1470,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_bool( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_bool( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 1u, got );
         CHECK_EQ( 0u, query.error_code );
@@ -1493,11 +1493,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_bool( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_str( rbuf, 10u, "k", "nope", 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1520,11 +1520,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_obj( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_obj( rbuf, 10u, "k", 2u, 5u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 2u, got.first_child );
         CHECK_EQ( 5u, got.last_child );
@@ -1544,11 +1544,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_obj( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1571,11 +1571,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_happy" )
                 *c->got = val;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_arr( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_arr( rbuf, 10u, "k", 3u, 6u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( 3u, got.first_child );
         CHECK_EQ( 6u, got.last_child );
@@ -1595,11 +1595,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_type_mismatch" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_arr( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 1u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TYPE_MISMATCH, query.error_code );
 }
@@ -1619,13 +1619,13 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_server_error_delivers_null" )
                 ( *c->called )++;
         };
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_u32( &query, &client, 5u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         uint8_t buf[8];
         CHECK_EQ(
             ASRTL_SUCCESS,
             call_rtr_param_client_recv(
                 &client, buf, build_param_error( buf, ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, 5u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_RESPONSE_TOO_LARGE, query.error_code );
 }
@@ -1655,12 +1655,12 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
         CHECK( asrtr_param_query_pending( &client ) );
 
         // deliver response
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
         coll.data.clear();
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
 
         CHECK_FALSE( asrtr_param_query_pending( &client ) );
         CHECK_EQ( 1, resp_called );
@@ -1706,7 +1706,7 @@ struct param_timeout_ctx
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     call_rtr_param_client_recv( &client, buf, build_param_ready( buf, root_id ) ) );
-                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, t++ ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, t++ ) );
                 coll.data.clear();
         }
 
@@ -1731,19 +1731,19 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_fires_after_deadline" )
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
         // first tick: DELIVER → cache miss → sends wire query
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 100 ) );
         CHECK_EQ( 0, cb_called );
 
         // second tick: NONE with pending_query → starts timing (query_start = 105)
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 105 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 105 ) );
         CHECK_EQ( 0, cb_called );
 
         // tick just before timeout (105 + 10 - 1 = 114): no timeout
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 114 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 114 ) );
         CHECK_EQ( 0, cb_called );
 
         // tick at timeout (115 - 105 = 10 >= TIMEOUT): fires
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 115 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 115 ) );
         CHECK_EQ( 1, cb_called );
         CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
         CHECK_FALSE( asrtr_param_query_pending( &client ) );
@@ -1756,16 +1756,16 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_no_timeout_when_response_arrives" )
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
         // DELIVER tick → cache miss → wire
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 100 ) );
 
         // start timing
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 102 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 102 ) );
 
         // response arrives before timeout
         uint8_t  rbuf[64];
         uint8_t* re = build_param_response_u32( rbuf, 10u, "k", 42u, 0u );
         CHECK_EQ( ASRTL_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 105 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 105 ) );
 
         CHECK_EQ( 1, cb_called );
         CHECK_EQ( 0u, error_code );
@@ -1779,9 +1779,9 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_resets_for_new_query" )
         // First query — let it timeout
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 10u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );  // DELIVER → wire
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 100 ) );  // start timing
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 200 ) );  // timeout
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 100 ) );  // DELIVER → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 100 ) );  // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 200 ) );  // timeout
         CHECK_EQ( 1, cb_called );
         CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
 
@@ -1792,14 +1792,14 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_resets_for_new_query" )
         // Second query — should start fresh timing
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 20u, query_cb, this ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 300 ) );  // DELIVER → wire
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 300 ) );  // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 300 ) );  // DELIVER → wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 300 ) );  // start timing
         // not timed out yet
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 305 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 305 ) );
         CHECK_EQ( 0, cb_called );
 
         // now timeout
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 310 ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 310 ) );
         CHECK_EQ( 1, cb_called );
         CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, error_code );
 }
@@ -1824,9 +1824,9 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_with_typed_callback" )
         };
 
         CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_fetch_u32( &query, &client, 10u, cb, &ctx ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 50 ) );  // wire
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 50 ) );  // start timing
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_param_client_tick( &client, 60 ) );  // timeout
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 50 ) );  // wire
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 50 ) );  // start timing
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 60 ) );  // timeout
         CHECK_EQ( 1, called );
         CHECK_EQ( ASRTL_PARAM_ERR_TIMEOUT, ctx.err );
         CHECK_EQ( 0u, got );  // zero value on timeout
@@ -1841,7 +1841,7 @@ static inline enum asrtl_status call_collect_client_recv(
     uint8_t*                     b,
     uint8_t*                     e )
 {
-        return c->node.recv_cb( c->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( &c->node, (struct asrtl_span) { .b = b, .e = e } );
 }
 
 static uint8_t* build_coll_ready(
@@ -1877,7 +1877,7 @@ struct collect_client_ctx
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     call_collect_client_recv( &client, buf, build_coll_ready( buf, root_id ) ) );
-                REQUIRE_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
                 coll.data.clear();
         }
 
@@ -1902,7 +1902,7 @@ TEST_CASE( "asrtr_collect_client_init" )
 
         CHECK_EQ( ASRTR_SUCCESS, asrtr_collect_client_init( &c, &head, null_s ) );
         CHECK_EQ( ASRTL_COLL, c.node.chid );
-        CHECK_NE( nullptr, (void*) (uintptr_t) c.node.recv_cb );
+        CHECK_NE( nullptr, (void*) (uintptr_t) c.node.e_cb_ptr );
         CHECK_EQ( &c.node, head.next );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_IDLE, c.state );
 }
@@ -1916,7 +1916,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrtr_collect_client_ready_handshake" )
         CHECK_EQ( 42u, client.root_id );
 
         // tick sends READY_ACK
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_ACTIVE, client.state );
         CHECK_EQ( 42u, asrtr_collect_client_root_id( &client ) );
 
@@ -1987,7 +1987,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrtr_collect_client_ready_from_error_re
         CHECK_EQ( ASRTR_COLLECT_CLIENT_READY_RECV, client.state );
 
         // Complete handshake
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_ACTIVE, client.state );
         CHECK_EQ( 99u, asrtr_collect_client_root_id( &client ) );
 
@@ -2008,14 +2008,14 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrtr_collect_client_ready_re_handshake"
             ASRTL_SUCCESS, call_collect_client_recv( &client, buf, build_coll_ready( buf, 7u ) ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_READY_RECV, client.state );
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_ACTIVE, client.state );
         CHECK_EQ( 7u, asrtr_collect_client_root_id( &client ) );
 }
 
 TEST_CASE_FIXTURE( collect_client_ctx, "asrtr_collect_client_tick_idle_is_noop" )
 {
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_tick( &client ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_COLLECT_CLIENT_IDLE, client.state );
         CHECK( coll.data.empty() );
 }
@@ -2074,14 +2074,10 @@ static void strm_fire_deferred( strm_sender_ctx* ctx, enum asrtl_status status )
 
 struct strm_client_ctx
 {
-        collector       coll;
-        strm_sender_ctx sctx{ .coll = &coll, .sync_done = true, .defer_done = false };
-        asrtl_sender    sender{ .ptr = &sctx, .cb = strm_sender_cb };
-        asrtl_node      root{
-                 .chid     = ASRTL_CORE,
-                 .recv_ptr = nullptr,
-                 .recv_cb  = nullptr,
-                 .next     = nullptr };
+        collector           coll;
+        strm_sender_ctx     sctx{ .coll = &coll, .sync_done = true, .defer_done = false };
+        asrtl_sender        sender{ .ptr = &sctx, .cb = strm_sender_cb };
+        asrtl_node          root{};
         asrtr_stream_client client = {};
 
         strm_client_ctx()
@@ -2199,14 +2195,9 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: BUSY for each non-idle 
 
 // --- tick ---
 
-TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: null client" )
-{
-        CHECK_EQ( ASRTR_INTERNAL_ERR, asrtr_stream_client_tick( nullptr ) );
-}
-
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: idle is noop" )
 {
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         CHECK( coll.data.empty() );
 }
@@ -2214,14 +2205,14 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: idle is noop" )
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: WAIT is noop" )
 {
         client.state = ASRTR_STRM_WAIT;
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_WAIT, client.state );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: ERROR is noop" )
 {
         client.state = ASRTR_STRM_ERROR;
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_ERROR, client.state );
 }
 
@@ -2241,12 +2232,12 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND sends and syn
 
         // sync_done = true (default), so tick sends define and done_cb fires —
         // but completion is never handled inline, so state is DONE after first tick
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
         CHECK( !done_fired );
 
         // Second tick fires the done_cb
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         CHECK( done_fired );
         CHECK_EQ( ASRTL_SUCCESS, done_st );
@@ -2263,7 +2254,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND with deferred
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         // Should be in WAIT, done hasn't fired yet
         CHECK_EQ( ASRTR_STRM_WAIT, client.state );
 
@@ -2272,7 +2263,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND with deferred
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
 
         // Tick should fire the (NULL) done_cb and return to IDLE
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         coll.data.clear();
 }
@@ -2283,7 +2274,8 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND send failure"
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SEND_ERR, asrtr_stream_client_tick( &client ) );
+        auto st = asrtl_chann_tick( &client.node, 0 );
+        CHECK_EQ( ASRTL_SEND_ERR, st );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback" )
@@ -2301,14 +2293,14 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback"
         auto pair = std::make_pair( &cb_fired, &cb_st );
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, done_cb, &pair ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_WAIT, client.state );
 
         strm_fire_deferred( &sctx, ASRTL_SUCCESS );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
         CHECK( !cb_fired );
 
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK( cb_fired );
         CHECK_EQ( ASRTL_SUCCESS, cb_st );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
@@ -2322,11 +2314,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE with NULL callback" 
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         strm_fire_deferred( &sctx, ASRTL_SUCCESS );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
 
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         coll.data.clear();
 }
@@ -2343,15 +2335,13 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null client" )
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null data with nonzero size" )
 {
         CHECK_EQ(
-            ASRTR_ARG_ERR,
-            asrtr_stream_client_emit( &client, 0, nullptr, 5, nullptr, nullptr ) );
+            ASRTR_ARG_ERR, asrtr_stream_client_emit( &client, 0, nullptr, 5, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: null data with zero size is error" )
 {
         CHECK_EQ(
-            ASRTR_ARG_ERR,
-            asrtr_stream_client_emit( &client, 0, nullptr, 0, nullptr, nullptr ) );
+            ASRTR_ARG_ERR, asrtr_stream_client_emit( &client, 0, nullptr, 0, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: error state" )
@@ -2359,8 +2349,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: error state" )
         client.state   = ASRTR_STRM_ERROR;
         uint8_t data[] = { 1 };
         CHECK_EQ(
-            ASRTR_INTERNAL_ERR,
-            asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
+            ASRTR_INTERNAL_ERR, asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: send failure" )
@@ -2368,19 +2357,17 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: send failure" )
         sctx.fail_send = true;
         uint8_t data[] = { 1 };
         CHECK_EQ(
-            ASRTR_SEND_ERR,
-            asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
+            ASRTR_SEND_ERR, asrtr_stream_client_emit( &client, 0, data, 1, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: valid sends DATA message" )
 {
         uint8_t data[] = { 0xAA, 0xBB };
         CHECK_EQ(
-            ASRTR_SUCCESS,
-            asrtr_stream_client_emit( &client, 7, data, 2, nullptr, nullptr ) );
+            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 7, data, 2, nullptr, nullptr ) );
         // send_done fires synchronously in test fixture → state is DONE, tick() needed
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         REQUIRE_EQ( 1u, coll.data.size() );
         CHECK_EQ( ASRTL_STRM, coll.data[0].id );
@@ -2399,11 +2386,10 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: done_cb fires via tick" )
                 *static_cast< asrtl_status* >( p ) = s;
         };
         uint8_t data[] = { 1 };
-        CHECK_EQ(
-            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 0, data, 1, cb, &cb_status ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 0, data, 1, cb, &cb_status ) );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
 
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTL_SUCCESS, cb_status );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         CHECK_EQ( nullptr, client.done_cb );
@@ -2417,7 +2403,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: empty buffer is noop" )
 {
         uint8_t           buf[1];
         struct asrtl_span sp = { .b = buf, .e = buf };
-        CHECK_EQ( ASRTL_SUCCESS, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_recv( &client.node, sp ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
 }
 
@@ -2425,7 +2411,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: error message sets ERROR 
 {
         uint8_t           buf[] = { ASRTL_STRM_MSG_ERROR, ASRTL_STRM_ERR_UNKNOWN_SCHEMA };
         struct asrtl_span sp    = { .b = buf, .e = buf + 2 };
-        CHECK_EQ( ASRTL_SUCCESS, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_recv( &client.node, sp ) );
         CHECK_EQ( ASRTR_STRM_ERROR, client.state );
         CHECK_EQ( ASRTL_STRM_ERR_UNKNOWN_SCHEMA, client.err_code );
 }
@@ -2434,14 +2420,14 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: error message too short" 
 {
         uint8_t           buf[] = { ASRTL_STRM_MSG_ERROR };
         struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRTL_RECV_ERR, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_RECV_ERR, asrtl_chann_recv( &client.node, sp ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: unknown message id" )
 {
         uint8_t           buf[] = { 0xFF };
         struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, client.node.recv_cb( client.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, asrtl_chann_recv( &client.node, sp ) );
 }
 
 // --- send_done preserves ERROR ---
@@ -2453,13 +2439,13 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: send_done preserves ERROR stat
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_WAIT, client.state );
 
         // Simulate controller error arriving before send completes
         uint8_t           err_buf[] = { ASRTL_STRM_MSG_ERROR, ASRTL_STRM_ERR_INVALID_DEFINE };
         struct asrtl_span sp        = { .b = err_buf, .e = err_buf + 2 };
-        client.node.recv_cb( client.node.recv_ptr, sp );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_recv( &client.node, sp ) );
         CHECK_EQ( ASRTR_STRM_ERROR, client.state );
 
         // Now send completes — should NOT overwrite ERROR
@@ -2531,9 +2517,9 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: full define→tick cycle with 
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U16 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 2, fields, 1, cb, &cb_status ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         CHECK_EQ( ASRTL_SUCCESS, cb_status );
 
@@ -2555,18 +2541,17 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: define then record" )
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 1, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         coll.data.clear();
 
         uint8_t rec_data[] = { 42 };
         CHECK_EQ(
-            ASRTR_SUCCESS,
-            asrtr_stream_client_emit( &client, 1, rec_data, 1, nullptr, nullptr ) );
+            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 1, rec_data, 1, nullptr, nullptr ) );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        CHECK_EQ( ASRTR_SUCCESS, asrtl_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         REQUIRE_EQ( 1u, coll.data.size() );
         CHECK_EQ( ASRTL_STRM_MSG_DATA, coll.data[0].data[0] );

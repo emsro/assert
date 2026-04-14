@@ -135,24 +135,20 @@ struct stream_client
         }
 
         asrtr_status define(
-            uint8_t                             schema_id,
-            enum asrtl_strm_field_type_e const* fields,
-            uint8_t                             field_count,
+            uint8_t                                 schema_id,
+            enum asrtl_strm_field_type_e const*     fields,
+            uint8_t                                 field_count,
             asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
                 return asrtr_stream_client_define(
                     &client_, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
         }
 
-        asrtr_status tick()
-        {
-                return asrtr_stream_client_tick( &client_ );
-        }
 
         asrtr_status emit(
-            uint8_t              schema_id,
-            uint8_t const*       buf,
-            uint16_t             size,
+            uint8_t                                 schema_id,
+            uint8_t const*                          buf,
+            uint16_t                                size,
             asrtl::callback< asrtr_stream_done_cb > done_cb )
         {
                 return asrtr_stream_client_emit(
@@ -181,8 +177,8 @@ struct stream_schema
         static constexpr uint16_t emit_size = ( strm_field_traits< Ts >::size + ... );
 
         stream_schema(
-            stream_client&       client,
-            uint8_t              schema_id,
+            stream_client&                          client,
+            uint8_t                                 schema_id,
             asrtl::callback< asrtr_stream_done_cb > done_cb )
           : client_( &client )
           , schema_id_( schema_id )

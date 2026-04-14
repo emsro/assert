@@ -347,8 +347,6 @@ static inline enum asrtl_status asrtr_param_client_find_arr(
         return asrtr_param_client_query( query, client, parent_id, key );
 }
 
-enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* client, uint32_t now );
-
 void asrtr_param_client_deinit( struct asrtr_param_client* client );
 
 #ifdef __cplusplus

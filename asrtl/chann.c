@@ -39,7 +39,7 @@ enum asrtl_status asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_sp
         struct asrtl_node* p = asrtl_chann_find( head, id );
         if ( !p )
                 return ASRTL_CHANN_NOT_FOUND;
-        return p->recv_cb( p->recv_ptr, buff );
+        return asrtl_chann_recv( p, buff );
 }
 
 enum asrtl_status asrtl_chann_cobs_dispatch(

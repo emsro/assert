@@ -18,6 +18,8 @@ extern "C" {
 
 enum asrtl_status
 {
+        ASRTL_CALLBACK_ERR        = -17,
+        ASRTL_INVALID_EVENT_ERR   = -16,
         ASRTL_KEY_FORBIDDEN_ERR   = -15,
         ASRTL_KEY_REQUIRED_ERR    = -14,
         ASRTL_INTERNAL_ERR        = -13,

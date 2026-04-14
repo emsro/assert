@@ -93,9 +93,6 @@ void asrtc_stream_schemas_free( struct asrtc_stream_schemas* schemas );
 /// Clear all schemas and records (e.g. on test boundary).
 void asrtc_stream_server_clear( struct asrtc_stream_server* server );
 
-/// Tick the stream server (currently a no-op, reserved for future use).
-enum asrtc_status asrtc_stream_server_tick( struct asrtc_stream_server* server, uint32_t now );
-
 /// Free all resources.
 void asrtc_stream_server_deinit( struct asrtc_stream_server* server );
 

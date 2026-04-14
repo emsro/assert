@@ -101,6 +101,19 @@ static enum asrtl_status asrtc_diag_recv( void* data, struct asrtl_span buff )
         return st;
 }
 
+static enum asrtl_status asrtc_diag_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtc_diag* diag = (struct asrtc_diag*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_RECV:
+                return asrtc_diag_recv( diag, *(struct asrtl_span*) arg );
+        case ASRTL_EVENT_TICK:
+                return ASRTL_SUCCESS;
+        }
+        ASRTL_ERR_LOG( "asrtc_diag", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
+
 enum asrtc_status asrtc_diag_init(
     struct asrtc_diag*     diag,
     struct asrtl_node*     prev,
@@ -113,8 +126,8 @@ enum asrtc_status asrtc_diag_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_DIAG,
-                    .recv_ptr = diag,
-                    .recv_cb  = asrtc_diag_recv,
+                    .e_cb_ptr = diag,
+                    .e_cb     = asrtc_diag_event,
                     .next     = NULL,
                 },
             .sendr     = sender,

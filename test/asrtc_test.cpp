@@ -34,25 +34,25 @@ ASRTL_DEFINE_GPOS_LOG()
 //---------------------------------------------------------------------
 // lib
 
-void check_cntr_recv( struct asrtc_controller* c, struct asrtl_span msg )
+void check_recv( auto* c, struct asrtl_span msg )
 {
-        enum asrtl_status st = asrtc_cntr_recv( c, msg );
+        enum asrtl_status st = asrtl_chann_recv( &c->node, msg );
         CHECK_EQ( ASRTL_SUCCESS, st );
 }
 
-void check_cntr_tick( struct asrtc_controller* c, uint32_t now )
+void check_tick( auto* c, uint32_t now )
 {
-        enum asrtc_status st = asrtc_cntr_tick( c, now );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status st = asrtl_chann_tick( &c->node, now );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 }
 
 void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
 {
-        check_cntr_recv( c, (struct asrtl_span) { .b = beg, .e = end } );
+        check_recv( c, (struct asrtl_span) { .b = beg, .e = end } );
         int       i = 0;
         int const n = 1000;
         for ( ; i < n && !asrtc_cntr_idle( c ); i++ )
-                check_cntr_tick( c, ( *now )++ );
+                check_tick( c, ( *now )++ );
         CHECK_NE( i, n );
 }
 
@@ -77,11 +77,11 @@ struct controller_ctx
         }
 };
 
-enum asrtc_status record_init_cb( void* ptr, enum asrtc_status s )
+enum asrtl_status record_init_cb( void* ptr, enum asrtc_status s )
 {
         enum asrtc_status* p = (enum asrtc_status*) ptr;
         *p                   = s;
-        return s;
+        return s ? ASRTL_SUCCESS : ASRTL_SEND_ERR;  // TODO: incorrect error type
 }
 
 void check_cntr_full_init( controller_ctx* ctx )
@@ -91,7 +91,7 @@ void check_cntr_full_init( controller_ctx* ctx )
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &ctx->cntr, ctx->t++ );
+        check_tick( &ctx->cntr, ctx->t++ );
 
         assert_collected_core_hdr( ctx->coll.data.back(), 0x02, ASRTL_MSG_PROTO_VERSION );
         ctx->coll.data.pop_back();
@@ -127,8 +127,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         CHECK_EQ( ASRTC_CNTR_INIT, cntr.state );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
-        st = asrtc_cntr_tick( &cntr, t++ );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRTL_MSG_PROTO_VERSION );
         coll.data.pop_back();
@@ -140,12 +139,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         CHECK_EQ( ASRTC_SUCCESS, init_status );
 }
 
-enum asrtc_status cpy_desc_cb( void* ptr, enum asrtc_status s, char* desc )
+enum asrtl_status cpy_desc_cb( void* ptr, enum asrtc_status s, char* desc )
 {
         (void) s;
         std::string* p = (std::string*) ptr;
         *p             = desc;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 struct test_info_result
@@ -154,13 +153,13 @@ struct test_info_result
         std::string desc;
 };
 
-enum asrtc_status cpy_test_info_cb( void* ptr, enum asrtc_status s, uint16_t tid, char* desc )
+enum asrtl_status cpy_test_info_cb( void* ptr, enum asrtc_status s, uint16_t tid, char* desc )
 {
         (void) s;
         struct test_info_result* r = (struct test_info_result*) ptr;
         r->tid                     = tid;
         r->desc                    = desc;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
@@ -171,7 +170,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         std::string desc;
         st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRTL_MSG_DESC );
         coll.data.pop_back();
@@ -184,12 +183,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         CHECK( msg == desc );
 }
 
-enum asrtc_status cpy_u32_cb( void* ptr, enum asrtc_status s, uint16_t x )
+enum asrtl_status cpy_u32_cb( void* ptr, enum asrtc_status s, uint16_t x )
 {
         (void) s;
         uint32_t* p = (uint32_t*) ptr;
         *p          = x;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
@@ -200,7 +199,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
         uint32_t p = 0;
         st         = asrtc_cntr_test_count( &cntr, &cpy_u32_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRTL_MSG_TEST_COUNT );
         coll.data.pop_back();
@@ -219,7 +218,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info" )
         struct test_info_result p = { 0 };
         st = asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x04, ASRTL_MSG_TEST_INFO );
         assert_u16( 42, coll.data.back().data.data() + 2 );
@@ -241,7 +240,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         enum asrtc_status       st =
             asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // Reply with a different tid (99 instead of 42)
@@ -250,18 +249,18 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         char const*       desc = "barbaz";
         asrtl_msg_rtoc_test_info( 99, desc, strlen( desc ), asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, rst );
 
         CHECK( p.desc.empty() );
 }
 
-enum asrtc_status result_cb( void* ptr, enum asrtc_status s, struct asrtc_result* res )
+enum asrtl_status result_cb( void* ptr, enum asrtc_status s, struct asrtc_result* res )
 {
         (void) s;
         struct asrtc_result* r1 = (struct asrtc_result*) ptr;
         *r1                     = *res;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 static void* failing_alloc( void* ptr, uint32_t size )
@@ -291,7 +290,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();  // discard PROTO_VERSION request
 
         // Simulate receiving a proto-version reply to advance to IDLE
@@ -304,7 +303,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
         std::string desc;
         st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();  // discard DESC request
 
         // Send a DESC reply — alloc will return NULL, recv must return an error
@@ -312,7 +311,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
         char const* msg = "hello";
         asrtl_msg_rtoc_desc( msg, strlen( msg ), asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_NE( ASRTL_SUCCESS, rst );
 }
 
@@ -324,7 +323,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         struct asrtc_result res;
         st = asrtc_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x08, ASRTL_MSG_TEST_START );
         assert_u16( 42, coll.data.back().data.data() + 2 );
@@ -332,12 +331,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         coll.data.pop_back();
 
         for ( int i = 0; i < 4; i++ )
-                check_cntr_tick( &cntr, t++ );
+                check_tick( &cntr, t++ );
 
         asrtl_msg_rtoc_test_start( 42, 0, asrtl_rec_span_to_span_cb, &sp );
-        check_cntr_recv( &cntr, (struct asrtl_span) { .b = buffer, .e = sp.b } );
+        check_recv( &cntr, (struct asrtl_span) { .b = buffer, .e = sp.b } );
         for ( int i = 0; i < 4; i++ )
-                check_cntr_tick( &cntr, t++ );
+                check_tick( &cntr, t++ );
 
         CHECK_EQ( coll.data.empty(), true );
 
@@ -375,17 +374,16 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // reply with a mismatched major version
         uint8_t           buf[64];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( ASRTL_PROTO_MAJOR + 1, 0, 0, asrtl_rec_span_to_span_cb, &sp );
-        check_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        check_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
 
-        st = asrtc_cntr_tick( &cntr, t++ );
-        CHECK_EQ( ASRTC_VERSION_ERR, st );
+        enum asrtl_status st2 = asrtl_chann_tick( &cntr.node, t++ );
         CHECK_EQ( ASRTC_VERSION_ERR, init_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -393,26 +391,26 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
 // ---------------------------------------------------------------------------
 // timeout tests
 
-static enum asrtc_status record_status_cb( void* ptr, enum asrtc_status s )
+static enum asrtl_status record_status_cb( void* ptr, enum asrtc_status s )
 {
         enum asrtc_status* p = (enum asrtc_status*) ptr;
         *p                   = s;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-static enum asrtc_status record_tc_cb( void* ptr, enum asrtc_status s, uint16_t count )
+static enum asrtl_status record_tc_cb( void* ptr, enum asrtc_status s, uint16_t count )
 {
         (void) count;
         return record_status_cb( ptr, s );
 }
 
-static enum asrtc_status record_desc_cb( void* ptr, enum asrtc_status s, char* desc )
+static enum asrtl_status record_desc_cb( void* ptr, enum asrtc_status s, char* desc )
 {
         (void) desc;
         return record_status_cb( ptr, s );
 }
 
-static enum asrtc_status record_test_info_cb(
+static enum asrtl_status record_test_info_cb(
     void*             ptr,
     enum asrtc_status s,
     uint16_t          tid,
@@ -423,7 +421,7 @@ static enum asrtc_status record_test_info_cb(
         return record_status_cb( ptr, s );
 }
 
-static enum asrtc_status record_result_cb(
+static enum asrtl_status record_result_cb(
     void*                ptr,
     enum asrtc_status    s,
     struct asrtc_result* res )
@@ -441,17 +439,16 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
         CHECK_EQ( ASRTC_SUCCESS, st );
 
         // now=0: sends request, enters WAITING, deadline = 0+3 = 3
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 0 ) );
+        check_tick( &cntr, 0 );
         coll.data.pop_back();
 
         // now=1,2: still waiting
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 1 ) );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 2 ) );
+        check_tick( &cntr, 1 );
+        check_tick( &cntr, 2 );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         // now=3: deadline reached → timeout
-        st = asrtc_cntr_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, st );
+        enum asrtl_status st2 = asrtl_chann_tick( &cntr.node, 3 );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, init_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -464,15 +461,14 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_count" )
         enum asrtc_status st        = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_status, 3 );
         CHECK_EQ( ASRTC_SUCCESS, st );
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 0 ) );
+        check_tick( &cntr, 0 );
         coll.data.pop_back();
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 1 ) );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 2 ) );
+        check_tick( &cntr, 1 );
+        check_tick( &cntr, 2 );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
-        st = asrtc_cntr_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        check_tick( &cntr, 3 );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -485,15 +481,14 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_desc" )
         enum asrtc_status st        = asrtc_cntr_desc( &cntr, &record_desc_cb, &cb_status, 3 );
         CHECK_EQ( ASRTC_SUCCESS, st );
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 0 ) );
+        check_tick( &cntr, 0 );
         coll.data.pop_back();
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 1 ) );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 2 ) );
+        check_tick( &cntr, 1 );
+        check_tick( &cntr, 2 );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
-        st = asrtc_cntr_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        check_tick( &cntr, 3 );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -507,15 +502,14 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_info" )
             asrtc_cntr_test_info( &cntr, 0, &record_test_info_cb, &cb_status, 3 );
         CHECK_EQ( ASRTC_SUCCESS, st );
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 0 ) );
+        check_tick( &cntr, 0 );
         coll.data.pop_back();
 
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 1 ) );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 2 ) );
+        check_tick( &cntr, 1 );
+        check_tick( &cntr, 2 );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
-        st = asrtc_cntr_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        check_tick( &cntr, 3 );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -529,17 +523,16 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_exec" )
         CHECK_EQ( ASRTC_SUCCESS, st );
 
         // now=0: STAGE_INIT → sends, enters WAITING, deadline = 0+3 = 3
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 0 ) );
+        check_tick( &cntr, 0 );
         coll.data.pop_back();
 
         // now=1,2: still waiting
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 1 ) );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_cntr_tick( &cntr, 2 ) );
+        check_tick( &cntr, 1 );
+        check_tick( &cntr, 2 );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         // now=3: deadline reached → timeout
-        st = asrtc_cntr_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        check_tick( &cntr, 3 );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -590,16 +583,14 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // Send an error message while the controller is waiting for a response
         uint8_t           buf[16];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_error( 42, asrtl_rec_span_to_span_cb, &sp );
-        enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
-        CHECK_EQ( ASRTL_SUCCESS, rst );
+        check_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_REACTOR, err.src );
         CHECK_EQ( 42, err.ecode );
 }
@@ -612,7 +603,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         struct asrtc_result res = { 0 };
         enum asrtc_status   st  = asrtc_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );  // sends TEST_START request
+        check_tick( &cntr, t++ );  // sends TEST_START request
         coll.data.pop_back();
 
         // Send TEST_RESULT with wrong run_id (controller expects 0, send 99)
@@ -634,7 +625,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, rst );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -650,11 +641,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 
         uint8_t           buf[1];
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = buf } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = buf } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Drain: tick to send request then satisfy it
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
         uint8_t           vbuf[16];
         struct asrtl_span vsp = { .b = vbuf, .e = vbuf + sizeof vbuf };
@@ -670,7 +661,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         CHECK_EQ( ASRTC_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // ID + only major(2) — missing minor(2) + patch(2) = too short
@@ -679,7 +670,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
         asrtl_add_u16( &sp.b, 0 );  // major only, 4 bytes total
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
@@ -696,7 +687,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         enum asrtc_status cb_st = ASRTC_SUCCESS;
         enum asrtc_status st    = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_st, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // Just the message ID, no u16 count
@@ -704,7 +695,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_COUNT );
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
@@ -721,7 +712,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         struct test_info_result p  = { 0 };
         enum asrtc_status       st = asrtc_cntr_test_info( &cntr, 7, &cpy_test_info_cb, &p, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         // Just the message ID, no u16 tid
@@ -729,7 +720,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
@@ -742,10 +733,6 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
 //---------------------------------------------------------------------
 // diag channel — controller side
 
-static inline enum asrtl_status call_diag_recv( struct asrtc_diag* d, uint8_t* b, uint8_t* e )
-{
-        return d->node.recv_cb( d->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
-}
 
 struct diag_ctx
 {
@@ -784,7 +771,7 @@ TEST_CASE( "diag_init" )
         CHECK_EQ(
             ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, asrtc_default_allocator() ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
-        CHECK_NE( nullptr, (void*) (uintptr_t) diag.node.recv_cb );
+        CHECK_NE( nullptr, (void*) (uintptr_t) diag.node.e_cb_ptr );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( nullptr, diag.last_rec );
         CHECK_EQ( &diag.node, head.next );
@@ -798,7 +785,8 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         uint8_t* p;
 
         // empty buffer → SUCCESS, no record queued
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, buf ) );
+
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = buf } );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // valid RECORD line=7, file="foo"
@@ -809,7 +797,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = 'f';
         *p++ = 'o';
         *p++ = 'o';
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -824,7 +812,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 42 );
         *p++ = 0;  // file_len
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -840,13 +828,13 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         asrtl_add_u32( &p, 1 );
         *p++ = 1;  // file_len
         *p++ = 'a';
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
         *p++ = 1;  // file_len
         *p++ = 'b';
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         {
                 auto* r1 = asrtc_diag_take_record( &diag );
                 auto* r2 = asrtc_diag_take_record( &diag );
@@ -871,17 +859,23 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
         *p++       = 0x00;
         *p++       = 0x00;
         *p++       = 0x07;  // 3 bytes for line, need 4
-        CHECK_EQ( ASRTL_RECV_ERR, call_diag_recv( &diag, buf, p ) );
+        CHECK_EQ(
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // unknown ID 0x00
         buf[0] = 0x00;
-        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, call_diag_recv( &diag, buf, buf + 1 ) );
+        CHECK_EQ(
+            ASRTL_RECV_UNEXPECTED_ERR,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // unknown ID 0xFF
         buf[0] = 0xFF;
-        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, call_diag_recv( &diag, buf, buf + 1 ) );
+        CHECK_EQ(
+            ASRTL_RECV_UNEXPECTED_ERR,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         asrtc_diag_deinit( &diag );
@@ -899,7 +893,9 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         asrtl_add_u32( &p, 10 );
         *p++ = 1;  // file_len
         *p++ = 'x';
-        CHECK_EQ( ASRTL_ALLOC_ERR, call_diag_recv( &diag, buf, p ) );
+        CHECK_EQ(
+            ASRTL_ALLOC_ERR,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( 0u, alloc_ctx.free_calls );
 
@@ -912,7 +908,9 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         asrtl_add_u32( &p, 20 );
         *p++ = 1;  // file_len
         *p++ = 'y';
-        CHECK_EQ( ASRTL_ALLOC_ERR, call_diag_recv( &diag, buf, p ) );
+        CHECK_EQ(
+            ASRTL_ALLOC_ERR,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( 1u, alloc_ctx.free_calls );
 
@@ -937,7 +935,9 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtl_add_u32( &p, 99 );
         *p++ = 1;  // file_len
         *p++ = 'z';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -954,7 +954,9 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
                 asrtl_add_u32( &p, i );
                 *p++ = 1;  // file_len
                 *p++ = 'a';
-                REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+                CHECK_EQ(
+                    ASRTL_SUCCESS,
+                    asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
         }
         for ( uint32_t i = 1; i <= 3; i++ ) {
                 auto* rec = asrtc_diag_take_record( &diag );
@@ -972,7 +974,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtl_add_u32( &p, 10 );
         *p++ = 1;  // file_len
         *p++ = 'x';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         auto* rec_a = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec_a );
         p    = buf;
@@ -980,7 +982,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtl_add_u32( &p, 20 );
         *p++ = 1;  // file_len
         *p++ = 'y';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         auto* rec_b = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec_b );
         CHECK_EQ( 20u, rec_b->line );
@@ -1010,7 +1012,7 @@ TEST_CASE( "diag_free_record" )
         *p++ = 2;  // file_len
         *p++ = 'h';
         *p++ = 'i';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
 
         // record with non-NULL file → two free calls
         auto* rec = asrtc_diag_take_record( &diag );
@@ -1065,7 +1067,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 asrtl_add_u32( &p, 1 );
                 *p++ = 1;  // file_len
                 *p++ = 'a';
-                REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &d3, buf, p ) );
+                check_recv( &d3, (struct asrtl_span) { .b = buf, .e = p } );
                 CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d3 ) );
                 CHECK_EQ( nullptr, d3.first_rec );
                 CHECK_EQ( 2u, sctx3.free_calls );  // file + rec
@@ -1086,7 +1088,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                         asrtl_add_u32( &p, i );
                         *p++ = 1;  // file_len
                         *p++ = 'x';
-                        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &d4, buf, p ) );
+                        check_recv( &d4, (struct asrtl_span) { .b = buf, .e = p } );
                 }
                 CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d4 ) );
                 CHECK_EQ( nullptr, d4.first_rec );
@@ -1099,13 +1101,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         asrtl_add_u32( &p, 1 );
         *p++ = 1;  // file_len
         *p++ = 'a';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
         *p++ = 1;  // file_len
         *p++ = 'b';
-        REQUIRE_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, p ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
         auto* taken = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, taken );
         asrtc_diag_free_record( &diag.alloc, taken );
@@ -1121,7 +1124,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         struct asrtc_result res = { 0 };
         enum asrtc_status   st  = asrtc_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
         CHECK_EQ( ASRTC_SUCCESS, st );
-        check_cntr_tick( &cntr, t++ );
+        check_tick( &cntr, t++ );
         coll.data.pop_back();
 
         uint8_t           buf[16];
@@ -1132,7 +1135,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_RESULT );
         asrtl_add_u32( &sp.b, 0 );  // run_id, but no res u16
         enum asrtl_status rst =
-            asrtc_cntr_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
@@ -1153,7 +1156,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_diag_record( "foo.c", 7, NULL, asrtl_rec_span_to_span_cb, &sp );
 
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, sp.b ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = sp.b } );
 
         auto* rec = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1172,7 +1175,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_diag_record( "test.c", 42, "x > 0", asrtl_rec_span_to_span_cb, &sp );
 
-        CHECK_EQ( ASRTL_SUCCESS, call_diag_recv( &diag, buf, sp.b ) );
+        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = sp.b } );
 
         auto* rec = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1202,14 +1205,6 @@ static struct asrtl_flat_tree make_param_tree()
         asrtl_flat_tree_append_scalar(
             &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } );
         return tree;
-}
-
-static inline enum asrtl_status call_param_recv(
-    struct asrtc_param_server* p,
-    uint8_t*                   b,
-    uint8_t*                   e )
-{
-        return p->node.recv_cb( p->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
 }
 
 // Build a raw READY_ACK message into buf; return past-end pointer.
@@ -1271,7 +1266,7 @@ TEST_CASE( "asrtc_param_server_init" )
             ASRTC_SUCCESS,
             asrtc_param_server_init( &param2, &head, null_s, asrtl_default_allocator() ) );
         CHECK_EQ( ASRTL_PARA, param2.node.chid );
-        CHECK_NE( nullptr, (void*) (uintptr_t) param2.node.recv_cb );
+        CHECK_NE( nullptr, (void*) (uintptr_t) param2.node.e_cb_ptr );
         CHECK_EQ( &param2.node, head.next );
         CHECK_EQ( nullptr, param2.tree );
         CHECK_EQ( nullptr, param2.enc_buff );
@@ -1319,8 +1314,8 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_send_ready_encodes_correctly" 
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_allocates_buffer" )
 {
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &param.node, t++ ) );
         CHECK_EQ( 1, param.ack_received );
         CHECK_EQ( 256u, param.max_msg_size );
         CHECK_NE( nullptr, param.enc_buff );
@@ -1333,11 +1328,15 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_allocates_buffe
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_while_pending_returns_error" )
 {
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
         // pending == PENDING_READY_ACK; tick not called yet
-        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_ready_ack( buf, 512u ) ) );
+        CHECK_EQ(
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv(
+                &param.node,
+                (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 512u ) } ) );
         // Consume the first pending so the fixture destructor stays clean
-        asrtc_param_server_tick( &param, t++ );
+        check_tick( &param, t++ );
 }
 
 // BUG: handle_query does not guard against overwriting an already-pending
@@ -1350,15 +1349,18 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_query_while_pending_retur
 
         uint8_t buf[8];
         // Handshake so ack_received=1 and enc_buff is ready
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_tick( &param, t++ );
 
         // First query stores pending
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
         // pending == PENDING_QUERY; tick not called yet
-        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_query( buf, 3u ) ) );
-        // Consume the first pending so the fixture destructor stays clean
-        asrtc_param_server_tick( &param, t++ );
+        CHECK_EQ(
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv(
+                &param.node, (struct asrtl_span) { .b = buf, .e = build_query( buf, 3u ) } ) );
+        check_tick( &param, t++ );  // second tick to consume the second pending if it were
+                                    // erroneously accepted
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1368,7 +1370,10 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_before_ack_returns_error
         asrtc_param_server_set_tree( &param, &tree );
 
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_RECV_ERR, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
+        CHECK_EQ(
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv(
+                &param.node, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } ) );
         CHECK( coll.data.empty() );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -1380,12 +1385,12 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_produces_response" )
 
         uint8_t buf[8];
         // Handshake
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 256u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_tick( &param, t++ );
 
         // Query node 2 ("alpha", u32=10)
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_tick( &param, t++ );
         REQUIRE_EQ( 1u, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -1410,12 +1415,12 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_multi_batch" )
         asrtc_param_server_set_tree( &param, &tree );
 
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 20u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 20u ) } );
+        check_tick( &param, t++ );
 
         // First query: only node 2 fits → next_sibling_id points to node 3
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_tick( &param, t++ );
         REQUIRE_EQ( 1u, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -1440,10 +1445,10 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_oversize_returns_error" 
         asrtc_param_server_set_tree( &param, &tree );
 
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 11u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_query( buf, 2u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 11u ) } );
+        check_tick( &param, t++ );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_tick( &param, t++ );
 
         REQUIRE_EQ( 1u, coll.data.size() );
         auto& msg = coll.data.front();
@@ -1463,8 +1468,8 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_oversize_returns_error" 
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_deinit_frees_buffer" )
 {
         uint8_t buf[8];
-        CHECK_EQ( ASRTL_SUCCESS, call_param_recv( &param, buf, build_ready_ack( buf, 64u ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_tick( &param, t++ ) );
+        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 64u ) } );
+        check_tick( &param, t++ );
         CHECK_NE( nullptr, param.enc_buff );
         CHECK_EQ( 1u, alloc_ctx.alloc_calls );
         CHECK_EQ( 0u, alloc_ctx.free_calls );
@@ -1477,25 +1482,12 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_deinit_frees_buffer" )
         alloc_ctx.free_calls = 0;
 }
 
-// ============================================================================
-// Phase 4 — C loopback integration test (server ↔ client)
-// ============================================================================
-
-struct param_loopback_ctx
+template < typename Server, typename Client >
+struct server_client_base
 {
-        // Both sides share one head each (CORE placeholder + PARAM node)
-        struct asrtl_node         srv_head            = {};
-        struct asrtl_node         cli_head            = {};
-        stub_allocator_ctx        alloc_ctx           = {};
-        asrtl_allocator           alloc               = {};
-        struct asrtc_param_server server              = {};
-        struct asrtr_param_client client              = {};
-        static constexpr uint32_t CLI_BUF_SZ          = 256;
-        uint8_t                   cli_buf[CLI_BUF_SZ] = {};
-
-        // Cross-wired senders: server sends → client recv, client sends → server recv
-        asrtl_sender srv_sendr = {};
-        asrtl_sender cli_sendr = {};
+        Server   server = {};
+        Client   client = {};
+        uint32_t t      = 1;
 
         static enum asrtl_status srv_to_cli(
             void* ptr,
@@ -1504,12 +1496,12 @@ struct param_loopback_ctx
             asrtl_send_done_cb     done_cb,
             void*                  done_ptr )
         {
-                auto*             ctx = (param_loopback_ctx*) ptr;
+                auto*             ctx = (server_client_base*) ptr;
                 uint8_t           flat[512];
                 struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
                 asrtl_rec_span_to_span( &sp, buff );
                 struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->client.node.recv_cb( ctx->client.node.recv_ptr, msg );
+                auto              st  = asrtl_chann_recv( &ctx->client.node, msg );
                 if ( done_cb )
                         done_cb( done_ptr, st );
                 return st;
@@ -1522,16 +1514,41 @@ struct param_loopback_ctx
             asrtl_send_done_cb     done_cb,
             void*                  done_ptr )
         {
-                auto*             ctx = (param_loopback_ctx*) ptr;
+                auto*             ctx = (server_client_base*) ptr;
                 uint8_t           flat[512];
                 struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
                 asrtl_rec_span_to_span( &sp, buff );
                 struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->server.node.recv_cb( ctx->server.node.recv_ptr, msg );
+                auto              st  = asrtl_chann_recv( &ctx->server.node, msg );
                 if ( done_cb )
                         done_cb( done_ptr, st );
                 return st;
         }
+
+        // Tick both sides up to N times until neither has pending work
+        void spin( int max_iter = 100 )
+        {
+                for ( int i = 0; i < max_iter; i++ ) {
+                        asrtl_chann_tick( &server.node, t++ );
+                        asrtl_chann_tick( &client.node, t++ );
+                }
+        }
+};
+using param_base = server_client_base< asrtc_param_server, asrtr_param_client >;
+
+struct param_loopback_ctx : param_base
+{
+        // Both sides share one head each (CORE placeholder + PARAM node)
+        struct asrtl_node         srv_head            = {};
+        struct asrtl_node         cli_head            = {};
+        stub_allocator_ctx        alloc_ctx           = {};
+        asrtl_allocator           alloc               = {};
+        static constexpr uint32_t CLI_BUF_SZ          = 256;
+        uint8_t                   cli_buf[CLI_BUF_SZ] = {};
+
+        // Cross-wired senders: server sends → client recv, client sends → server recv
+        asrtl_sender srv_sendr = {};
+        asrtl_sender cli_sendr = {};
 
         // Response callback state
         struct received_node
@@ -1543,7 +1560,6 @@ struct param_loopback_ctx
         };
         std::vector< received_node > received;
         int                          error_called = 0;
-        uint32_t                     t            = 1;
         struct asrtr_param_query     query        = {};
 
         static void query_cb(
@@ -1560,17 +1576,6 @@ struct param_loopback_ctx
                 }
         }
 
-        // Tick both sides up to N times until neither has pending work
-        void spin( int max_iter = 100 )
-        {
-                for ( int i = 0; i < max_iter; i++ ) {
-                        asrtc_param_server_tick( &server, t++ );
-                        asrtr_param_client_tick( &client, t++ );
-                        if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
-                             server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
-                                break;
-                }
-        }
 
         param_loopback_ctx()
         {
@@ -1688,7 +1693,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         asrtl_flat_tree_deinit( &tree );
 }
 
-TEST_CASE( "param_loopback_multi_batch" )
+TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
 {
         // Small buffer (25 bytes) forces server to split siblings across batches.
         // Node wire size for "cN" U32 child: id(4)+"cN\0"(3)+type(1)+val(4) = 12
@@ -1697,62 +1702,18 @@ TEST_CASE( "param_loopback_multi_batch" )
         // Use 30 to fit 2: 30-1-4=25, 2×12=24<25 → 2 per batch, 4 children → 2 batches.
         static constexpr uint32_t SMALL_BUF = 30;
 
-        struct asrtl_node         srv_head           = {};
-        struct asrtl_node         cli_head           = {};
-        stub_allocator_ctx        alloc_ctx          = {};
-        asrtl_allocator           alloc              = {};
-        struct asrtc_param_server server             = {};
-        struct asrtr_param_client client             = {};
-        uint8_t                   cli_buf[SMALL_BUF] = {};
-
-        struct loopback_ptrs
-        {
-                asrtc_param_server* server;
-                asrtr_param_client* client;
-        } cross = { &server, &client };
-
-        auto srv_to_cli = []( void* ptr,
-                              asrtl_chann_id,
-                              struct asrtl_rec_span* buff,
-                              asrtl_send_done_cb     done_cb,
-                              void*                  done_ptr )
-                              ->enum asrtl_status
-        {
-                auto*             c = (loopback_ptrs*) ptr;
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = c->client->node.recv_cb( c->client->node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        };
-
-        auto cli_to_srv = []( void* ptr,
-                              asrtl_chann_id,
-                              struct asrtl_rec_span* buff,
-                              asrtl_send_done_cb     done_cb,
-                              void*                  done_ptr )
-                              ->enum asrtl_status
-        {
-                auto*             c = (loopback_ptrs*) ptr;
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = c->server->node.recv_cb( c->server->node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        };
+        struct asrtl_node  srv_head           = {};
+        struct asrtl_node  cli_head           = {};
+        stub_allocator_ctx alloc_ctx          = {};
+        asrtl_allocator    alloc              = {};
+        uint8_t            cli_buf[SMALL_BUF] = {};
 
         srv_head.chid = ASRTL_CORE;
         cli_head.chid = ASRTL_CORE;
         alloc         = asrtl_stub_allocator( &alloc_ctx );
 
-        asrtl_sender ssend = { .ptr = &cross, .cb = srv_to_cli };
-        asrtl_sender csend = { .ptr = &cross, .cb = cli_to_srv };
+        asrtl_sender ssend = { .ptr = this, .cb = srv_to_cli };
+        asrtl_sender csend = { .ptr = this, .cb = cli_to_srv };
 
         REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
         struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
@@ -1767,17 +1728,6 @@ TEST_CASE( "param_loopback_multi_batch" )
         asrtl_flat_tree_append_scalar( &tree, 1, 4, "c3", ASRTL_FLAT_STYPE_U32, { .u32_val = 30 } );
         asrtl_flat_tree_append_scalar( &tree, 1, 5, "c4", ASRTL_FLAT_STYPE_U32, { .u32_val = 40 } );
         asrtc_param_server_set_tree( &server, &tree );
-
-        uint32_t t_   = 1;
-        auto     spin = [&] {
-                for ( int i = 0; i < 100; i++ ) {
-                        asrtc_param_server_tick( &server, t_++ );
-                        asrtr_param_client_tick( &client, t_++ );
-                        if ( client.pending == ASRTR_PARAM_CLIENT_PENDING_NONE &&
-                             server.pending == ASRTC_PARAM_SERVER_PENDING_NONE )
-                                break;
-                }
-        };
 
         // Handshake
         CHECK_EQ( ASRTL_SUCCESS, asrtc_param_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
@@ -1985,13 +1935,6 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_then_query" )
 // asrtc_collect_server — controller COLLECT channel
 // ============================================================================
 
-static inline enum asrtl_status call_collect_recv(
-    struct asrtc_collect_server* s,
-    uint8_t*                     b,
-    uint8_t*                     e )
-{
-        return s->node.recv_cb( s->node.recv_ptr, (struct asrtl_span) { .b = b, .e = e } );
-}
 
 // Build a raw READY_ACK message; return past-end pointer.
 static uint8_t* build_collect_ready_ack( uint8_t* buf )
@@ -2057,7 +2000,7 @@ TEST_CASE( "asrtc_collect_server_init" )
             ASRTC_SUCCESS,
             asrtc_collect_server_init( &s, &head, null_s, asrtl_default_allocator(), 4, 16 ) );
         CHECK_EQ( ASRTL_COLL, s.node.chid );
-        CHECK_NE( nullptr, (void*) (uintptr_t) s.node.recv_cb );
+        CHECK_NE( nullptr, (void*) (uintptr_t) s.node.e_cb_ptr );
         CHECK_EQ( &s.node, head.next );
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, s.state );
         asrtc_collect_server_deinit( &s );
@@ -2084,9 +2027,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_recv_ready_ack_activates" 
         coll.data.pop_front();
 
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 }
 
@@ -2096,11 +2039,14 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_recv_ready_ack_while_pendi
         coll.data.pop_front();
 
         uint8_t buf[8];
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
         CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ(
-            ASRTL_RECV_ERR, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        asrtc_collect_server_tick( &server, t++ );
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv(
+                &server.node,
+                (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } ) );
+        check_tick( &server, t++ );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_builds_tree" )
@@ -2110,23 +2056,23 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_builds_tree" )
 
         // Handshake
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Append root object (parent=0, node=1, no key)
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Append child u32 (parent=1, node=2, key="alpha", value=42)
         struct asrtl_flat_value val{ .type = ASRTL_FLAT_STYPE_U32 };
         val.data.s.u32_val = 42;
         ae                 = build_collect_append( abuf, 1, 2, "alpha", &val );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Verify tree
         struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
@@ -2146,23 +2092,23 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_string_value" )
         coll.data.pop_front();
 
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Append root object
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Append string child
         struct asrtl_flat_value str_val{ .type = ASRTL_FLAT_STYPE_STR };
         str_val.data.s.str_val = "hello";
         ae                     = build_collect_append( abuf, 1, 2, "msg", &str_val );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
         struct asrtl_flat_query_result qr;
@@ -2176,7 +2122,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_before_active_retur
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_RECV_ERR, call_collect_recv( &server, abuf, ae ) );
+        CHECK_EQ(
+            ASRTL_RECV_ERR,
+            asrtl_chann_recv( &server.node, (struct asrtl_span) { .b = abuf, .e = ae } ) );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_back_to_back_appends" )
@@ -2185,24 +2133,24 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_back_to_back_appends" )
         coll.data.pop_front();
 
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Append root object
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
 
         // Second append WITHOUT tick() in between — simulates burst arrival
         struct asrtl_flat_value val{ .type = ASRTL_FLAT_STYPE_U32 };
         val.data.s.u32_val = 42;
         ae                 = build_collect_append( abuf, 1, 2, "alpha", &val );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
 
         // Tick to finalize
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 
         // Verify both nodes made it into the tree
@@ -2222,21 +2170,21 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_duplicate_sends_err
         coll.data.pop_front();
 
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Append root object
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Duplicate node_id=1
         ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        CHECK_EQ( ASRTL_SUCCESS, call_collect_recv( &server, abuf, ae ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Error should have been sent and server deactivated
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
@@ -2260,9 +2208,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ack_cb_fires" )
         coll.data.pop_front();
 
         uint8_t buf[8];
-        CHECK_EQ(
-            ASRTL_SUCCESS, call_collect_recv( &server, buf, build_collect_ready_ack( buf ) ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_tick( &server, t++ ) );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
         CHECK_EQ( ASRTC_SUCCESS, ack_status );
 }
 
@@ -2280,7 +2228,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_timeout_fires_ack_cb" )
 
         // Tick past deadline without receiving READY_ACK
         for ( uint32_t i = 0; i < 20; i++ )
-                asrtc_collect_server_tick( &server, t++ );
+                check_tick( &server, t++ );
 
         CHECK_EQ( ASRTC_TIMEOUT_ERR, ack_status );
 }
@@ -2295,8 +2243,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_double_call_ret
 
         // Consume handshake so fixture can clean up
         uint8_t buf[8];
-        call_collect_recv( &server, buf, build_collect_ready_ack( buf ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_allowed" )
@@ -2311,7 +2260,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_a
         coll.data.pop_front();
 
         for ( uint32_t i = 0; i < 10; i++ )
-                asrtc_collect_server_tick( &server, t++ );
+                check_tick( &server, t++ );
         CHECK_EQ( ASRTC_TIMEOUT_ERR, ack_status );
 
         // Should be allowed to call send_ready again after timeout
@@ -2319,8 +2268,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_a
         coll.data.pop_front();
 
         uint8_t buf[8];
-        call_collect_recv( &server, buf, build_collect_ready_ack( buf ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 }
 
@@ -2330,15 +2280,16 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ready_ack_reinits_tree" )
         coll.data.pop_front();
 
         uint8_t buf[8];
-        call_collect_recv( &server, buf, build_collect_ready_ack( buf ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Append a node
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        call_collect_recv( &server, abuf, ae );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_tick( &server, t++ );
 
         // Verify node exists
         struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
@@ -2348,8 +2299,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ready_ack_reinits_tree" )
         // Second handshake should reinit tree (clearing old data)
         CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
         coll.data.pop_front();
-        call_collect_recv( &server, buf, build_collect_ready_ack( buf ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
 
         // Old node should no longer exist in the fresh tree
         tree = asrtc_collect_server_tree( &server );
@@ -2362,8 +2314,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends
         coll.data.pop_front();
 
         uint8_t buf[8];
-        call_collect_recv( &server, buf, build_collect_ready_ack( buf ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv(
+            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+        check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 
         // Make the next allocation fail (will hit inside flat_tree_append)
@@ -2373,76 +2326,23 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends
         uint8_t                 abuf[128];
         struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
         uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        call_collect_recv( &server, abuf, ae );
+        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
 
         // Tree alloc failure → error sent to reactor, server resets to idle
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
 }
 
-// ============================================================================
-// Phase 7 — Collect loopback integration test (server ↔ client)
-// ============================================================================
+using collect_base = server_client_base< asrtc_collect_server, asrtr_collect_client >;
 
-struct collect_loopback_ctx
+struct collect_loopback_ctx : collect_base
 {
-        struct asrtl_node           srv_head  = {};
-        struct asrtl_node           cli_head  = {};
-        stub_allocator_ctx          alloc_ctx = {};
-        asrtl_allocator             alloc     = {};
-        struct asrtc_collect_server server    = {};
-        struct asrtr_collect_client client    = {};
+        struct asrtl_node  srv_head  = {};
+        struct asrtl_node  cli_head  = {};
+        stub_allocator_ctx alloc_ctx = {};
+        asrtl_allocator    alloc     = {};
 
         asrtl_sender srv_sendr = {};
         asrtl_sender cli_sendr = {};
-
-        uint32_t t = 1;
-
-        static enum asrtl_status srv_to_cli(
-            void* ptr,
-            asrtl_chann_id /*id*/,
-            struct asrtl_rec_span* buff,
-            asrtl_send_done_cb     done_cb,
-            void*                  done_ptr )
-        {
-                auto*             ctx = (collect_loopback_ctx*) ptr;
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->client.node.recv_cb( ctx->client.node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        }
-
-        static enum asrtl_status cli_to_srv(
-            void* ptr,
-            asrtl_chann_id /*id*/,
-            struct asrtl_rec_span* buff,
-            asrtl_send_done_cb     done_cb,
-            void*                  done_ptr )
-        {
-                auto*             ctx = (collect_loopback_ctx*) ptr;
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->server.node.recv_cb( ctx->server.node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        }
-
-        void spin( int max_iter = 100 )
-        {
-                for ( int i = 0; i < max_iter; i++ ) {
-                        asrtc_collect_server_tick( &server, t++ );
-                        asrtr_collect_client_tick( &client );
-                        if ( server.state == ASRTC_COLLECT_SERVER_ACTIVE &&
-                             client.state == ASRTR_COLLECT_CLIENT_ACTIVE )
-                                break;
-                }
-        }
 
         collect_loopback_ctx()
         {
@@ -2495,24 +2395,24 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_multi_level_tree" )
         // Server must tick between appends to process each pending APPEND.
         asrtl::flat_id root, nums;
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, &root ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_collect_client_append_array( &client, root, "nums", &nums ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_u32( &client, nums, NULL, 10 ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_u32( &client, nums, NULL, 20 ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         CHECK_EQ(
             ASRTL_SUCCESS, asrtr_collect_client_append_str( &client, root, "name", "hello" ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_bool( &client, root, "flag", 1 ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         // Verify the tree built on the controller side
         struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
@@ -2555,7 +2455,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
 
         // Append first node (parent=0 = virtual root)
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, NULL ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         // The client auto-assigns node_ids starting at 1.  The second append
         // gets id=2 — which is unique, so we cannot trigger a duplicate via the
@@ -2566,8 +2466,8 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
         uint8_t           buf[256];
         uint8_t*          end = build_collect_append( buf, 0, 1, "dup", &dup );
         struct asrtl_span msg = { .b = buf, .e = end };
-        server.node.recv_cb( server.node.recv_ptr, msg );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv( &server, msg );
+        check_tick( &server, t++ );
 
         // Server should have sent ERROR and gone idle
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
@@ -2583,7 +2483,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 
         // Append one valid node (parent=0 = virtual root)
         CHECK_EQ( ASRTL_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, NULL ) );
-        asrtc_collect_server_tick( &server, t++ );
+        check_tick( &server, t++ );
 
         // Force duplicate via raw message
         struct asrtl_flat_value dup{ .type = ASRTL_FLAT_STYPE_U32 };
@@ -2591,8 +2491,8 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         uint8_t           buf[256];
         uint8_t*          end = build_collect_append( buf, 0, 1, "x", &dup );
         struct asrtl_span msg = { .b = buf, .e = end };
-        server.node.recv_cb( server.node.recv_ptr, msg );
-        asrtc_collect_server_tick( &server, t++ );
+        check_recv( &server, msg );
+        check_tick( &server, t++ );
 
         CHECK_EQ( ASRTR_COLLECT_CLIENT_ERROR, client.state );
 
@@ -2611,12 +2511,11 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 /// Fixture for isolated controller-side stream server tests.
 struct strm_server_ctx
 {
-        collector          coll;
-        asrtl_sender       sender = {};
-        stub_allocator_ctx alloc_ctx;
-        asrtl_allocator    alloc = {};
-        asrtl_node         root =
-            { .chid = ASRTL_CORE, .recv_ptr = nullptr, .recv_cb = nullptr, .next = nullptr };
+        collector           coll;
+        asrtl_sender        sender = {};
+        stub_allocator_ctx  alloc_ctx;
+        asrtl_allocator     alloc  = {};
+        asrtl_node          root   = {};
         asrtc_stream_server server = {};
 
         strm_server_ctx()
@@ -2648,7 +2547,7 @@ static enum asrtl_status strm_deliver_define(
         for ( uint8_t i = 0; i < field_count; i++ )
                 buf.push_back( static_cast< uint8_t >( fields[i] ) );
         struct asrtl_span sp = { .b = buf.data(), .e = buf.data() + buf.size() };
-        return server->node.recv_cb( server->node.recv_ptr, sp );
+        return asrtl_chann_recv( &server->node, sp );
 }
 
 /// Helper: build a raw DATA message and deliver it.
@@ -2663,7 +2562,7 @@ static enum asrtl_status strm_deliver_data(
         buf.push_back( schema_id );
         buf.insert( buf.end(), data, data + size );
         struct asrtl_span sp = { .b = buf.data(), .e = buf.data() + buf.size() };
-        return server->node.recv_cb( server->node.recv_ptr, sp );
+        return asrtl_chann_recv( &server->node, sp );
 }
 
 // --- init ---
@@ -2697,7 +2596,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_recv: empty buffer" )
 {
         uint8_t           buf[1];
         struct asrtl_span sp = { .b = buf, .e = buf };
-        CHECK_EQ( ASRTL_SUCCESS, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        check_recv( &server, sp );
 }
 
 // --- recv: unknown message ---
@@ -2706,7 +2605,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_recv: unknown message id" )
 {
         uint8_t           buf[] = { 0xFF };
         struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, asrtl_chann_recv( &server.node, sp ) );
 }
 
 // --- DEFINE handling ---
@@ -2745,7 +2644,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: truncated header" )
         // Only message id, no schema_id or field_count
         uint8_t           buf[] = { ASRTL_STRM_MSG_DEFINE };
         struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRTL_RECV_ERR, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_RECV_ERR, asrtl_chann_recv( &server.node, sp ) );
 }
 
 TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: zero field_count sends error" )
@@ -2777,7 +2676,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: invalid field type tag"
         // Build raw message with an invalid tag
         uint8_t           buf[] = { ASRTL_STRM_MSG_DEFINE, 0, 1, 0xFF };
         struct asrtl_span sp    = { .b = buf, .e = buf + 4 };
-        CHECK_EQ( ASRTL_SUCCESS, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        check_recv( &server, sp );
         REQUIRE_EQ( 1u, coll.data.size() );
         CHECK_EQ( ASRTL_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRTL_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
@@ -2789,7 +2688,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: truncated field tags" )
         // Says 3 fields but only provides 1 byte of tags
         uint8_t           buf[] = { ASRTL_STRM_MSG_DEFINE, 0, 3, ASRTL_STRM_FIELD_U8 };
         struct asrtl_span sp    = { .b = buf, .e = buf + 4 };
-        CHECK_EQ( ASRTL_SUCCESS, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        check_recv( &server, sp );
         REQUIRE_EQ( 1u, coll.data.size() );
         CHECK_EQ( ASRTL_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRTL_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
@@ -2913,7 +2812,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: truncated (missing schema
 {
         uint8_t           buf[] = { ASRTL_STRM_MSG_DATA };
         struct asrtl_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRTL_RECV_ERR, server.node.recv_cb( server.node.recv_ptr, sp ) );
+        CHECK_EQ( ASRTL_RECV_ERR, asrtl_chann_recv( &server.node, sp ) );
 }
 
 // --- take ---
@@ -2981,60 +2880,16 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_clear: frees all schemas and re
 
 // --- loopback: reactor client → controller server ---
 
-struct strm_loopback_ctx
+struct strm_loopback_ctx : server_client_base< asrtc_stream_server, asrtr_stream_client >
 {
         collector  coll;
-        asrtl_node root_r =
-            { .chid = ASRTL_CORE, .recv_ptr = nullptr, .recv_cb = nullptr, .next = nullptr };
-        asrtl_node root_c =
-            { .chid = ASRTL_CORE, .recv_ptr = nullptr, .recv_cb = nullptr, .next = nullptr };
+        asrtl_node root_r = {};
+        asrtl_node root_c = {};
 
         stub_allocator_ctx alloc_ctx;
 
-        asrtr_stream_client client = {};
-        asrtc_stream_server server = {};
-
-        static enum asrtl_status r2c_send(
-            void* data,
-            asrtl_chann_id /*id*/,
-            asrtl_rec_span*    buff,
-            asrtl_send_done_cb done_cb,
-            void*              done_ptr )
-        {
-                auto* ctx = static_cast< strm_loopback_ctx* >( data );
-                // Flatten and feed to server recv_cb directly
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->server.node.recv_cb( ctx->server.node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb(
-                            done_ptr, ( st == ASRTL_SUCCESS ) ? ASRTL_SUCCESS : ASRTL_SEND_ERR );
-                return st;
-        }
-
-        static enum asrtl_status c2r_send(
-            void* data,
-            asrtl_chann_id /*id*/,
-            asrtl_rec_span*    buff,
-            asrtl_send_done_cb done_cb,
-            void*              done_ptr )
-        {
-                auto*             ctx = static_cast< strm_loopback_ctx* >( data );
-                uint8_t           flat[512];
-                struct asrtl_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrtl_rec_span_to_span( &sp, buff );
-                struct asrtl_span msg = { .b = flat, .e = sp.b };
-                auto              st  = ctx->client.node.recv_cb( ctx->client.node.recv_ptr, msg );
-                if ( done_cb )
-                        done_cb(
-                            done_ptr, ( st == ASRTL_SUCCESS ) ? ASRTL_SUCCESS : ASRTL_SEND_ERR );
-                return st;
-        }
-
-        asrtl_sender sender_r = { .ptr = nullptr, .cb = r2c_send };
-        asrtl_sender sender_c = { .ptr = nullptr, .cb = c2r_send };
+        asrtl_sender sender_r = { .ptr = nullptr, .cb = cli_to_srv };
+        asrtl_sender sender_c = { .ptr = nullptr, .cb = srv_to_cli };
 
         strm_loopback_ctx()
         {
@@ -3061,9 +2916,9 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema r
         };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 1, fields, 2, done_cb, &done_st ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
         CHECK_EQ( ASRTR_STRM_DONE, client.state );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 2 );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
         CHECK_EQ( ASRTL_SUCCESS, done_st );
 
@@ -3080,15 +2935,15 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define + record + take" )
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
 
         // Send 3 records
         for ( uint8_t i = 10; i < 13; i++ ) {
                 CHECK_EQ(
                     ASRTR_SUCCESS,
                     asrtr_stream_client_emit( &client, 0, &i, 1, nullptr, nullptr ) );
-                CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+                check_tick( &client, 3 + i - 10 );
         }
 
         // Take from server
@@ -3112,14 +2967,14 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: duplicate define → error
         // First define succeeds
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
 
         // Second define with same ID → controller sends ERROR → client enters ERROR
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
         CHECK_EQ( ASRTR_STRM_ERROR, client.state );
         CHECK_EQ( ASRTL_STRM_ERR_DUPLICATE_SCHEMA, client.err_code );
 }
@@ -3129,14 +2984,13 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: data size mismatch → err
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U32 };  // expects 4 bytes
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
 
         // Send 1 byte instead of 4 → server sends error → client enters ERROR
         uint8_t bad_data[] = { 0x01 };
         CHECK_EQ(
-            ASRTR_SUCCESS,
-            asrtr_stream_client_emit( &client, 0, bad_data, 1, nullptr, nullptr ) );
+            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 0, bad_data, 1, nullptr, nullptr ) );
         CHECK_EQ( ASRTR_STRM_ERROR, client.state );
         CHECK_EQ( ASRTL_STRM_ERR_SIZE_MISMATCH, client.err_code );
 }
@@ -3146,8 +3000,8 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejecte
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U32 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
@@ -3157,8 +3011,7 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejecte
         // Further records should fail
         uint8_t good[] = { 1, 2, 3, 4 };
         CHECK_EQ(
-            ASRTR_INTERNAL_ERR,
-            asrtr_stream_client_emit( &client, 0, good, 4, nullptr, nullptr ) );
+            ASRTR_INTERNAL_ERR, asrtr_stream_client_emit( &client, 0, good, 4, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefine" )
@@ -3166,8 +3019,8 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefin
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U32 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
@@ -3183,15 +3036,14 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefin
         enum asrtl_strm_field_type_e fields2[] = { ASRTL_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRTR_SUCCESS, asrtr_stream_client_define( &client, 0, fields2, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+        check_tick( &client, 1 );
+        check_tick( &client, 2 );
         CHECK_EQ( ASRTR_STRM_IDLE, client.state );
 
         uint8_t good[] = { 42 };
         CHECK_EQ(
-            ASRTR_SUCCESS,
-            asrtr_stream_client_emit( &client, 0, good, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_tick( &client ) );
+            ASRTR_SUCCESS, asrtr_stream_client_emit( &client, 0, good, 1, nullptr, nullptr ) );
+        check_tick( &client, 1 );
 
         auto result = asrtc_stream_server_take( &server );
         REQUIRE_EQ( 1u, result.schema_count );

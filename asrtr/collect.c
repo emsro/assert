@@ -70,32 +70,7 @@ static enum asrtl_status asrtr_collect_client_recv( void* data, struct asrtl_spa
 // Public API
 // ---------------------------------------------------------------------------
 
-enum asrtr_status asrtr_collect_client_init(
-    struct asrtr_collect_client* client,
-    struct asrtl_node*           prev,
-    struct asrtl_sender          sender )
-{
-        if ( !client || !prev )
-                return ASRTR_INIT_ERR;
-        *client = ( struct asrtr_collect_client ){
-            .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_COLL,
-                    .recv_ptr = client,
-                    .recv_cb  = asrtr_collect_client_recv,
-                    .next     = NULL,
-                },
-            .sendr        = sender,
-            .state        = ASRTR_COLLECT_CLIENT_IDLE,
-            .root_id      = 0,
-            .next_node_id = 1,
-        };
-
-        prev->next = &client->node;
-        return ASRTR_SUCCESS;
-}
-
-enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client* client )
+static enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client* client )
 {
         if ( client->state != ASRTR_COLLECT_CLIENT_READY_RECV )
                 return ASRTL_SUCCESS;
@@ -109,6 +84,44 @@ enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client* client
 
         client->state = ASRTR_COLLECT_CLIENT_ACTIVE;
         return ASRTL_SUCCESS;
+}
+
+static enum asrtl_status asrtr_collect_client_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtr_collect_client* client = (struct asrtr_collect_client*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtr_collect_client_tick( client );
+        case ASRTL_EVENT_RECV:
+                return asrtr_collect_client_recv( client, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtr_collect_client", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
+
+enum asrtr_status asrtr_collect_client_init(
+    struct asrtr_collect_client* client,
+    struct asrtl_node*           prev,
+    struct asrtl_sender          sender )
+{
+        if ( !client || !prev )
+                return ASRTR_INIT_ERR;
+        *client = ( struct asrtr_collect_client ){
+            .node =
+                ( struct asrtl_node ){
+                    .chid     = ASRTL_COLL,
+                    .e_cb_ptr = client,
+                    .e_cb     = asrtr_collect_client_event,
+                    .next     = NULL,
+                },
+            .sendr        = sender,
+            .state        = ASRTR_COLLECT_CLIENT_IDLE,
+            .root_id      = 0,
+            .next_node_id = 1,
+        };
+
+        prev->next = &client->node;
+        return ASRTR_SUCCESS;
 }
 
 enum asrtl_status asrtr_collect_client_append(

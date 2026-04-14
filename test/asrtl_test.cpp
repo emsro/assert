@@ -594,9 +594,13 @@ struct test_channel_ctx
         enum asrtl_status      return_status;
 };
 
-static enum asrtl_status test_channel_recv_cb( void* ptr, struct asrtl_span buff )
+static enum asrtl_status test_channel_recv_cb( void* ptr, enum asrtl_event_e event, void* arg )
 {
-        struct test_channel_ctx* ctx = (struct test_channel_ctx*) ptr;
+        if ( event != ASRTL_EVENT_RECV )
+                return ASRTL_SUCCESS;
+
+        struct test_channel_ctx* ctx  = (struct test_channel_ctx*) ptr;
+        struct asrtl_span        buff = *(struct asrtl_span*) arg;
         if ( ctx->msg_count >= 16 )
                 return ASRTL_RECV_INTERNAL_ERR;
 
@@ -630,7 +634,7 @@ TEST_CASE( "chann_cobs_dispatch_single_message" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 42, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAA, 0xBB, 0xCC };
         uint8_t encoded[128];
@@ -654,7 +658,7 @@ TEST_CASE( "chann_cobs_dispatch_multiple_messages" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 10, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 10, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0x11, 0x22 };
         uint8_t msg2[] = { 0x33, 0x44, 0x55 };
@@ -687,7 +691,7 @@ TEST_CASE( "chann_cobs_dispatch_partial_then_complete" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 20, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 20, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xDE, 0xAD, 0xBE, 0xEF };
         uint8_t encoded[128];
@@ -719,7 +723,7 @@ TEST_CASE( "chann_cobs_dispatch_empty_payload" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 99, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 99, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t encoded[128];
         size_t  enc_len = create_channel_message( 99, NULL, 0, encoded, sizeof encoded );
@@ -743,11 +747,11 @@ TEST_CASE( "chann_cobs_dispatch_multiple_channels" )
         struct test_channel_ctx ctx3 = { .return_status = ASRTL_SUCCESS };
 
         struct asrtl_node node3 = {
-            .chid = 30, .recv_ptr = &ctx3, .recv_cb = test_channel_recv_cb, .next = NULL };
+            .chid = 30, .e_cb_ptr = &ctx3, .e_cb = test_channel_recv_cb, .next = NULL };
         struct asrtl_node node2 = {
-            .chid = 20, .recv_ptr = &ctx2, .recv_cb = test_channel_recv_cb, .next = &node3 };
+            .chid = 20, .e_cb_ptr = &ctx2, .e_cb = test_channel_recv_cb, .next = &node3 };
         struct asrtl_node node1 = {
-            .chid = 10, .recv_ptr = &ctx1, .recv_cb = test_channel_recv_cb, .next = &node2 };
+            .chid = 10, .e_cb_ptr = &ctx1, .e_cb = test_channel_recv_cb, .next = &node2 };
 
         uint8_t payload1[] = { 0x01 };
         uint8_t payload2[] = { 0x02, 0x02 };
@@ -782,7 +786,7 @@ TEST_CASE( "chann_cobs_dispatch_unknown_channel" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 42, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAA };
         uint8_t encoded[128];
@@ -805,7 +809,7 @@ TEST_CASE( "chann_cobs_dispatch_incremental_state" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 7, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 7, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0x11 };
         uint8_t msg2[] = { 0x22, 0x22 };
@@ -843,7 +847,7 @@ TEST_CASE( "chann_cobs_dispatch_message_too_large" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 5, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 5, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         // Create a message larger than the internal 1024-byte buffer
         uint8_t large_payload[1200];
@@ -869,7 +873,7 @@ TEST_CASE( "chann_cobs_dispatch_mixed_partial_and_complete" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 15, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 15, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0xF1 };
         uint8_t msg2[] = { 0xF2, 0xF2 };
@@ -906,7 +910,7 @@ TEST_CASE( "chann_cobs_dispatch_byte_by_byte" )
 {
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 88, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 88, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xCA, 0xFE };
         uint8_t encoded[128];
@@ -935,7 +939,7 @@ TEST_CASE( "chann_cobs_dispatch_ibuffer_size_err" )
         // and cobs_dispatch must propagate it rather than silently succeed
         struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
         struct asrtl_node       node = {
-                  .chid = 1, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
         uint8_t encoded[128];
@@ -957,7 +961,7 @@ TEST_CASE( "chann_cobs_dispatch_recv_cb_error" )
         // When recv_cb returns an error, cobs_dispatch must propagate it
         struct test_channel_ctx ctx  = { .return_status = ASRTL_RECV_INTERNAL_ERR };
         struct asrtl_node       node = {
-                  .chid = 1, .recv_ptr = &ctx, .recv_cb = test_channel_recv_cb, .next = NULL };
+                  .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAB };
         uint8_t encoded[64];
@@ -1080,7 +1084,8 @@ TEST_CASE( "flat_tree_append_node_id_zero" )
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, alloc, 4, 8 );
         CHECK_EQ(
-            ASRTL_ARG_ERR, asrtl_flat_tree_append_cont( &tree, 0, 0, "k", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_ARG_ERR,
+            asrtl_flat_tree_append_cont( &tree, 0, 0, "k", ASRTL_FLAT_CTYPE_OBJECT ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1090,7 +1095,9 @@ TEST_CASE( "flat_tree_append_node_eq_parent" )
         struct asrtl_flat_tree tree;
         asrtl_flat_tree_init( &tree, alloc, 4, 8 );
         CHECK_EQ(
-            ASRTL_ARG_ERR, asrtl_flat_tree_append_scalar( &tree, 1, 1, "k", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_ARG_ERR,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 1, "k", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1101,7 +1108,8 @@ TEST_CASE( "flat_tree_append_root_object" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         CHECK_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1111,10 +1119,12 @@ TEST_CASE( "flat_tree_append_object_child" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "count", ASRTL_FLAT_STYPE_U32, {.u32_val = 42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "count", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1124,14 +1134,20 @@ TEST_CASE( "flat_tree_append_multiple_object_children" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
-        CHECK_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_BOOL, {.bool_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 4, "c", ASRTL_FLAT_STYPE_STR, {.str_val = "hi"} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
+        CHECK_EQ(
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1141,13 +1157,16 @@ TEST_CASE( "flat_tree_append_array_child" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 20} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1157,9 +1176,12 @@ TEST_CASE( "flat_tree_append_object_requires_key" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_KEY_REQUIRED_ERR, asrtl_flat_tree_append_scalar( &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_KEY_REQUIRED_ERR,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1169,9 +1191,12 @@ TEST_CASE( "flat_tree_append_array_rejects_key" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
-            ASRTL_KEY_FORBIDDEN_ERR, asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_KEY_FORBIDDEN_ERR,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1184,17 +1209,21 @@ TEST_CASE( "flat_tree_retry_after_key_to_array_fails" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         // keyed node to array — should fail
         REQUIRE_EQ(
             ASRTL_KEY_FORBIDDEN_ERR,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // retry same node_id with correct object parent — should succeed
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 3, 2, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 3, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1207,17 +1236,21 @@ TEST_CASE( "flat_tree_retry_after_null_key_to_object_fails" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         // keyless node to object — should fail
         REQUIRE_EQ(
             ASRTL_KEY_REQUIRED_ERR,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 5} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 5 } ) );
         // retry same node_id with correct array parent — should succeed
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 3, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 5} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 3, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 5 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1229,17 +1262,22 @@ TEST_CASE( "flat_tree_retry_after_duplicate_key_fails" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // duplicate key — should fail
         REQUIRE_EQ(
             ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         // retry same node_id with different key — should succeed
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, "other", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "other", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1250,11 +1288,13 @@ TEST_CASE( "flat_tree_append_beyond_initial_capacity" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 4 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         // id=16 is well beyond initial capacity of 2*4=8
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 16, "far", ASRTL_FLAT_STYPE_U32, {.u32_val = 99} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 16, "far", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1264,13 +1304,15 @@ TEST_CASE( "flat_tree_append_nested_objects" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
             asrtl_flat_tree_append_cont( &tree, 1, 2, "inner", ASRTL_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 2, 3, "val", ASRTL_FLAT_STYPE_U32, {.u32_val = 7} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 3, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1284,12 +1326,17 @@ TEST_CASE( "flat_tree_append_duplicate_node_id" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // second append with same node_id should fail
         CHECK_NE(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1299,13 +1346,18 @@ TEST_CASE( "flat_tree_append_duplicate_no_corruption" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 20} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         // try to duplicate id=2
-        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 99} );
+        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } );
         // original value should be unchanged
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
@@ -1324,13 +1376,17 @@ TEST_CASE( "flat_tree_append_duplicate_key_in_object" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // second child with same key "name" should fail
         CHECK_EQ(
             ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1340,18 +1396,23 @@ TEST_CASE( "flat_tree_append_duplicate_key_different_parents" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 1, 2, "a", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 1, 2, "a", ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 1, 3, "b", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 1, 3, "b", ASRTL_FLAT_CTYPE_OBJECT ) );
         // same key "x" under different parents — both should succeed
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 2, 4, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 4, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 3, 5, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 3, 5, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1361,14 +1422,17 @@ TEST_CASE( "flat_tree_append_array_allows_duplicate_values" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         // array children have NULL key — no duplicate-key check applies
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1378,10 +1442,13 @@ TEST_CASE( "flat_tree_append_parent_never_appended" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         // parent_id=5 was never appended — block memory is zeroed, type=0
         CHECK_NE(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 5, 6, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 5, 6, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1391,13 +1458,17 @@ TEST_CASE( "flat_tree_append_parent_is_leaf" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "num", ASRTL_FLAT_STYPE_U32, {.u32_val = 42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "num", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
         // parent_id=2 is U32, not a container
         CHECK_EQ(
-            ASRTL_ARG_ERR, asrtl_flat_tree_append_scalar( &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_ARG_ERR,
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1411,9 +1482,11 @@ TEST_CASE( "flat_tree_query_null_value" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "n", ASRTL_FLAT_STYPE_NULL, {0} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar( &tree, 1, 2, "n", ASRTL_FLAT_STYPE_NULL, { 0 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_NULL, r.value.type );
@@ -1428,11 +1501,16 @@ TEST_CASE( "flat_tree_query_bool_values" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "t", ASRTL_FLAT_STYPE_BOOL, {.bool_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "t", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "f", ASRTL_FLAT_STYPE_BOOL, {.bool_val = 0} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "f", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 0 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
@@ -1448,10 +1526,12 @@ TEST_CASE( "flat_tree_query_u32_value" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "big", ASRTL_FLAT_STYPE_U32, {.u32_val = 0xDEADBEEF} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "big", ASRTL_FLAT_STYPE_U32, { .u32_val = 0xDEADBEEF } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -1465,10 +1545,12 @@ TEST_CASE( "flat_tree_query_float_value" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "pi", ASRTL_FLAT_STYPE_FLOAT, {.float_val = 3.14f} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "pi", ASRTL_FLAT_STYPE_FLOAT, { .float_val = 3.14f } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_FLOAT, r.value.type );
@@ -1482,10 +1564,12 @@ TEST_CASE( "flat_tree_query_i32_value" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "neg", ASRTL_FLAT_STYPE_I32, {.i32_val = -42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "neg", ASRTL_FLAT_STYPE_I32, { .i32_val = -42 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_I32, r.value.type );
@@ -1499,10 +1583,12 @@ TEST_CASE( "flat_tree_query_str_value" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "name", ASRTL_FLAT_STYPE_STR, {.str_val = "hello"} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_STR, r.value.type );
@@ -1520,10 +1606,12 @@ TEST_CASE( "flat_tree_single_child_first_eq_last" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &r ) );
         CHECK_EQ( 2, r.value.data.cont.first_child );
@@ -1537,13 +1625,20 @@ TEST_CASE( "flat_tree_three_children_chain" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 20} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, {.u32_val = 30} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 30 } ) );
         // parent child list
         struct asrtl_flat_query_result rp;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &rp ) );
@@ -1558,16 +1653,20 @@ TEST_CASE( "flat_tree_object_children_keys_preserved" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, {.str_val = "two"} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, { .str_val = "two" } ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, {.bool_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK( strcmp( r.key, "alpha" ) == 0 );
@@ -1588,16 +1687,19 @@ TEST_CASE( "flat_tree_depth_10" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         for ( asrtl::flat_id i = 2; i <= 11; i++ ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
-                    asrtl_flat_tree_append_cont( &tree, i - 1, i, "lvl", ASRTL_FLAT_CTYPE_OBJECT ) );
+                    asrtl_flat_tree_append_cont(
+                        &tree, i - 1, i, "lvl", ASRTL_FLAT_CTYPE_OBJECT ) );
         }
         // deepest node gets a leaf
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 11, 12, "leaf", ASRTL_FLAT_STYPE_U32, {.u32_val = 42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 11, 12, "leaf", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 12, &r ) );
         CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -1612,24 +1714,29 @@ TEST_CASE( "flat_tree_object_containing_array_containing_objects" )
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
         // root object
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         // array child
         REQUIRE_EQ(
             ASRTL_SUCCESS,
             asrtl_flat_tree_append_cont( &tree, 1, 2, "items", ASRTL_FLAT_CTYPE_ARRAY ) );
         // objects inside array
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 2, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 2, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 2, 4, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 2, 4, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         // leaf in first array object
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 3, 5, "val", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 3, 5, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // leaf in second array object
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 4, 6, "val", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 4, 6, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         // verify array child list
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
@@ -1644,17 +1751,22 @@ TEST_CASE( "flat_tree_array_of_arrays" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 1, 2, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 1, 2, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 1, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 1, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 2, 4, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 4, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 3, 5, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 20} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 3, 5, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1668,11 +1780,13 @@ TEST_CASE( "flat_tree_100_nodes_under_one_parent" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         for ( asrtl::flat_id i = 2; i <= 101; i++ ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
-                    asrtl_flat_tree_append_scalar( &tree, 1, i, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = i} ) );
+                    asrtl_flat_tree_append_scalar(
+                        &tree, 1, i, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = i } ) );
         }
         // verify first and last
         struct asrtl_flat_query_result rp;
@@ -1694,13 +1808,16 @@ TEST_CASE( "flat_tree_sparse_ids" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 4 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 50, "mid", ASRTL_FLAT_STYPE_U32, {.u32_val = 50} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 50, "mid", ASRTL_FLAT_STYPE_U32, { .u32_val = 50 } ) );
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 99, "far", ASRTL_FLAT_STYPE_U32, {.u32_val = 99} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 99, "far", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 50, &r ) );
         CHECK_EQ( 50, r.value.data.s.u32_val );
@@ -1749,10 +1866,12 @@ TEST_CASE( "flat_tree_query_next_sibling_only_child" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, {.u32_val = 7} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
@@ -1766,11 +1885,16 @@ TEST_CASE( "flat_tree_query_next_sibling_first_of_two" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( (asrtl::flat_id) 3, r.next_sibling );
@@ -1784,13 +1908,20 @@ TEST_CASE( "flat_tree_query_next_sibling_last_of_three" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 1} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 2} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, {.u32_val = 3} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 3 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 4, &r ) );
         CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
@@ -1804,13 +1935,20 @@ TEST_CASE( "flat_tree_query_next_sibling_chain" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, {.u32_val = 20} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, {.u32_val = 30} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 30 } ) );
 
         // Walk: 2 -> 3 -> 4 -> 0
         struct asrtl_flat_query_result r;
@@ -1860,10 +1998,12 @@ TEST_CASE( "flat_tree_find_by_key_parent_not_object" )
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, {.u32_val = 42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
 
         CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "k", &r ) );
 
@@ -1876,16 +2016,20 @@ TEST_CASE( "flat_tree_find_by_key_happy" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, {.str_val = "hi"} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, {.bool_val = 1} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
 
         struct asrtl_flat_query_result r;
 
@@ -1921,10 +2065,12 @@ TEST_CASE( "flat_tree_find_by_key_not_found" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, {.u32_val = 10} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
 
         struct asrtl_flat_query_result r;
         CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "missing", &r ) );
@@ -1938,7 +2084,8 @@ TEST_CASE( "flat_tree_find_by_key_empty_object" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
 
         struct asrtl_flat_query_result r;
         CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "any", &r ) );
@@ -1952,15 +2099,19 @@ TEST_CASE( "flat_tree_find_by_key_nested_object" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
             asrtl_flat_tree_append_cont( &tree, 1, 2, "sub", ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, {.u32_val = 100} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 100 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_scalar( &tree, 2, 4, "y", ASRTL_FLAT_STYPE_I32, {.i32_val = -7} ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_scalar(
+                &tree, 2, 4, "y", ASRTL_FLAT_STYPE_I32, { .i32_val = -7 } ) );
 
         struct asrtl_flat_query_result r;
 
@@ -1988,10 +2139,12 @@ TEST_CASE( "flat_tree_find_by_key_leaf_parent" )
         struct asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS, asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRTL_SUCCESS,
+            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, {.u32_val = 42} ) );
+            asrtl_flat_tree_append_scalar(
+                &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
 
         struct asrtl_flat_query_result r;
         CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 2, "anything", &r ) );
@@ -2044,7 +2197,7 @@ struct strm_capture
 
 TEST_CASE( "strm_proto: define serializes header and fields" )
 {
-        strm_capture cap;
+        strm_capture                 cap;
         enum asrtl_strm_field_type_e fields[] = {
             ASRTL_STRM_FIELD_U8, ASRTL_STRM_FIELD_FLOAT, ASRTL_STRM_FIELD_I16 };
 
@@ -2062,7 +2215,7 @@ TEST_CASE( "strm_proto: define serializes header and fields" )
 
 TEST_CASE( "strm_proto: define single field" )
 {
-        strm_capture                  cap;
+        strm_capture                 cap;
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_BOOL };
 
         CHECK_EQ(
@@ -2077,7 +2230,7 @@ TEST_CASE( "strm_proto: define single field" )
 
 TEST_CASE( "strm_proto: define rejects field_count > 255" )
 {
-        strm_capture                  cap;
+        strm_capture                 cap;
         enum asrtl_strm_field_type_e fields[1] = { ASRTL_STRM_FIELD_U8 };
 
         CHECK_EQ(
@@ -2087,8 +2240,8 @@ TEST_CASE( "strm_proto: define rejects field_count > 255" )
 
 TEST_CASE( "strm_proto: data serializes header and payload" )
 {
-        strm_capture    cap;
-        uint8_t const  payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+        strm_capture  cap;
+        uint8_t const payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
 
         CHECK_EQ(
             asrtl_msg_rtoc_strm_data( 12, payload, 4, strm_capture::cb, &cap ), ASRTL_SUCCESS );
@@ -2116,7 +2269,8 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 
 TEST_CASE( "strm_proto: define propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
+        auto fail_cb = []( void*, struct asrtl_rec_span* )->enum asrtl_status
+        {
                 return ASRTL_SEND_ERR;
         };
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
@@ -2126,7 +2280,8 @@ TEST_CASE( "strm_proto: define propagates callback error" )
 
 TEST_CASE( "strm_proto: data propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
+        auto fail_cb = []( void*, struct asrtl_rec_span* )->enum asrtl_status
+        {
                 return ASRTL_SEND_ERR;
         };
         uint8_t const payload[] = { 0x01 };

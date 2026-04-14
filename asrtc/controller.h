@@ -66,8 +66,7 @@ enum asrtc_status asrtc_cntr_start(
     void*                    ptr,
     uint32_t                 timeout );
 
-enum asrtc_status asrtc_cntr_tick( struct asrtc_controller* c, uint32_t now );
-uint32_t          asrtc_cntr_idle( struct asrtc_controller const* c );
+uint32_t asrtc_cntr_idle( struct asrtc_controller const* c );
 
 enum asrtc_status asrtc_cntr_desc(
     struct asrtc_controller* c,
@@ -93,8 +92,7 @@ enum asrtc_status asrtc_cntr_test_exec(
     void*                      ptr,
     uint32_t                   timeout );
 
-enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff );
-void              asrtc_cntr_deinit( struct asrtc_controller* c );
+void asrtc_cntr_deinit( struct asrtc_controller* c );
 
 #ifdef __cplusplus
 }

@@ -37,9 +37,7 @@ struct collect_server
                          tree_node_cap );
                      s != ASRTC_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtc_collect",
-                            "init failed: %s",
-                            asrtc_status_to_str( s ) );
+                            "asrtc_collect", "init failed: %s", asrtc_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }
@@ -54,17 +52,12 @@ struct collect_server
 
         /// Send READY with a callback (lambda/functor or raw fn-ptr + void*).
         [[nodiscard]] asrtl_status send_ready(
-            asrtl::flat_id                                  root_id,
-            asrtl::callback< asrtc_collect_ready_ack_cb >   ack_cb,
-            uint32_t                                        timeout )
+            asrtl::flat_id                                root_id,
+            asrtl::callback< asrtc_collect_ready_ack_cb > ack_cb,
+            uint32_t                                      timeout )
         {
                 return asrtc_collect_server_send_ready(
                     &server_, root_id, timeout, ack_cb.fn, ack_cb.ptr );
-        }
-
-        asrtl_status tick( uint32_t now )
-        {
-                return asrtc_collect_server_tick( &server_, now );
         }
 
         /// Access the built tree.  Valid until next send_ready() or destruction.

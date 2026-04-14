@@ -182,44 +182,44 @@ struct gene_handler
         {
                 os << "T" << std::endl;
                 for ( int i = 0; i < t_.i; i++ ) {
-                        check >> c.tick( t++ );
-                        check >> r.tick();
+                        check >> asrtl_chann_tick( c.node(), t++ );
+                        check >> asrtl_chann_tick( r.node(), t++ );
                 }
         }
 
         void operator()( _d const& )
         {
                 os << "D" << std::endl;
-                check >> c.query_desc( [&]( asrtc::status s, std::string_view ) {
+                check >> c.query_desc( [&]( asrtc::status s, std::string_view ) -> asrtl::status {
                         check >> s;
-                        return ASRTC_SUCCESS;
+                        return ASRTL_SUCCESS;
                 }, 1000 );
         }
 
         void operator()( _tc const& )
         {
                 os << "TC" << std::endl;
-                check >> c.query_test_count( [&]( asrtc::status s, uint32_t ) {
+                check >> c.query_test_count( [&]( asrtc::status s, uint32_t ) -> asrtl::status {
                         check >> s;
-                        return ASRTC_SUCCESS;
+                        return ASRTL_SUCCESS;
                 }, 1000 );
         }
 
         void operator()( _ti const& )
         {
                 os << "TI" << std::endl;
-                check >> c.query_test_info( 0, [&]( asrtc::status s, uint16_t, std::string_view ) {
+                check >> c.query_test_info( 0, [&]( asrtc::status s, uint16_t, std::string_view ) -> asrtl::status {
                         check >> s;
-                        return ASRTC_SUCCESS;
+                        return ASRTL_SUCCESS;
                 }, 1000 );
         }
 
         void operator()( _ex const& )
         {
                 os << "EX" << std::endl;
-                check >> c.exec_test( 0, [&]( asrtc::status s, asrtc::result const& ) {
+                check >> c.exec_test( 0, [&]( asrtc::status s, asrtc::result const& ) -> asrtl::status {
                         check >> s;
-                        return ASRTC_SUCCESS;
+                        return ASRTL_SUCCESS;
                 }, 1000 );
         }
 
@@ -260,7 +260,7 @@ void exec( std::ostream& os, test_case const& tc )
                 print_msg( os, ASRTL_REACTOR, ASRTL_CONTROLLER, buff );
                 auto              flat = flatten( buff );
                 enum asrtl_status st =
-                    c->node()->recv_cb( c->node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
+                    asrtl_chann_recv( c->node(), asrtl::cnv( std::span{ flat } ) );
                 check >> st;
                 if ( done_cb )
                         done_cb( done_ptr, st );
@@ -277,7 +277,7 @@ void exec( std::ostream& os, test_case const& tc )
                 print_msg( os, ASRTL_CONTROLLER, ASRTL_REACTOR, buff );
                 auto              flat = flatten( buff );
                 enum asrtl_status st =
-                    r.node()->recv_cb( r.node()->recv_ptr, asrtl::cnv( std::span{ flat } ) );
+                    asrtl_chann_recv( r.node(), asrtl::cnv( std::span{ flat } ) );
                 check >> st;
                 if ( done_cb )
                         done_cb( done_ptr, st );
@@ -290,9 +290,9 @@ void exec( std::ostream& os, test_case const& tc )
                 return ASRTC_SUCCESS;
         } );
 
-        auto s = c->start( [&]( asrtc::status s ) {
+        auto s = c->start( [&]( asrtc::status s ) -> asrtl::status {
                 check >> s;
-                return ASRTC_SUCCESS;
+                return ASRTL_SUCCESS;
         }, 1000 );
         if ( s != ASRTC_SUCCESS )
                 os << std::format( "Controller start failed: {}\n", asrtc_status_to_str( s ) );

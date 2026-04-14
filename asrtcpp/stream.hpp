@@ -100,11 +100,6 @@ struct stream_server
                 asrtc_stream_server_clear( &server_ );
         }
 
-        asrtc_status tick( uint32_t now )
-        {
-                return asrtc_stream_server_tick( &server_, now );
-        }
-
         ~stream_server()
         {
                 asrtc_stream_server_deinit( &server_ );

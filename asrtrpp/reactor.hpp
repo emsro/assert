@@ -72,12 +72,6 @@ struct reactor
                 return &reac.node;
         }
 
-        status tick()
-        {
-                return asrtr_reactor_tick( &reac );
-        }
-
-
         void add_test( asrtr_test& test )
         {
                 asrtr_reactor_add_test( &reac, &test );

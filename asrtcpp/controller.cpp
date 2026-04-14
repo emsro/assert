@@ -32,10 +32,10 @@ auto cimpl_do( auto& cb, Ts&&... args )
         return st;
 }
 
-asrtc::status cimpl_init( void* ptr, asrtc::status s )
+asrtl::status cimpl_init( void* ptr, asrtc::status s )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ini_cb, s );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->ini_cb, s );
 }
 
 asrtc::status cimpl_error( void* ptr, asrtl::source src, uint16_t ecode )
@@ -44,28 +44,28 @@ asrtc::status cimpl_error( void* ptr, asrtl::source src, uint16_t ecode )
         return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ecb, src, ecode );
 }
 
-asrtc::status cimpl_desc( void* ptr, asrtc::status s, char* data )
+asrtl::status cimpl_desc( void* ptr, asrtc::status s, char* data )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->des_cb, s, std::string_view{ data } );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->des_cb, s, std::string_view{ data } );
 }
 
-asrtc::status cimpl_test_count( void* ptr, asrtc::status s, uint16_t count )
+asrtl::status cimpl_test_count( void* ptr, asrtc::status s, uint16_t count )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->test_count_cb, s, count );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->test_count_cb, s, count );
 }
 
-asrtc::status cimpl_test_info( void* ptr, asrtc::status s, uint16_t tid, char* data )
+asrtl::status cimpl_test_info( void* ptr, asrtc::status s, uint16_t tid, char* data )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ti_cb, s, tid, std::string_view{ data } );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->ti_cb, s, tid, std::string_view{ data } );
 }
 
-asrtc::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result* res )
+asrtl::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result* res )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->te_cb, s, *res );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->te_cb, s, *res );
 }
 
 }  // namespace
@@ -100,11 +100,6 @@ controller::~controller()
 asrtl_node* controller::node()
 {
         return &_impl->asc.node;
-}
-
-asrtc::status controller::tick( uint32_t now )
-{
-        return asrtc_cntr_tick( &_impl->asc, now );
 }
 
 bool controller::is_idle() const

@@ -19,8 +19,7 @@ struct param_server
                 if ( auto s = asrtc_param_server_init(
                          &server_, prev, asrtl::make_sender( send_cb ), alloc );
                      s != ASRTC_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtc_param", "init failed: %s", asrtc_status_to_str( s ) );
+                        ASRTL_ERR_LOG( "asrtc_param", "init failed: %s", asrtc_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }
@@ -39,17 +38,12 @@ struct param_server
         }
 
         [[nodiscard]] asrtl_status send_ready(
-            asrtl::flat_id                                root_id,
-            asrtl::callback< asrtc_param_ready_ack_cb >   ack_cb,
-            uint32_t                                      timeout )
+            asrtl::flat_id                              root_id,
+            asrtl::callback< asrtc_param_ready_ack_cb > ack_cb,
+            uint32_t                                    timeout )
         {
                 return asrtc_param_server_send_ready(
                     &server_, root_id, timeout, ack_cb.fn, ack_cb.ptr );
-        }
-
-        asrtl_status tick( uint32_t now )
-        {
-                return asrtc_param_server_tick( &server_, now );
         }
 
         ~param_server()

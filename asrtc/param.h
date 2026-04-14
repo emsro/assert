@@ -68,7 +68,6 @@ enum asrtl_status asrtc_param_server_send_ready(
     asrtc_param_ready_ack_cb   ack_cb,
     void*                      ack_cb_ptr );
 
-enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* param, uint32_t now );
 
 void asrtc_param_server_deinit( struct asrtc_param_server* param );
 

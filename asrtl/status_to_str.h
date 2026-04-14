@@ -20,6 +20,10 @@ extern "C" {
 inline static char const* asrtl_status_to_str( enum asrtl_status st )
 {
         switch ( st ) {
+        case ASRTL_CALLBACK_ERR:
+                return "callback error";
+        case ASRTL_INVALID_EVENT_ERR:
+                return "invalid event error";
         case ASRTL_KEY_FORBIDDEN_ERR:
                 return "key forbidden on array child";
         case ASRTL_KEY_REQUIRED_ERR:

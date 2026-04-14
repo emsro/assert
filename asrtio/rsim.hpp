@@ -114,26 +114,8 @@ struct conn_ctx
         void tick()
         {
                 task_ctx.tick();
-                auto s = reac.tick();
-                if ( s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "test_rsim", "Reactor tick failed: %s", asrtr_status_to_str( s ) );
-                }
-                if ( auto s = r_param.tick(); s != ASRTL_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "test_rsim",
-                            "Param tick failed: %s",
-                            asrtl_status_to_str( s ) );
-                if ( auto s = r_collect.tick(); s != ASRTL_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "test_rsim",
-                            "Collect tick failed: %s",
-                            asrtl_status_to_str( s ) );
-                if ( auto s = r_stream.tick(); s != ASRTR_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "test_rsim",
-                            "Stream tick failed: %s",
-                            asrtr_status_to_str( s ) );
+                auto now = uv_now( client.loop );
+                asrtl_chann_tick_successors( reac.node(), now );
         }
 
         cobs_node rx;

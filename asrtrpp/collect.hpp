@@ -83,8 +83,8 @@ struct collect_client
         template < asrtl::sender_callable CB >
         collect_client( asrtl_node* prev, CB& send_cb )
         {
-                if ( auto s = asrtr_collect_client_init(
-                         &client_, prev, asrtl::make_sender( send_cb ) );
+                if ( auto s =
+                         asrtr_collect_client_init( &client_, prev, asrtl::make_sender( send_cb ) );
                      s != ASRTR_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "asrtr_collect", "init failed: %s", asrtr_status_to_str( s ) );
@@ -110,10 +110,6 @@ struct collect_client
                 return &client_.node;
         }
 
-        asrtl_status tick()
-        {
-                return asrtr_collect_client_tick( &client_ );
-        }
 
         [[nodiscard]] asrtl::flat_id root_id() const
         {

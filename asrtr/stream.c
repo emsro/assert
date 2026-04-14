@@ -51,27 +51,6 @@ static enum asrtl_status asrtr_stream_client_recv( void* data, struct asrtl_span
         }
 }
 
-enum asrtr_status asrtr_stream_client_init(
-    struct asrtr_stream_client* client,
-    struct asrtl_node*          prev,
-    struct asrtl_sender         sender )
-{
-        if ( !client || !prev )
-                return ASRTR_INIT_ERR;
-        *client = ( struct asrtr_stream_client ){
-            .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_STRM,
-                    .recv_ptr = client,
-                    .recv_cb  = asrtr_stream_client_recv,
-                    .next     = NULL,
-                },
-            .sendr = sender,
-            .state = ASRTR_STRM_IDLE,
-        };
-        prev->next = &client->node;
-        return ASRTR_SUCCESS;
-}
 
 enum asrtr_status asrtr_stream_client_define(
     struct asrtr_stream_client*         client,
@@ -141,7 +120,7 @@ enum asrtr_status asrtr_stream_client_reset( struct asrtr_stream_client* client 
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status asrtr_stream_tick_done( struct asrtr_stream_client* client )
+static enum asrtl_status asrtr_stream_tick_done( struct asrtr_stream_client* client )
 {
         asrtr_stream_done_cb cb     = client->done_cb;
         void*                cb_ptr = client->done_cb_ptr;
@@ -154,10 +133,10 @@ static enum asrtr_status asrtr_stream_tick_done( struct asrtr_stream_client* cli
         if ( cb )
                 cb( cb_ptr, st );
 
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-static enum asrtr_status asrtr_stream_tick_define_send( struct asrtr_stream_client* client )
+static enum asrtl_status asrtr_stream_tick_define_send( struct asrtr_stream_client* client )
 {
         client->state = ASRTR_STRM_WAIT;
 
@@ -165,15 +144,20 @@ static enum asrtr_status asrtr_stream_tick_define_send( struct asrtr_stream_clie
 
         enum asrtl_status st = asrtl_msg_rtoc_strm_define(
             p->schema_id, p->fields, p->field_count, asrtr_stream_send, client );
-        if ( st != ASRTL_SUCCESS )
-                return ASRTR_SEND_ERR;
-        return ASRTR_SUCCESS;
+        if ( st != ASRTL_SUCCESS ) {
+                ASRTL_ERR_LOG(
+                    "asrtr_stream_client",
+                    "failed to send DEFINE message: %s",
+                    asrtl_status_to_str( st ) );
+                return ASRTL_SEND_ERR;
+        }
+        return ASRTL_SUCCESS;
 }
 
-enum asrtr_status asrtr_stream_client_tick( struct asrtr_stream_client* client )
+static enum asrtl_status asrtr_stream_client_tick( struct asrtr_stream_client* client )
 {
         if ( !client )
-                return ASRTR_INTERNAL_ERR;
+                return ASRTL_INTERNAL_ERR;
 
         switch ( client->state ) {
         case ASRTR_STRM_IDLE:
@@ -186,5 +170,40 @@ enum asrtr_status asrtr_stream_client_tick( struct asrtr_stream_client* client )
                 return asrtr_stream_tick_done( client );
         }
 
+        return ASRTL_SUCCESS;
+}
+
+static enum asrtl_status asrtr_stream_client_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtr_stream_client* client = (struct asrtr_stream_client*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtr_stream_client_tick( client );
+        case ASRTL_EVENT_RECV:
+                return asrtr_stream_client_recv( client, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtr_stream_client", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
+
+enum asrtr_status asrtr_stream_client_init(
+    struct asrtr_stream_client* client,
+    struct asrtl_node*          prev,
+    struct asrtl_sender         sender )
+{
+        if ( !client || !prev )
+                return ASRTR_INIT_ERR;
+        *client = ( struct asrtr_stream_client ){
+            .node =
+                ( struct asrtl_node ){
+                    .chid     = ASRTL_STRM,
+                    .e_cb_ptr = client,
+                    .e_cb     = asrtr_stream_client_event,
+                    .next     = NULL,
+                },
+            .sendr = sender,
+            .state = ASRTR_STRM_IDLE,
+        };
+        prev->next = &client->node;
         return ASRTR_SUCCESS;
 }

@@ -17,8 +17,10 @@ extern "C" {
 
 #include "./asrtl_assert.h"
 #include "./cobs.h"
+#include "./log.h"
 #include "./span.h"
 #include "./status.h"
+#include "./status_to_str.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -35,16 +37,62 @@ enum asrtl_chann_id_e
 
 typedef uint16_t asrtl_chann_id;
 
-typedef enum asrtl_status ( *asrtl_recv_callback )( void* ptr, struct asrtl_span buff );
+enum asrtl_event_e
+{
+        ASRTL_EVENT_TICK = 1,
+        ASRTL_EVENT_RECV = 2,
+};
+
+static inline char const* asrtl_event_to_str( enum asrtl_event_e event )
+{
+        switch ( event ) {
+        case ASRTL_EVENT_TICK:
+                return "tick";
+        case ASRTL_EVENT_RECV:
+                return "recv";
+        }
+        return "unknown";
+}
+
+typedef enum asrtl_status (
+    *asrtl_event_callback )( void* ptr, enum asrtl_event_e event, void* arg );
 
 /// Channel node representing one channel, chid should be unique within existing chain
 struct asrtl_node
 {
-        asrtl_chann_id      chid;
-        void*               recv_ptr;
-        asrtl_recv_callback recv_cb;
-        struct asrtl_node*  next;
+        asrtl_chann_id       chid;
+        void*                e_cb_ptr;
+        asrtl_event_callback e_cb;
+        struct asrtl_node*   next;
 };
+
+static inline enum asrtl_status asrtl_chann_recv( struct asrtl_node* node, struct asrtl_span buff )
+{
+        ASRTL_ASSERT( node );
+        ASRTL_ASSERT( node->e_cb );
+        return node->e_cb( node->e_cb_ptr, ASRTL_EVENT_RECV, &buff );
+}
+
+static inline enum asrtl_status asrtl_chann_tick( struct asrtl_node* node, uint32_t now )
+{
+        ASRTL_ASSERT( node );
+        ASRTL_ASSERT( node->e_cb );
+        return node->e_cb( node->e_cb_ptr, ASRTL_EVENT_TICK, &now );
+}
+
+static inline void asrtl_chann_tick_successors( struct asrtl_node* node, uint32_t now )
+{
+        for ( struct asrtl_node* p = node; p; p = p->next ) {
+                enum asrtl_status s = asrtl_chann_tick( p, now );
+                if ( s != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG(
+                            "asrtl_chann",
+                            "Tick failed for channel %u: %s",
+                            p->chid,
+                            asrtl_status_to_str( s ) );
+                }
+        }
+}
 
 /// Finds channel node with given id in linked list starting at head.
 struct asrtl_node* asrtl_chann_find( struct asrtl_node* head, asrtl_chann_id id );

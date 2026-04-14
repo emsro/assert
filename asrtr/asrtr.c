@@ -28,11 +28,18 @@ void asrtr_fail( struct asrtr_record* rec )
         rec->state = ASRTR_TEST_FAIL;
 }
 
-static enum asrtl_status asrtr_diag_recv( void* data, struct asrtl_span buff )
+
+static enum asrtl_status asrtr_diag_event( void* p, enum asrtl_event_e e, void* arg )
 {
-        (void) data;
-        (void) buff;
-        ASRTL_ERR_LOG( "asrtr_diag", "Received unexpected message on diag channel" );
+        (void) arg;
+        (void) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return ASRTL_SUCCESS;
+        case ASRTL_EVENT_RECV:
+                ASRTL_ERR_LOG( "asrtr_diag", "Received unexpected message on diag channel" );
+                return ASRTL_INVALID_EVENT_ERR;
+        }
         return ASRTL_SUCCESS;
 }
 
@@ -49,8 +56,8 @@ enum asrtr_status asrtr_diag_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_DIAG,
-                    .recv_ptr = diag,
-                    .recv_cb  = asrtr_diag_recv,
+                    .e_cb_ptr = diag,
+                    .e_cb     = asrtr_diag_event,
                     .next     = NULL,
                 },
             .sendr = sender,
@@ -89,34 +96,6 @@ static inline enum asrtl_status asrtr_send( void* r, struct asrtl_rec_span* sp )
         return asrtl_send( &( (struct asrtr_reactor*) r )->sendr, ASRTL_CORE, sp, NULL, NULL );
 }
 
-enum asrtr_status asrtr_reactor_init(
-    struct asrtr_reactor* reac,
-    struct asrtl_sender   sender,
-    char const*           desc )
-{
-        if ( !reac || !desc ) {
-                ASRTL_ERR_LOG( "asrtr_asrtr", "Invalid arguments to reactor init" );
-                return ASRTR_INIT_ERR;
-        }
-        *reac = ( struct asrtr_reactor ){
-            .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_CORE,
-                    .recv_ptr = reac,
-                    .recv_cb  = &asrtr_reactor_recv,
-                    .next     = NULL,
-                },
-            .sendr              = sender,
-            .desc               = desc,
-            .first_test         = NULL,
-            .last_test          = NULL,
-            .state              = ASRTR_REAC_IDLE,
-            .flags              = 0,
-            .recv_test_info_id  = 0,
-            .recv_test_start_id = 0,
-        };
-        return ASRTR_SUCCESS;
-}
 
 static enum asrtr_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac )
 {
@@ -216,7 +195,7 @@ static enum asrtr_status asrtr_reactor_tick_flag_tc( struct asrtr_reactor* reac 
         return ASRTR_SUCCESS;
 }
 
-static enum asrtr_status asrtr_reactor_tick_flags( struct asrtr_reactor* reac )
+static enum asrtl_status asrtr_reactor_tick_flags( struct asrtr_reactor* reac )
 {
         ASRTL_ASSERT( reac );
         ASRTL_ASSERT( reac->desc );
@@ -227,21 +206,21 @@ static enum asrtr_status asrtr_reactor_tick_flags( struct asrtr_reactor* reac )
                 mask = ~ASRTR_FLAG_DESC;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending description" );
                 if ( asrtr_reactor_tick_flag_desc( reac ) != ASRTR_SUCCESS )
-                        return ASRTR_SEND_ERR;
+                        return ASRTL_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_PROTO_VER ) {
                 mask = ~ASRTR_FLAG_PROTO_VER;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending protocol version" );
                 if ( asrtr_reactor_tick_flag_proto_ver( reac ) != ASRTR_SUCCESS )
-                        return ASRTR_SEND_ERR;
+                        return ASRTL_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TC ) {
                 mask = ~ASRTR_FLAG_TC;
                 if ( asrtr_reactor_tick_flag_tc( reac ) != ASRTR_SUCCESS )
-                        return ASRTR_SEND_ERR;
+                        return ASRTL_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TI ) {
                 mask = ~ASRTR_FLAG_TI;
                 ASRTL_INF_LOG( "asrtr_asrtr", "Sending test %u info", reac->recv_test_info_id );
                 if ( asrtr_reactor_tick_flag_test_info( reac ) != ASRTR_SUCCESS )
-                        return ASRTR_SEND_ERR;
+                        return ASRTL_SEND_ERR;
         } else if ( reac->flags & ASRTR_FLAG_TSTART ) {
                 mask = ~ASRTR_FLAG_TSTART;
                 ASRTL_INF_LOG(
@@ -250,20 +229,20 @@ static enum asrtr_status asrtr_reactor_tick_flags( struct asrtr_reactor* reac )
                     reac->recv_test_start_id,
                     reac->recv_test_run_id );
                 if ( asrtr_reactor_tick_flag_test_start( reac ) != ASRTR_SUCCESS )
-                        return ASRTR_SEND_ERR;
+                        return ASRTL_SEND_ERR;
         } else {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Unknown flag bits set: 0x%x", reac->flags );
                 reac->flags = 0;
-                return ASRTR_INTERNAL_ERR;
+                return ASRTL_INTERNAL_ERR;
         }
 
         if ( mask != 0 )
                 reac->flags &= mask;
 
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-static enum asrtr_status asrtr_reactor_tick_exec( struct asrtr_reactor* reac )
+static enum asrtl_status asrtr_reactor_tick_exec( struct asrtr_reactor* reac )
 {
         struct asrtr_record* record = &reac->record;
         ASRTL_ASSERT( record );
@@ -282,10 +261,10 @@ static enum asrtr_status asrtr_reactor_tick_exec( struct asrtr_reactor* reac )
                 reac->state = ASRTR_REAC_TEST_REPORT;
                 break;
         }
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-static enum asrtr_status asrtr_reactor_tick_report( struct asrtr_reactor* reac )
+static enum asrtl_status asrtr_reactor_tick_report( struct asrtr_reactor* reac )
 {
         struct asrtr_record* record = &reac->record;
         asrtl_test_result    res    = record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
@@ -294,13 +273,13 @@ static enum asrtr_status asrtr_reactor_tick_report( struct asrtr_reactor* reac )
         if ( asrtl_msg_rtoc_test_result( record->inpt->run_id, res, asrtr_send, reac ) !=
              ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test result" );
-                return ASRTR_SEND_ERR;
+                return ASRTL_SEND_ERR;
         }
         reac->state = ASRTR_REAC_IDLE;
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac )
+static enum asrtl_status asrtr_reactor_tick( struct asrtr_reactor* reac )
 {
         ASRTL_ASSERT( reac );
         ASRTL_ASSERT( reac->desc );
@@ -318,10 +297,10 @@ enum asrtr_status asrtr_reactor_tick( struct asrtr_reactor* reac )
                 break;
         }
 
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
+static enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff )
 {
         ASRTL_ASSERT( data );
         struct asrtr_reactor* r = (struct asrtr_reactor*) data;
@@ -428,5 +407,46 @@ enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asr
         else
                 reac->first_test = test;
         reac->last_test = test;
+        return ASRTR_SUCCESS;
+}
+
+enum asrtl_status asrtr_reactor_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtr_reactor_tick( (struct asrtr_reactor*) p /*, *(uint32_t*) arg*/ );
+        case ASRTL_EVENT_RECV:
+                return asrtr_reactor_recv( p, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtr_asrtr", "Received unexpected event on reactor channel" );
+        return ASRTL_INVALID_EVENT_ERR;
+}
+
+enum asrtr_status asrtr_reactor_init(
+    struct asrtr_reactor* reac,
+    struct asrtl_sender   sender,
+    char const*           desc )
+{
+        if ( !reac || !desc ) {
+                ASRTL_ERR_LOG( "asrtr_asrtr", "Invalid arguments to reactor init" );
+                return ASRTR_INIT_ERR;
+        }
+        *reac = ( struct asrtr_reactor ){
+            .node =
+                ( struct asrtl_node ){
+                    .chid     = ASRTL_CORE,
+                    .e_cb_ptr = reac,
+                    .e_cb     = asrtr_reactor_event,
+                    .next     = NULL,
+                },
+            .sendr              = sender,
+            .desc               = desc,
+            .first_test         = NULL,
+            .last_test          = NULL,
+            .state              = ASRTR_REAC_IDLE,
+            .flags              = 0,
+            .recv_test_info_id  = 0,
+            .recv_test_start_id = 0,
+        };
         return ASRTR_SUCCESS;
 }

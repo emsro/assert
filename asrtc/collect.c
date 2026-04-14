@@ -11,6 +11,7 @@
 #include "./collect.h"
 
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 
 #include <string.h>
 
@@ -148,10 +149,6 @@ static enum asrtl_status asrtc_collect_server_recv( void* data, struct asrtl_spa
         }
 }
 
-// ---------------------------------------------------------------------------
-// tick (heavy work)
-// ---------------------------------------------------------------------------
-
 static enum asrtl_status asrtc_collect_server_tick_ready_ack( struct asrtc_collect_server* server )
 {
         enum asrtl_status dst = asrtl_flat_tree_deinit( &server->tree );
@@ -176,7 +173,9 @@ static enum asrtl_status asrtc_collect_server_tick_ready_ack( struct asrtc_colle
         return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtc_collect_server_tick( struct asrtc_collect_server* server, uint32_t now )
+static enum asrtl_status asrtc_collect_server_tick(
+    struct asrtc_collect_server* server,
+    uint32_t                     now )
 {
         switch ( server->state ) {
         case ASRTC_COLLECT_SERVER_IDLE:
@@ -201,9 +200,18 @@ enum asrtl_status asrtc_collect_server_tick( struct asrtc_collect_server* server
         return ASRTL_SUCCESS;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+static enum asrtl_status asrtc_collect_server_event( void* p, enum asrtl_event_e e, void* arg )
+{
+        struct asrtc_collect_server* server = (struct asrtc_collect_server*) p;
+        switch ( e ) {
+        case ASRTL_EVENT_TICK:
+                return asrtc_collect_server_tick( server, *(uint32_t*) arg );
+        case ASRTL_EVENT_RECV:
+                return asrtc_collect_server_recv( server, *(struct asrtl_span*) arg );
+        }
+        ASRTL_ERR_LOG( "asrtc_collect", "unexpected event: %s", asrtl_event_to_str( e ) );
+        return ASRTL_INVALID_EVENT_ERR;
+}
 
 enum asrtc_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
@@ -219,8 +227,8 @@ enum asrtc_status asrtc_collect_server_init(
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_COLL,
-                    .recv_ptr = server,
-                    .recv_cb  = asrtc_collect_server_recv,
+                    .e_cb_ptr = server,
+                    .e_cb     = asrtc_collect_server_event,
                     .next     = NULL,
                 },
             .sendr          = sender,

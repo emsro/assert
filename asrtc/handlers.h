@@ -18,13 +18,13 @@ extern "C" {
 #include "./result.h"
 #include "./status.h"
 
-typedef enum asrtc_status ( *asrtc_init_callback )( void* ptr, enum asrtc_status s );
-typedef enum asrtc_status (
+typedef enum asrtl_status ( *asrtc_init_callback )( void* ptr, enum asrtc_status s );
+typedef enum asrtl_status (
     *asrtc_test_count_callback )( void* ptr, enum asrtc_status s, uint16_t test_count );
-typedef enum asrtc_status ( *asrtc_desc_callback )( void* ptr, enum asrtc_status s, char* desc );
-typedef enum asrtc_status (
+typedef enum asrtl_status ( *asrtc_desc_callback )( void* ptr, enum asrtc_status s, char* desc );
+typedef enum asrtl_status (
     *asrtc_test_info_callback )( void* ptr, enum asrtc_status s, uint16_t tid, char* desc );
-typedef enum asrtc_status (
+typedef enum asrtl_status (
     *asrtc_test_result_callback )( void* ptr, enum asrtc_status s, struct asrtc_result* res );
 
 enum asrtc_stage_e

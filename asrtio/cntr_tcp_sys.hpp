@@ -61,18 +61,7 @@ struct cntr_tcp_sys
         void tick()
         {
                 auto now = static_cast< uint32_t >( clk_.now().count() );
-                if ( auto s = cntr.tick( now ); s != ASRTC_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Controller tick failed: %s", asrtc_status_to_str( s ) );
-                if ( auto s = c_param.tick( now ); s != ASRTL_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Param tick failed: %s", asrtl_status_to_str( s ) );
-                if ( auto s = c_collect.tick( now ); s != ASRTL_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Collect tick failed: %s", asrtl_status_to_str( s ) );
-                if ( auto s = c_stream.tick( now ); s != ASRTC_SUCCESS )
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Stream tick failed: %s", asrtc_status_to_str( s ) );
+                asrtl_chann_tick_successors( cntr.node(), now );
         }
 
 
@@ -113,23 +102,24 @@ struct cntr_tcp_sys
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
 private:
-        bool                                                             disconnected_ = false;
-        uv_idle_t                                                        idle_handle;
-        std::shared_ptr< uv_tcp_t >                                      client;
-        clock const&                                                     clk_;
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            cntr_send{ [this]( asrtl_chann_id     id,
-                              asrtl_rec_span*    buff,
-                              asrtl_send_done_cb done_cb,
-                              void*              done_ptr ) -> asrtl_status {
-                    if ( disconnected_ )
-                            return ASRTL_SEND_ERR;
-                    auto st = rx.write( (uv_stream_t*) client.get(), id, *buff );
-                    if ( done_cb )
-                            done_cb( done_ptr, st );
-                    return st;
-            } };
+        bool                        disconnected_ = false;
+        uv_idle_t                   idle_handle;
+        std::shared_ptr< uv_tcp_t > client;
+        clock const&                clk_;
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            cntr_send{
+                [this](
+                    asrtl_chann_id     id,
+                    asrtl_rec_span*    buff,
+                    asrtl_send_done_cb done_cb,
+                    void*              done_ptr ) -> asrtl_status {
+                        if ( disconnected_ )
+                                return ASRTL_SEND_ERR;
+                        auto st = rx.write( (uv_stream_t*) client.get(), id, *buff );
+                        if ( done_cb )
+                                done_cb( done_ptr, st );
+                        return st;
+                } };
 
 public:
         asrtc::controller cntr{
@@ -176,14 +166,12 @@ struct suite_reporter
         virtual void on_diagnostic(
             std::string_view file,
             uint32_t         line,
-            std::string_view extra )               = 0;
-        virtual void on_collect_data(
-            std::string_view       name,
-            asrtl_flat_tree const* tree )           = 0;
+            std::string_view extra )                                                       = 0;
+        virtual void on_collect_data( std::string_view name, asrtl_flat_tree const* tree ) = 0;
         virtual void on_stream_data(
-            std::string_view              name,
+            std::string_view             name,
             asrtc::stream_schemas const& schemas ) = 0;
-        virtual ~suite_reporter()                   = default;
+        virtual ~suite_reporter()                  = default;
 };
 
 struct _cntr_set_param_tree
@@ -214,8 +202,8 @@ struct _cntr_set_param_tree
                 if ( auto s = sys.c_param.send_ready(
                          root_id,
                          { +[]( void* p, asrtc_status ) {
-                               static_cast< OP* >( p )->recv.set_value();
-                           },
+                                  static_cast< OP* >( p )->recv.set_value();
+                          },
                            &op },
                          static_cast< uint32_t >( timeout.count() ) );
                      s != ASRTL_SUCCESS ) {
@@ -253,8 +241,8 @@ struct _cntr_collect_ready
                 if ( auto s = sys.c_collect.send_ready(
                          root_id,
                          { +[]( void* p, asrtc_status ) {
-                               static_cast< OP* >( p )->recv.set_value();
-                           },
+                                  static_cast< OP* >( p )->recv.set_value();
+                          },
                            &op },
                          static_cast< uint32_t >( timeout.count() ) );
                      s != ASRTL_SUCCESS ) {
@@ -317,8 +305,10 @@ inline void write_strm_field( std::ostream& os, enum asrtl_strm_field_type_e ft,
         }
 }
 
-inline void write_stream_csv( output_fs& fs, std::filesystem::path const& path,
-                              asrtc_stream_schema const& sc )
+inline void write_stream_csv(
+    output_fs&                   fs,
+    std::filesystem::path const& path,
+    asrtc_stream_schema const&   sc )
 {
         auto  w  = fs.open_write( path );
         auto& os = w.stream();
@@ -339,9 +329,13 @@ inline void write_stream_csv( output_fs& fs, std::filesystem::path const& path,
         }
 }
 
-inline void handle_stream( cntr_tcp_sys& sys, suite_reporter& reporter,
-                          std::string_view name, output_fs& fs,
-                          std::filesystem::path const& run_dir, bool do_output )
+inline void handle_stream(
+    cntr_tcp_sys&                sys,
+    suite_reporter&              reporter,
+    std::string_view             name,
+    output_fs&                   fs,
+    std::filesystem::path const& run_dir,
+    bool                         do_output )
 {
         auto schemas = sys.stream().take();
         if ( schemas->schema_count == 0 )
@@ -353,15 +347,17 @@ inline void handle_stream( cntr_tcp_sys& sys, suite_reporter& reporter,
         for ( uint32_t si = 0; si < ss.schema_count; ++si ) {
                 auto const& sc = ss.schemas[si];
                 write_stream_csv(
-                    fs,
-                    run_dir / ( "stream." + std::to_string( sc.schema_id ) + ".csv" ),
-                    sc );
+                    fs, run_dir / ( "stream." + std::to_string( sc.schema_id ) + ".csv" ), sc );
         }
 }
 
-inline void handle_collect( cntr_tcp_sys& sys, suite_reporter& reporter,
-                           std::string_view name, output_fs& fs,
-                           std::filesystem::path const& path, bool do_output )
+inline void handle_collect(
+    cntr_tcp_sys&                sys,
+    suite_reporter&              reporter,
+    std::string_view             name,
+    output_fs&                   fs,
+    std::filesystem::path const& path,
+    bool                         do_output )
 {
         auto const* tree = sys.collect().tree();
         if ( !tree )
@@ -376,9 +372,12 @@ inline void handle_collect( cntr_tcp_sys& sys, suite_reporter& reporter,
         }
 }
 
-inline void handle_diag( cntr_tcp_sys& sys, suite_reporter& reporter,
-                        output_fs& fs, std::filesystem::path const& path,
-                        bool do_output )
+inline void handle_diag(
+    cntr_tcp_sys&                sys,
+    suite_reporter&              reporter,
+    output_fs&                   fs,
+    std::filesystem::path const& path,
+    bool                         do_output )
 {
         std::optional< file_writer > w;
         if ( do_output ) {

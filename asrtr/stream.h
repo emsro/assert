@@ -100,9 +100,6 @@ enum asrtr_status asrtr_stream_client_emit(
 /// transaction is in progress (DEFINE_SEND or DEFINE_WAIT).
 enum asrtr_status asrtr_stream_client_reset( struct asrtr_stream_client* client );
 
-/// Process pending operations.  Drives the state machine one step.
-enum asrtr_status asrtr_stream_client_tick( struct asrtr_stream_client* client );
-
 #ifdef __cplusplus
 }
 #endif

@@ -88,10 +88,10 @@ struct _cntr_start
                                         "Controller start callback failed: %s",
                                         asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::init_failed );
-                            } else {
-                                    op.recv.set_value();
+                                    return ASRTL_SUCCESS;
                             }
-                            return s;
+                            op.recv.set_value();
+                            return ASRTL_SUCCESS;
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( x != ASRTC_SUCCESS )
@@ -127,10 +127,10 @@ struct _cntr_query_test_count
                                         "Query test count failed: %s",
                                         asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
-                                    return ASRTC_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             op.recv.set_value( count );
-                            return ASRTC_SUCCESS;
+                            return ASRTL_SUCCESS;
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
@@ -175,10 +175,10 @@ struct _cntr_query_test_info
                                         "Query test info failed: %s",
                                         asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
-                                    return ASRTC_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             op.recv.set_value( tid, std::string( desc ) );
-                            return ASRTC_SUCCESS;
+                            return ASRTL_SUCCESS;
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {
@@ -218,10 +218,10 @@ struct _cntr_exec_test
                                         "Test execution failed: %s",
                                         asrtc_status_to_str( s ) );
                                     op.recv.set_error( status::query_failed );
-                                    return ASRTC_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             op.recv.set_value( res );
-                            return ASRTC_SUCCESS;
+                            return ASRTL_SUCCESS;
                     },
                     static_cast< uint32_t >( timeout.count() ) );
                 if ( s != ASRTC_SUCCESS ) {

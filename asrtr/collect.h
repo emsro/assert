@@ -49,9 +49,6 @@ enum asrtr_status asrtr_collect_client_init(
     struct asrtr_collect_client* client,
     struct asrtl_node*           prev,
     struct asrtl_sender          sender );
-/// Process pending work: sends READY_ACK when READY has been received.
-/// Must be called periodically.
-enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client* client );
 
 /// Append a single node to the controller's tree (fire-and-forget).
 ///
