@@ -37,7 +37,10 @@ struct diag
                 asrtr_diag_record( &diag_, file, line, extra );
         }
 
-        ~diag() = default;
+        ~diag()
+        {
+                asrtr_diag_deinit( &diag_ );
+        }
 
 private:
         asrtr_diag diag_;

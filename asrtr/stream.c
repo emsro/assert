@@ -204,6 +204,13 @@ enum asrtr_status asrtr_stream_client_init(
             .sendr = sender,
             .state = ASRTR_STRM_IDLE,
         };
-        prev->next = &client->node;
+        asrtl_node_link( prev, &client->node );
         return ASRTR_SUCCESS;
+}
+
+void asrtr_stream_client_deinit( struct asrtr_stream_client* client )
+{
+        if ( !client )
+                return;
+        asrtl_node_unlink( &client->node );
 }

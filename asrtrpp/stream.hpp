@@ -160,7 +160,10 @@ struct stream_client
                 return asrtr_stream_client_reset( &client_ );
         }
 
-        ~stream_client() = default;
+        ~stream_client()
+        {
+                asrtr_stream_client_deinit( &client_ );
+        }
 
 private:
         asrtr_stream_client client_;

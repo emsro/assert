@@ -74,6 +74,9 @@ enum asrtr_status asrtr_stream_client_init(
     struct asrtl_node*          prev,
     struct asrtl_sender         sender );
 
+/// Deinitialise a stream client and unlink it from the node chain.
+void asrtr_stream_client_deinit( struct asrtr_stream_client* client );
+
 /// Prepare a DEFINE message with a definition of schema. This will be sent from tick() and done
 /// will be called once the sender acknowledges the send. The caller must keep the \c fields array
 /// alive until the done_cb fires (or tick() returns when no callback is set).

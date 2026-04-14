@@ -262,7 +262,7 @@ enum asrtc_status asrtc_param_server_init(
             .timeout      = 0,
             .deadline     = 0,
         };
-        prev->next = &param->node;
+        asrtl_node_link( prev, &param->node );
         return ASRTC_SUCCESS;
 }
 
@@ -303,6 +303,9 @@ enum asrtl_status asrtc_param_server_send_ready(
 
 void asrtc_param_server_deinit( struct asrtc_param_server* param )
 {
-        if ( param && param->enc_buff )
+        if ( !param )
+                return;
+        asrtl_node_unlink( &param->node );
+        if ( param->enc_buff )
                 asrtl_free( &param->alloc, (void**) &param->enc_buff );
 }

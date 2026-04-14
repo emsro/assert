@@ -50,6 +50,10 @@ enum asrtr_status asrtr_collect_client_init(
     struct asrtl_node*           prev,
     struct asrtl_sender          sender );
 
+/// Deinitialise a collect client and unlink it from the node chain.
+///
+void asrtr_collect_client_deinit( struct asrtr_collect_client* client );
+
 /// Append a single node to the controller's tree (fire-and-forget).
 ///
 /// The node_id is auto-assigned from the internal counter.  For container

@@ -135,7 +135,7 @@ enum asrtc_status asrtc_diag_init(
             .first_rec = NULL,
             .last_rec  = NULL,
         };
-        prev->next = &diag->node;
+        asrtl_node_link( prev, &diag->node );
         return ASRTC_SUCCESS;
 }
 
@@ -155,6 +155,7 @@ enum asrtc_status asrtc_diag_deinit( struct asrtc_diag* diag )
         if ( !diag )
                 return ASRTC_CNTR_INIT_ERR;
 
+        asrtl_node_unlink( &diag->node );
         struct asrtc_diag_record* rec = diag->first_rec;
         while ( rec ) {
                 struct asrtc_diag_record* next = rec->next;

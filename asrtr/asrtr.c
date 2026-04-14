@@ -62,8 +62,15 @@ enum asrtr_status asrtr_diag_init(
                 },
             .sendr = sender,
         };
-        prev->next = &diag->node;
+        asrtl_node_link( prev, &diag->node );
         return ASRTR_SUCCESS;
+}
+
+void asrtr_diag_deinit( struct asrtr_diag* diag )
+{
+        if ( !diag )
+                return;
+        asrtl_node_unlink( &diag->node );
 }
 
 static inline enum asrtl_status asrtr_diag_send_cb( void* ptr, struct asrtl_rec_span* sp )
@@ -449,4 +456,11 @@ enum asrtr_status asrtr_reactor_init(
             .recv_test_start_id = 0,
         };
         return ASRTR_SUCCESS;
+}
+
+void asrtr_reactor_deinit( struct asrtr_reactor* reac )
+{
+        if ( !reac )
+                return;
+        asrtl_node_unlink( &reac->node );
 }

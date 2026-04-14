@@ -151,7 +151,10 @@ struct collect_client
                 return append< T >( parent, nullptr, out );
         }
 
-        ~collect_client() = default;
+        ~collect_client()
+        {
+                asrtr_collect_client_deinit( &client_ );
+        }
 
 private:
         asrtr_collect_client client_;

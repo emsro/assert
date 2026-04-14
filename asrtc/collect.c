@@ -246,7 +246,7 @@ enum asrtc_status asrtc_collect_server_init(
         if ( st != ASRTL_SUCCESS )
                 return ASRTC_CNTR_INIT_ERR;
 
-        prev->next = &server->node;
+        asrtl_node_link( prev, &server->node );
         return ASRTC_SUCCESS;
 }
 
@@ -289,5 +289,6 @@ void asrtc_collect_server_deinit( struct asrtc_collect_server* server )
 {
         if ( !server )
                 return;
+        asrtl_node_unlink( &server->node );
         asrtl_flat_tree_deinit( &server->tree );
 }

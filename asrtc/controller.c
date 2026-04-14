@@ -55,6 +55,7 @@ enum asrtc_status asrtc_cntr_start(
 void asrtc_cntr_deinit( struct asrtc_controller* c )
 {
         ASRTL_ASSERT( c );
+        asrtl_node_unlink( &c->node );
         if ( c->state == ASRTC_CNTR_HNDL_DESC && c->hndl.desc.desc )
                 asrtl_free( &c->alloc, (void**) &c->hndl.desc.desc );
         else if ( c->state == ASRTC_CNTR_HNDL_TI && c->hndl.ti.desc )

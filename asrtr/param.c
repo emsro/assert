@@ -361,7 +361,7 @@ enum asrtr_status asrtr_param_client_init(
             .timeout            = timeout,
             .pending            = ASRTR_PARAM_CLIENT_PENDING_NONE,
         };
-        prev->next = &client->node;
+        asrtl_node_link( prev, &client->node );
         return ASRTR_SUCCESS;
 }
 
@@ -401,5 +401,7 @@ enum asrtl_status asrtr_param_client_query(
 
 void asrtr_param_client_deinit( struct asrtr_param_client* client )
 {
-        (void) client;
+        if ( !client )
+                return;
+        asrtl_node_unlink( &client->node );
 }

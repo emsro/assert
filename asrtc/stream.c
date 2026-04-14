@@ -253,7 +253,7 @@ enum asrtc_status asrtc_stream_server_init(
             .alloc = alloc,
         };
         memset( (void*) server->lookup, 0, sizeof server->lookup );
-        prev->next = &server->node;
+        asrtl_node_link( prev, &server->node );
         return ASRTC_SUCCESS;
 }
 
@@ -318,5 +318,6 @@ void asrtc_stream_server_clear( struct asrtc_stream_server* server )
 
 void asrtc_stream_server_deinit( struct asrtc_stream_server* server )
 {
+        asrtl_node_unlink( &server->node );
         asrtc_stream_server_clear( server );
 }

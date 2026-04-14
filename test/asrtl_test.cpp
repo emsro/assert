@@ -2288,3 +2288,78 @@ TEST_CASE( "strm_proto: data propagates callback error" )
 
         CHECK_EQ( asrtl_msg_rtoc_strm_data( 0, payload, 1, fail_cb, nullptr ), ASRTL_SEND_ERR );
 }
+
+// ============================================================================
+// asrtl_node_link / asrtl_node_unlink
+// ============================================================================
+
+static struct asrtl_node make_node( asrtl_chann_id chid )
+{
+        return ( struct asrtl_node ){
+            .chid     = chid,
+            .e_cb_ptr = NULL,
+            .e_cb     = NULL,
+            .next     = NULL,
+            .prev     = NULL,
+        };
+}
+
+TEST_CASE( "node_link_appends_after" )
+{
+        struct asrtl_node head  = make_node( 1 );
+        struct asrtl_node child = make_node( 2 );
+
+        asrtl_node_link( &head, &child );
+
+        CHECK_EQ( head.next, &child );
+        CHECK_EQ( child.prev, &head );
+        CHECK_EQ( child.next, (struct asrtl_node*) NULL );
+}
+
+TEST_CASE( "node_link_three_nodes_chain" )
+{
+        struct asrtl_node n1 = make_node( 1 );
+        struct asrtl_node n2 = make_node( 2 );
+        struct asrtl_node n3 = make_node( 3 );
+
+        asrtl_node_link( &n1, &n2 );
+        asrtl_node_link( &n2, &n3 );
+
+        CHECK_EQ( n1.next, &n2 );
+        CHECK_EQ( n2.prev, &n1 );
+        CHECK_EQ( n2.next, &n3 );
+        CHECK_EQ( n3.prev, &n2 );
+        CHECK_EQ( n3.next, (struct asrtl_node*) NULL );
+}
+
+TEST_CASE( "node_unlink_middle_node_patches_neighbours" )
+{
+        struct asrtl_node n1 = make_node( 1 );
+        struct asrtl_node n2 = make_node( 2 );
+        struct asrtl_node n3 = make_node( 3 );
+
+        asrtl_node_link( &n1, &n2 );
+        asrtl_node_link( &n2, &n3 );
+
+        asrtl_node_unlink( &n2 );
+
+        // n1 should now point directly to n3
+        CHECK_EQ( n1.next, &n3 );
+        CHECK_EQ( n3.prev, &n1 );
+        // n2 pointers should be cleared
+        CHECK_EQ( n2.next, (struct asrtl_node*) NULL );
+        CHECK_EQ( n2.prev, (struct asrtl_node*) NULL );
+}
+
+TEST_CASE( "node_unlink_last_node" )
+{
+        struct asrtl_node n1 = make_node( 1 );
+        struct asrtl_node n2 = make_node( 2 );
+
+        asrtl_node_link( &n1, &n2 );
+        asrtl_node_unlink( &n2 );
+
+        CHECK_EQ( n1.next, (struct asrtl_node*) NULL );
+        CHECK_EQ( n2.prev, (struct asrtl_node*) NULL );
+        CHECK_EQ( n2.next, (struct asrtl_node*) NULL );
+}

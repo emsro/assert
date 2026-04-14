@@ -120,7 +120,7 @@ enum asrtr_status asrtr_collect_client_init(
             .next_node_id = 1,
         };
 
-        prev->next = &client->node;
+        asrtl_node_link( prev, &client->node );
         return ASRTR_SUCCESS;
 }
 
@@ -146,4 +146,11 @@ enum asrtl_status asrtr_collect_client_append(
         if ( st == ASRTL_SUCCESS && out_id )
                 *out_id = node_id;
         return st;
+}
+
+void asrtr_collect_client_deinit( struct asrtr_collect_client* client )
+{
+        if ( !client )
+                return;
+        asrtl_node_unlink( &client->node );
 }

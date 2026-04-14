@@ -38,6 +38,7 @@ void asrtr_diag_record(
     char const*        file,
     uint32_t           line,
     char const*        extra );
+void asrtr_diag_deinit( struct asrtr_diag* diag );
 
 // Helper macro to record filename, if the method in question does not work, alternatives are:
 // - -DASRTR_FILENAME=__FILE__ directly (but it is long and includes path)

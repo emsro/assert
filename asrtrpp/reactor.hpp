@@ -77,7 +77,10 @@ struct reactor
                 asrtr_reactor_add_test( &reac, &test );
         }
 
-        ~reactor() = default;
+        ~reactor()
+        {
+                asrtr_reactor_deinit( &reac );
+        }
 
 private:
         asrtr_reactor reac;

@@ -64,7 +64,32 @@ struct asrtl_node
         void*                e_cb_ptr;
         asrtl_event_callback e_cb;
         struct asrtl_node*   next;
+        struct asrtl_node*   prev;
 };
+
+/// Insert `node` after `after` in the chain.
+static inline void asrtl_node_link( struct asrtl_node* after, struct asrtl_node* node )
+{
+        ASRTL_ASSERT( after );
+        ASRTL_ASSERT( node );
+        node->next = after->next;
+        node->prev = after;
+        if ( after->next )
+                after->next->prev = node;
+        after->next = node;
+}
+
+/// Remove `node` from the chain, patching prev/next neighbours.
+static inline void asrtl_node_unlink( struct asrtl_node* node )
+{
+        ASRTL_ASSERT( node );
+        if ( node->prev )
+                node->prev->next = node->next;
+        if ( node->next )
+                node->next->prev = node->prev;
+        node->next = NULL;
+        node->prev = NULL;
+}
 
 static inline enum asrtl_status asrtl_chann_recv( struct asrtl_node* node, struct asrtl_span buff )
 {

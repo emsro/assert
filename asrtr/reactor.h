@@ -83,6 +83,7 @@ enum asrtr_status asrtr_test_init(
     void*               ptr,
     asrtr_test_callback start_f );
 enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
+void              asrtr_reactor_deinit( struct asrtr_reactor* reac );
 
 #ifdef __cplusplus
 }
