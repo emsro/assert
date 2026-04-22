@@ -19,9 +19,9 @@ extern "C" {
 #include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/span.h"
+#include "../asrtl/status.h"
 #include "./callbacks.h"
 #include "./handlers.h"
-#include "./status.h"
 
 enum asrtc_cntr_state
 {
@@ -54,13 +54,13 @@ struct asrtc_controller
         } hndl;
 };
 
-enum asrtc_status asrtc_cntr_init(
+enum asrtl_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
     struct asrtl_allocator   alloc,
     struct asrtc_error_cb    eh );
 
-enum asrtc_status asrtc_cntr_start(
+enum asrtl_status asrtc_cntr_start(
     struct asrtc_controller* c,
     asrtc_init_callback      cb,
     void*                    ptr,
@@ -68,24 +68,24 @@ enum asrtc_status asrtc_cntr_start(
 
 uint32_t asrtc_cntr_idle( struct asrtc_controller const* c );
 
-enum asrtc_status asrtc_cntr_desc(
+enum asrtl_status asrtc_cntr_desc(
     struct asrtc_controller* c,
     asrtc_desc_callback      cb,
     void*                    ptr,
     uint32_t                 timeout );
-enum asrtc_status asrtc_cntr_test_count(
+enum asrtl_status asrtc_cntr_test_count(
     struct asrtc_controller*  c,
     asrtc_test_count_callback cb,
     void*                     ptr,
     uint32_t                  timeout );
-enum asrtc_status asrtc_cntr_test_info(
+enum asrtl_status asrtc_cntr_test_info(
     struct asrtc_controller* c,
     uint16_t                 id,
     asrtc_test_info_callback cb,
     void*                    ptr,
     uint32_t                 timeout );
 
-enum asrtc_status asrtc_cntr_test_exec(
+enum asrtl_status asrtc_cntr_test_exec(
     struct asrtc_controller*   c,
     uint16_t                   id,
     asrtc_test_result_callback cb,

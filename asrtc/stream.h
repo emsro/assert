@@ -18,7 +18,6 @@ extern "C" {
 #include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/stream_proto.h"
-#include "./status.h"
 
 #include <stdint.h>
 
@@ -73,7 +72,7 @@ struct asrtc_stream_server
 };
 
 /// Initialise a stream server and link it into the node chain.
-enum asrtc_status asrtc_stream_server_init(
+enum asrtl_status asrtc_stream_server_init(
     struct asrtc_stream_server* server,
     struct asrtl_node*          prev,
     struct asrtl_sender         sender,

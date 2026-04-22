@@ -168,7 +168,7 @@ static enum asrtl_status asrtc_collect_server_tick_ready_ack( struct asrtc_colle
         if ( server->cmd.ack_cb ) {
                 asrtc_collect_ready_ack_cb cb = server->cmd.ack_cb;
                 void*                      p  = server->cmd.ack_cb_ptr;
-                cb( p, ASRTC_SUCCESS );
+                cb( p, ASRTL_SUCCESS );
         }
         return ASRTL_SUCCESS;
 }
@@ -190,7 +190,7 @@ static enum asrtl_status asrtc_collect_server_tick(
                         void*                      p  = server->cmd.ack_cb_ptr;
                         server->state                 = ASRTC_COLLECT_SERVER_IDLE;
                         if ( cb )
-                                cb( p, ASRTC_TIMEOUT_ERR );
+                                cb( p, ASRTL_TIMEOUT_ERR );
                 }
                 return ASRTL_SUCCESS;
 
@@ -213,7 +213,7 @@ static enum asrtl_status asrtc_collect_server_event( void* p, enum asrtl_event_e
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtc_status asrtc_collect_server_init(
+enum asrtl_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
     struct asrtl_node*           prev,
     struct asrtl_sender          sender,
@@ -222,7 +222,7 @@ enum asrtc_status asrtc_collect_server_init(
     uint32_t                     tree_node_cap )
 {
         if ( !server || !prev )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *server = ( struct asrtc_collect_server ){
             .node =
                 ( struct asrtl_node ){
@@ -244,10 +244,10 @@ enum asrtc_status asrtc_collect_server_init(
         enum asrtl_status st =
             asrtl_flat_tree_init( &server->tree, alloc, tree_block_cap, tree_node_cap );
         if ( st != ASRTL_SUCCESS )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
 
         asrtl_node_link( prev, &server->node );
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 enum asrtl_status asrtc_collect_server_send_ready(

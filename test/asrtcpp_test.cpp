@@ -9,15 +9,15 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+
 #include "../asrtc/result.h"
-#include "../asrtc/status_to_str.h"
 #include "../asrtcpp/collect.hpp"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
-#include "../asrtcpp/fmt.hpp"
 #include "../asrtcpp/param.hpp"
 #include "../asrtl/collect_proto.h"
 #include "../asrtl/log.h"
+#include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
@@ -82,7 +82,7 @@ struct failing_test
 struct paired_ctx
 {
         int           init_cb_count = 0;
-        asrtc::status init_status   = ASRTC_SUCCESS;
+        asrtc::status init_status   = ASRTL_SUCCESS;
         uint32_t      t             = 1;
 
         asrtl::opt< asrtc::controller > c;
@@ -93,17 +93,16 @@ struct paired_ctx
         // Must be declared before `r` so it is constructed (and valid) before the reactor
         // captures &r_send as its sender pointer.  asrtlpp/sender.hpp stores &CB, so the
         // lambda object must outlive the reactor.
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
             r_send;
 
         // Stable send callable for the controller; must outlive `c`.
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            c_send{ [this]( asrtl_chann_id,
-                           asrtl_rec_span*    buff,
-                           asrtl_send_done_cb done_cb,
-                           void*              done_ptr ) {
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            c_send{ [this](
+                        asrtl_chann_id,
+                        asrtl_rec_span*    buff,
+                        asrtl_send_done_cb done_cb,
+                        void*              done_ptr ) {
                     auto              flat = flatten( buff );
                     auto              sp   = asrtl::cnv( std::span{ flat } );
                     auto*             rn   = r.node();
@@ -116,10 +115,11 @@ struct paired_ctx
         asrtr::reactor r;
 
         paired_ctx()
-          : r_send( [this]( asrtl_chann_id,
-                           asrtl_rec_span*    buff,
-                           asrtl_send_done_cb done_cb,
-                           void*              done_ptr ) {
+          : r_send( [this](
+                        asrtl_chann_id,
+                        asrtl_rec_span*    buff,
+                        asrtl_send_done_cb done_cb,
+                        void*              done_ptr ) {
                   auto              flat = flatten( buff );
                   auto              sp   = asrtl::cnv( std::span{ flat } );
                   auto*             cn   = ( *c ).node();
@@ -135,10 +135,11 @@ struct paired_ctx
 
                 c.emplace(
                     // controller sends → flatten + forward to reactor's recv_cb
-                    c_send,
+                    asrtl::make_sender( c_send ),
+                    asrtl_default_allocator(),
                     // error callback
                     []( asrtl::source, asrtl::ecode ) -> asrtc::status {
-                            return ASRTC_SUCCESS;
+                            return ASRTL_SUCCESS;
                     } );
 
                 // start init handshake
@@ -175,14 +176,14 @@ struct paired_ctx
 
 TEST_CASE( "fmt_success" )
 {
-        std::string s = std::format( "{}", ASRTC_SUCCESS );
-        CHECK_EQ( s, asrtc_status_to_str( ASRTC_SUCCESS ) );
+        std::string s = std::format( "{}", ASRTL_SUCCESS );
+        CHECK_EQ( s, asrtl_status_to_str( ASRTL_SUCCESS ) );
 }
 
 TEST_CASE( "fmt_error" )
 {
-        std::string s = std::format( "{}", ASRTC_CNTR_INIT_ERR );
-        CHECK_EQ( s, asrtc_status_to_str( ASRTC_CNTR_INIT_ERR ) );
+        std::string s = std::format( "{}", ASRTL_INIT_ERR );
+        CHECK_EQ( s, asrtl_status_to_str( ASRTL_INIT_ERR ) );
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +194,7 @@ TEST_CASE_FIXTURE( paired_ctx, "controller_init" )
         CHECK( c->is_idle() );
         CHECK_NE( nullptr, c->node() );
         CHECK_EQ( ASRTL_CORE, c->node()->chid );
-        CHECK_EQ( ASRTC_SUCCESS, init_status );
+        CHECK_EQ( ASRTL_SUCCESS, init_status );
 }
 
 TEST_CASE_FIXTURE( paired_ctx, "init_cb_fires_once" )
@@ -210,12 +211,12 @@ TEST_CASE_FIXTURE( paired_ctx, "query_desc" )
         std::string   received;
         asrtc::status st = c->query_desc(
             [&]( asrtc::status s, std::string_view sv ) -> asrtl::status {
-                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    CHECK_EQ( ASRTL_SUCCESS, s );
                     received = std::string{ sv };
                     return ASRTL_SUCCESS;
             },
             1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         spin();
         CHECK_EQ( "paired_reactor", received );
 }
@@ -230,12 +231,12 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_count" )
         uint32_t      count = 0;
         asrtc::status st    = c->query_test_count(
             [&]( asrtc::status s, uint32_t n ) -> asrtl::status {
-                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    CHECK_EQ( ASRTL_SUCCESS, s );
                     count = n;
                     return ASRTL_SUCCESS;
             },
             1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         spin();
         CHECK_EQ( 2u, count );
 }
@@ -250,13 +251,13 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
         asrtc::status st = c->query_test_info(
             0,
             [&]( asrtc::status s, uint16_t t, std::string_view sv ) -> asrtl::status {
-                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    CHECK_EQ( ASRTL_SUCCESS, s );
                     tid  = t;
                     name = std::string{ sv };
                     return ASRTL_SUCCESS;
             },
             1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         spin();
         CHECK_EQ( 0u, tid );
         CHECK_EQ( "passing_test", name );
@@ -271,12 +272,12 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
         asrtc::status     st  = c->exec_test(
             0,
             [&]( asrtc::status s, asrtc::result const& r ) -> asrtl::status {
-                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    CHECK_EQ( ASRTL_SUCCESS, s );
                     res = r.res;
                     return ASRTL_SUCCESS;
             },
             1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         spin();
         CHECK_EQ( ASRTC_TEST_SUCCESS, res );
 }
@@ -287,12 +288,12 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
         asrtc::status     st  = c->exec_test(
             1,
             [&]( asrtc::status s, asrtc::result const& r ) -> asrtl::status {
-                    CHECK_EQ( ASRTC_SUCCESS, s );
+                    CHECK_EQ( ASRTL_SUCCESS, s );
                     res = r.res;
                     return ASRTL_SUCCESS;
             },
             1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         spin();
         CHECK_EQ( ASRTC_TEST_FAILURE, res );
 }
@@ -307,7 +308,7 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 
         // start the first query — succeeds, callback stored
         CHECK_EQ(
-            ASRTC_SUCCESS,
+            ASRTL_SUCCESS,
             c->query_desc(
                 [&]( asrtc::status, std::string_view ) -> asrtl::status {
                         first_called = true;
@@ -317,7 +318,7 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 
         // controller is now busy — second query must be rejected; its callback must NOT be stored
         CHECK_EQ(
-            ASRTC_CNTR_BUSY_ERR,
+            ASRTL_BUSY_ERR,
             c->query_test_count(
                 [&]( asrtc::status, uint32_t ) -> asrtl::status {
                         second_called = true;
@@ -346,12 +347,12 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 struct diag_paired_ctx : paired_ctx
 {
         // c_diag sends → r_diag (controller-to-reactor direction)
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            c_diag_send{ [this]( asrtl_chann_id,
-                                asrtl_rec_span*    buff,
-                                asrtl_send_done_cb done_cb,
-                                void*              done_ptr ) {
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            c_diag_send{ [this](
+                             asrtl_chann_id,
+                             asrtl_rec_span*    buff,
+                             asrtl_send_done_cb done_cb,
+                             void*              done_ptr ) {
                     auto              flat = flatten( buff );
                     auto              sp   = asrtl::cnv( std::span{ flat } );
                     auto*             rn   = r_diag.node();
@@ -361,15 +362,15 @@ struct diag_paired_ctx : paired_ctx
                     return st;
             } };
 
-        asrtc::diag c_diag{ ( *c ).node(), c_diag_send };
+        asrtc::diag c_diag{ ( *c ).node(), c_diag_send, asrtl_default_allocator() };
 
         // r_diag sends → c_diag (reactor-to-controller direction)
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            r_diag_send{ [this]( asrtl_chann_id,
-                                asrtl_rec_span*    buff,
-                                asrtl_send_done_cb done_cb,
-                                void*              done_ptr ) {
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            r_diag_send{ [this](
+                             asrtl_chann_id,
+                             asrtl_rec_span*    buff,
+                             asrtl_send_done_cb done_cb,
+                             void*              done_ptr ) {
                     auto              flat = flatten( buff );
                     auto              sp   = asrtl::cnv( std::span{ flat } );
                     auto*             rn   = c_diag.node();
@@ -420,10 +421,10 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
         // both a controller query and a diag record in flight at the same time
         std::string desc;
         CHECK_EQ(
-            ASRTC_SUCCESS,
+            ASRTL_SUCCESS,
             c->query_desc(
                 [&]( asrtc::status s, std::string_view sv ) -> asrtl::status {
-                        CHECK_EQ( ASRTC_SUCCESS, s );
+                        CHECK_EQ( ASRTL_SUCCESS, s );
                         desc = std::string{ sv };
                         return ASRTL_SUCCESS;
                 },
@@ -447,14 +448,13 @@ struct param_server_ctx : paired_ctx
 {
         collector param_coll;
 
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            param_send{ [this]( asrtl_chann_id     id,
-                               asrtl_rec_span*    buff,
-                               asrtl_send_done_cb done_cb,
-                               void*              done_ptr ) {
-                    return sender_collect(
-                        &param_coll, id, buff, done_cb, done_ptr );
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            param_send{ [this](
+                            asrtl_chann_id     id,
+                            asrtl_rec_span*    buff,
+                            asrtl_send_done_cb done_cb,
+                            void*              done_ptr ) {
+                    return sender_collect( &param_coll, id, buff, done_cb, done_ptr );
             } };
 
         asrtc::param_server srv{ ( *c ).node(), param_send, asrtl_default_allocator() };
@@ -474,7 +474,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
         asrtl_flat_tree_append_scalar( &tree, 1, 2, "k", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
 
         srv.set_tree( &tree );
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
 
         REQUIRE_EQ( 1u, param_coll.data.size() );
@@ -494,7 +494,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
         srv.set_tree( &tree );
 
         int  ack_count = 0;
-        auto on_ack    = [&]( asrtc_status ) {
+        auto on_ack    = [&]( asrtl_status ) {
                 ++ack_count;
         };
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, on_ack, 1000 ) );
@@ -550,12 +550,12 @@ struct collect_server_ctx
 {
         collector coll;
 
-        std::function< asrtl_status(
-            asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            send_fn{ [this]( asrtl_chann_id     id,
-                            asrtl_rec_span*    buff,
-                            asrtl_send_done_cb done_cb,
-                            void*              done_ptr ) {
+        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
+            send_fn{ [this](
+                         asrtl_chann_id     id,
+                         asrtl_rec_span*    buff,
+                         asrtl_send_done_cb done_cb,
+                         void*              done_ptr ) {
                     return sender_collect( &coll, id, buff, done_cb, done_ptr );
             } };
 
@@ -566,7 +566,7 @@ struct collect_server_ctx
 
         void make_active( asrtl::flat_id root_id = 0 )
         {
-                auto noop = []( asrtc_status ) {};
+                auto noop = []( asrtl_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( root_id, noop, 1000 ) );
                 coll.data.clear();
                 uint8_t buf[16];
@@ -591,7 +591,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_next_node_id_starts_at_1"
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 {
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 5u, noop, 1000 ) );
 
         REQUIRE_EQ( 1u, coll.data.size() );
@@ -608,7 +608,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_ready_ack_fires_cb" )
 {
         int  ack_count = 0;
-        auto on_ack    = [&]( asrtc_status ) {
+        auto on_ack    = [&]( asrtl_status ) {
                 ++ack_count;
         };
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, on_ack, 1000 ) );

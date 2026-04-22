@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../asrtc/controller.h"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtlpp/task.hpp"
 #include "./task.hpp"
@@ -68,10 +69,10 @@ struct _cntr_start
 {
         using value_sig = ecor::set_value_t();
 
-        asrtc::controller&        cntr;
+        asrtc_controller&         cntr;
         std::chrono::milliseconds timeout;
 
-        _cntr_start( asrtc::controller& c, std::chrono::milliseconds timeout )
+        _cntr_start( asrtc_controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
           , timeout( timeout )
         {
@@ -80,25 +81,28 @@ struct _cntr_start
         template < typename OP >
         void start( OP& op )
         {
-                auto x = cntr.start(
-                    [&op]( asrtc::status s ) {
-                            if ( s != ASRTC_SUCCESS ) {
+                auto s = asrtc_cntr_start(
+                    &cntr,
+                    +[]( void* p, asrtl_status s ) -> asrtl_status {
+                            auto* op_ = static_cast< OP* >( p );
+                            if ( s != ASRTL_SUCCESS ) {
                                     ASRTL_ERR_LOG(
                                         "asrtio_main",
                                         "Controller start callback failed: %s",
-                                        asrtc_status_to_str( s ) );
-                                    op.recv.set_error( status::init_failed );
+                                        asrtl_status_to_str( s ) );
+                                    op_->recv.set_error( status::init_failed );
                                     return ASRTL_SUCCESS;
                             }
-                            op.recv.set_value();
+                            op_->recv.set_value();
                             return ASRTL_SUCCESS;
                     },
+                    &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( x != ASRTC_SUCCESS )
+                if ( s != ASRTL_SUCCESS )
                         ASRTL_ERR_LOG(
                             "asrtio_main",
                             "Controller start failed: %s",
-                            asrtc_status_to_str( x ) );
+                            asrtl_status_to_str( s ) );
         }
 };
 using cntr_start = asrtl::gen_sender< _cntr_start, status >;
@@ -107,10 +111,10 @@ struct _cntr_query_test_count
 {
         using value_sig = ecor::set_value_t( uint32_t );
 
-        asrtc::controller&        cntr;
+        asrtc_controller&         cntr;
         std::chrono::milliseconds timeout;
 
-        _cntr_query_test_count( asrtc::controller& c, std::chrono::milliseconds timeout )
+        _cntr_query_test_count( asrtc_controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
           , timeout( timeout )
         {
@@ -119,27 +123,29 @@ struct _cntr_query_test_count
         template < typename OP >
         void start( OP& op )
         {
-                auto s = cntr.query_test_count(
-                    [&op]( asrtc::status s, uint32_t count ) {
-                            if ( s != ASRTC_SUCCESS ) {
+                auto s = asrtc_cntr_test_count(
+                    &cntr,
+                    +[]( void* p, asrtl_status s, uint16_t count ) -> asrtl_status {
+                            auto* op_ = static_cast< OP* >( p );
+                            if ( s != ASRTL_SUCCESS ) {
                                     ASRTL_ERR_LOG(
                                         "asrtio_main",
                                         "Query test count failed: %s",
-                                        asrtc_status_to_str( s ) );
-                                    op.recv.set_error( status::query_failed );
+                                        asrtl_status_to_str( s ) );
+                                    op_->recv.set_error( status::query_failed );
                                     return ASRTL_SUCCESS;
                             }
-                            op.recv.set_value( count );
+                            op_->recv.set_value( count );
                             return ASRTL_SUCCESS;
                     },
+                    &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTC_SUCCESS ) {
+                if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "asrtio_main",
                             "Query test count failed: %s",
-                            asrtc_status_to_str( s ) );
+                            asrtl_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
-                        return;
                 }
         }
 };
@@ -149,12 +155,12 @@ struct _cntr_query_test_info
 {
         using value_sig = ecor::set_value_t( uint16_t, std::string );
 
-        asrtc::controller&        cntr;
+        asrtc_controller&         cntr;
         uint32_t                  id;
         std::chrono::milliseconds timeout;
 
         _cntr_query_test_info(
-            asrtc::controller&        c,
+            asrtc_controller&         c,
             uint32_t                  id,
             std::chrono::milliseconds timeout )
           : cntr( c )
@@ -166,26 +172,30 @@ struct _cntr_query_test_info
         template < typename OP >
         void start( OP& op )
         {
-                auto s = cntr.query_test_info(
-                    id,
-                    [&op]( asrtc::status s, uint16_t tid, std::string_view desc ) {
-                            if ( s != ASRTC_SUCCESS ) {
+                auto s = asrtc_cntr_test_info(
+                    &cntr,
+                    static_cast< uint16_t >( id ),
+                    +[]( void* p, asrtl_status s, uint16_t tid, char* desc ) -> asrtl_status {
+                            auto* op_ = static_cast< OP* >( p );
+                            if ( s != ASRTL_SUCCESS ) {
                                     ASRTL_ERR_LOG(
                                         "asrtio_main",
                                         "Query test info failed: %s",
-                                        asrtc_status_to_str( s ) );
-                                    op.recv.set_error( status::query_failed );
+                                        asrtl_status_to_str( s ) );
+                                    op_->recv.set_error( status::query_failed );
                                     return ASRTL_SUCCESS;
                             }
-                            op.recv.set_value( tid, std::string( desc ) );
+                            op_->recv.set_value( tid, std::string{ desc } );
                             return ASRTL_SUCCESS;
                     },
+                    &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTC_SUCCESS ) {
+                if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtio_main", "Query test info failed: %s", asrtc_status_to_str( s ) );
+                            "asrtio_main",
+                            "Query test info failed: %s",
+                            asrtl_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
-                        return;
                 }
         }
 };
@@ -195,11 +205,11 @@ struct _cntr_exec_test
 {
         using value_sig = ecor::set_value_t( asrtc::result );
 
-        asrtc::controller&        cntr;
+        asrtc_controller&         cntr;
         uint32_t                  id;
         std::chrono::milliseconds timeout;
 
-        _cntr_exec_test( asrtc::controller& c, uint32_t id, std::chrono::milliseconds timeout )
+        _cntr_exec_test( asrtc_controller& c, uint32_t id, std::chrono::milliseconds timeout )
           : cntr( c )
           , id( id )
           , timeout( timeout )
@@ -209,26 +219,30 @@ struct _cntr_exec_test
         template < typename OP >
         void start( OP& op )
         {
-                auto s = cntr.exec_test(
-                    id,
-                    [&op]( asrtc::status s, asrtc::result const& res ) {
-                            if ( s != ASRTC_SUCCESS ) {
+                auto s = asrtc_cntr_test_exec(
+                    &cntr,
+                    static_cast< uint16_t >( id ),
+                    +[]( void* p, asrtl_status s, asrtc_result* res ) -> asrtl_status {
+                            auto* op_ = static_cast< OP* >( p );
+                            if ( s != ASRTL_SUCCESS ) {
                                     ASRTL_ERR_LOG(
                                         "asrtio_main",
                                         "Test execution failed: %s",
-                                        asrtc_status_to_str( s ) );
-                                    op.recv.set_error( status::query_failed );
+                                        asrtl_status_to_str( s ) );
+                                    op_->recv.set_error( status::query_failed );
                                     return ASRTL_SUCCESS;
                             }
-                            op.recv.set_value( res );
+                            op_->recv.set_value( *res );
                             return ASRTL_SUCCESS;
                     },
+                    &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTC_SUCCESS ) {
+                if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtio_main", "Test execution failed: %s", asrtc_status_to_str( s ) );
+                            "asrtio_main",
+                            "Test execution failed: %s",
+                            asrtl_status_to_str( s ) );
                         op.recv.set_error( status::query_failed );
-                        return;
                 }
         }
 };

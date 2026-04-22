@@ -233,14 +233,14 @@ static enum asrtl_status asrtc_stream_server_event( void* p, enum asrtl_event_e 
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtc_status asrtc_stream_server_init(
+enum asrtl_status asrtc_stream_server_init(
     struct asrtc_stream_server* server,
     struct asrtl_node*          prev,
     struct asrtl_sender         sender,
     struct asrtl_allocator      alloc )
 {
         if ( !server || !prev )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *server = ( struct asrtc_stream_server ){
             .node =
                 ( struct asrtl_node ){
@@ -254,7 +254,7 @@ enum asrtc_status asrtc_stream_server_init(
         };
         memset( (void*) server->lookup, 0, sizeof server->lookup );
         asrtl_node_link( prev, &server->node );
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 struct asrtc_stream_schemas asrtc_stream_server_take( struct asrtc_stream_server* server )

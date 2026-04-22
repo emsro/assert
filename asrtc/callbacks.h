@@ -17,11 +17,11 @@ extern "C" {
 
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/source.h"
-#include "./status.h"
+#include "../asrtl/status.h"
 
 #include <stdint.h>
 
-typedef enum asrtc_status (
+typedef enum asrtl_status (
     *asrtc_error_callback )( void* ptr, enum asrtl_source src, uint16_t ecode );
 struct asrtc_error_cb
 {
@@ -29,7 +29,7 @@ struct asrtc_error_cb
         asrtc_error_callback cb;
 };
 
-static inline enum asrtc_status asrtc_raise_error(
+static inline enum asrtl_status asrtc_raise_error(
     struct asrtc_error_cb* h,
     enum asrtl_source      src,
     uint16_t               ecode )

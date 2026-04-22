@@ -2,7 +2,6 @@
 
 #include "../asrtc/controller.h"
 #include "../asrtc/default_allocator.h"
-#include "../asrtc/status_to_str.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
 
@@ -41,7 +40,7 @@ asrtl::status cimpl_init( void* ptr, asrtc::status s )
 asrtc::status cimpl_error( void* ptr, asrtl::source src, uint16_t ecode )
 {
         auto* ci = reinterpret_cast< controller_impl* >( ptr );
-        return cimpl_do< ASRTC_CNTR_CB_ERR >( ci->ecb, src, ecode );
+        return cimpl_do< ASRTL_CALLBACK_ERR >( ci->ecb, src, ecode );
 }
 
 asrtl::status cimpl_desc( void* ptr, asrtc::status s, char* data )
@@ -70,17 +69,14 @@ asrtl::status cimpl_test_result( void* ptr, asrtc::status s, struct asrtc_result
 
 }  // namespace
 
-controller::controller( asrtl_sender sender, error_cb ecb )
+controller::controller( asrtl::sender sender, asrtl::allocator alloc, error_cb ecb )
   : _impl{ new controller_impl{
         .ecb = std::move( ecb ),
     } }
 {
         auto st = asrtc_cntr_init(
-            &_impl->asc,
-            sender,
-            asrtc_default_allocator(),
-            { .ptr = _impl.get(), .cb = &cimpl_error } );
-        ASRTL_ASSERT( st == ASRTC_SUCCESS );
+            &_impl->asc, sender, alloc, { .ptr = _impl.get(), .cb = &cimpl_error } );
+        ASRTL_ASSERT( st == ASRTL_SUCCESS );
 }
 
 asrtc::status controller::start( init_cb icb, uint32_t timeout )
@@ -110,48 +106,48 @@ bool controller::is_idle() const
 asrtc::status controller::query_desc( desc_cb cb, uint32_t timeout )
 {
         auto st = asrtc_cntr_desc( &_impl->asc, &cimpl_desc, _impl.get(), timeout );
-        if ( st == ASRTC_SUCCESS )
+        if ( st == ASRTL_SUCCESS )
                 _impl->des_cb = std::move( cb );
         else
                 ASRTL_ERR_LOG(
                     "asrtcpp_controller",
                     "Query description failed: %s",
-                    asrtc_status_to_str( st ) );
+                    asrtl_status_to_str( st ) );
         return st;
 }
 
 asrtc::status controller::query_test_count( tc_cb cb, uint32_t timeout )
 {
         auto st = asrtc_cntr_test_count( &_impl->asc, &cimpl_test_count, _impl.get(), timeout );
-        if ( st == ASRTC_SUCCESS )
+        if ( st == ASRTL_SUCCESS )
                 _impl->test_count_cb = std::move( cb );
         else
                 ASRTL_ERR_LOG(
                     "asrtcpp_controller",
                     "Query test count failed: %s",
-                    asrtc_status_to_str( st ) );
+                    asrtl_status_to_str( st ) );
         return st;
 }
 
 asrtc::status controller::query_test_info( uint16_t id, test_info_cb cb, uint32_t timeout )
 {
         auto st = asrtc_cntr_test_info( &_impl->asc, id, &cimpl_test_info, _impl.get(), timeout );
-        if ( st == ASRTC_SUCCESS )
+        if ( st == ASRTL_SUCCESS )
                 _impl->ti_cb = std::move( cb );
         else
                 ASRTL_ERR_LOG(
-                    "asrtcpp_controller", "Query test info failed: %s", asrtc_status_to_str( st ) );
+                    "asrtcpp_controller", "Query test info failed: %s", asrtl_status_to_str( st ) );
         return st;
 }
 
 asrtc::status controller::exec_test( uint16_t id, test_result_cb cb, uint32_t timeout )
 {
         auto st = asrtc_cntr_test_exec( &_impl->asc, id, &cimpl_test_result, _impl.get(), timeout );
-        if ( st == ASRTC_SUCCESS )
+        if ( st == ASRTL_SUCCESS )
                 _impl->te_cb = std::move( cb );
         else
                 ASRTL_ERR_LOG(
-                    "asrtcpp_controller", "Execute test failed: %s", asrtc_status_to_str( st ) );
+                    "asrtcpp_controller", "Execute test failed: %s", asrtl_status_to_str( st ) );
         return st;
 }
 

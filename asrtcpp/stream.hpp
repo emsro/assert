@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../asrtc/status_to_str.h"
 #include "../asrtc/stream.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
 
 namespace asrtc
@@ -75,9 +75,9 @@ struct stream_server
         {
                 if ( auto s = asrtc_stream_server_init(
                          &server_, prev, asrtl::make_sender( send_cb ), alloc );
-                     s != ASRTC_SUCCESS ) {
+                     s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtc_stream", "init failed: %s", asrtc_status_to_str( s ) );
+                            "asrtc_stream", "init failed: %s", asrtl_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/source.h"
 
@@ -10,13 +11,15 @@
 
 namespace asrtl
 {
-using source   = asrtl_source;
-using chann_id = asrtl_chann_id;
-using status   = asrtl_status;
-using span     = asrtl_span;
-using rec_span = asrtl_rec_span;
-using send_cb  = std::function< asrtl_status( chann_id, rec_span& ) >;
-using ecode    = uint16_t;
+using source    = asrtl_source;
+using chann_id  = asrtl_chann_id;
+using status    = asrtl_status;
+using allocator = asrtl_allocator;
+using sender    = asrtl_sender;
+using span      = asrtl_span;
+using rec_span  = asrtl_rec_span;
+using send_cb   = std::function< asrtl_status( chann_id, rec_span& ) >;
+using ecode     = uint16_t;
 template < typename T >
 using uptr = std::unique_ptr< T >;
 template < typename T >

@@ -79,14 +79,14 @@ TEST_CASE( "cobs_on_data_dispatch" )
         } cap;
 
         asrtl_node test_node{};
-        test_node.chid      = ASRTL_CORE;
-        test_node.e_cb_ptr  = &cap;
-        test_node.e_cb      = []( void* ptr, enum asrtl_event_e event, void* arg )->enum asrtl_status
+        test_node.chid     = ASRTL_CORE;
+        test_node.e_cb_ptr = &cap;
+        test_node.e_cb     = []( void* ptr, enum asrtl_event_e event, void* arg )->enum asrtl_status
         {
                 if ( event != ASRTL_EVENT_RECV )
                         return ASRTL_SUCCESS;
                 struct asrtl_span sp = *static_cast< struct asrtl_span* >( arg );
-                auto& c = *static_cast< recv_capture* >( ptr );
+                auto&             c  = *static_cast< recv_capture* >( ptr );
                 c.payload.assign( sp.b, sp.e );
                 ++c.call_cnt;
                 return ASRTL_SUCCESS;
@@ -110,8 +110,8 @@ TEST_CASE( "cobs_on_data_dispatch" )
 TEST_CASE( "cobs_on_data_error_cb" )
 {
         asrtl_node dummy_node{};
-        dummy_node.chid  = ASRTL_CORE;
-        dummy_node.e_cb  = []( void*, enum asrtl_event_e, void* )->enum asrtl_status
+        dummy_node.chid = ASRTL_CORE;
+        dummy_node.e_cb = []( void*, enum asrtl_event_e, void* )->enum asrtl_status
         {
                 return ASRTL_SUCCESS;
         };
@@ -136,9 +136,9 @@ TEST_CASE( "cobs_on_data_multi_packet" )
         } cap;
 
         asrtl_node test_node{};
-        test_node.chid      = ASRTL_CORE;
-        test_node.e_cb_ptr  = &cap;
-        test_node.e_cb      = []( void* ptr, enum asrtl_event_e event, void* )->enum asrtl_status
+        test_node.chid     = ASRTL_CORE;
+        test_node.e_cb_ptr = &cap;
+        test_node.e_cb     = []( void* ptr, enum asrtl_event_e event, void* )->enum asrtl_status
         {
                 if ( event != ASRTL_EVENT_RECV )
                         return ASRTL_SUCCESS;
@@ -440,14 +440,14 @@ struct param_e2e_state
 };
 
 static asrtio::task< void > param_e2e_coro(
-    asrtio::task_ctx&           tctx,
-    uv_loop_t*                  loop,
-    uint32_t                    seed,
-    asrtio::arena&              arena,
-    asrtio::clock&              clk,
-    recording_reporter&         reporter,
-    param_e2e_state&            state,
-    asrtl_flat_tree const*      tree,
+    asrtio::task_ctx&            tctx,
+    uv_loop_t*                   loop,
+    uint32_t                     seed,
+    asrtio::arena&               arena,
+    asrtio::clock&               clk,
+    recording_reporter&          reporter,
+    param_e2e_state&             state,
+    asrtio::param_config const&  params,
     std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
@@ -455,10 +455,8 @@ static asrtio::task< void > param_e2e_coro(
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
-        co_await asrtio::cntr_set_param_tree{ *sys, tree, 1u, 1000ms };
-        asrtio::param_config no_params;
-        asrtio::null_fs      nfs;
-        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, nfs, {} );
+        asrtio::null_fs nfs;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params, nfs, {} );
 
         REQUIRE_FALSE( rs->conns.empty() );
         auto& conn = rs->conns.front();
@@ -505,12 +503,13 @@ static asrtio::task< void > param_e2e_coro(
 
 TEST_CASE( "param_tcp_e2e" )
 {
-        asrtl_flat_tree tree;
-        asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 8, 32 );
-        asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
-        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
+        asrtio::param_config params;
+        asrtl_flat_tree_append_cont( &params.tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
         asrtl_flat_tree_append_scalar(
-            &tree, 1, 3, "y", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } );
+            &params.tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } );
+        asrtl_flat_tree_append_scalar(
+            &params.tree, 1, 3, "y", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } );
+        params.wildcard = { 1 };
 
         param_e2e_state    state;
         recording_reporter reporter;
@@ -532,7 +531,7 @@ TEST_CASE( "param_tcp_e2e" )
                 static_cast< asrtio::task_ctx* >( h->data )->tick();
         } );
 
-        auto op = ( param_e2e_coro( tctx, loop, 42, arena, clk, reporter, state, &tree, client ) |
+        auto op = ( param_e2e_coro( tctx, loop, 42, arena, clk, reporter, state, params, client ) |
                     asrtio::complete_arena( arena ) )
                       .connect( test_receiver{ &done, &idle } );
         op.start();
@@ -543,8 +542,6 @@ TEST_CASE( "param_tcp_e2e" )
         CHECK( done );
         CHECK( state.param_ready );
         CHECK_EQ( 1u, state.root_id );
-
-        asrtl_flat_tree_deinit( &tree );
 
         REQUIRE_GE( state.received.size(), 3u );
 

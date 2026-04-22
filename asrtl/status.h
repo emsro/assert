@@ -18,23 +18,25 @@ extern "C" {
 
 enum asrtl_status
 {
-        ASRTL_CALLBACK_ERR        = -17,
+        ASRTL_VERSION_ERR  = -19,  // version mismatch between controller and reactor
+        ASRTL_TIMEOUT_ERR  = -18,  // operation timed out (e.g. waiting for controller init message)
+        ASRTL_CALLBACK_ERR = -17,
         ASRTL_INVALID_EVENT_ERR   = -16,
         ASRTL_KEY_FORBIDDEN_ERR   = -15,
         ASRTL_KEY_REQUIRED_ERR    = -14,
-        ASRTL_INTERNAL_ERR        = -13,
-        ASRTL_ARG_ERR             = -12,
+        ASRTL_INTERNAL_ERR        = -13,  // e.g. unexpected state in controller state machine
+        ASRTL_ARG_ERR             = -12,  // e.g. invalid argument passed to controller API
         ASRTL_INIT_ERR            = -11,
         ASRTL_RECV_TRAILING_ERR   = -10,
         ASRTL_CHANN_NOT_FOUND     = -9,
-        ASRTL_ALLOC_ERR           = -8,
+        ASRTL_ALLOC_ERR           = -8,  // e.g. failed to allocate buffer for sending message
         ASRTL_SEND_ERR            = -7,
         ASRTL_RECV_INTERNAL_ERR   = -6,
         ASRTL_RECV_UNEXPECTED_ERR = -5,
         ASRTL_RECV_UNKNOWN_ID_ERR = -4,
-        ASRTL_BUSY_ERR            = -3,
+        ASRTL_BUSY_ERR            = -3,  // e.g. starting init when not idle
         ASRTL_RECV_ERR            = -2,
-        ASRTL_SIZE_ERR            = -1,
+        ASRTL_SIZE_ERR            = -1,  // e.g. message too large for buffer
         ASRTL_SUCCESS             = 1,
 };
 

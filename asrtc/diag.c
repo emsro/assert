@@ -114,14 +114,14 @@ static enum asrtl_status asrtc_diag_event( void* p, enum asrtl_event_e e, void* 
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtc_status asrtc_diag_init(
+enum asrtl_status asrtc_diag_init(
     struct asrtc_diag*     diag,
     struct asrtl_node*     prev,
     struct asrtl_sender    sender,
     struct asrtl_allocator alloc )
 {
         if ( !diag || !prev )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *diag = ( struct asrtc_diag ){
             .node =
                 ( struct asrtl_node ){
@@ -136,7 +136,7 @@ enum asrtc_status asrtc_diag_init(
             .last_rec  = NULL,
         };
         asrtl_node_link( prev, &diag->node );
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag )
@@ -150,10 +150,10 @@ struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag )
         return rec;
 }
 
-enum asrtc_status asrtc_diag_deinit( struct asrtc_diag* diag )
+enum asrtl_status asrtc_diag_deinit( struct asrtc_diag* diag )
 {
         if ( !diag )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
 
         asrtl_node_unlink( &diag->node );
         struct asrtc_diag_record* rec = diag->first_rec;
@@ -164,5 +164,5 @@ enum asrtc_status asrtc_diag_deinit( struct asrtc_diag* diag )
         }
         diag->first_rec = NULL;
         diag->last_rec  = NULL;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }

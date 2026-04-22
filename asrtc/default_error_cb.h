@@ -23,7 +23,7 @@ extern "C" {
 
 #include <stdio.h>
 
-static inline enum asrtc_status asrtc_default_error_callback(
+static inline enum asrtl_status asrtc_default_error_callback(
     void*             ptr,
     enum asrtl_source src,
     uint16_t          ecode )
@@ -34,7 +34,7 @@ static inline enum asrtc_status asrtc_default_error_callback(
             asrtl_source_to_str( src ),
             ecode,
             asrtl_ecode_to_str( (enum asrtl_ecode) ecode ) );
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 static inline struct asrtc_error_cb asrtc_default_error_cb( void )

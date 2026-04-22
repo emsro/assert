@@ -19,9 +19,8 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/param_proto.h"
-#include "./status.h"
 
-typedef void ( *asrtc_param_ready_ack_cb )( void* ptr, enum asrtc_status status );
+typedef void ( *asrtc_param_ready_ack_cb )( void* ptr, enum asrtl_status status );
 
 enum asrtc_param_server_pending
 {
@@ -51,7 +50,7 @@ struct asrtc_param_server
         uint32_t                 deadline;
 };
 
-enum asrtc_status asrtc_param_server_init(
+enum asrtl_status asrtc_param_server_init(
     struct asrtc_param_server* param,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,

@@ -124,7 +124,7 @@ static enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* par
                                 void*                    p  = param->ack_cb_ptr;
                                 param->ack_cb               = NULL;
                                 param->ack_cb_ptr           = NULL;
-                                cb( p, ASRTC_TIMEOUT_ERR );
+                                cb( p, ASRTL_TIMEOUT_ERR );
                         }
                 }
                 return ASRTL_SUCCESS;
@@ -151,7 +151,7 @@ static enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* par
                         void*                    p  = param->ack_cb_ptr;
                         param->ack_cb               = NULL;
                         param->ack_cb_ptr           = NULL;
-                        cb( p, ASRTC_SUCCESS );
+                        cb( p, ASRTL_SUCCESS );
                 }
                 return ASRTL_SUCCESS;
         }
@@ -235,14 +235,14 @@ static enum asrtl_status asrtc_param_server_event( void* p, enum asrtl_event_e e
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtc_status asrtc_param_server_init(
+enum asrtl_status asrtc_param_server_init(
     struct asrtc_param_server* param,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,
     struct asrtl_allocator     alloc )
 {
         if ( !param || !prev )
-                return ASRTC_CNTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *param = ( struct asrtc_param_server ){
             .node =
                 ( struct asrtl_node ){
@@ -263,7 +263,7 @@ enum asrtc_status asrtc_param_server_init(
             .deadline     = 0,
         };
         asrtl_node_link( prev, &param->node );
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 void asrtc_param_server_set_tree(

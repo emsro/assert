@@ -3,7 +3,6 @@
 
 #include "../asrtc/callbacks.h"
 #include "../asrtc/result.h"
-#include "../asrtc/status.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
@@ -12,7 +11,7 @@
 namespace asrtc
 {
 using asrtl::uptr;
-using status         = asrtc_status;
+using status         = asrtl_status;
 using result         = asrtc_result;
 using error_cb       = std::function< status( asrtl::source, asrtl::ecode ) >;
 using init_cb        = std::function< asrtl::status( status ) >;
@@ -25,11 +24,7 @@ struct controller_impl;
 
 struct controller
 {
-        template < typename CB >
-        controller( CB& scb, error_cb ecb )
-          : controller( asrtl::make_sender( scb ), std::move( ecb ) )
-        {
-        }
+        controller( asrtl::sender sender, asrtl::allocator alloc, error_cb ecb );
 
         controller( controller&& );
 
@@ -52,8 +47,6 @@ struct controller
         ~controller();
 
 private:
-        controller( asrtl_sender sender, error_cb ecb );
-
         uptr< controller_impl > _impl;
 };
 

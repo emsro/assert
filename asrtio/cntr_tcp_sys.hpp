@@ -1,12 +1,14 @@
 #pragma once
 
-#include "../asrtc/status_to_str.h"
+#include "../asrtc/assembly.h"
+#include "../asrtc/controller.h"
 #include "../asrtcpp/collect.hpp"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
 #include "../asrtcpp/param.hpp"
 #include "../asrtcpp/stream.hpp"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
 #include "./euv.hpp"
@@ -31,26 +33,44 @@ struct cntr_tcp_sys
           : client( client )
           , clk_( clk )
         {
+                std::ignore = asrtc_assembly_init(
+                    &asm_,
+                    asrtl_sender{ .ptr = this, .cb = send_cb },
+                    asrtl_default_allocator(),
+                    asrtc_error_cb{ .ptr = this, .cb = ecb } );
+        }
+
+        static asrtl_status ecb( void* ptr, asrtl::source src, asrtl::ecode ec )
+        {
+                auto* sys = static_cast< cntr_tcp_sys* >( ptr );
+                auto  s   = std::format( "Source: {}, code: {}", src, ec );
+                ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
+                sys->disconnect();
+                return ASRTL_SUCCESS;
+        }
+
+        static asrtl_status send_cb(
+            void*              ptr,
+            asrtl_chann_id     id,
+            asrtl_rec_span*    buff,
+            asrtl_send_done_cb done_cb,
+            void*              done_ptr )
+        {
+                auto* sys = static_cast< cntr_tcp_sys* >( ptr );
+                if ( sys->disconnected_ ) {
+                        if ( done_cb )
+                                done_cb( done_ptr, ASRTL_SEND_ERR );
+                        return ASRTL_SEND_ERR;
+                }
+                auto st = sys->rx.write( (uv_stream_t*) sys->client.get(), id, *buff );
+                if ( done_cb )
+                        done_cb( done_ptr, st );
+                return st;
         }
 
         auto take_diag_record()
         {
-                return c_diag.take_record();
-        }
-
-        asrtc::param_server& param()
-        {
-                return c_param;
-        }
-
-        asrtc::collect_server& collect()
-        {
-                return c_collect;
-        }
-
-        asrtc::stream_server& stream()
-        {
-                return c_stream;
+                return asrtc_diag_take_record( &asm_.diag );
         }
 
         clock const& clk() const
@@ -61,7 +81,7 @@ struct cntr_tcp_sys
         void tick()
         {
                 auto now = static_cast< uint32_t >( clk_.now().count() );
-                asrtl_chann_tick_successors( cntr.node(), now );
+                asrtc_assembly_tick( &asm_, now );
         }
 
 
@@ -74,7 +94,7 @@ struct cntr_tcp_sys
                 } );
                 rx.start(
                     (uv_stream_t*) client.get(),
-                    cntr.node(),
+                    &asm_.cntr.node,
                     "asrtio_cntr",
                     [this]( ssize_t nread ) {
                             if ( nread == UV_EOF )
@@ -99,6 +119,26 @@ struct cntr_tcp_sys
                 uv_close( (uv_handle_t*) client.get(), nullptr );
         }
 
+        asrtc_controller& cntr()
+        {
+                return asm_.cntr;
+        }
+
+        asrtc::stream_schemas stream_take()
+        {
+                return asrtc::stream_schemas{ asrtc_stream_server_take( &asm_.stream ) };
+        }
+
+        asrtl_flat_tree const* collect_tree()
+        {
+                return asrtc_collect_server_tree( &asm_.collect );
+        }
+
+        asrtc_assembly& assembly()
+        {
+                return asm_;
+        }
+
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
 private:
@@ -106,37 +146,7 @@ private:
         uv_idle_t                   idle_handle;
         std::shared_ptr< uv_tcp_t > client;
         clock const&                clk_;
-        std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
-            cntr_send{
-                [this](
-                    asrtl_chann_id     id,
-                    asrtl_rec_span*    buff,
-                    asrtl_send_done_cb done_cb,
-                    void*              done_ptr ) -> asrtl_status {
-                        if ( disconnected_ )
-                                return ASRTL_SEND_ERR;
-                        auto st = rx.write( (uv_stream_t*) client.get(), id, *buff );
-                        if ( done_cb )
-                                done_cb( done_ptr, st );
-                        return st;
-                } };
-
-public:
-        asrtc::controller cntr{
-            cntr_send,
-            [this]( asrtl::source sr, asrtl::ecode ec ) -> asrtc::status {
-                    auto s = std::format( "Source: {}, code: {}", sr, ec );
-                    ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
-                    disconnect();
-                    return ASRTC_SUCCESS;
-            } };
-
-
-        asrtc::diag         c_diag{ cntr.node(), cntr_send };
-        asrtc::param_server c_param{ c_diag.node(), cntr_send, asrtl_default_allocator() };
-        asrtc::collect_server
-            c_collect{ c_param.node(), cntr_send, asrtl_default_allocator(), 64, 256 };
-        asrtc::stream_server c_stream{ c_collect.node(), cntr_send, asrtl_default_allocator() };
+        asrtc_assembly              asm_;
 
         cobs_node rx;
 };
@@ -174,87 +184,63 @@ struct suite_reporter
         virtual ~suite_reporter()                  = default;
 };
 
-struct _cntr_set_param_tree
+struct _cntr_assembly_exec_test
 {
-        using value_sig = ecor::set_value_t();
+        using value_sig = ecor::set_value_t( asrtc::result );
 
         cntr_tcp_sys&             sys;
+        uint16_t                  tid;
         asrtl_flat_tree const*    tree;
-        asrtl::flat_id            root_id;
+        asrtl_flat_id             root_id;
         std::chrono::milliseconds timeout;
 
-        _cntr_set_param_tree(
+        _cntr_assembly_exec_test(
             cntr_tcp_sys&             s,
+            uint16_t                  tid_,
             asrtl_flat_tree const*    t,
-            asrtl::flat_id            rid,
-            std::chrono::milliseconds timeout )
+            asrtl_flat_id             rid,
+            std::chrono::milliseconds to )
           : sys( s )
+          , tid( tid_ )
           , tree( t )
           , root_id( rid )
-          , timeout( timeout )
+          , timeout( to )
         {
         }
 
         template < typename OP >
         void start( OP& op )
         {
-                sys.c_param.set_tree( tree );
-                if ( auto s = sys.c_param.send_ready(
-                         root_id,
-                         { +[]( void* p, asrtc_status ) {
-                                  static_cast< OP* >( p )->recv.set_value();
-                          },
-                           &op },
-                         static_cast< uint32_t >( timeout.count() ) );
-                     s != ASRTL_SUCCESS ) {
+                auto s = asrtc_assembly_exec_test(
+                    &sys.assembly(),
+                    tree,
+                    root_id,
+                    tid,
+                    static_cast< uint32_t >( timeout.count() ),
+                    +[]( void* p, asrtl_status s, asrtc_result* res ) -> asrtl_status {
+                            auto* op_ = static_cast< OP* >( p );
+                            if ( s != ASRTL_SUCCESS ) {
+                                    ASRTL_ERR_LOG(
+                                        "asrtio_main",
+                                        "Assembly exec_test failed: %s",
+                                        asrtl_status_to_str( s ) );
+                                    op_->recv.set_error( status::query_failed );
+                                    return ASRTL_SUCCESS;
+                            }
+                            op_->recv.set_value( *res );
+                            return ASRTL_SUCCESS;
+                    },
+                    &op );
+                if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "asrtio_main",
-                            "Param send_ready failed: %s",
+                            "Assembly exec_test failed: %s",
                             asrtl_status_to_str( s ) );
-                        op.recv.set_error( status::send_failed );
+                        op.recv.set_error( status::query_failed );
                 }
         }
 };
-using cntr_set_param_tree = asrtl::gen_sender< _cntr_set_param_tree, status >;
-
-struct _cntr_collect_ready
-{
-        using value_sig = ecor::set_value_t();
-
-        cntr_tcp_sys&             sys;
-        asrtl::flat_id            root_id;
-        std::chrono::milliseconds timeout;
-
-        _cntr_collect_ready(
-            cntr_tcp_sys&             s,
-            asrtl::flat_id            rid,
-            std::chrono::milliseconds timeout )
-          : sys( s )
-          , root_id( rid )
-          , timeout( timeout )
-        {
-        }
-
-        template < typename OP >
-        void start( OP& op )
-        {
-                if ( auto s = sys.c_collect.send_ready(
-                         root_id,
-                         { +[]( void* p, asrtc_status ) {
-                                  static_cast< OP* >( p )->recv.set_value();
-                          },
-                           &op },
-                         static_cast< uint32_t >( timeout.count() ) );
-                     s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio_main",
-                            "Collect send_ready failed: %s",
-                            asrtl_status_to_str( s ) );
-                        op.recv.set_error( status::send_failed );
-                }
-        }
-};
-using cntr_collect_ready = asrtl::gen_sender< _cntr_collect_ready, status >;
+using cntr_assembly_exec_test = asrtl::gen_sender< _cntr_assembly_exec_test, status >;
 
 inline void write_strm_field( std::ostream& os, enum asrtl_strm_field_type_e ft, uint8_t*& p )
 {
@@ -337,7 +323,7 @@ inline void handle_stream(
     std::filesystem::path const& run_dir,
     bool                         do_output )
 {
-        auto schemas = sys.stream().take();
+        auto schemas = sys.stream_take();
         if ( schemas->schema_count == 0 )
                 return;
         reporter.on_stream_data( name, schemas );
@@ -359,7 +345,7 @@ inline void handle_collect(
     std::filesystem::path const& path,
     bool                         do_output )
 {
-        auto const* tree = sys.collect().tree();
+        auto const* tree = sys.collect_tree();
         if ( !tree )
                 return;
         reporter.on_collect_data( name, tree );
@@ -401,9 +387,9 @@ inline task< void > run_test_suite(
     output_fs&                fs,
     std::filesystem::path     output_dir )
 {
-        co_await cntr_start{ sys.cntr, timeout };
+        co_await cntr_start{ sys.cntr(), timeout };
 
-        uint32_t count = co_await cntr_query_test_count{ sys.cntr, timeout };
+        uint32_t count = co_await cntr_query_test_count{ sys.cntr(), timeout };
         reporter.on_count( count );
 
         std::set< std::string > unseen_keys;
@@ -411,7 +397,7 @@ inline task< void > run_test_suite(
                 unseen_keys.insert( key );
 
         for ( uint32_t i = 0; i < count; ++i ) {
-                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr, i, timeout };
+                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr(), i, timeout };
 
                 unseen_keys.erase( name );
 
@@ -423,17 +409,11 @@ inline task< void > run_test_suite(
                 uint32_t const run_total = static_cast< uint32_t >( roots.size() );
 
                 for ( uint32_t ri = 0; ri < run_total; ++ri ) {
-                        if ( roots[ri] != 0 )
-                                co_await cntr_set_param_tree{
-                                    sys, &params.tree, roots[ri], timeout };
-
                         reporter.on_test_start( name, ri + 1, run_total );
 
-                        sys.stream().clear();
-                        co_await cntr_collect_ready{ sys, 0, timeout };
-
                         auto          t0  = sys.clk().now();
-                        asrtc::result res = co_await cntr_exec_test{ sys.cntr, tid, timeout };
+                        asrtc::result res = co_await cntr_assembly_exec_test{
+                            sys, tid, roots[ri] != 0 ? &params.tree : nullptr, roots[ri], timeout };
 
                         bool const do_output = !output_dir.empty();
                         auto const run_dir   = output_dir / name / std::to_string( ri );

@@ -63,7 +63,7 @@ struct controller_ctx
         struct asrtl_sender     send        = {};
         uint8_t                 buffer[128] = {};
         struct asrtl_span       sp          = {};
-        enum asrtc_status       init_status = {};
+        enum asrtl_status       init_status = {};
         uint32_t                t           = 1;
 
         controller_ctx()
@@ -77,20 +77,20 @@ struct controller_ctx
         }
 };
 
-enum asrtl_status record_init_cb( void* ptr, enum asrtc_status s )
+enum asrtl_status record_init_cb( void* ptr, enum asrtl_status s )
 {
-        enum asrtc_status* p = (enum asrtc_status*) ptr;
+        enum asrtl_status* p = (enum asrtl_status*) ptr;
         *p                   = s;
         return s ? ASRTL_SUCCESS : ASRTL_SEND_ERR;  // TODO: incorrect error type
 }
 
 void check_cntr_full_init( controller_ctx* ctx )
 {
-        enum asrtc_status st = asrtc_cntr_init(
+        enum asrtl_status st = asrtc_cntr_init(
             &ctx->cntr, ctx->send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &ctx->cntr, ctx->t++ );
 
         assert_collected_core_hdr( ctx->coll.data.back(), 0x02, ASRTL_MSG_PROTO_VERSION );
@@ -104,7 +104,7 @@ void check_cntr_full_init( controller_ctx* ctx )
 
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &ctx->cntr, buffer, sp.b, &ctx->t );
-        CHECK_EQ( ASRTC_SUCCESS, ctx->init_status );
+        CHECK_EQ( ASRTL_SUCCESS, ctx->init_status );
 }
 
 
@@ -113,17 +113,17 @@ void check_cntr_full_init( controller_ctx* ctx )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
 {
-        enum asrtc_status st;
+        enum asrtl_status st;
         st = asrtc_cntr_init( NULL, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_CNTR_INIT_ERR, st );
+        CHECK_EQ( ASRTL_INIT_ERR, st );
 
         st = asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         CHECK_EQ( ASRTL_CORE, cntr.node.chid );
         CHECK( asrtc_cntr_idle( &cntr ) );
 
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         CHECK_EQ( ASRTC_CNTR_INIT, cntr.state );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
@@ -136,10 +136,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         check_recv_and_spin( &cntr, buffer, sp.b, &t );
 
         CHECK( asrtc_cntr_idle( &cntr ) );
-        CHECK_EQ( ASRTC_SUCCESS, init_status );
+        CHECK_EQ( ASRTL_SUCCESS, init_status );
 }
 
-enum asrtl_status cpy_desc_cb( void* ptr, enum asrtc_status s, char* desc )
+enum asrtl_status cpy_desc_cb( void* ptr, enum asrtl_status s, char* desc )
 {
         (void) s;
         std::string* p = (std::string*) ptr;
@@ -153,7 +153,7 @@ struct test_info_result
         std::string desc;
 };
 
-enum asrtl_status cpy_test_info_cb( void* ptr, enum asrtc_status s, uint16_t tid, char* desc )
+enum asrtl_status cpy_test_info_cb( void* ptr, enum asrtl_status s, uint16_t tid, char* desc )
 {
         (void) s;
         struct test_info_result* r = (struct test_info_result*) ptr;
@@ -164,12 +164,12 @@ enum asrtl_status cpy_test_info_cb( void* ptr, enum asrtc_status s, uint16_t tid
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
 {
-        enum asrtc_status st;
+        enum asrtl_status st;
         check_cntr_full_init( this );
 
         std::string desc;
         st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRTL_MSG_DESC );
@@ -183,7 +183,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         CHECK( msg == desc );
 }
 
-enum asrtl_status cpy_u32_cb( void* ptr, enum asrtc_status s, uint16_t x )
+enum asrtl_status cpy_u32_cb( void* ptr, enum asrtl_status s, uint16_t x )
 {
         (void) s;
         uint32_t* p = (uint32_t*) ptr;
@@ -193,12 +193,12 @@ enum asrtl_status cpy_u32_cb( void* ptr, enum asrtc_status s, uint16_t x )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
 {
-        enum asrtc_status st;
+        enum asrtl_status st;
         check_cntr_full_init( this );
 
         uint32_t p = 0;
         st         = asrtc_cntr_test_count( &cntr, &cpy_u32_cb, (void*) &p, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRTL_MSG_TEST_COUNT );
@@ -212,12 +212,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info" )
 {
-        enum asrtc_status st;
+        enum asrtl_status st;
         check_cntr_full_init( this );
 
         struct test_info_result p = { 0 };
         st = asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x04, ASRTL_MSG_TEST_INFO );
@@ -237,9 +237,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         check_cntr_full_init( this );
 
         struct test_info_result p = { 0 };
-        enum asrtc_status       st =
+        enum asrtl_status       st =
             asrtc_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -255,7 +255,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         CHECK( p.desc.empty() );
 }
 
-enum asrtl_status result_cb( void* ptr, enum asrtc_status s, struct asrtc_result* res )
+enum asrtl_status result_cb( void* ptr, enum asrtl_status s, struct asrtc_result* res )
 {
         (void) s;
         struct asrtc_result* r1 = (struct asrtc_result*) ptr;
@@ -285,11 +285,11 @@ static struct asrtl_allocator failing_allocator( void )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
 {
-        enum asrtc_status st =
+        enum asrtl_status st =
             asrtc_cntr_init( &cntr, send, failing_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();  // discard PROTO_VERSION request
 
@@ -298,11 +298,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
-        CHECK_EQ( ASRTC_SUCCESS, init_status );
+        CHECK_EQ( ASRTL_SUCCESS, init_status );
 
         std::string desc;
         st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();  // discard DESC request
 
@@ -317,12 +317,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
 {
-        enum asrtc_status st;
+        enum asrtl_status st;
         check_cntr_full_init( this );
 
         struct asrtc_result res;
         st = asrtc_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
 
         assert_collected_core_hdr( coll.data.back(), 0x08, ASRTL_MSG_TEST_START );
@@ -369,11 +369,11 @@ TEST_CASE_FIXTURE( controller_ctx, "realloc_str_long_string" )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
 {
-        enum asrtc_status st =
+        enum asrtl_status st =
             asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -384,27 +384,27 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
         check_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
 
         enum asrtl_status st2 = asrtl_chann_tick( &cntr.node, t++ );
-        CHECK_EQ( ASRTC_VERSION_ERR, init_status );
+        CHECK_EQ( ASRTL_VERSION_ERR, init_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
 // ---------------------------------------------------------------------------
 // timeout tests
 
-static enum asrtl_status record_status_cb( void* ptr, enum asrtc_status s )
+static enum asrtl_status record_status_cb( void* ptr, enum asrtl_status s )
 {
-        enum asrtc_status* p = (enum asrtc_status*) ptr;
+        enum asrtl_status* p = (enum asrtl_status*) ptr;
         *p                   = s;
         return ASRTL_SUCCESS;
 }
 
-static enum asrtl_status record_tc_cb( void* ptr, enum asrtc_status s, uint16_t count )
+static enum asrtl_status record_tc_cb( void* ptr, enum asrtl_status s, uint16_t count )
 {
         (void) count;
         return record_status_cb( ptr, s );
 }
 
-static enum asrtl_status record_desc_cb( void* ptr, enum asrtc_status s, char* desc )
+static enum asrtl_status record_desc_cb( void* ptr, enum asrtl_status s, char* desc )
 {
         (void) desc;
         return record_status_cb( ptr, s );
@@ -412,7 +412,7 @@ static enum asrtl_status record_desc_cb( void* ptr, enum asrtc_status s, char* d
 
 static enum asrtl_status record_test_info_cb(
     void*             ptr,
-    enum asrtc_status s,
+    enum asrtl_status s,
     uint16_t          tid,
     char*             desc )
 {
@@ -423,7 +423,7 @@ static enum asrtl_status record_test_info_cb(
 
 static enum asrtl_status record_result_cb(
     void*                ptr,
-    enum asrtc_status    s,
+    enum asrtl_status    s,
     struct asrtc_result* res )
 {
         (void) res;
@@ -432,11 +432,11 @@ static enum asrtl_status record_result_cb(
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
 {
-        enum asrtc_status st =
+        enum asrtl_status st =
             asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         // now=0: sends request, enters WAITING, deadline = 0+3 = 3
         check_tick( &cntr, 0 );
@@ -449,7 +449,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
 
         // now=3: deadline reached → timeout
         enum asrtl_status st2 = asrtl_chann_tick( &cntr.node, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, init_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, init_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
@@ -457,9 +457,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_count" )
 {
         check_cntr_full_init( this );
 
-        enum asrtc_status cb_status = ASRTC_SUCCESS;
-        enum asrtc_status st        = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_status, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status cb_status = ASRTL_SUCCESS;
+        enum asrtl_status st        = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_status, 3 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         check_tick( &cntr, 0 );
         coll.data.pop_back();
@@ -469,7 +469,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_count" )
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         check_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
@@ -477,9 +477,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_desc" )
 {
         check_cntr_full_init( this );
 
-        enum asrtc_status cb_status = ASRTC_SUCCESS;
-        enum asrtc_status st        = asrtc_cntr_desc( &cntr, &record_desc_cb, &cb_status, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status cb_status = ASRTL_SUCCESS;
+        enum asrtl_status st        = asrtc_cntr_desc( &cntr, &record_desc_cb, &cb_status, 3 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         check_tick( &cntr, 0 );
         coll.data.pop_back();
@@ -489,7 +489,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_desc" )
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         check_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
@@ -497,10 +497,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_info" )
 {
         check_cntr_full_init( this );
 
-        enum asrtc_status cb_status = ASRTC_SUCCESS;
-        enum asrtc_status st =
+        enum asrtl_status cb_status = ASRTL_SUCCESS;
+        enum asrtl_status st =
             asrtc_cntr_test_info( &cntr, 0, &record_test_info_cb, &cb_status, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         check_tick( &cntr, 0 );
         coll.data.pop_back();
@@ -510,7 +510,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_info" )
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         check_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
@@ -518,9 +518,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_exec" )
 {
         check_cntr_full_init( this );
 
-        enum asrtc_status cb_status = ASRTC_SUCCESS;
-        enum asrtc_status st = asrtc_cntr_test_exec( &cntr, 0, &record_result_cb, &cb_status, 3 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status cb_status = ASRTL_SUCCESS;
+        enum asrtl_status st = asrtc_cntr_test_exec( &cntr, 0, &record_result_cb, &cb_status, 3 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         // now=0: STAGE_INIT → sends, enters WAITING, deadline = 0+3 = 3
         check_tick( &cntr, 0 );
@@ -533,7 +533,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_exec" )
 
         // now=3: deadline reached → timeout
         check_tick( &cntr, 3 );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, cb_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, cb_status );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
 
@@ -543,20 +543,20 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_busy_err" )
 
         // Start an operation to put the controller into a non-idle state
         std::string       desc;
-        enum asrtc_status st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         CHECK( !asrtc_cntr_idle( &cntr ) );
 
         // Any subsequent operation while busy must return BUSY_ERR
         st = asrtc_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
-        CHECK_EQ( ASRTC_CNTR_BUSY_ERR, st );
+        CHECK_EQ( ASRTL_BUSY_ERR, st );
 
         uint32_t x;
         st = asrtc_cntr_test_count( &cntr, &cpy_u32_cb, (void*) &x, 1000 );
-        CHECK_EQ( ASRTC_CNTR_BUSY_ERR, st );
+        CHECK_EQ( ASRTL_BUSY_ERR, st );
 
         st = asrtc_cntr_test_info( &cntr, 0, &cpy_test_info_cb, (void*) &desc, 1000 );
-        CHECK_EQ( ASRTC_CNTR_BUSY_ERR, st );
+        CHECK_EQ( ASRTL_BUSY_ERR, st );
 }
 
 struct error_result
@@ -565,12 +565,12 @@ struct error_result
         uint16_t          ecode;
 };
 
-static enum asrtc_status record_error_cb( void* ptr, enum asrtl_source src, uint16_t ecode )
+static enum asrtl_status record_error_cb( void* ptr, enum asrtl_source src, uint16_t ecode )
 {
         struct error_result* r = (struct error_result*) ptr;
         r->src                 = src;
         r->ecode               = ecode;
-        return ASRTC_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
@@ -579,10 +579,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_error" )
         struct error_result   err = {};
         struct asrtc_error_cb ecb = { .ptr = &err, .cb = &record_error_cb };
 
-        enum asrtc_status st = asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), ecb );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status st = asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), ecb );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -601,8 +601,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         check_cntr_full_init( this );
 
         struct asrtc_result res = { 0 };
-        enum asrtc_status   st  = asrtc_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status   st  = asrtc_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );  // sends TEST_START request
         coll.data.pop_back();
 
@@ -633,11 +633,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 // empty buffer — top-level header truncation
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 {
-        enum asrtc_status st =
+        enum asrtl_status st =
             asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
 
         uint8_t           buf[1];
         enum asrtl_status rst =
@@ -656,11 +656,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 // truncated proto-version reply while in INIT/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
 {
-        enum asrtc_status st =
+        enum asrtl_status st =
             asrtc_cntr_init( &cntr, send, asrtc_default_allocator(), asrtc_default_error_cb() );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -684,9 +684,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
 {
         check_cntr_full_init( this );
 
-        enum asrtc_status cb_st = ASRTC_SUCCESS;
-        enum asrtc_status st    = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_st, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status cb_st = ASRTL_SUCCESS;
+        enum asrtl_status st    = asrtc_cntr_test_count( &cntr, &record_tc_cb, &cb_st, 1000 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -710,8 +710,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         check_cntr_full_init( this );
 
         struct test_info_result p  = { 0 };
-        enum asrtc_status       st = asrtc_cntr_test_info( &cntr, 7, &cpy_test_info_cb, &p, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status       st = asrtc_cntr_test_info( &cntr, 7, &cpy_test_info_cb, &p, 1000 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -746,7 +746,7 @@ struct diag_ctx
         {
                 head.chid = ASRTL_CORE;
                 alloc     = asrtl_stub_allocator( &alloc_ctx );
-                REQUIRE_EQ( ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
         }
 };
 
@@ -758,18 +758,18 @@ TEST_CASE( "diag_init" )
 
         // diag = NULL
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_diag_init( NULL, &head, null_send, asrtc_default_allocator() ) );
 
         // prev = NULL
         struct asrtc_diag diag = {};
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_diag_init( &diag, NULL, null_send, asrtc_default_allocator() ) );
 
         // valid
         CHECK_EQ(
-            ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, asrtc_default_allocator() ) );
+            ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, asrtc_default_allocator() ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) diag.node.e_cb_ptr );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -1003,7 +1003,7 @@ TEST_CASE( "diag_free_record" )
         asrtl_allocator    alloc     = asrtl_stub_allocator( &sctx );
         asrtl_sender       null_send = {};
         struct asrtc_diag  diag      = {};
-        REQUIRE_EQ( ASRTC_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
 
         uint8_t  buf[16];
         uint8_t* p = buf;
@@ -1041,7 +1041,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         uint8_t* p;
 
         // NULL → error
-        CHECK_EQ( ASRTC_CNTR_INIT_ERR, asrtc_diag_deinit( NULL ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtc_diag_deinit( NULL ) );
 
         // empty queue → success
         {
@@ -1050,7 +1050,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 asrtl_sender      null_send2 = {};
                 struct asrtc_diag d2         = {};
                 asrtc_diag_init( &d2, &head2, null_send2, asrtc_default_allocator() );
-                CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d2 ) );
+                CHECK_EQ( ASRTL_SUCCESS, asrtc_diag_deinit( &d2 ) );
         }
 
         // one record → freed
@@ -1068,7 +1068,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 *p++ = 1;  // file_len
                 *p++ = 'a';
                 check_recv( &d3, (struct asrtl_span) { .b = buf, .e = p } );
-                CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d3 ) );
+                CHECK_EQ( ASRTL_SUCCESS, asrtc_diag_deinit( &d3 ) );
                 CHECK_EQ( nullptr, d3.first_rec );
                 CHECK_EQ( 2u, sctx3.free_calls );  // file + rec
         }
@@ -1090,7 +1090,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                         *p++ = 'x';
                         check_recv( &d4, (struct asrtl_span) { .b = buf, .e = p } );
                 }
-                CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &d4 ) );
+                CHECK_EQ( ASRTL_SUCCESS, asrtc_diag_deinit( &d4 ) );
                 CHECK_EQ( nullptr, d4.first_rec );
                 CHECK_EQ( 6u, sctx4.free_calls );  // 3 × (file + rec)
         }
@@ -1112,7 +1112,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         auto* taken = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, taken );
         asrtc_diag_free_record( &diag.alloc, taken );
-        CHECK_EQ( ASRTC_SUCCESS, asrtc_diag_deinit( &diag ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtc_diag_deinit( &diag ) );
         CHECK_EQ( nullptr, diag.first_rec );
 }
 
@@ -1122,8 +1122,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         check_cntr_full_init( this );
 
         struct asrtc_result res = { 0 };
-        enum asrtc_status   st  = asrtc_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
-        CHECK_EQ( ASRTC_SUCCESS, st );
+        enum asrtl_status   st  = asrtc_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
+        CHECK_EQ( ASRTL_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
 
@@ -1240,7 +1240,7 @@ struct param_ctx
                 head.chid = ASRTL_CORE;
                 alloc     = asrtl_stub_allocator( &alloc_ctx );
                 setup_sender_collector( &sendr, &coll );
-                REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &param, &head, sendr, alloc ) );
+                REQUIRE_EQ( ASRTL_SUCCESS, asrtc_param_server_init( &param, &head, sendr, alloc ) );
         }
         ~param_ctx()
         {
@@ -1256,14 +1256,14 @@ TEST_CASE( "asrtc_param_server_init" )
         struct asrtc_param_server param2 = {};
 
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_param_server_init( NULL, &head, null_s, asrtl_default_allocator() ) );
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_param_server_init( &param2, NULL, null_s, asrtl_default_allocator() ) );
 
         CHECK_EQ(
-            ASRTC_SUCCESS,
+            ASRTL_SUCCESS,
             asrtc_param_server_init( &param2, &head, null_s, asrtl_default_allocator() ) );
         CHECK_EQ( ASRTL_PARA, param2.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) param2.node.e_cb_ptr );
@@ -1585,7 +1585,7 @@ struct param_loopback_ctx : param_base
                 srv_sendr     = asrtl_sender{ .ptr = this, .cb = srv_to_cli };
                 cli_sendr     = asrtl_sender{ .ptr = this, .cb = cli_to_srv };
                 REQUIRE_EQ(
-                    ASRTC_SUCCESS,
+                    ASRTL_SUCCESS,
                     asrtc_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
                 struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + CLI_BUF_SZ };
                 REQUIRE_EQ(
@@ -1715,7 +1715,7 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         asrtl_sender ssend = { .ptr = this, .cb = srv_to_cli };
         asrtl_sender csend = { .ptr = this, .cb = cli_to_srv };
 
-        REQUIRE_EQ( ASRTC_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
         struct asrtl_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
         REQUIRE_EQ( ASRTR_SUCCESS, asrtr_param_client_init( &client, &cli_head, csend, mb, 100 ) );
 
@@ -1973,7 +1973,7 @@ struct collect_ctx
                 alloc     = asrtl_stub_allocator( &alloc_ctx );
                 setup_sender_collector( &sendr, &coll );
                 REQUIRE_EQ(
-                    ASRTC_SUCCESS,
+                    ASRTL_SUCCESS,
                     asrtc_collect_server_init( &server, &head, sendr, alloc, 4, 16 ) );
         }
         ~collect_ctx()
@@ -1990,14 +1990,14 @@ TEST_CASE( "asrtc_collect_server_init" )
         struct asrtc_collect_server s      = {};
 
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_collect_server_init( NULL, &head, null_s, asrtl_default_allocator(), 4, 16 ) );
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR,
+            ASRTL_INIT_ERR,
             asrtc_collect_server_init( &s, NULL, null_s, asrtl_default_allocator(), 4, 16 ) );
 
         CHECK_EQ(
-            ASRTC_SUCCESS,
+            ASRTL_SUCCESS,
             asrtc_collect_server_init( &s, &head, null_s, asrtl_default_allocator(), 4, 16 ) );
         CHECK_EQ( ASRTL_COLL, s.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) s.node.e_cb_ptr );
@@ -2197,9 +2197,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_duplicate_sends_err
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ack_cb_fires" )
 {
-        enum asrtc_status ack_status = {};
-        auto              ack_cb     = []( void* ptr, enum asrtc_status s ) {
-                *static_cast< enum asrtc_status* >( ptr ) = s;
+        enum asrtl_status ack_status = {};
+        auto              ack_cb     = []( void* ptr, enum asrtl_status s ) {
+                *static_cast< enum asrtl_status* >( ptr ) = s;
         };
 
         CHECK_EQ(
@@ -2211,14 +2211,14 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ack_cb_fires" )
         check_recv(
             &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
-        CHECK_EQ( ASRTC_SUCCESS, ack_status );
+        CHECK_EQ( ASRTL_SUCCESS, ack_status );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_timeout_fires_ack_cb" )
 {
-        enum asrtc_status ack_status = {};
-        auto              ack_cb     = []( void* ptr, enum asrtc_status s ) {
-                *static_cast< enum asrtc_status* >( ptr ) = s;
+        enum asrtl_status ack_status = {};
+        auto              ack_cb     = []( void* ptr, enum asrtl_status s ) {
+                *static_cast< enum asrtl_status* >( ptr ) = s;
         };
 
         CHECK_EQ(
@@ -2230,7 +2230,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_timeout_fires_ack_cb" )
         for ( uint32_t i = 0; i < 20; i++ )
                 check_tick( &server, t++ );
 
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, ack_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, ack_status );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_double_call_returns_error" )
@@ -2250,9 +2250,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_double_call_ret
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_allowed" )
 {
-        enum asrtc_status ack_status = {};
-        auto              ack_cb     = []( void* ptr, enum asrtc_status s ) {
-                *static_cast< enum asrtc_status* >( ptr ) = s;
+        enum asrtl_status ack_status = {};
+        auto              ack_cb     = []( void* ptr, enum asrtl_status s ) {
+                *static_cast< enum asrtl_status* >( ptr ) = s;
         };
 
         CHECK_EQ(
@@ -2261,7 +2261,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_a
 
         for ( uint32_t i = 0; i < 10; i++ )
                 check_tick( &server, t++ );
-        CHECK_EQ( ASRTC_TIMEOUT_ERR, ack_status );
+        CHECK_EQ( ASRTL_TIMEOUT_ERR, ack_status );
 
         // Should be allowed to call send_ready again after timeout
         CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
@@ -2352,7 +2352,7 @@ struct collect_loopback_ctx : collect_base
                 srv_sendr     = asrtl_sender{ .ptr = this, .cb = srv_to_cli };
                 cli_sendr     = asrtl_sender{ .ptr = this, .cb = cli_to_srv };
                 REQUIRE_EQ(
-                    ASRTC_SUCCESS,
+                    ASRTL_SUCCESS,
                     asrtc_collect_server_init( &server, &srv_head, srv_sendr, alloc, 4, 16 ) );
                 REQUIRE_EQ(
                     ASRTR_SUCCESS, asrtr_collect_client_init( &client, &cli_head, cli_sendr ) );
@@ -2523,7 +2523,7 @@ struct strm_server_ctx
                 setup_sender_collector( &sender, &coll );
                 alloc = asrtl_stub_allocator( &alloc_ctx );
                 CHECK_EQ(
-                    ASRTC_SUCCESS, asrtc_stream_server_init( &server, &root, sender, alloc ) );
+                    ASRTL_SUCCESS, asrtc_stream_server_init( &server, &root, sender, alloc ) );
         }
         ~strm_server_ctx()
         {
@@ -2572,7 +2572,7 @@ TEST_CASE( "strm_server_init: null server" )
         asrtl_node      root   = {};
         asrtl_sender    sender = {};
         asrtl_allocator alloc  = {};
-        CHECK_EQ( ASRTC_CNTR_INIT_ERR, asrtc_stream_server_init( nullptr, &root, sender, alloc ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtc_stream_server_init( nullptr, &root, sender, alloc ) );
 }
 
 TEST_CASE( "strm_server_init: null prev" )
@@ -2581,7 +2581,7 @@ TEST_CASE( "strm_server_init: null prev" )
         asrtl_sender        sender = {};
         asrtl_allocator     alloc  = {};
         CHECK_EQ(
-            ASRTC_CNTR_INIT_ERR, asrtc_stream_server_init( &server, nullptr, sender, alloc ) );
+            ASRTL_INIT_ERR, asrtc_stream_server_init( &server, nullptr, sender, alloc ) );
 }
 
 TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_init: valid" )
@@ -2898,7 +2898,7 @@ struct strm_loopback_ctx : server_client_base< asrtc_stream_server, asrtr_stream
                 auto alloc   = asrtl_stub_allocator( &alloc_ctx );
                 CHECK_EQ( ASRTR_SUCCESS, asrtr_stream_client_init( &client, &root_r, sender_r ) );
                 CHECK_EQ(
-                    ASRTC_SUCCESS, asrtc_stream_server_init( &server, &root_c, sender_c, alloc ) );
+                    ASRTL_SUCCESS, asrtc_stream_server_init( &server, &root_c, sender_c, alloc ) );
         }
         ~strm_loopback_ctx()
         {

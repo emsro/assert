@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../asrtc/diag.h"
-#include "../asrtc/status_to_str.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
@@ -17,16 +17,11 @@ using diag_record = asrtc_diag_record;
 struct diag
 {
         template < typename CB >
-        diag(
-            asrtl_node*            prev,
-            CB&                    send_cb,
-            struct asrtl_allocator alloc = asrtl_default_allocator() )
+        diag( asrtl_node* prev, CB& send_cb, struct asrtl_allocator alloc )
         {
-                if ( auto s = asrtc_diag_init(
-                         &diag_, prev, asrtl::make_sender( send_cb ), alloc );
-                     s != ASRTC_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtc_diag", "init failed: %s", asrtc_status_to_str( s ) );
+                if ( auto s = asrtc_diag_init( &diag_, prev, asrtl::make_sender( send_cb ), alloc );
+                     s != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG( "asrtc_diag", "init failed: %s", asrtl_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }
@@ -58,9 +53,9 @@ struct diag
 
         ~diag()
         {
-                if ( auto s = asrtc_diag_deinit( &diag_ ); s != ASRTC_SUCCESS )
+                if ( auto s = asrtc_diag_deinit( &diag_ ); s != ASRTL_SUCCESS )
                         ASRTL_ERR_LOG(
-                            "asrtc_diag", "deinit failed: %s", asrtc_status_to_str( s ) );
+                            "asrtc_diag", "deinit failed: %s", asrtl_status_to_str( s ) );
         }
 
 private:

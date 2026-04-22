@@ -407,7 +407,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
         srv.set_tree( &tree );
 
         CHECK_FALSE( cli.ready() );
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         CHECK( cli.ready() );
@@ -426,7 +426,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
             &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -466,7 +466,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         asrtl_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRTL_FLAT_CTYPE_OBJECT );
         srv.set_tree( &tree );
 
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -553,7 +553,7 @@ struct typed_loopback_ctx
         void setup_tree_and_handshake( asrtl_flat_tree* tree )
         {
                 srv.set_tree( tree );
-                auto noop = []( asrtc_status ) {};
+                auto noop = []( asrtl_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         asrtl_chann_tick( srv.node(), t++ );
@@ -794,7 +794,7 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
             &tree, 1, 3, "b", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } );
         srv.set_tree( &tree );
 
-        auto noop = []( asrtc_status ) {};
+        auto noop = []( asrtl_status ) {};
         CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
         spin();
         REQUIRE( cli.ready() );
@@ -1278,7 +1278,7 @@ struct param_sender_ctx
         void setup_tree_and_handshake( asrtl_flat_tree* tree )
         {
                 srv.set_tree( tree );
-                auto noop = []( asrtc_status ) {};
+                auto noop = []( asrtl_status ) {};
                 CHECK_EQ( ASRTL_SUCCESS, srv.send_ready( 1u, noop, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         asrtl_chann_tick( srv.node(), t++ );

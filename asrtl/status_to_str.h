@@ -20,6 +20,10 @@ extern "C" {
 inline static char const* asrtl_status_to_str( enum asrtl_status st )
 {
         switch ( st ) {
+        case ASRTL_VERSION_ERR:
+                return "version mismatch error";
+        case ASRTL_TIMEOUT_ERR:
+                return "timeout error";
         case ASRTL_CALLBACK_ERR:
                 return "callback error";
         case ASRTL_INVALID_EVENT_ERR:

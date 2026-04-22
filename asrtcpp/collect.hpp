@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../asrtc/collect.h"
-#include "../asrtc/status_to_str.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
@@ -35,9 +35,9 @@ struct collect_server
                          alloc,
                          tree_block_cap,
                          tree_node_cap );
-                     s != ASRTC_SUCCESS ) {
+                     s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
-                            "asrtc_collect", "init failed: %s", asrtc_status_to_str( s ) );
+                            "asrtc_collect", "init failed: %s", asrtl_status_to_str( s ) );
                         ASRTL_ASSERT( false );
                 }
         }

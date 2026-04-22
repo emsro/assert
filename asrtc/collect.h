@@ -19,9 +19,9 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/collect_proto.h"
 #include "../asrtl/flat_tree.h"
-#include "./status.h"
+#include "../asrtl/status.h"
 
-typedef void ( *asrtc_collect_ready_ack_cb )( void* ptr, enum asrtc_status status );
+typedef void ( *asrtc_collect_ready_ack_cb )( void* ptr, enum asrtl_status status );
 
 enum asrtc_collect_server_state
 {
@@ -68,7 +68,7 @@ struct asrtc_collect_server
 
 /// Initialise a collect server and link it into the node chain.
 ///
-enum asrtc_status asrtc_collect_server_init(
+enum asrtl_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
     struct asrtl_node*           prev,
     struct asrtl_sender          sender,

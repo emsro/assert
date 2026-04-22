@@ -19,7 +19,6 @@ extern "C" {
 #include "../asrtl/allocator.h"
 #include "../asrtl/chann.h"
 #include "../asrtl/diag_proto.h"
-#include "./status.h"
 
 struct asrtc_diag_record
 {
@@ -42,7 +41,7 @@ struct asrtc_diag
         struct asrtc_diag_record* last_rec;
 };
 
-enum asrtc_status asrtc_diag_init(
+enum asrtl_status asrtc_diag_init(
     struct asrtc_diag*     diag,
     struct asrtl_node*     prev,
     struct asrtl_sender    sender,
@@ -50,7 +49,7 @@ enum asrtc_status asrtc_diag_init(
 
 struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag );
 
-enum asrtc_status asrtc_diag_deinit( struct asrtc_diag* diag );
+enum asrtl_status asrtc_diag_deinit( struct asrtc_diag* diag );
 
 #ifdef __cplusplus
 }
