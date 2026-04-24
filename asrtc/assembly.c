@@ -37,13 +37,16 @@ enum asrtl_status asrtc_assembly_init(
 
 // --- internal callback chain -------------------------------------------------
 
-static enum asrtl_status on_test_result( void* ptr, enum asrtl_status s, struct asrtc_result* res )
+static enum asrtl_status asrtc_on_test_result(
+    void*                ptr,
+    enum asrtl_status    s,
+    struct asrtc_result* res )
 {
         struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
         return a->exec_hndl.cb( a->exec_hndl.cb_ptr, s, res );
 }
 
-static void on_collect_ack( void* ptr, enum asrtl_status s )
+static void asrtc_on_collect_ack( void* ptr, enum asrtl_status s )
 {
         struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
         if ( s != ASRTL_SUCCESS ) {
@@ -51,12 +54,12 @@ static void on_collect_ack( void* ptr, enum asrtl_status s )
                 return;
         }
         enum asrtl_status es = asrtc_cntr_test_exec(
-            &a->cntr, a->exec_hndl.tid, on_test_result, a, a->exec_hndl.timeout );
+            &a->cntr, a->exec_hndl.tid, asrtc_on_test_result, a, a->exec_hndl.timeout );
         if ( es != ASRTL_SUCCESS )
                 a->exec_hndl.cb( a->exec_hndl.cb_ptr, es, NULL );
 }
 
-static void on_param_ack( void* ptr, enum asrtl_status s )
+static void asrtc_on_param_ack( void* ptr, enum asrtl_status s )
 {
         struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
         if ( s != ASRTL_SUCCESS ) {
@@ -65,7 +68,7 @@ static void on_param_ack( void* ptr, enum asrtl_status s )
         }
         asrtc_stream_server_clear( &a->stream );
         enum asrtl_status cs = asrtc_collect_server_send_ready(
-            &a->collect, 0, a->exec_hndl.timeout, on_collect_ack, a );
+            &a->collect, 0, a->exec_hndl.timeout, asrtc_on_collect_ack, a );
         if ( cs != ASRTL_SUCCESS )
                 a->exec_hndl.cb( a->exec_hndl.cb_ptr, cs, NULL );
 }
@@ -89,9 +92,9 @@ enum asrtl_status asrtc_assembly_exec_test(
         if ( tree != NULL ) {
                 asrtc_param_server_set_tree( &a->param, tree );
                 return asrtc_param_server_send_ready(
-                    &a->param, root_id, timeout, on_param_ack, a );
+                    &a->param, root_id, timeout, asrtc_on_param_ack, a );
         }
 
         asrtc_stream_server_clear( &a->stream );
-        return asrtc_collect_server_send_ready( &a->collect, 0, timeout, on_collect_ack, a );
+        return asrtc_collect_server_send_ready( &a->collect, 0, timeout, asrtc_on_collect_ack, a );
 }

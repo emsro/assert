@@ -55,7 +55,7 @@ inline enum asrtl_status asrtr_assembly_init(
                  &assembly->param,
                  &assembly->collect.node,
                  sender,
-                 {
+                 ( struct asrtl_span ){
                      .b = assembly->param_cache_buf,
                      .e = assembly->param_cache_buf + sizeof( assembly->param_cache_buf ),
                  },

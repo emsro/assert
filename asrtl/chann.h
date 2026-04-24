@@ -74,7 +74,7 @@ static inline void asrtl_node_link( struct asrtl_node* after, struct asrtl_node*
         ASRTL_ASSERT( node );
         node->next = after->next;
         node->prev = after;
-        if ( after->next )
+        if ( after->next != NULL )
                 after->next->prev = node;
         after->next = node;
 }
