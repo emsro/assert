@@ -49,7 +49,7 @@ enum asrtl_status asrtc_diag_init(
 
 struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag );
 
-enum asrtl_status asrtc_diag_deinit( struct asrtc_diag* diag );
+void asrtc_diag_deinit( struct asrtc_diag* diag );
 
 #ifdef __cplusplus
 }

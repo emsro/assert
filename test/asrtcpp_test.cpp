@@ -162,6 +162,12 @@ struct paired_ctx
                 CHECK( asrt::is_idle( c ) );
         }
 
+        ~paired_ctx()
+        {
+                asrt::deinit( c );
+                asrt::deinit( r );
+        }
+
         // tick both sides until controller is idle again
         void spin()
         {
@@ -415,6 +421,12 @@ struct diag_paired_ctx : paired_ctx
                         throw std::runtime_error( "r_diag init failed" );
                 if ( asrt::init( r_diag, asrt::node( this->r ), r_diag_send ) != ASRTL_SUCCESS )
                         throw std::runtime_error( "c_diag init failed" );
+        }
+
+        ~diag_paired_ctx()
+        {
+                asrt::deinit( r_diag );
+                asrt::deinit( c_diag );
         }
 };
 

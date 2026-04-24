@@ -150,10 +150,10 @@ struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag )
         return rec;
 }
 
-enum asrtl_status asrtc_diag_deinit( struct asrtc_diag* diag )
+void asrtc_diag_deinit( struct asrtc_diag* diag )
 {
         if ( !diag )
-                return ASRTL_INIT_ERR;
+                return;
 
         asrtl_node_unlink( &diag->node );
         struct asrtc_diag_record* rec = diag->first_rec;
@@ -164,5 +164,4 @@ enum asrtl_status asrtc_diag_deinit( struct asrtc_diag* diag )
         }
         diag->first_rec = NULL;
         diag->last_rec  = NULL;
-        return ASRTL_SUCCESS;
 }

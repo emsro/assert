@@ -49,6 +49,8 @@ enum asrtl_status asrtc_assembly_init(
     struct asrtl_allocator alloc,
     struct asrtc_error_cb  ecb );
 
+void asrtc_assembly_deinit( struct asrtc_assembly* assembly );
+
 static inline void asrtc_assembly_tick( struct asrtc_assembly* assembly, uint32_t now )
 {
         asrtl_chann_tick_successors( &assembly->cntr.node, now );

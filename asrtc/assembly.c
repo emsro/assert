@@ -22,17 +22,38 @@ enum asrtl_status asrtc_assembly_init(
                 return st;
         st = asrtc_diag_init( &a->diag, &a->cntr.node, sender, alloc );
         if ( st != ASRTL_SUCCESS )
-                return st;
+                goto fail_cntr;
         st = asrtc_collect_server_init( &a->collect, &a->diag.node, sender, alloc, 64, 256 );
         if ( st != ASRTL_SUCCESS )
-                return st;
+                goto fail_diag;
         st = asrtc_param_server_init( &a->param, &a->collect.node, sender, alloc );
         if ( st != ASRTL_SUCCESS )
-                return st;
+                goto fail_collect;
         st = asrtc_stream_server_init( &a->stream, &a->param.node, sender, alloc );
         if ( st != ASRTL_SUCCESS )
-                return st;
+                goto fail_param;
         return ASRTL_SUCCESS;
+
+fail_param:
+        asrtc_param_server_deinit( &a->param );
+fail_collect:
+        asrtc_collect_server_deinit( &a->collect );
+fail_diag:
+        asrtc_diag_deinit( &a->diag );
+fail_cntr:
+        asrtc_cntr_deinit( &a->cntr );
+        return st;
+}
+
+void asrtc_assembly_deinit( struct asrtc_assembly* a )
+{
+        if ( !a )
+                return;
+        asrtc_stream_server_deinit( &a->stream );
+        asrtc_param_server_deinit( &a->param );
+        asrtc_collect_server_deinit( &a->collect );
+        asrtc_diag_deinit( &a->diag );
+        asrtc_cntr_deinit( &a->cntr );
 }
 
 // --- internal callback chain -------------------------------------------------

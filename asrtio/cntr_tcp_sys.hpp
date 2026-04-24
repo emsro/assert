@@ -139,6 +139,7 @@ private:
 inline task< void > async_destroy( task_ctx&, cntr_tcp_sys& sys )
 {
         uv_idle_stop( &sys.idle_handle );
+        asrtc_assembly_deinit( &sys.asm_ );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
         if ( !sys.disconnected_ )
                 co_await uv_close_handle{ (uv_handle_t*) sys.client.get() };
