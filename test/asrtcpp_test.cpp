@@ -509,6 +509,8 @@ struct param_server_ctx : paired_ctx
                      ASRTL_SUCCESS )
                         throw std::runtime_error( "param_server init failed" );
         }
+
+        ~param_server_ctx() { asrt::deinit( srv ); }
 };
 
 TEST_CASE_FIXTURE( param_server_ctx, "param_server_node_chained" )
@@ -621,6 +623,8 @@ struct collect_server_ctx
                      ASRTL_SUCCESS )
                         throw std::runtime_error( "collect_server init failed" );
         }
+
+        ~collect_server_ctx() { asrt::deinit( srv ); }
 
         void make_active( asrt::flat_id root_id = 0 )
         {

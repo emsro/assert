@@ -361,6 +361,7 @@ inline void handle_diag(
                 reporter.on_diagnostic( rec->file, rec->line, extra );
                 if ( w )
                         w->stream() << rec->file << "," << rec->line << "," << extra << "\n";
+                asrtc_diag_free_record( &sys.assembly().diag.alloc, rec );
         }
 }
 
