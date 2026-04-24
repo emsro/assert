@@ -4,7 +4,7 @@ project(assert)
 
 include(cmake/CPM.cmake)
 
-cpmaddpackage("gh:koniarik/ecor@0.1.3")
+cpmaddpackage("gh:koniarik/ecor@0.1.6")
 
 add_subdirectory(asrtl)
 add_subdirectory(asrtc)

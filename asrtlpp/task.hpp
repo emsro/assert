@@ -45,6 +45,7 @@ struct task_cfg
 {
         using extra_error_signatures = ecor::
             completion_signatures< ecor::set_error_t( status ), ecor::set_error_t( test_fail_t ) >;
+        using trace_type = ecor::task_default_trace;
 };
 
 template < typename T >
