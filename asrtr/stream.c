@@ -52,7 +52,7 @@ static enum asrtl_status asrtr_stream_client_recv( void* data, struct asrtl_span
 }
 
 
-enum asrtr_status asrtr_stream_client_define(
+enum asrtl_status asrtr_stream_client_define(
     struct asrtr_stream_client*         client,
     uint8_t                             schema_id,
     enum asrtl_strm_field_type_e const* fields,
@@ -61,9 +61,9 @@ enum asrtr_status asrtr_stream_client_define(
     void*                               done_cb_ptr )
 {
         if ( !client || !fields || field_count == 0 )
-                return ASRTR_ARG_ERR;
+                return ASRTL_ARG_ERR;
         if ( client->state != ASRTR_STRM_IDLE )
-                return ASRTR_BUSY_ERR;
+                return ASRTL_BUSY_ERR;
 
         client->op.define = ( struct asrtr_stream_pending_define ){
             .schema_id   = schema_id,
@@ -74,10 +74,10 @@ enum asrtr_status asrtr_stream_client_define(
         client->done_cb_ptr = done_cb_ptr;
         client->state       = ASRTR_STRM_DEFINE_SEND;
 
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-enum asrtr_status asrtr_stream_client_emit(
+enum asrtl_status asrtr_stream_client_emit(
     struct asrtr_stream_client* client,
     uint8_t                     schema_id,
     uint8_t const*              data,
@@ -86,11 +86,11 @@ enum asrtr_status asrtr_stream_client_emit(
     void*                       done_cb_ptr )
 {
         if ( !client || !data )
-                return ASRTR_ARG_ERR;
+                return ASRTL_ARG_ERR;
         if ( client->state == ASRTR_STRM_ERROR )
-                return ASRTR_INTERNAL_ERR;
+                return ASRTL_INTERNAL_ERR;
         if ( client->state != ASRTR_STRM_IDLE )
-                return ASRTR_BUSY_ERR;
+                return ASRTL_BUSY_ERR;
 
         client->done_cb     = done_cb;
         client->done_cb_ptr = done_cb_ptr;
@@ -102,22 +102,22 @@ enum asrtr_status asrtr_stream_client_emit(
                 client->done_cb     = NULL;
                 client->done_cb_ptr = NULL;
                 client->state       = ASRTR_STRM_IDLE;
-                return ASRTR_SEND_ERR;
+                return ASRTL_SEND_ERR;
         }
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
-enum asrtr_status asrtr_stream_client_reset( struct asrtr_stream_client* client )
+enum asrtl_status asrtr_stream_client_reset( struct asrtr_stream_client* client )
 {
         if ( !client )
-                return ASRTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         if ( client->state == ASRTR_STRM_DEFINE_SEND || client->state == ASRTR_STRM_WAIT )
-                return ASRTR_BUSY_ERR;
+                return ASRTL_BUSY_ERR;
         client->state       = ASRTR_STRM_IDLE;
         client->err_code    = ASRTL_STRM_ERR_SUCCESS;
         client->done_cb     = NULL;
         client->done_cb_ptr = NULL;
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 static enum asrtl_status asrtr_stream_tick_done( struct asrtr_stream_client* client )
@@ -186,13 +186,13 @@ static enum asrtl_status asrtr_stream_client_event( void* p, enum asrtl_event_e 
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtr_status asrtr_stream_client_init(
+enum asrtl_status asrtr_stream_client_init(
     struct asrtr_stream_client* client,
     struct asrtl_node*          prev,
     struct asrtl_sender         sender )
 {
         if ( !client || !prev )
-                return ASRTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *client = ( struct asrtr_stream_client ){
             .node =
                 ( struct asrtl_node ){
@@ -205,7 +205,7 @@ enum asrtr_status asrtr_stream_client_init(
             .state = ASRTR_STRM_IDLE,
         };
         asrtl_node_link( prev, &client->node );
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 void asrtr_stream_client_deinit( struct asrtr_stream_client* client )

@@ -42,15 +42,15 @@ struct cobs_node
         char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
-        asrtl::status write( uv_stream_t* client, asrtl::chann_id id, asrtl::rec_span& buff )
+        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt::rec_span& buff )
         {
                 uint8_t  buffer[1024];
                 uint8_t* p  = buffer + 8;  // offset for COBS encoding
                 uint8_t* pp = p;
 
-                size_t size = sizeof( asrtl_chann_id );
+                size_t size = sizeof( asrt::chann_id );
                 asrtl_add_u16( &pp, id );
-                for ( asrtl::rec_span* sp = &buff; sp != nullptr; sp = sp->next ) {
+                for ( asrt::rec_span* sp = &buff; sp != nullptr; sp = sp->next ) {
                         if ( size + ( sp->e - sp->b ) > sizeof( buffer ) - 8 ) {
                                 ASRTL_ERR_LOG( module, "Buffer overflow in COBS encoding" );
                                 return ASRTL_SEND_ERR;
@@ -141,20 +141,20 @@ struct cobs_node
 bool _flat_tree_from_json_impl(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
-    asrtl::flat_id        parent,
+    asrt::flat_id         parent,
     char const*           key,
-    asrtl::flat_id&       next_id );
+    asrt::flat_id&        next_id );
 
 inline bool flat_tree_from_json(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
-    asrtl::flat_id&       next_id )
+    asrt::flat_id&        next_id )
 {
         return _flat_tree_from_json_impl( tree, j, 0, nullptr, next_id );
 }
 
 
-bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl::flat_id node_id, nlohmann::json& out );
+bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrt::flat_id node_id, nlohmann::json& out );
 
 inline bool flat_tree_to_json( asrtl_flat_tree& tree, nlohmann::json& out )
 {

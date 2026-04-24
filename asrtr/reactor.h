@@ -18,8 +18,8 @@ extern "C" {
 
 #include "../asrtl/chann.h"
 #include "../asrtl/core_proto.h"
+#include "../asrtl/status.h"
 #include "record.h"
-#include "status.h"
 
 #include <stdint.h>
 
@@ -72,17 +72,17 @@ struct asrtr_reactor
         uint32_t recv_test_run_id;
 };
 
-enum asrtr_status asrtr_reactor_init(
+enum asrtl_status asrtr_reactor_init(
     struct asrtr_reactor* reac,
     struct asrtl_sender   sender,
     char const*           desc );
 
-enum asrtr_status asrtr_test_init(
+enum asrtl_status asrtr_test_init(
     struct asrtr_test*  t,
     char const*         desc,
     void*               ptr,
     asrtr_test_callback start_f );
-enum asrtr_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
+enum asrtl_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
 void              asrtr_reactor_deinit( struct asrtr_reactor* reac );
 
 #ifdef __cplusplus

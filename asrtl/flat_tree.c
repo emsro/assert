@@ -122,8 +122,8 @@ enum asrtl_status asrtl_flat_tree_init(
 }
 
 static inline struct asrtl_flat_node* asrtl_flat_get_node(
-    struct asrtl_flat_tree* t,
-    asrtl_flat_id           id )
+    struct asrtl_flat_tree const* t,
+    asrtl_flat_id                 id )
 {
         uint32_t capacity = t->node_capacity * t->block_capacity;
         if ( id >= capacity )
@@ -372,7 +372,7 @@ enum asrtl_status asrtl_flat_tree_append_cont(
 }
 
 enum asrtl_status asrtl_flat_tree_query(
-    struct asrtl_flat_tree*         t,
+    struct asrtl_flat_tree const*   t,
     asrtl_flat_id                   node_id,
     struct asrtl_flat_query_result* result )
 {

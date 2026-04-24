@@ -4,7 +4,7 @@
 
 #include <concepts>
 
-namespace asrtl
+namespace asrt
 {
 
 template < typename CB >
@@ -25,12 +25,25 @@ inline status sender_cb(
         return ( *cb )( id, buff, done_cb, done_ptr );
 }
 
-template < sender_callable CB >
-inline asrtl_sender make_sender( CB& cb )
+using sender = asrtl_sender;
+
+struct autosender
 {
-        return {
-            .ptr = &cb,
-            .cb  = &sender_cb< CB >,
-        };
-}
-}  // namespace asrtl
+        template < sender_callable CB >
+        autosender( CB& cb ) noexcept
+          : _s{ .ptr = &cb, .cb = &sender_cb< CB > }
+        {
+        }
+
+        autosender( asrtl_sender s ) noexcept
+          : _s( s )
+        {
+        }
+
+        operator asrtl_sender() const noexcept { return _s; }
+
+private:
+        asrtl_sender _s;
+};
+
+}  // namespace asrt

@@ -6,7 +6,7 @@
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
 
-namespace asrtc
+namespace asrt
 {
 
 /// Owning handle for a collection of stream schemas and their records.
@@ -41,72 +41,38 @@ struct stream_schemas
                 return *this;
         }
 
-        ~stream_schemas()
-        {
-                asrtc_stream_schemas_free( &s_ );
-        }
+        ~stream_schemas() { asrtc_stream_schemas_free( &s_ ); }
 
-        asrtc_stream_schemas const* operator->() const
-        {
-                return &s_;
-        }
+        asrtc_stream_schemas const* operator->() const { return &s_; }
 
-        asrtc_stream_schemas const& operator*() const
-        {
-                return s_;
-        }
+        asrtc_stream_schemas const& operator*() const { return s_; }
 
 private:
         asrtc_stream_schemas s_{};
 };
 
-/// Controller-side stream server.
-///
-/// Receives DEFINE and DATA messages from the reactor, stores records in
-/// per-schema linked lists.  Call take() after each test to retrieve all
-/// schemas and their records.
-struct stream_server
+inline status init(
+    ref< asrtc_stream_server > srv,
+    asrtl_node&                prev,
+    autosender                 send_cb,
+    asrtl_allocator            alloc )
 {
-        template < typename CB >
-        stream_server(
-            asrtl_node*            prev,
-            CB&                    send_cb,
-            struct asrtl_allocator alloc = asrtl_default_allocator() )
-        {
-                if ( auto s = asrtc_stream_server_init(
-                         &server_, prev, asrtl::make_sender( send_cb ), alloc );
-                     s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtc_stream", "init failed: %s", asrtl_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
-        }
+        return asrtc_stream_server_init( srv, &prev, send_cb, alloc );
+}
 
-        stream_server( stream_server&& )      = delete;
-        stream_server( stream_server const& ) = delete;
+inline stream_schemas take( ref< asrtc_stream_server > srv )
+{
+        return stream_schemas{ asrtc_stream_server_take( srv ) };
+}
 
-        asrtl_node* node()
-        {
-                return &server_.node;
-        }
+inline void clear( ref< asrtc_stream_server > srv )
+{
+        asrtc_stream_server_clear( srv );
+}
 
-        stream_schemas take()
-        {
-                return stream_schemas{ asrtc_stream_server_take( &server_ ) };
-        }
+inline void deinit( ref< asrtc_stream_server > srv )
+{
+        asrtc_stream_server_deinit( srv );
+}
 
-        void clear()
-        {
-                asrtc_stream_server_clear( &server_ );
-        }
-
-        ~stream_server()
-        {
-                asrtc_stream_server_deinit( &server_ );
-        }
-
-private:
-        asrtc_stream_server server_;
-};
-
-}  // namespace asrtc
+}  // namespace asrt

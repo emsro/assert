@@ -3,7 +3,7 @@
 #include <concepts>
 #include <type_traits>
 
-namespace asrtl
+namespace asrt
 {
 
 /// A type-erasing wrapper for C-style callback + void* pairs.
@@ -59,4 +59,4 @@ private:
         }
 };
 
-}  // namespace asrtl
+}  // namespace asrt

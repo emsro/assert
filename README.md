@@ -1,4 +1,4 @@
-# Automated System for Software & Embedded Regression Testing
+# asrt — Automated System for Software & Embedded Regression Testing
 
 Host-driven testing framework for software and embedded targets.
 
@@ -176,10 +176,10 @@ All multi-byte values use big-endian encoding.
 
 ```cpp
 // In a task_test::exec() coroutine:
-auto schema = co_await asrtr::define< uint32_t, float >( stream_client, 0 );
+auto schema = co_await define< uint32_t, float >( stream_client, 0 );
 
 for ( uint32_t i = 0; i < 100; ++i )
-        co_await asrtr::emit( schema, i * 10, 20.0f + 0.1f * i );
+        co_await emit( schema, i * 10, 20.0f + 0.1f * i );
 ```
 
 

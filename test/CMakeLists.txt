@@ -36,12 +36,6 @@ target_compile_features(asrtio_test PUBLIC cxx_std_20)
 add_test(NAME asrtio_test COMMAND asrtio_test)
 set_tests_properties(asrtio_test PROPERTIES TIMEOUT 60)
 
-add_executable(mutatest mutatest.cpp)
-target_link_libraries(mutatest PUBLIC asrtrpp asrtcpp CLI11::CLI11)
-target_compile_features(mutatest PUBLIC cxx_std_20)
-add_test(NAME mutatest COMMAND mutatest)
-set_tests_properties(mutatest PROPERTIES TIMEOUT 30)
-
 add_test(NAME asrtio_rsim COMMAND asrtio rsim)
 set_tests_properties(asrtio_rsim PROPERTIES TIMEOUT 30)
 

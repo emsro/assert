@@ -1,21 +1,17 @@
 #pragma once
 
+#include "../asrtl/status.h"
+
 #include <ecor/ecor.hpp>
 
-namespace asrtl
+namespace asrt
 {
 
 struct malloc_free_memory_resource
 {
-        void* allocate( std::size_t n, std::size_t )
-        {
-                return malloc( n );
-        }
+        void* allocate( std::size_t n, std::size_t ) { return malloc( n ); }
 
-        void deallocate( void* p, std::size_t, std::size_t ) noexcept
-        {
-                std::free( p );
-        }
+        void deallocate( void* p, std::size_t, std::size_t ) noexcept { std::free( p ); }
 };
 
 struct task_ctx
@@ -25,42 +21,37 @@ struct task_ctx
         {
         }
 
-        void tick()
-        {
-                core.run_once();
-        }
+        void tick() { core.run_once(); }
 
-        auto& query( ecor::get_memory_resource_t )
-        {
-                return memory_resource;
-        }
+        auto& query( ecor::get_memory_resource_t ) { return memory_resource; }
 
-        auto& query( ecor::get_task_core_t )
-        {
-                return core;
-        }
+        auto& query( ecor::get_task_core_t ) { return core; }
 
-        void reschedule( ecor::schedulable& s )
-        {
-                core.reschedule( s );
-        }
+        void reschedule( ecor::schedulable& s ) { core.reschedule( s ); }
 
 private:
         ecor::task_memory_resource memory_resource;
         ecor::task_core            core;
 };
 
-template < typename Status >
+using status = asrtl_status;
+
+struct test_fail_t
+{
+};
+static constexpr test_fail_t test_fail{};
+
 struct task_cfg
 {
-        using extra_error_signatures = ecor::completion_signatures< ecor::set_error_t( Status ) >;
+        using extra_error_signatures = ecor::
+            completion_signatures< ecor::set_error_t( status ), ecor::set_error_t( test_fail_t ) >;
 };
 
-template < typename T, typename Status >
-using task = ecor::task< T, task_cfg< Status > >;
+template < typename T >
+using task = ecor::task< T, asrt::task_cfg >;
 
 
-template < typename T, typename Status >
+template < typename T >
 struct gen_sender
 {
         using sender_concept = ecor::sender_t;
@@ -76,7 +67,7 @@ struct gen_sender
         }
 
         using completion_signatures =
-            ecor::completion_signatures< value_sig, ecor::set_error_t( Status ) >;
+            ecor::completion_signatures< value_sig, ecor::set_error_t( asrt::status ) >;
 
 
         template < typename R >
@@ -85,10 +76,7 @@ struct gen_sender
                 R            recv;
                 context_type ctx;
 
-                void start()
-                {
-                        ctx.start( *this );
-                }
+                void start() { ctx.start( *this ); }
         };
 
         template < typename R >
@@ -99,4 +87,4 @@ struct gen_sender
 };
 
 
-}  // namespace asrtl
+}  // namespace asrt

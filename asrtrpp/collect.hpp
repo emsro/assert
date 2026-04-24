@@ -2,59 +2,60 @@
 
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/sender.hpp"
+#include "../asrtlpp/status_sender.hpp"
 #include "../asrtr/collect.h"
-#include "../asrtr/status_to_str.h"
 
 #include <concepts>
 
-namespace asrtr
+namespace asrt
 {
 
 /// Trait mapping C++ types to flat_value scalar member pointers.
 /// Specialised for uint32_t, int32_t, float, char const*, bool,
-/// and the container tags asrtl::obj / asrtl::arr.
+/// and the container tags obj / arr.
 template < typename T >
 struct collect_append_traits;
 
 template <>
-struct collect_append_traits< uint32_t > : asrtl::flat_type_traits< uint32_t >
+struct collect_append_traits< uint32_t > : flat_type_traits< uint32_t >
 {
         static constexpr auto member = &asrtl_flat_scalar::u32_val;
 };
 
 template <>
-struct collect_append_traits< int32_t > : asrtl::flat_type_traits< int32_t >
+struct collect_append_traits< int32_t > : flat_type_traits< int32_t >
 {
         static constexpr auto member = &asrtl_flat_scalar::i32_val;
 };
 
 template <>
-struct collect_append_traits< float > : asrtl::flat_type_traits< float >
+struct collect_append_traits< float > : flat_type_traits< float >
 {
         static constexpr auto member = &asrtl_flat_scalar::float_val;
 };
 
 template <>
-struct collect_append_traits< char const* > : asrtl::flat_type_traits< char const* >
+struct collect_append_traits< char const* > : flat_type_traits< char const* >
 {
         static constexpr auto member = &asrtl_flat_scalar::str_val;
 };
 
 template <>
-struct collect_append_traits< bool > : asrtl::flat_type_traits< bool >
+struct collect_append_traits< bool > : flat_type_traits< bool >
 {
         static constexpr auto member = &asrtl_flat_scalar::bool_val;
 };
 
 template <>
-struct collect_append_traits< asrtl::obj > : asrtl::flat_type_traits< asrtl::obj >
+struct collect_append_traits< obj > : flat_type_traits< obj >
 {
 };
 
 template <>
-struct collect_append_traits< asrtl::arr > : asrtl::flat_type_traits< asrtl::arr >
+struct collect_append_traits< arr > : flat_type_traits< arr >
 {
 };
 
@@ -66,98 +67,108 @@ concept collect_scalar = collect_append_traits< T >::is_scalar;
 template < typename T >
 concept collect_container = !collect_append_traits< T >::is_scalar;
 
-/// C++ wrapper for the reactor-side collect client.
-///
-/// Provides type-safe append<T>() methods that map C++ types to the
-/// underlying flat_value encoding.  Node IDs are auto-assigned.
-///
-/// Usage:
-///   collect_client cc{prev_node, send_cb};
-///   // ... after READY handshake ...
-///   cc.append<uint32_t>(root, "count", 42);
-///   asrtl::flat_id obj;
-///   cc.append<asrtl::obj>(root, "sub", obj);
-///   cc.append<uint32_t>(obj, "x", 1);
-struct collect_client
+inline status init( ref< asrtr_collect_client > client, asrtl_node& prev, autosender s )
 {
-        template < asrtl::sender_callable CB >
-        collect_client( asrtl_node* prev, CB& send_cb )
+        return asrtr_collect_client_init( client, &prev, s );
+}
+
+[[nodiscard]] inline flat_id root_id( ref< asrtr_collect_client const > cc )
+{
+        return asrtr_collect_client_root_id( cc );
+}
+
+/// Scalar append with key: append<uint32_t>(parent, "key", 42).
+template < collect_scalar T >
+status_sender append( ref< asrtr_collect_client > cc, flat_id parent, char const* key, T val )
+{
+        using traits             = collect_append_traits< T >;
+        using member_type        = decltype( asrtl_flat_scalar{}.*traits::member );
+        asrtl_flat_value v       = { .type = traits::flat_type };
+        v.data.s.*traits::member = static_cast< member_type >( val );
+        return asrtr_collect_client_append( cc, parent, key, &v, nullptr );
+}
+
+/// Scalar append without key (array child): append<uint32_t>(parent, 42).
+template < collect_scalar T >
+status_sender append( ref< asrtr_collect_client > cc, flat_id parent, T val )
+{
+        return append< T >( cc, parent, nullptr, val );
+}
+
+/// Container append with key: append<obj>(parent, "key", out_id).
+/// @param out Receives the auto-assigned node ID for the new container.
+template < collect_container T >
+status_sender append(
+    ref< asrtr_collect_client > cc,
+    flat_id                     parent,
+    char const*                 key,
+    flat_id&                    out )
+{
+        using traits       = collect_append_traits< T >;
+        asrtl_flat_value v = { .type = traits::flat_type };
+        return asrtr_collect_client_append( cc, parent, key, &v, &out );
+}
+
+/// Sender that appends a single node to the collect client's tree.
+template < typename T >
+struct collect_append_sender
+{
+        using sender_concept        = ecor::sender_t;
+        using completion_signatures = ecor::
+            completion_signatures< ecor::set_value_t( flat_id ), ecor::set_error_t( status ) >;
+
+        asrtr_collect_client* client_;
+        flat_id               parent;
+        char const*           key;
+
+        template < ecor::receiver R >
+        struct op
         {
-                if ( auto s =
-                         asrtr_collect_client_init( &client_, prev, asrtl::make_sender( send_cb ) );
-                     s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_collect", "init failed: %s", asrtr_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
+                collect_append_sender s;
+                R                     recv;
+
+                void start()
+                {
+                        flat_id out = 0;
+                        auto    st  = append< T >( s.client_, s.parent, s.key, out );
+                        if ( st == ASRTL_SUCCESS )
+                                recv.set_value( out );
+                        else
+                                recv.set_error( st );
                 }
-        }
+        };
 
-        collect_client( asrtl_node* prev, asrtl_sender sender )
+        template < ecor::receiver R >
+        auto connect( R&& r ) && noexcept
         {
-                if ( auto s = asrtr_collect_client_init( &client_, prev, sender );
-                     s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_collect", "init failed: %s", asrtr_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
+                return op< R >{ std::move( *this ), (R&&) r };
         }
-
-        collect_client( collect_client&& )      = delete;
-        collect_client( collect_client const& ) = delete;
-
-        asrtl_node* node()
-        {
-                return &client_.node;
-        }
-
-
-        [[nodiscard]] asrtl::flat_id root_id() const
-        {
-                return asrtr_collect_client_root_id( &client_ );
-        }
-
-        /// Scalar append with key: append<uint32_t>(parent, "key", 42).
-        template < collect_scalar T >
-        asrtl_status append( asrtl::flat_id parent, char const* key, T val )
-        {
-                using traits             = collect_append_traits< T >;
-                using member_type        = decltype( asrtl_flat_scalar{}.*traits::member );
-                asrtl_flat_value v       = { .type = traits::flat_type };
-                v.data.s.*traits::member = static_cast< member_type >( val );
-                return asrtr_collect_client_append( &client_, parent, key, &v, nullptr );
-        }
-
-        /// Scalar append without key (array child): append<uint32_t>(parent, 42).
-        template < collect_scalar T >
-        asrtl_status append( asrtl::flat_id parent, T val )
-        {
-                return append< T >( parent, nullptr, val );
-        }
-
-        /// Container append with key: append<asrtl::obj>(parent, "key", out_id).
-        /// @param out Receives the auto-assigned node ID for the new container.
-        template < collect_container T >
-        asrtl_status append( asrtl::flat_id parent, char const* key, asrtl::flat_id& out )
-        {
-                using traits       = collect_append_traits< T >;
-                asrtl_flat_value v = { .type = traits::flat_type };
-                return asrtr_collect_client_append( &client_, parent, key, &v, &out );
-        }
-
-        /// Container append without key (array child): append<asrtl::obj>(parent, out_id).
-        template < collect_container T >
-        asrtl_status append( asrtl::flat_id parent, asrtl::flat_id& out )
-        {
-                return append< T >( parent, nullptr, out );
-        }
-
-        ~collect_client()
-        {
-                asrtr_collect_client_deinit( &client_ );
-        }
-
-private:
-        asrtr_collect_client client_;
 };
 
-}  // namespace asrtr
+/// co_await append<T>(client, parent, key) — container with key; returns flat_id.
+template < collect_container T >
+ecor::sender auto append( ref< asrtr_collect_client > client, flat_id parent, char const* key )
+{
+        return collect_append_sender< T >{ client, parent, key };
+}
+
+/// Container append without key (array child): append<obj>(parent, out_id).
+template < collect_container T >
+status_sender append( ref< asrtr_collect_client > cc, flat_id parent, flat_id& out )
+{
+        return append< T >( cc, parent, nullptr, out );
+}
+
+/// co_await append<T>(client, parent) — container without key (array child); returns flat_id.
+template < collect_container T >
+ecor::sender auto append( ref< asrtr_collect_client > client, flat_id parent )
+{
+        return collect_append_sender< T >{ client, parent, nullptr };
+}
+
+inline void deinit( ref< asrtr_collect_client > client )
+{
+        asrtr_collect_client_deinit( client );
+}
+
+}  // namespace asrt

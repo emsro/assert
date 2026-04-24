@@ -331,7 +331,7 @@ static enum asrtl_status asrtr_param_client_event( void* p, enum asrtl_event_e e
         return ASRTL_SUCCESS;
 }
 
-enum asrtr_status asrtr_param_client_init(
+enum asrtl_status asrtr_param_client_init(
     struct asrtr_param_client* client,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,
@@ -340,7 +340,7 @@ enum asrtr_status asrtr_param_client_init(
 {
         if ( !client || !prev || !msg_buffer.b || msg_buffer.e <= msg_buffer.b || timeout == 0 ) {
                 ASRTL_ERR_LOG( "asrtr_param_client", "init: invalid arguments" );
-                return ASRTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         }
         *client = ( struct asrtr_param_client ){
             .node =
@@ -362,7 +362,7 @@ enum asrtr_status asrtr_param_client_init(
             .pending            = ASRTR_PARAM_CLIENT_PENDING_NONE,
         };
         asrtl_node_link( prev, &client->node );
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client )

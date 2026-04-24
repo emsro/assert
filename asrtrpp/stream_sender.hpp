@@ -3,7 +3,7 @@
 #include "./stream.hpp"
 #include "./task_unit.hpp"
 
-namespace asrtr
+namespace asrt
 {
 
 /// Sender: co_await define<Ts...>(client, schema_id)
@@ -15,17 +15,17 @@ struct stream_define_sender
         using sender_concept        = ecor::sender_t;
         using completion_signatures = ecor::completion_signatures<
             ecor::set_value_t( stream_schema< Ts... > ),
-            ecor::set_error_t( task_error ) >;
+            ecor::set_error_t( status ) >;
 
-        stream_client* client_;
-        uint8_t        schema_id_;
+        asrtr_stream_client* client_;
+        uint8_t              schema_id_;
 
         template < ecor::receiver R >
         struct op
         {
-                stream_client* client_;
-                uint8_t        schema_id_;
-                R              recv;
+                asrtr_stream_client* client_;
+                uint8_t              schema_id_;
+                R                    recv;
 
                 void start()
                 {
@@ -36,15 +36,16 @@ struct stream_define_sender
                                             stream_schema< Ts... >{
                                                 self.client_, self.schema_id_ } );
                                 else
-                                        self.recv.set_error( task_error::test_fail );
+                                        self.recv.set_error( status );
                         };
-                        auto s = client_->define(
+                        auto s = define(
+                            *client_,
                             schema_id_,
                             stream_schema< Ts... >::fields_,
                             sizeof...( Ts ),
                             { cb, this } );
-                        if ( s != ASRTR_SUCCESS )
-                                recv.set_error( task_error::test_fail );
+                        if ( s != ASRTL_SUCCESS )
+                                recv.set_error( s );
                 }
         };
 
@@ -58,7 +59,7 @@ struct stream_define_sender
 /// Define a stream schema.  Returns a sender that completes with a
 /// stream_schema<Ts...> once the DEFINE message has been acknowledged.
 template < typename... Ts >
-ecor::sender auto define( stream_client& client, uint8_t schema_id )
+ecor::sender auto define( asrtr_stream_client& client, uint8_t schema_id )
 {
         return stream_define_sender< Ts... >{ &client, schema_id };
 }
@@ -71,7 +72,7 @@ struct stream_emit_sender
 {
         using sender_concept = ecor::sender_t;
         using completion_signatures =
-            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( task_error ) >;
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
 
         stream_schema< Ts... >* schema_;
         uint8_t                 buf_[stream_schema< Ts... >::emit_size];
@@ -90,11 +91,11 @@ struct stream_emit_sender
                                 if ( status == ASRTL_SUCCESS )
                                         self.recv.set_value();
                                 else
-                                        self.recv.set_error( task_error::test_fail );
+                                        self.recv.set_error( status );
                         };
                         auto st = schema_->emit_raw( buf_, { cb, this } );
-                        if ( st != ASRTR_SUCCESS )
-                                recv.set_error( task_error::test_fail );
+                        if ( st != ASRTL_SUCCESS )
+                                recv.set_error( st );
                 }
         };
 
@@ -119,4 +120,4 @@ ecor::sender auto emit( stream_schema< Ts... >& schema, Ts... args )
 }
 
 
-}  // namespace asrtr
+}  // namespace asrt

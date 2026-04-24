@@ -180,10 +180,7 @@ struct recording_reporter : asrtio::suite_reporter
         std::vector< uint32_t >    done_run_total;
         int                        done_names_at_on_done = -1;
 
-        void on_count( uint32_t n ) override
-        {
-                count = n;
-        }
+        void on_count( uint32_t n ) override { count = n; }
         void on_test_start( std::string_view n, uint32_t ri, uint32_t rt ) override
         {
                 starts.emplace_back( n );
@@ -199,15 +196,9 @@ struct recording_reporter : asrtio::suite_reporter
                 done_run_idx.push_back( ri );
                 done_run_total.push_back( rt );
         }
-        void on_diagnostic( std::string_view, uint32_t, std::string_view ) override
-        {
-        }
-        void on_collect_data( std::string_view, asrtl_flat_tree const* ) override
-        {
-        }
-        void on_stream_data( std::string_view, asrtc::stream_schemas const& ) override
-        {
-        }
+        void on_diagnostic( std::string_view, uint32_t, std::string_view ) override {}
+        void on_collect_data( std::string_view, asrtl_flat_tree const* ) override {}
+        void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
 // Drain a uv_loop: close any remaining handles, run until empty, then free.
@@ -243,7 +234,7 @@ struct test_receiver
                 uv_close( (uv_handle_t*) idle, nullptr );
                 ASRTL_INF_LOG( "asrtio_test", "Test receiver: Task completed successfully" );
         }
-        void set_error( asrtio::status ) noexcept
+        void set_error( asrt::status ) noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
@@ -261,10 +252,7 @@ struct test_receiver
                 uv_close( (uv_handle_t*) idle, nullptr );
                 ASRTL_INF_LOG( "asrtio_test", "Test receiver: Task stopped" );
         }
-        ecor::empty_env get_env() const noexcept
-        {
-                return {};
-        }
+        ecor::empty_env get_env() const noexcept { return {}; }
 };
 
 static asrtio::task< void > suite_coro(
@@ -277,7 +265,7 @@ static asrtio::task< void > suite_coro(
     std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
-        REQUIRE( rs->start() == asrtio::status::success );
+        REQUIRE( rs->start() == ASRTL_SUCCESS );
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
@@ -294,11 +282,11 @@ struct suite_run
 
         suite_run( uint32_t seed = 42 )
         {
-                uv_loop_t*                         loop = uv_loop_new();
-                asrtl::malloc_free_memory_resource mem_res;
-                asrtio::task_ctx                   tctx{ mem_res };
-                asrtio::arena                      arena{ tctx, mem_res };
-                asrtio::steady_clock               clk;
+                uv_loop_t*                        loop = uv_loop_new();
+                asrt::malloc_free_memory_resource mem_res;
+                asrtio::task_ctx                  tctx{ mem_res };
+                asrtio::arena                     arena{ tctx, mem_res };
+                asrtio::steady_clock              clk;
 
                 auto client = std::make_shared< uv_tcp_t >();
                 uv_tcp_init( loop, client.get() );
@@ -413,16 +401,16 @@ TEST_CASE( "suite_seed_changes_outcomes" )
 
 struct param_received_node
 {
-        asrtl::flat_id   id;
+        asrt::flat_id    id;
         std::string      key;
         asrtl_flat_value value;
-        asrtl::flat_id   next_sibling;
+        asrt::flat_id    next_sibling;
 };
 
 struct param_e2e_state
 {
         bool                               param_ready = false;
-        asrtl::flat_id                     root_id     = 0;
+        asrt::flat_id                      root_id     = 0;
         std::vector< param_received_node > received;
         int                                errors = 0;
         asrtr_param_query                  query  = {};
@@ -440,18 +428,18 @@ struct param_e2e_state
 };
 
 static asrtio::task< void > param_e2e_coro(
-    asrtio::task_ctx&            tctx,
-    uv_loop_t*                   loop,
-    uint32_t                     seed,
-    asrtio::arena&               arena,
-    asrtio::clock&               clk,
-    recording_reporter&          reporter,
-    param_e2e_state&             state,
-    asrtio::param_config const&  params,
+    asrtio::task_ctx&           tctx,
+    uv_loop_t*                  loop,
+    uint32_t                    seed,
+    asrtio::arena&              arena,
+    asrtio::clock&              clk,
+    recording_reporter&         reporter,
+    param_e2e_state&            state,
+    asrtio::param_config const& params,
     std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
-        REQUIRE( rs->start() == asrtio::status::success );
+        REQUIRE( rs->start() == ASRTL_SUCCESS );
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
@@ -461,15 +449,16 @@ static asrtio::task< void > param_e2e_coro(
         REQUIRE_FALSE( rs->conns.empty() );
         auto& conn = rs->conns.front();
 
-        while ( !conn.param().ready() )
+        while ( !asrt::ready( conn.assm.param ) )
                 co_await ecor::suspend;
 
         state.param_ready = true;
-        state.root_id     = conn.param().root_id();
+        state.root_id     = asrt::root_id( conn.assm.param );
 
         REQUIRE_EQ(
             ASRTL_SUCCESS,
-            conn.param().fetch( &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
+            asrt::fetch(
+                conn.assm.param, &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
 
         while ( state.received.size() < 1 )
                 co_await ecor::suspend;
@@ -477,7 +466,8 @@ static asrtio::task< void > param_e2e_coro(
         if ( state.received[0].value.type == ASRTL_FLAT_CTYPE_OBJECT ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
-                    conn.param().fetch(
+                    asrt::fetch(
+                        conn.assm.param,
                         &state.query,
                         state.received[0].value.data.cont.first_child,
                         param_e2e_state::query_cb,
@@ -490,7 +480,8 @@ static asrtio::task< void > param_e2e_coro(
         if ( state.received[1].next_sibling != 0 ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
-                    conn.param().fetch(
+                    asrt::fetch(
+                        conn.assm.param,
                         &state.query,
                         state.received[1].next_sibling,
                         param_e2e_state::query_cb,
@@ -515,11 +506,11 @@ TEST_CASE( "param_tcp_e2e" )
         recording_reporter reporter;
         bool               done = false;
 
-        uv_loop_t*                         loop = uv_loop_new();
-        asrtl::malloc_free_memory_resource mem_res;
-        asrtio::task_ctx                   tctx{ mem_res };
-        asrtio::arena                      arena{ tctx, mem_res };
-        asrtio::steady_clock               clk;
+        uv_loop_t*                        loop = uv_loop_new();
+        asrt::malloc_free_memory_resource mem_res;
+        asrtio::task_ctx                  tctx{ mem_res };
+        asrtio::arena                     arena{ tctx, mem_res };
+        asrtio::steady_clock              clk;
 
         auto client = std::make_shared< uv_tcp_t >();
         uv_tcp_init( loop, client.get() );
@@ -567,7 +558,7 @@ TEST_CASE( "param_tcp_e2e" )
 #include <limits>
 #include <nlohmann/json.hpp>
 
-static asrtl_flat_query_result query( asrtl_flat_tree& tree, asrtl::flat_id id )
+static asrtl_flat_query_result query( asrtl_flat_tree& tree, asrt::flat_id id )
 {
         asrtl_flat_query_result r{};
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, id, &r ) );
@@ -579,7 +570,7 @@ TEST_CASE( "ftfj_null" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( nullptr ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_NULL, r.value.type );
@@ -591,7 +582,7 @@ TEST_CASE( "ftfj_bool_true" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( true ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
@@ -604,7 +595,7 @@ TEST_CASE( "ftfj_bool_false" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( false ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
@@ -617,7 +608,7 @@ TEST_CASE( "ftfj_positive_integer" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 42 ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -630,7 +621,7 @@ TEST_CASE( "ftfj_negative_integer" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( -7 ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_I32, r.value.type );
@@ -643,7 +634,7 @@ TEST_CASE( "ftfj_unsigned_integer" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 0u ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -656,7 +647,7 @@ TEST_CASE( "ftfj_float" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 3.14 ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_FLOAT, r.value.type );
@@ -669,7 +660,7 @@ TEST_CASE( "ftfj_string" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( "hello" ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_STYPE_STR, r.value.type );
@@ -682,7 +673,7 @@ TEST_CASE( "ftfj_empty_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json::object(), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_CTYPE_OBJECT, r.value.type );
@@ -696,7 +687,7 @@ TEST_CASE( "ftfj_empty_array" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json::array(), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_CTYPE_ARRAY, r.value.type );
@@ -713,7 +704,7 @@ TEST_CASE( "ftfj_simple_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         // node 1 = root object
@@ -750,7 +741,7 @@ TEST_CASE( "ftfj_simple_array" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         // node 1 = root array
@@ -758,9 +749,9 @@ TEST_CASE( "ftfj_simple_array" )
         CHECK_EQ( ASRTL_FLAT_CTYPE_ARRAY, root.value.type );
 
         // Walk children: 3 elements
-        asrtl::flat_id id    = root.value.data.cont.first_child;
-        int            count = 0;
-        uint32_t       vals[3];
+        asrt::flat_id id    = root.value.data.cont.first_child;
+        int           count = 0;
+        uint32_t      vals[3];
         while ( id != 0 ) {
                 auto r = query( tree, id );
                 CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
@@ -785,7 +776,7 @@ TEST_CASE( "ftfj_nested_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         // node 1 = root object
@@ -829,15 +820,15 @@ TEST_CASE( "ftfj_mixed_types" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         auto root = query( tree, 1 );
         CHECK_EQ( ASRTL_FLAT_CTYPE_OBJECT, root.value.type );
 
         // Walk all children and collect types by key
-        asrtl::flat_id id    = root.value.data.cont.first_child;
-        int            count = 0;
+        asrt::flat_id id    = root.value.data.cont.first_child;
+        int           count = 0;
         while ( id != 0 ) {
                 auto r = query( tree, id );
                 if ( strcmp( r.key, "n" ) == 0 )
@@ -874,7 +865,7 @@ TEST_CASE( "ftfj_deeply_nested" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         // DFS: 1=root, 2="a" obj, 3="b" obj, 4="c" u32(42)
@@ -905,7 +896,7 @@ TEST_CASE( "ftfj_error_integer_overflow_positive" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -918,7 +909,7 @@ TEST_CASE( "ftfj_error_integer_overflow_negative" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -931,7 +922,7 @@ TEST_CASE( "ftfj_error_unsigned_overflow" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -944,7 +935,7 @@ TEST_CASE( "ftfj_error_float_overflow_positive" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -957,7 +948,7 @@ TEST_CASE( "ftfj_error_float_overflow_negative" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -973,7 +964,7 @@ TEST_CASE( "ftfj_error_nested_overflow" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -989,7 +980,7 @@ TEST_CASE( "ftfj_error_in_array_propagates" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -1006,7 +997,7 @@ TEST_CASE( "ftfj_error_append_alloc_failure" )
         // fail on the very next allocation (the block init inside append)
         ctx.fail_at_call = ctx.alloc_calls + 1;
 
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, nlohmann::json( 42 ), next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -1020,8 +1011,8 @@ TEST_CASE( "ftfj_error_append_failure_in_nested" )
         // Let the root object append succeed, then fail on the child
         ctx.fail_at_call = ctx.alloc_calls + 2;
 
-        auto           j       = nlohmann::json::parse( R"({"a": 1})" );
-        asrtl::flat_id next_id = 1;
+        auto          j       = nlohmann::json::parse( R"({"a": 1})" );
+        asrt::flat_id next_id = 1;
         CHECK_FALSE( asrtio::flat_tree_from_json( tree, j, next_id ) );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -1034,7 +1025,7 @@ TEST_CASE( "fttj_null" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1049,7 +1040,7 @@ TEST_CASE( "fttj_bool_true" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1064,7 +1055,7 @@ TEST_CASE( "fttj_bool_false" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1079,7 +1070,7 @@ TEST_CASE( "fttj_positive_integer" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1094,7 +1085,7 @@ TEST_CASE( "fttj_negative_integer" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1109,7 +1100,7 @@ TEST_CASE( "fttj_float" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1124,7 +1115,7 @@ TEST_CASE( "fttj_string" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1139,7 +1130,7 @@ TEST_CASE( "fttj_empty_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1155,7 +1146,7 @@ TEST_CASE( "fttj_empty_array" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1172,7 +1163,7 @@ TEST_CASE( "fttj_simple_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1191,7 +1182,7 @@ TEST_CASE( "fttj_simple_array" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1211,7 +1202,7 @@ TEST_CASE( "fttj_nested_object" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1228,7 +1219,7 @@ TEST_CASE( "fttj_mixed_types" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1249,7 +1240,7 @@ TEST_CASE( "fttj_deeply_nested" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
         REQUIRE( asrtio::flat_tree_from_json( tree, j, next_id ) );
 
         nlohmann::json out;
@@ -1263,7 +1254,7 @@ TEST_CASE( "fttj_error_empty_tree" )
         asrtl_allocator alloc = asrtl_default_allocator();
         asrtl_flat_tree tree;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
 
         nlohmann::json out;
         CHECK_FALSE( asrtio::flat_tree_to_json( tree, out ) );
@@ -1474,7 +1465,7 @@ static asrtio::task< void > suite_param_coro(
     std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
-        REQUIRE( rs->start() == asrtio::status::success );
+        REQUIRE( rs->start() == ASRTL_SUCCESS );
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
@@ -1489,11 +1480,11 @@ struct param_suite_run
 
         param_suite_run( asrtio::param_config& params, uint32_t seed = 42 )
         {
-                uv_loop_t*                         loop = uv_loop_new();
-                asrtl::malloc_free_memory_resource mem_res;
-                asrtio::task_ctx                   tctx{ mem_res };
-                asrtio::arena                      arena{ tctx, mem_res };
-                asrtio::steady_clock               clk;
+                uv_loop_t*                        loop = uv_loop_new();
+                asrt::malloc_free_memory_resource mem_res;
+                asrtio::task_ctx                  tctx{ mem_res };
+                asrtio::arena                     arena{ tctx, mem_res };
+                asrtio::steady_clock              clk;
 
                 auto client = std::make_shared< uv_tcp_t >();
                 uv_tcp_init( loop, client.get() );
@@ -1626,11 +1617,11 @@ TEST_CASE( "suite_param_unknown_key" )
 template < typename CoroFactory >
 static bool run_coro( CoroFactory&& factory )
 {
-        uv_loop_t*                         loop = uv_loop_new();
-        asrtl::malloc_free_memory_resource mem_res;
-        asrtio::task_ctx                   tctx{ mem_res };
-        asrtio::arena                      arena{ tctx, mem_res };
-        asrtio::steady_clock               clk;
+        uv_loop_t*                        loop = uv_loop_new();
+        asrt::malloc_free_memory_resource mem_res;
+        asrtio::task_ctx                  tctx{ mem_res };
+        asrtio::arena                     arena{ tctx, mem_res };
+        asrtio::steady_clock              clk;
 
         auto client = std::make_shared< uv_tcp_t >();
         uv_tcp_init( loop, client.get() );
@@ -1662,7 +1653,7 @@ static asrtio::task< void > suite_output_coro(
     std::shared_ptr< uv_tcp_t > client )
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, 42u );
-        REQUIRE( rs->start() == asrtio::status::success );
+        REQUIRE( rs->start() == ASRTL_SUCCESS );
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();

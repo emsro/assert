@@ -3,7 +3,7 @@
 #include "./param.hpp"
 #include "./task_unit.hpp"
 
-namespace asrtr
+namespace asrt
 {
 
 template < has_param_query_traits T >
@@ -11,14 +11,11 @@ struct param_result
 {
         using value_type = typename param_query_traits< T >::value_type;
 
-        value_type        value;
-        char const*       key;  // Points to internal buffer of param client, valid until next query
-        asrtl::flat_id    next_sibling;
+        value_type  value;
+        char const* key;  // Points to internal buffer of param client, valid until next query
+        flat_id     next_sibling;
 
-        operator value_type() const
-        {
-                return value;
-        }
+        operator value_type() const { return value; }
 };
 
 
@@ -29,22 +26,22 @@ struct param_query_sender
 
         using completion_signatures = ecor::completion_signatures<
             ecor::set_value_t( param_result< T > ),
-            ecor::set_error_t( task_error ) >;
+            ecor::set_error_t( status ) >;
 
-        param_client* client_;
-        char const*   key;
-        asrtl::flat_id node_id;
+        asrtr_param_client* client_;
+        char const*         key;
+        flat_id             node_id;
 
         template < ecor::receiver R >
         struct op
         {
-                asrtr_param_query q;
-                param_client*     c;
-                char const*       key;
-                asrtl::flat_id    node_id;
-                R                 recv;
+                asrtr_param_query   q;
+                asrtr_param_client* c;
+                char const*         key;
+                flat_id             node_id;
+                R                   recv;
 
-                op( R&& r, param_client* client, char const* k, asrtl::flat_id id )
+                op( R&& r, asrtr_param_client* client, char const* k, flat_id id )
                   : c( client )
                   , key( k )
                   , node_id( id )
@@ -60,7 +57,7 @@ struct param_query_sender
                                        typename traits::raw_type raw ) {
                                 auto& self = *reinterpret_cast< op* >( q->cb_ptr );
                                 if ( q->error_code != ASRTL_PARAM_ERR_NONE )
-                                        self.recv.set_error( task_error::test_fail );
+                                        self.recv.set_error( ASRTL_RECV_ERR );
                                 else
                                         self.recv.set_value(
                                             param_result< T >{
@@ -68,9 +65,9 @@ struct param_query_sender
                                                 q->key,
                                                 q->next_sibling } );
                         };
-                        auto s = c->query< T >( &q, node_id, key, cb, this );
+                        auto s = query< T >( c, &q, node_id, key, cb, this );
                         if ( s != ASRTL_SUCCESS )
-                                recv.set_error( task_error::test_fail );
+                                recv.set_error( ASRTL_RECV_ERR );
                 }
         };
 
@@ -83,16 +80,16 @@ struct param_query_sender
 };
 
 template < typename T >
-ecor::sender auto fetch( param_client& client, asrtl::flat_id node_id )
+ecor::sender auto fetch( ref< asrtr_param_client > client, flat_id node_id )
 {
-        return param_query_sender< T >{ &client, nullptr, node_id };
+        return param_query_sender< T >{ client, nullptr, node_id };
 }
 
 template < typename T >
-ecor::sender auto find( param_client& client, asrtl::flat_id parent_id, char const* key )
+ecor::sender auto find( ref< asrtr_param_client > client, flat_id parent_id, char const* key )
 {
-        return param_query_sender< T >{ &client, key, parent_id };
+        return param_query_sender< T >{ client, key, parent_id };
 }
 
 
-}  // namespace asrtr
+}  // namespace asrt

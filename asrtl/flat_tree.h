@@ -162,7 +162,7 @@ struct asrtl_flat_query_result
 
 /// Read a single node by ID.
 enum asrtl_status asrtl_flat_tree_query(
-    struct asrtl_flat_tree*         tree,
+    struct asrtl_flat_tree const*   tree,
     asrtl_flat_id                   node_id,
     struct asrtl_flat_query_result* result );
 

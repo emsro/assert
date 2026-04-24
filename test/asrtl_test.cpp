@@ -1689,7 +1689,7 @@ TEST_CASE( "flat_tree_depth_10" )
         REQUIRE_EQ(
             ASRTL_SUCCESS,
             asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
-        for ( asrtl::flat_id i = 2; i <= 11; i++ ) {
+        for ( asrt::flat_id i = 2; i <= 11; i++ ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     asrtl_flat_tree_append_cont(
@@ -1782,7 +1782,7 @@ TEST_CASE( "flat_tree_100_nodes_under_one_parent" )
         REQUIRE_EQ(
             ASRTL_SUCCESS,
             asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
-        for ( asrtl::flat_id i = 2; i <= 101; i++ ) {
+        for ( asrt::flat_id i = 2; i <= 101; i++ ) {
                 REQUIRE_EQ(
                     ASRTL_SUCCESS,
                     asrtl_flat_tree_append_scalar(
@@ -1874,7 +1874,7 @@ TEST_CASE( "flat_tree_query_next_sibling_only_child" )
                 &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1897,7 +1897,7 @@ TEST_CASE( "flat_tree_query_next_sibling_first_of_two" )
                 &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 3, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1924,7 +1924,7 @@ TEST_CASE( "flat_tree_query_next_sibling_last_of_three" )
                 &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 3 } ) );
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 4, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -1953,11 +1953,11 @@ TEST_CASE( "flat_tree_query_next_sibling_chain" )
         // Walk: 2 -> 3 -> 4 -> 0
         struct asrtl_flat_query_result r;
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 3, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, r.next_sibling, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 4, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 4, r.next_sibling );
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, r.next_sibling, &r ) );
-        CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
         asrtl_flat_tree_deinit( &tree );
 }
 
@@ -2035,26 +2035,26 @@ TEST_CASE( "flat_tree_find_by_key_happy" )
 
         // Find first child
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "alpha", &r ) );
-        CHECK_EQ( (asrtl::flat_id) 2, r.id );
+        CHECK_EQ( (asrt::flat_id) 2, r.id );
         CHECK( strcmp( r.key, "alpha" ) == 0 );
         CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
         CHECK_EQ( 10u, r.value.data.s.u32_val );
-        CHECK_EQ( (asrtl::flat_id) 3, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
 
         // Find middle child
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "beta", &r ) );
-        CHECK_EQ( (asrtl::flat_id) 3, r.id );
+        CHECK_EQ( (asrt::flat_id) 3, r.id );
         CHECK( strcmp( r.key, "beta" ) == 0 );
         CHECK_EQ( ASRTL_FLAT_STYPE_STR, r.value.type );
-        CHECK_EQ( (asrtl::flat_id) 4, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 4, r.next_sibling );
 
         // Find last child
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "gamma", &r ) );
-        CHECK_EQ( (asrtl::flat_id) 4, r.id );
+        CHECK_EQ( (asrt::flat_id) 4, r.id );
         CHECK( strcmp( r.key, "gamma" ) == 0 );
         CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
         CHECK_EQ( 1u, r.value.data.s.bool_val );
-        CHECK_EQ( (asrtl::flat_id) 0, r.next_sibling );
+        CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
 
         asrtl_flat_tree_deinit( &tree );
 }
@@ -2117,12 +2117,12 @@ TEST_CASE( "flat_tree_find_by_key_nested_object" )
 
         // Find in top-level object returns the nested object
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "sub", &r ) );
-        CHECK_EQ( (asrtl::flat_id) 2, r.id );
+        CHECK_EQ( (asrt::flat_id) 2, r.id );
         CHECK_EQ( ASRTL_FLAT_CTYPE_OBJECT, r.value.type );
 
         // Find inside the nested object
         REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 2, "y", &r ) );
-        CHECK_EQ( (asrtl::flat_id) 4, r.id );
+        CHECK_EQ( (asrt::flat_id) 4, r.id );
         CHECK_EQ( ASRTL_FLAT_STYPE_I32, r.value.type );
         CHECK_EQ( -7, r.value.data.s.i32_val );
 
@@ -2295,7 +2295,7 @@ TEST_CASE( "strm_proto: data propagates callback error" )
 
 static struct asrtl_node make_node( asrtl_chann_id chid )
 {
-        return ( struct asrtl_node ){
+        return (struct asrtl_node) {
             .chid     = chid,
             .e_cb_ptr = NULL,
             .e_cb     = NULL,

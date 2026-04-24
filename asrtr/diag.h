@@ -20,7 +20,6 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
-#include "./status.h"
 
 struct asrtr_diag
 {
@@ -28,7 +27,7 @@ struct asrtr_diag
         struct asrtl_sender sendr;
 };
 
-enum asrtr_status asrtr_diag_init(
+enum asrtl_status asrtr_diag_init(
     struct asrtr_diag*  diag,
     struct asrtl_node*  prev,
     struct asrtl_sender sender );
@@ -65,7 +64,7 @@ void asrtr_diag_deinit( struct asrtr_diag* diag );
                 if ( !( x ) ) {                                                      \
                         asrtr_fail( ( rec ) );                                       \
                         asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
-                        return ASRTR_SUCCESS;                                        \
+                        return ASRTL_SUCCESS;                                        \
                 }                                                                    \
         } while ( 0 )
 

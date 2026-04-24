@@ -15,12 +15,11 @@
 ///
 /// Each factory function returns a `demo_test` instance demonstrating a
 /// specific testing pattern.  Register them with the reactor through
-/// `asrtr::unit<demo_test>` exactly like any other test type.
+/// `unit<demo_test>` exactly like any other test type.
 
 #include "../asrtr/diag.h"
 #include "../asrtr/record.h"
 #include "../asrtrpp/collect.hpp"
-#include "../asrtrpp/collect_sender.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
 #include "../asrtrpp/param_sender.hpp"
@@ -40,7 +39,7 @@ struct demo_test;
 
 struct demo_spec
 {
-        using body_fn = std::function< asrtr::status( demo_test&, asrtr::record& ) >;
+        using body_fn = std::function< asrtl_status( demo_test&, asrt::record& ) >;
 
         std::string tname;
         body_fn     body;
@@ -48,13 +47,13 @@ struct demo_spec
 
 struct demo_test
 {
-        demo_spec            spec;
-        asrtr::diag&         diag;
-        asrtr::param_client& param;
-        std::mt19937&        rng;
-        int                  counter = 0;
+        demo_spec           spec;
+        asrtr_diag&         diag;
+        asrtr_param_client& param;
+        std::mt19937&       rng;
+        int                 counter = 0;
 
-        demo_test( demo_spec s, asrtr::diag& d, asrtr::param_client& p, std::mt19937& r )
+        demo_test( demo_spec s, asrtr_diag& d, asrtr_param_client& p, std::mt19937& r )
           : spec( std::move( s ) )
           , diag( d )
           , param( p )
@@ -62,15 +61,9 @@ struct demo_test
         {
         }
 
-        char const* name()
-        {
-                return spec.tname.c_str();
-        }
+        char const* name() { return spec.tname.c_str(); }
 
-        asrtr::status operator()( asrtr::record& r )
-        {
-                return spec.body( *this, r );
-        }
+        asrtl_status operator()( asrt::record& r ) { return spec.body( *this, r ); }
 };
 
 // ---------------------------------------------------------------------------
@@ -79,9 +72,9 @@ struct demo_test
 /// Simplest possible test: immediately passes.
 inline demo_spec make_demo_pass()
 {
-        return { .tname = "demo_pass", .body = []( demo_test&, asrtr::record& r ) -> asrtr::status {
+        return { .tname = "demo_pass", .body = []( demo_test&, asrt::record& r ) -> asrtl_status {
                         r.state = ASRTR_TEST_PASS;
-                        return ASRTR_SUCCESS;
+                        return ASRTL_SUCCESS;
                 } };
 }
 
@@ -89,10 +82,10 @@ inline demo_spec make_demo_pass()
 inline demo_spec make_demo_fail()
 {
         return {
-            .tname = "demo_fail", .body = []( demo_test& self, asrtr::record& r ) -> asrtr::status {
+            .tname = "demo_fail", .body = []( demo_test& self, asrt::record& r ) -> asrtl_status {
                     r.state = ASRTR_TEST_FAIL;
-                    self.diag.record( "demo.hpp", __LINE__, "intentional" );
-                    return ASRTR_SUCCESS;
+                    asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "intentional" );
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -100,14 +93,13 @@ inline demo_spec make_demo_fail()
 /// Shows the soft-assertion macro in the success case.
 inline demo_spec make_demo_check()
 {
-        return {
-            .tname = "demo_check", .body = []( demo_test&, asrtr::record& r ) -> asrtr::status {
-                    int sum = 2 + 3;
-                    ASRTR_RECORD_CHECK( &r, sum == 5 );
-                    if ( r.state != ASRTR_TEST_FAIL )
-                            r.state = ASRTR_TEST_PASS;
-                    return ASRTR_SUCCESS;
-            } };
+        return { .tname = "demo_check", .body = []( demo_test&, asrt::record& r ) -> asrtl_status {
+                        int sum = 2 + 3;
+                        ASRTR_RECORD_CHECK( &r, sum == 5 );
+                        if ( r.state != ASRTR_TEST_FAIL )
+                                r.state = ASRTR_TEST_PASS;
+                        return ASRTL_SUCCESS;
+                } };
 }
 
 /// Uses ASRTR_RECORD_CHECK with a failing condition.
@@ -117,14 +109,14 @@ inline demo_spec make_demo_check_fail()
 {
         return {
             .tname = "demo_check_fail",
-            .body  = []( demo_test& self, asrtr::record& r ) -> asrtr::status {
+            .body  = []( demo_test& self, asrt::record& r ) -> asrtl_status {
                     int sum = 2 + 2;
                     ASRTR_RECORD_CHECK( &r, sum == 5 );
                     if ( r.state == ASRTR_TEST_FAIL )
-                            self.diag.record( "demo.hpp", __LINE__, "sum == 5" );
+                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "sum == 5" );
                     if ( r.state != ASRTR_TEST_FAIL )
                             r.state = ASRTR_TEST_PASS;
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -135,11 +127,11 @@ inline demo_spec make_demo_require_fail()
 {
         return {
             .tname = "demo_require_fail",
-            .body  = []( demo_test&, asrtr::record& r ) -> asrtr::status {
+            .body  = []( demo_test&, asrt::record& r ) -> asrtl_status {
                     ASRTR_RECORD_REQUIRE( &r, 1 == 2 );
                     // Never reached — REQUIRE returned early.
                     r.state = ASRTR_TEST_PASS;
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -150,14 +142,14 @@ inline demo_spec make_demo_counter()
 {
         return {
             .tname = "demo_counter",
-            .body  = []( demo_test& self, asrtr::record& r ) -> asrtr::status {
+            .body  = []( demo_test& self, asrt::record& r ) -> asrtl_status {
                     if ( self.counter < 3 ) {
                             ++self.counter;
                             r.state = ASRTR_TEST_RUNNING;
                     } else {
                             r.state = ASRTR_TEST_PASS;
                     }
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -167,15 +159,14 @@ inline demo_spec make_demo_counter()
 inline demo_spec make_demo_random()
 {
         return {
-            .tname = "demo_random",
-            .body  = []( demo_test& self, asrtr::record& r ) -> asrtr::status {
+            .tname = "demo_random", .body = []( demo_test& self, asrt::record& r ) -> asrtl_status {
                     std::uniform_int_distribution< int > pick( 0, 2 );
                     static constexpr asrtr_test_state    k_results[] = {
                         ASRTR_TEST_PASS, ASRTR_TEST_FAIL, ASRTR_TEST_ERROR };
                     r.state = k_results[pick( self.rng )];
                     if ( r.state != ASRTR_TEST_PASS )
-                            self.diag.record( "demo.hpp", __LINE__, "random outcome" );
-                    return ASRTR_SUCCESS;
+                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "random outcome" );
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -186,7 +177,7 @@ inline demo_spec make_demo_random_counter()
 {
         return {
             .tname = "demo_random_counter",
-            .body  = []( demo_test& self, asrtr::record& r ) -> asrtr::status {
+            .body  = []( demo_test& self, asrt::record& r ) -> asrtl_status {
                     // On the first tick, pick a random target count.
                     if ( self.counter == 0 ) {
                             std::uniform_int_distribution< int > d( 1, 6 );
@@ -198,7 +189,7 @@ inline demo_spec make_demo_random_counter()
                             if ( self.counter == 0 )
                                     r.state = ASRTR_TEST_PASS;
                     }
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -210,9 +201,9 @@ namespace detail
 
 struct param_qr
 {
-        asrtl::flat_id    first_child = 0;
+        asrt::flat_id     first_child = 0;
         uint32_t          u32_val     = 0;
-        asrtl::flat_id    next_sib    = 0;
+        asrt::flat_id     next_sib    = 0;
         asrtr_param_query q           = {};
 };
 
@@ -251,61 +242,69 @@ inline demo_spec make_demo_param_value()
         return {
             .tname = "demo_param_value",
             .body  = [pq = detail::param_qr{}](
-                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
+                        demo_test& self, asrt::record& r ) mutable -> asrtl_status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
                     }
-                    if ( self.param.query_pending() ) {
+                    if ( asrt::query_pending( self.param ) ) {
                             r.state = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
-                            if ( !self.param.ready() ) {
+                            if ( !asrt::ready( self.param ) ) {
                                     r.state = ASRTR_TEST_PASS;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             pq = {};
-                            if ( auto s = self.param.fetch< asrtl::obj >(
-                                     &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                            if ( auto s = asrt::fetch< asrt::obj >(
+                                     self.param,
+                                     &pq.q,
+                                     asrt::root_id( self.param ),
+                                     detail::param_obj_qr_cb,
+                                     &pq );
                                  s != ASRTL_SUCCESS ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
                                     r.state = ASRTR_TEST_FAIL;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
                             pq         = {};
-                            if ( auto s = self.param.fetch< uint32_t >(
-                                     &pq.q, first, detail::param_u32_qr_cb, &pq );
+                            if ( auto s = asrt::fetch< uint32_t >(
+                                     self.param, &pq.q, first, detail::param_u32_qr_cb, &pq );
                                  s != ASRTL_SUCCESS ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
                                     r.state = ASRTR_TEST_FAIL;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
                     case 2:
                             ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
                             if ( r.state == ASRTR_TEST_FAIL ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "expected u32" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "expected u32" );
                             } else {
                                     ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRTR_TEST_FAIL )
-                                            self.diag.record( "demo.hpp", __LINE__, "val > 0" );
+                                            asrt::rec_diag(
+                                                self.diag, "demo.hpp", __LINE__, "val > 0" );
                                     else
                                             r.state = ASRTR_TEST_PASS;
                             }
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -315,73 +314,84 @@ inline demo_spec make_demo_param_count()
 {
         return {
             .tname = "demo_param_count",
-            .body  = [pq = detail::param_qr{}, child_count = 0](
-                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
+            .body  = [pq          = detail::param_qr{},
+                     child_count = 0]( demo_test& self, asrt::record& r ) mutable -> asrtl_status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             child_count  = 0;
                             pq           = {};
                     }
-                    if ( self.param.query_pending() ) {
+                    if ( asrt::query_pending( self.param ) ) {
                             r.state = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
-                            if ( !self.param.ready() ) {
+                            if ( !asrt::ready( self.param ) ) {
                                     r.state = ASRTR_TEST_PASS;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             pq = {};
-                            if ( auto s = self.param.fetch< asrtl::obj >(
-                                     &pq.q, self.param.root_id(), detail::param_obj_qr_cb, &pq );
+                            if ( auto s = asrt::fetch< asrt::obj >(
+                                     self.param,
+                                     &pq.q,
+                                     asrt::root_id( self.param ),
+                                     detail::param_obj_qr_cb,
+                                     &pq );
                                  s != ASRTL_SUCCESS ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
                                     r.state = ASRTR_TEST_FAIL;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     case 1: {
                             ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
                             pq         = {};
-                            if ( auto s = self.param.fetch< void >(
-                                     &pq.q, first, detail::param_any_qr_cb, &pq );
+                            if ( auto s = asrt::fetch< void >(
+                                     self.param, &pq.q, first, detail::param_any_qr_cb, &pq );
                                  s != ASRTL_SUCCESS ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "fetch failed" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
                                     r.state = ASRTR_TEST_FAIL;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             self.counter = 2;
                             r.state      = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
                     case 2:
                             ++child_count;
                             if ( pq.next_sib != 0 ) {
                                     auto next = pq.next_sib;
                                     pq        = {};
-                                    if ( auto s = self.param.fetch< void >(
-                                             &pq.q, next, detail::param_any_qr_cb, &pq );
+                                    if ( auto s = asrt::fetch< void >(
+                                             self.param,
+                                             &pq.q,
+                                             next,
+                                             detail::param_any_qr_cb,
+                                             &pq );
                                          s != ASRTL_SUCCESS ) {
-                                            self.diag.record(
-                                                "demo.hpp", __LINE__, "fetch failed" );
+                                            asrt::rec_diag(
+                                                self.diag, "demo.hpp", __LINE__, "fetch failed" );
                                             r.state = ASRTR_TEST_FAIL;
-                                            return ASRTR_SUCCESS;
+                                            return ASRTL_SUCCESS;
                                     }
                                     r.state = ASRTR_TEST_RUNNING;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             ASRTR_RECORD_CHECK( &r, child_count > 0 );
                             if ( r.state == ASRTR_TEST_FAIL )
-                                    self.diag.record( "demo.hpp", __LINE__, "child_count > 0" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "child_count > 0" );
                             else
                                     r.state = ASRTR_TEST_PASS;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
@@ -392,180 +402,175 @@ inline demo_spec make_demo_param_find()
         return {
             .tname = "demo_param_find",
             .body  = [pq = detail::param_qr{}](
-                        demo_test& self, asrtr::record& r ) mutable -> asrtr::status {
+                        demo_test& self, asrt::record& r ) mutable -> asrtl_status {
                     if ( r.state == ASRTR_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
                     }
-                    if ( self.param.query_pending() ) {
+                    if ( asrt::query_pending( self.param ) ) {
                             r.state = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
-                            if ( !self.param.ready() ) {
+                            if ( !asrt::ready( self.param ) ) {
                                     r.state = ASRTR_TEST_PASS;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             pq = {};
-                            if ( auto s = self.param.find< uint32_t >(
+                            if ( auto s = asrt::find< uint32_t >(
+                                     self.param,
                                      &pq.q,
-                                     self.param.root_id(),
+                                     asrt::root_id( self.param ),
                                      "count",
                                      detail::param_u32_qr_cb,
                                      &pq );
                                  s != ASRTL_SUCCESS ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "find failed" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "find failed" );
                                     r.state = ASRTR_TEST_FAIL;
-                                    return ASRTR_SUCCESS;
+                                    return ASRTL_SUCCESS;
                             }
                             self.counter = 1;
                             r.state      = ASRTR_TEST_RUNNING;
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     case 1:
                             ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
                             if ( r.state == ASRTR_TEST_FAIL ) {
-                                    self.diag.record( "demo.hpp", __LINE__, "find 'count'" );
+                                    asrt::rec_diag(
+                                        self.diag, "demo.hpp", __LINE__, "find 'count'" );
                             } else {
                                     ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRTR_TEST_FAIL )
-                                            self.diag.record( "demo.hpp", __LINE__, "count > 0" );
+                                            asrt::rec_diag(
+                                                self.diag, "demo.hpp", __LINE__, "count > 0" );
                                     else
                                             r.state = ASRTR_TEST_PASS;
                             }
-                            return ASRTR_SUCCESS;
+                            return ASRTL_SUCCESS;
                     }
-                    return ASRTR_SUCCESS;
+                    return ASRTL_SUCCESS;
             } };
 }
 
 
 /// Immediately passes — simplest possible coroutine test.
-struct pass_demo_task : asrtr::task_test
+struct pass_demo_task : asrt::task_test
 {
         char const* name = "pass_demo_task";
 
-        asrtr::task< void > exec()
-        {
-                co_return;
-        }
+        asrt::task< void > exec() { co_return; }
 };
 
 /// Immediately fails via test_fail.
-struct fail_demo_task : asrtr::task_test
+struct fail_demo_task : asrt::task_test
 {
         char const* name = "fail_demo_task";
 
-        asrtr::task< void > exec()
-        {
-                co_yield asrtr::with_error{ asrtr::test_fail };
-        }
+        asrt::task< void > exec() { co_yield asrt::with_error{ asrt::test_fail }; }
 };
 
 /// Reports a test infrastructure error via test_error.
-struct error_demo_task : asrtr::task_test
+struct error_demo_task : asrt::task_test
 {
         char const* name = "error_demo_task";
 
-        asrtr::task< void > exec()
-        {
-                co_yield asrtr::with_error{ asrtr::test_error };
-        }
+        asrt::task< void > exec() { co_yield asrt::with_error{ ASRTL_INIT_ERR }; }
 };
 
 /// Multi-step pass: suspends 3 times, then completes.
 /// Coroutine equivalent of the demo_counter state machine.
-struct counter_demo_task : asrtr::task_test
+struct counter_demo_task : asrt::task_test
 {
         char const* name = "counter_demo_task";
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 for ( int i = 0; i < 3; ++i )
-                        co_await asrtr::suspend;
+                        co_await asrt::suspend;
         }
 };
 
 /// Checks a passing condition, then completes successfully.
-struct check_demo_task : asrtr::task_test
+struct check_demo_task : asrt::task_test
 {
         char const* name = "check_demo_task";
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 if ( 2 + 3 != 5 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
 /// Checks a failing condition — yields test_fail.
-struct check_fail_demo_task : asrtr::task_test
+struct check_fail_demo_task : asrt::task_test
 {
         char const* name = "check_fail_demo_task";
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 if ( 2 + 2 != 5 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
 /// Suspends several times, then fails — failure after async work.
-struct multi_step_fail_demo_task : asrtr::task_test
+struct multi_step_fail_demo_task : asrt::task_test
 {
         char const* name = "multi_step_fail_demo_task";
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 for ( int i = 0; i < 3; ++i )
-                        co_await asrtr::suspend;
-                co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_await asrt::suspend;
+                co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
 
 /// Parameter integration into coroutine
-struct param_query_demo_task : asrtr::task_test
+struct param_query_demo_task : asrt::task_test
 {
-        char const*          name = "param_query_demo_task";
-        asrtr::param_client& pc;
+        char const*         name = "param_query_demo_task";
+        asrtr_param_client& pc;
 
-        param_query_demo_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+        param_query_demo_task( task_ctx& ctx, asrtr_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 // Query param node with ID 1
-                auto x = co_await asrtr::fetch< uint32_t >( pc, 1 );
-                auto y = co_await asrtr::fetch< int32_t >( pc, 1 );
+                auto x = co_await asrt::fetch< uint32_t >( pc, 1 );
+                auto y = co_await asrt::fetch< int32_t >( pc, 1 );
                 if ( x != y )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
 
 /// Search by name in object - coroutine
-struct param_query_find_demo_task : asrtr::task_test
+struct param_query_find_demo_task : asrt::task_test
 {
-        char const*          name = "param_query_find_demo_task";
-        asrtr::param_client& pc;
+        char const*         name = "param_query_find_demo_task";
+        asrtr_param_client& pc;
 
-        param_query_find_demo_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+        param_query_find_demo_task( task_ctx& ctx, asrtr_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
                 // Query param node with key "count" under root
-                auto x = co_await asrtr::find< uint32_t >( pc, pc.root_id(), "count" );
-                auto y = co_await asrtr::find< int32_t >( pc, pc.root_id(), "count" );
+                auto x = co_await asrt::find< uint32_t >( pc, asrt::root_id( pc ), "count" );
+                auto y = co_await asrt::find< int32_t >( pc, asrt::root_id( pc ), "count" );
                 if ( x != y )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
@@ -574,143 +579,142 @@ struct param_query_find_demo_task : asrtr::task_test
 /// The param tree is expected to have children under root with keys:
 ///   "u32" (uint32_t), "i32" (int32_t), "flt" (float), "str" (string),
 ///   "bln" (bool), "obj" (object), "arr" (array).
-struct param_type_overview_task : asrtr::task_test
+struct param_type_overview_task : asrt::task_test
 {
-        char const*          name = "param_type_overview_task";
-        asrtr::param_client& pc;
+        char const*         name = "param_type_overview_task";
+        asrtr_param_client& pc;
 
-        param_type_overview_task( asrtr::task_ctx& ctx, asrtr::param_client& p )
+        param_type_overview_task( task_ctx& ctx, asrtr_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
-                auto root = pc.root_id();
+                auto root = asrt::root_id( pc );
 
-                auto u = co_await asrtr::find< uint32_t >( pc, root, "u32" );
+                auto u = co_await asrt::find< uint32_t >( pc, root, "u32" );
                 if ( u != 42 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                auto i = co_await asrtr::find< int32_t >( pc, root, "i32" );
+                auto i = co_await asrt::find< int32_t >( pc, root, "i32" );
                 if ( i != -7 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                auto f = co_await asrtr::find< float >( pc, root, "flt" );
+                auto f = co_await asrt::find< float >( pc, root, "flt" );
                 if ( f < 3.13f || f > 3.15f )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                auto s = co_await asrtr::find< char const* >( pc, root, "str" );
+                auto s = co_await asrt::find< char const* >( pc, root, "str" );
                 if ( std::string_view{ s } != "hello" )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                auto b = co_await asrtr::find< bool >( pc, root, "bln" );
+                auto b = co_await asrt::find< bool >( pc, root, "bln" );
                 if ( !b )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                asrtl_flat_child_list obj = co_await asrtr::find< asrtl::obj >( pc, root, "obj" );
+                asrtl_flat_child_list obj = co_await asrt::find< asrt::obj >( pc, root, "obj" );
                 if ( obj.first_child == 0 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
-                asrtl_flat_child_list arr = co_await asrtr::find< asrtl::arr >( pc, root, "arr" );
+                asrtl_flat_child_list arr = co_await asrt::find< asrt::arr >( pc, root, "arr" );
                 if ( arr.first_child == 0 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
                 // Iterate over array elements
-                uint32_t       count = 0;
-                asrtl::flat_id id    = arr.first_child;
+                uint32_t      count = 0;
+                asrt::flat_id id    = arr.first_child;
                 while ( id != 0 ) {
-                        auto [val, key, next_sibling] = co_await asrtr::fetch< uint32_t >( pc, id );
+                        auto [val, key, next_sibling] = co_await asrt::fetch< uint32_t >( pc, id );
                         ++count;
                         id = next_sibling;
                 }
                 if ( count == 0 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
 
                 // Iterate over object children and touch their keys
                 count = 0;
                 id    = obj.first_child;
                 while ( id != 0 ) {
                         auto [val, key, next_sibling] =
-                            co_await asrtr::fetch< asrtl_flat_value >( pc, id );
+                            co_await asrt::fetch< asrtl_flat_value >( pc, id );
                         if ( !key || key[0] == '\0' )
-                                co_yield asrtr::with_error{ asrtr::test_fail };
+                                co_yield asrt::with_error{ asrt::test_fail };
                         ++count;
                         id = next_sibling;
                 }
                 if ( count == 0 )
-                        co_yield asrtr::with_error{ asrtr::test_fail };
+                        co_yield asrt::with_error{ asrt::test_fail };
         }
 };
 
 
 /// Collector demo: appends a small tree via the collect channel.
 /// Produces: root OBJECT → "value" U32=42, "tag" STR="demo"
-struct collect_demo_task : asrtr::task_test
+struct collect_demo_task : asrt::task_test
 {
-        char const*            name = "collect_demo_task";
-        asrtr::collect_client& cc;
+        char const*           name = "collect_demo_task";
+        asrtr_collect_client& cc;
 
-        collect_demo_task( asrtr::task_ctx& ctx, asrtr::collect_client& c )
+        collect_demo_task( task_ctx& ctx, asrtr_collect_client& c )
           : task_test( ctx )
           , cc( c )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
-                auto root = cc.root_id();
-                auto obj  = co_await asrtr::append< asrtl::obj >( cc, root );
-                co_await asrtr::append( cc, obj, "value", 42u );
-                co_await asrtr::append( cc, obj, "tag", "demo" );
+                auto root = asrt::root_id( cc );
+                auto obj  = co_await asrt::append< asrt::obj >( cc, root );
+                co_await asrt::append( cc, obj, "value", 42u );
+                co_await asrt::append( cc, obj, "tag", "demo" );
         }
 };
 
 
 /// Stream demo: defines a schema with two fields (U32 + FLOAT) and sends
 /// three records.
-struct stream_demo_task : asrtr::task_test
+struct stream_demo_task : asrt::task_test
 {
-        char const*           name = "stream_demo_task";
-        asrtr::stream_client& sc;
+        char const*          name = "stream_demo_task";
+        asrtr_stream_client& sc;
 
-        stream_demo_task( asrtr::task_ctx& ctx, asrtr::stream_client& s )
+        stream_demo_task( task_ctx& ctx, asrtr_stream_client& s )
           : task_test( ctx )
           , sc( s )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
-                auto schema = co_await asrtr::define< uint32_t, float >( sc, 0 );
+                auto schema = co_await asrt::define< uint32_t, float >( sc, 0 );
                 for ( uint32_t i = 0; i < 3; ++i )
-                        co_await asrtr::emit( schema, i * 100, 1.5F * i );
+                        co_await asrt::emit( schema, i * 100, 1.5F * i );
         }
 };
 
 /// Stream sensor demo: defines a sensor schema (U32 timestamp, FLOAT
 /// temperature, U8 humidity, U8 status) and streams 100 synthetic records.
-struct stream_sensor_demo_task : asrtr::task_test
+struct stream_sensor_demo_task : asrt::task_test
 {
-        char const*           name = "stream_sensor_demo_task";
-        asrtr::stream_client& sc;
+        char const*          name = "stream_sensor_demo_task";
+        asrtr_stream_client& sc;
 
-        stream_sensor_demo_task( asrtr::task_ctx& ctx, asrtr::stream_client& s )
+        stream_sensor_demo_task( task_ctx& ctx, asrtr_stream_client& s )
           : task_test( ctx )
           , sc( s )
         {
         }
 
-        asrtr::task< void > exec()
+        asrt::task< void > exec()
         {
-                auto schema =
-                    co_await asrtr::define< uint32_t, float, uint8_t, uint8_t >( sc, 0 );
+                auto schema = co_await asrt::define< uint32_t, float, uint8_t, uint8_t >( sc, 0 );
                 for ( uint32_t i = 0; i < 100; ++i )
-                        co_await asrtr::emit(
+                        co_await asrt::emit(
                             schema,
                             i * 10,
-                            20.0F + 0.1F * static_cast< float >( i ),
+                            20.0F + 0.1F * i,
                             static_cast< uint8_t >( 50 + i % 50 ),
                             static_cast< uint8_t >( i % 4 ) );
         }

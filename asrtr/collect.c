@@ -99,13 +99,13 @@ static enum asrtl_status asrtr_collect_client_event( void* p, enum asrtl_event_e
         return ASRTL_INVALID_EVENT_ERR;
 }
 
-enum asrtr_status asrtr_collect_client_init(
+enum asrtl_status asrtr_collect_client_init(
     struct asrtr_collect_client* client,
     struct asrtl_node*           prev,
     struct asrtl_sender          sender )
 {
         if ( !client || !prev )
-                return ASRTR_INIT_ERR;
+                return ASRTL_INIT_ERR;
         *client = ( struct asrtr_collect_client ){
             .node =
                 ( struct asrtl_node ){
@@ -121,7 +121,7 @@ enum asrtr_status asrtr_collect_client_init(
         };
 
         asrtl_node_link( prev, &client->node );
-        return ASRTR_SUCCESS;
+        return ASRTL_SUCCESS;
 }
 
 enum asrtl_status asrtr_collect_client_append(

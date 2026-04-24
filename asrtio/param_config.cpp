@@ -20,7 +20,7 @@ param_config::run_view param_config::runs_for( std::string const& name ) const
         }
         if ( !wildcard.empty() )
                 return { .skip = false, .roots = wildcard };
-        static constexpr asrtl::flat_id no_params[] = { 0 };
+        static constexpr asrt::flat_id no_params[] = { 0 };
         return { .skip = false, .roots = no_params };
 }
 
@@ -32,7 +32,7 @@ std::unique_ptr< param_config > param_config_from_json( nlohmann::json const& j 
         }
 
         auto          cfg     = std::make_unique< param_config >();
-        asrtl::flat_id next_id = 1;
+        asrt::flat_id next_id = 1;
 
         for ( auto const& [key, val] : j.items() ) {
                 // Normalize: bare object → [object]
@@ -58,9 +58,9 @@ std::unique_ptr< param_config > param_config_from_json( nlohmann::json const& j 
                         return nullptr;
                 }
 
-                std::vector< asrtl::flat_id > roots;
+                std::vector< asrt::flat_id > roots;
                 for ( auto const* entry : entries ) {
-                        asrtl::flat_id root_id = next_id;
+                        asrt::flat_id root_id = next_id;
                         if ( !flat_tree_from_json( cfg->tree, *entry, next_id ) ) {
                                 ASRTL_ERR_LOG(
                                     "asrtio",

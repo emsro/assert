@@ -2,48 +2,28 @@
 
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtr/diag.h"
-#include "../asrtr/status_to_str.h"
 
 #include <cstdint>
 
-namespace asrtr
+namespace asrt
 {
 
-struct diag
+void rec_diag( ref< asrtr_diag > d, char const* file, uint32_t line, char const* extra = nullptr )
 {
-        template < typename CB >
-        diag( asrtl_node* prev, CB& send_cb )
-        {
-                if ( auto s = asrtr_diag_init( &diag_, prev, asrtl::make_sender( send_cb ) );
-                     s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_diag", "init failed: %s", asrtr_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
-        }
+        asrtr_diag_record( d, file, line, extra );
+}
 
-        diag( diag&& )      = delete;
-        diag( diag const& ) = delete;
+inline status init( ref< asrtr_diag > d, asrtl_node& prev, autosender sender )
+{
+        return asrtr_diag_init( d, &prev, sender );
+}
 
-        asrtl_node* node()
-        {
-                return &diag_.node;
-        }
+inline void deinit( ref< asrtr_diag > d )
+{
+        asrtr_diag_deinit( d );
+}
 
-        void record( char const* file, uint32_t line, char const* extra = nullptr )
-        {
-                asrtr_diag_record( &diag_, file, line, extra );
-        }
-
-        ~diag()
-        {
-                asrtr_diag_deinit( &diag_ );
-        }
-
-private:
-        asrtr_diag diag_;
-};
-
-}  // namespace asrtr
+}  // namespace asrt

@@ -8,47 +8,14 @@
 namespace asrtio
 {
 
-enum class status
-{
-        success,
-        connect_failed,
-        query_failed,
-        init_failed,
-        bind_failed,
-        listen_failed,
-        send_failed,
-};
-
-inline char const* status_to_str( status s )
-{
-        switch ( s ) {
-        case status::success:
-                return "success";
-        case status::connect_failed:
-                return "connect_failed";
-        case status::query_failed:
-                return "query_failed";
-        case status::init_failed:
-                return "init_failed";
-        case status::bind_failed:
-                return "bind_failed";
-        case status::listen_failed:
-                return "listen_failed";
-        case status::send_failed:
-                return "send_failed";
-        }
-        return "unknown_status";
-}
-
-using asrtl::task_ctx;
-using mem_res = asrtl::malloc_free_memory_resource;
+using asrt::task_ctx;
+using mem_res = asrt::malloc_free_memory_resource;
 using arena   = ecor::async_arena< task_ctx, mem_res >;
 
 template < typename T >
 using async_ptr = ecor::async_ptr< T, task_ctx, mem_res >;
 
-template < typename T >
-using task = asrtl::task< T, status >;
+using asrt::task;
 
 // XXX: specific version of just sender? maybe move to ecor?
 template < typename S >
@@ -106,10 +73,7 @@ struct _complete_arena_sender
                                 o.advance();
                         }
 
-                        auto get_env() const noexcept
-                        {
-                                return ecor::empty_env{};
-                        }
+                        auto get_env() const noexcept { return ecor::empty_env{}; }
 
                         ~recv() noexcept = default;
                 };
@@ -133,10 +97,7 @@ struct _complete_arena_sender
                         op.start();
                 }
 
-                void advance()
-                {
-                        a.ctx().reschedule( *this );
-                }
+                void advance() { a.ctx().reschedule( *this ); }
 
                 void resume() override
                 {

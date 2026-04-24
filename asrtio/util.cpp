@@ -11,11 +11,11 @@ namespace asrtio
 bool _flat_tree_from_json_impl(
     asrtl_flat_tree&      tree,
     nlohmann::json const& j,
-    asrtl::flat_id        parent,
+    asrt::flat_id         parent,
     char const*           key,
-    asrtl::flat_id&       next_id )
+    asrt::flat_id&        next_id )
 {
-        asrtl::flat_id const my_id = next_id++;
+        asrt::flat_id const my_id = next_id++;
 
         std::string             str_storage;
         asrtl_flat_value_type   type   = ASRTL_FLAT_STYPE_NONE;
@@ -25,8 +25,8 @@ bool _flat_tree_from_json_impl(
                 type = ASRTL_FLAT_STYPE_NULL;
                 break;
         case nlohmann::json::value_t::boolean:
-                type             = ASRTL_FLAT_STYPE_BOOL;
-                scalar.bool_val  = j.get< bool >() ? 1u : 0u;
+                type            = ASRTL_FLAT_STYPE_BOOL;
+                scalar.bool_val = j.get< bool >() ? 1u : 0u;
                 break;
         case nlohmann::json::value_t::number_integer: {
                 auto v = j.get< int64_t >();
@@ -112,7 +112,7 @@ bool _flat_tree_from_json_impl(
         return true;
 }
 
-bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl::flat_id node_id, nlohmann::json& out )
+bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrt::flat_id node_id, nlohmann::json& out )
 {
         asrtl_flat_query_result res{};
         auto                    s = asrtl_flat_tree_query( &tree, node_id, &res );
@@ -145,8 +145,8 @@ bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl::flat_id node_id, nlo
                 out = res.value.data.s.str_val;
                 break;
         case ASRTL_FLAT_CTYPE_OBJECT: {
-                out                  = nlohmann::json::object();
-                asrtl::flat_id cid = res.value.data.cont.first_child;
+                out               = nlohmann::json::object();
+                asrt::flat_id cid = res.value.data.cont.first_child;
                 while ( cid != 0 ) {
                         asrtl_flat_query_result cr{};
                         s = asrtl_flat_tree_query( &tree, cid, &cr );
@@ -167,8 +167,8 @@ bool _flat_tree_to_json_impl( asrtl_flat_tree& tree, asrtl::flat_id node_id, nlo
                 break;
         }
         case ASRTL_FLAT_CTYPE_ARRAY: {
-                out                  = nlohmann::json::array();
-                asrtl::flat_id cid = res.value.data.cont.first_child;
+                out               = nlohmann::json::array();
+                asrt::flat_id cid = res.value.data.cont.first_child;
                 while ( cid != 0 ) {
                         asrtl_flat_query_result cr{};
                         s = asrtl_flat_tree_query( &tree, cid, &cr );

@@ -5,18 +5,9 @@
 
 #include <ecor/ecor.hpp>
 
-namespace asrtr
+namespace asrt
 {
 
-enum task_error
-{
-        test_fail,  // test failed due to a failed check or unmet condition
-        test_error  //  test errored due to an infrastructure issue (e.g. param query failure)
-};
-
-template < typename T >
-using task     = asrtl::task< T, task_error >;
-using task_ctx = asrtl::task_ctx;
 
 struct task_test
 {
@@ -49,30 +40,11 @@ struct task_unit : asrtr_test
 
                 record* rec;
 
-                void set_value()
-                {
-                        rec->state = ASRTR_TEST_PASS;
-                }
-                void set_error( ecor::task_error )
-                {
-                        rec->state = ASRTR_TEST_FAIL;
-                }
-                // XXX: should this be an error?
-                void set_error( task_error s )
-                {
-                        switch ( s ) {
-                        case task_error::test_fail:
-                                rec->state = ASRTR_TEST_FAIL;
-                                break;
-                        case task_error::test_error:
-                                rec->state = ASRTR_TEST_ERROR;
-                                break;
-                        }
-                }
-                void set_stopped()
-                {
-                        rec->state = ASRTR_TEST_FAIL;
-                }
+                void set_value() { rec->state = ASRTR_TEST_PASS; }
+                void set_error( ecor::task_error ) { rec->state = ASRTR_TEST_FAIL; }
+                void set_error( test_fail_t ) { rec->state = ASRTR_TEST_FAIL; }
+                void set_error( asrt::status ) { rec->state = ASRTR_TEST_ERROR; }
+                void set_stopped() { rec->state = ASRTR_TEST_FAIL; }
         };
 
         task_unit( T def )
@@ -81,7 +53,7 @@ struct task_unit : asrtr_test
                 asrtr_test_init( this, def.name, static_cast< task_unit* >( this ), task_unit::cb );
         }
 
-        static asrtr::status cb( record* rec )
+        static asrtl_status cb( record* rec )
         {
                 auto& self = *static_cast< task_unit* >( rec->inpt->test_ptr );
 
@@ -91,7 +63,7 @@ struct task_unit : asrtr_test
                         self.op.start();
                 }
 
-                return ASRTR_SUCCESS;
+                return ASRTL_SUCCESS;
         }
 
 private:
@@ -100,4 +72,4 @@ private:
         ecor::connect_type< task< void >, recv > op;
 };
 
-}  // namespace asrtr
+}  // namespace asrt

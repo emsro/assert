@@ -2,17 +2,16 @@
 
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/log.h"
+#include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
-#include "../asrtr/status_to_str.h"
 
 #include <span>
 
-namespace asrtr
+namespace asrt
 {
 
-using status = asrtr_status;
 using record = asrtr_record;
 
 // Test harness that stores test T which should be callable with a record reference and return a
@@ -30,11 +29,11 @@ struct unit : asrtr_test
         unit( unit&& )      = delete;
         unit( unit const& ) = delete;
 
-        static asrtr::status cb( record* rec )
+        static asrtl_status cb( record* rec )
         {
-                auto*         self = static_cast< unit* >( rec->inpt->test_ptr );
-                asrtr::status st   = self->test( *rec );
-                if ( st != ASRTR_SUCCESS )
+                auto*        self = static_cast< unit* >( rec->inpt->test_ptr );
+                asrtl_status st   = self->test( *rec );
+                if ( st != ASRTL_SUCCESS )
                         rec->state = ASRTR_TEST_FAIL;
                 return st;
         }
@@ -42,48 +41,20 @@ struct unit : asrtr_test
         T test;
 };
 
-struct reactor
+/// XXX: add C++ init to other asrt:: abstractions, inluding deinit
+inline enum asrtl_status init( ref< asrtr_reactor > reac, autosender sender, char const* desc )
 {
-        template < asrtl::sender_callable CB >
-        reactor( CB& send_cb, char const* desc )
-        {
-                if ( auto s = asrtr_reactor_init( &reac, asrtl::make_sender( send_cb ), desc );
-                     s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_reactor", "init failed: %s", asrtr_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
-        }
+        return asrtr_reactor_init( reac, sender, desc );
+}
 
-        reactor( asrtl_sender sender, char const* desc )
-        {
-                if ( auto s = asrtr_reactor_init( &reac, sender, desc ); s != ASRTR_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtr_reactor", "init failed: %s", asrtr_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
-        }
+inline enum asrtl_status add_test( ref< asrtr_reactor > reac, asrtr_test& test )
+{
+        return asrtr_reactor_add_test( reac, &test );
+}
 
-        reactor( reactor&& )      = delete;
-        reactor( reactor const& ) = delete;
+inline void deinit( ref< asrtr_reactor > reac )
+{
+        asrtr_reactor_deinit( reac );
+}
 
-        asrtl_node* node()
-        {
-                return &reac.node;
-        }
-
-        void add_test( asrtr_test& test )
-        {
-                asrtr_reactor_add_test( &reac, &test );
-        }
-
-        ~reactor()
-        {
-                asrtr_reactor_deinit( &reac );
-        }
-
-private:
-        asrtr_reactor reac;
-};
-
-}  // namespace asrtr
+}  // namespace asrt

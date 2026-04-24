@@ -1,53 +1,84 @@
 
 #pragma once
 
-#include "../asrtc/callbacks.h"
+#include "../asrtc/controller.h"
 #include "../asrtc/result.h"
+#include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
 #include <functional>
 
-namespace asrtc
+namespace asrt
 {
-using asrtl::uptr;
-using status         = asrtl_status;
-using result         = asrtc_result;
-using error_cb       = std::function< status( asrtl::source, asrtl::ecode ) >;
-using init_cb        = std::function< asrtl::status( status ) >;
-using desc_cb        = std::function< asrtl::status( status, std::string_view ) >;
-using tc_cb          = std::function< asrtl::status( status, uint32_t ) >;
-using test_info_cb   = std::function< asrtl::status( status, uint16_t, std::string_view ) >;
-using test_result_cb = std::function< asrtl::status( status, result const& ) >;
+using status = asrtl_status;
+using result = asrtc_result;
 
-struct controller_impl;
+/// XXX: revise nodiscard in C++ code
+/// XXX: revise status usage in C++ API - prefer sender
+/// XXX: revisit inline usage and move stuff to .cpp
 
-struct controller
+/// XXX: do a sender-based
+inline status init(
+    ref< asrtc_controller >          c,
+    autosender                       s,
+    allocator                        a,
+    callback< asrtc_error_callback > ecb )
 {
-        controller( asrtl::sender sender, asrtl::allocator alloc, error_cb ecb );
+        return asrtc_cntr_init( c, s, a, { .ptr = ecb.ptr, .cb = ecb.fn } );
+}
 
-        controller( controller&& );
+/// XXX: do a sender-based
+inline status start(
+    ref< asrtc_controller >         c,
+    callback< asrtc_init_callback > cb,
+    uint32_t                        timeout )
+{
+        return asrtc_cntr_start( c, cb.fn, cb.ptr, timeout );
+}
 
-        [[nodiscard]]
-        asrtc::status start( init_cb icb, uint32_t timeout );
+inline bool is_idle( ref< asrtc_controller > c )
+{
+        return asrtc_cntr_idle( c ) > 0;
+}
 
-        // XXX: reevaluate this
-        asrtl_node* node();
+inline status query_desc(
+    ref< asrtc_controller >         c,
+    callback< asrtc_desc_callback > cb,
+    uint32_t                        timeout )
+{
+        return asrtc_cntr_desc( c, cb.fn, cb.ptr, timeout );
+}
 
-        bool is_idle() const;
+inline status query_test_count(
+    ref< asrtc_controller >               c,
+    callback< asrtc_test_count_callback > cb,
+    uint32_t                              timeout )
+{
+        return asrtc_cntr_test_count( c, cb.fn, cb.ptr, timeout );
+}
 
-        [[nodiscard]] asrtc::status query_desc( desc_cb cb, uint32_t timeout );
-        [[nodiscard]] asrtc::status query_test_count( tc_cb cb, uint32_t timeout );
-        [[nodiscard]] asrtc::status query_test_info(
-            uint16_t     id,
-            test_info_cb cb,
-            uint32_t     timeout );
-        [[nodiscard]] asrtc::status exec_test( uint16_t id, test_result_cb cb, uint32_t timeout );
+inline status query_test_info(
+    ref< asrtc_controller >              c,
+    uint16_t                             id,
+    callback< asrtc_test_info_callback > cb,
+    uint32_t                             timeout )
+{
+        return asrtc_cntr_test_info( c, id, cb.fn, cb.ptr, timeout );
+}
 
-        ~controller();
+inline status exec_test(
+    ref< asrtc_controller >                c,
+    uint16_t                               id,
+    callback< asrtc_test_result_callback > cb,
+    uint32_t                               timeout )
+{
+        return asrtc_cntr_test_exec( c, id, cb.fn, cb.ptr, timeout );
+}
 
-private:
-        uptr< controller_impl > _impl;
-};
+inline void deinit( ref< asrtc_controller > c )
+{
+        asrtc_cntr_deinit( c );
+}
 
-}  // namespace asrtc
+}  // namespace asrt

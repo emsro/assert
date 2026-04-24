@@ -40,7 +40,7 @@ struct cntr_tcp_sys
                     asrtc_error_cb{ .ptr = this, .cb = ecb } );
         }
 
-        static asrtl_status ecb( void* ptr, asrtl::source src, asrtl::ecode ec )
+        static asrtl_status ecb( void* ptr, asrt::source src, asrt::ecode ec )
         {
                 auto* sys = static_cast< cntr_tcp_sys* >( ptr );
                 auto  s   = std::format( "Source: {}, code: {}", src, ec );
@@ -68,15 +68,9 @@ struct cntr_tcp_sys
                 return st;
         }
 
-        auto take_diag_record()
-        {
-                return asrtc_diag_take_record( &asm_.diag );
-        }
+        auto take_diag_record() { return asrtc_diag_take_record( &asm_.diag ); }
 
-        clock const& clk() const
-        {
-                return clk_;
-        }
+        clock const& clk() const { return clk_; }
 
         void tick()
         {
@@ -119,25 +113,16 @@ struct cntr_tcp_sys
                 uv_close( (uv_handle_t*) client.get(), nullptr );
         }
 
-        asrtc_controller& cntr()
+        asrtc_controller& cntr() { return asm_.cntr; }
+
+        asrt::stream_schemas stream_take()
         {
-                return asm_.cntr;
+                return asrt::stream_schemas{ asrtc_stream_server_take( &asm_.stream ) };
         }
 
-        asrtc::stream_schemas stream_take()
-        {
-                return asrtc::stream_schemas{ asrtc_stream_server_take( &asm_.stream ) };
-        }
+        asrtl_flat_tree const* collect_tree() { return asrtc_collect_server_tree( &asm_.collect ); }
 
-        asrtl_flat_tree const* collect_tree()
-        {
-                return asrtc_collect_server_tree( &asm_.collect );
-        }
-
-        asrtc_assembly& assembly()
-        {
-                return asm_;
-        }
+        asrtc_assembly& assembly() { return asm_; }
 
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
@@ -179,14 +164,14 @@ struct suite_reporter
             std::string_view extra )                                                       = 0;
         virtual void on_collect_data( std::string_view name, asrtl_flat_tree const* tree ) = 0;
         virtual void on_stream_data(
-            std::string_view             name,
-            asrtc::stream_schemas const& schemas ) = 0;
-        virtual ~suite_reporter()                  = default;
+            std::string_view            name,
+            asrt::stream_schemas const& schemas ) = 0;
+        virtual ~suite_reporter()                 = default;
 };
 
 struct _cntr_assembly_exec_test
 {
-        using value_sig = ecor::set_value_t( asrtc::result );
+        using value_sig = ecor::set_value_t( asrt::result );
 
         cntr_tcp_sys&             sys;
         uint16_t                  tid;
@@ -224,7 +209,7 @@ struct _cntr_assembly_exec_test
                                         "asrtio_main",
                                         "Assembly exec_test failed: %s",
                                         asrtl_status_to_str( s ) );
-                                    op_->recv.set_error( status::query_failed );
+                                    op_->recv.set_error( s );
                                     return ASRTL_SUCCESS;
                             }
                             op_->recv.set_value( *res );
@@ -236,11 +221,11 @@ struct _cntr_assembly_exec_test
                             "asrtio_main",
                             "Assembly exec_test failed: %s",
                             asrtl_status_to_str( s ) );
-                        op.recv.set_error( status::query_failed );
+                        op.recv.set_error( s );
                 }
         }
 };
-using cntr_assembly_exec_test = asrtl::gen_sender< _cntr_assembly_exec_test, status >;
+using cntr_assembly_exec_test = asrt::gen_sender< _cntr_assembly_exec_test >;
 
 inline void write_strm_field( std::ostream& os, enum asrtl_strm_field_type_e ft, uint8_t*& p )
 {
@@ -411,8 +396,8 @@ inline task< void > run_test_suite(
                 for ( uint32_t ri = 0; ri < run_total; ++ri ) {
                         reporter.on_test_start( name, ri + 1, run_total );
 
-                        auto          t0  = sys.clk().now();
-                        asrtc::result res = co_await cntr_assembly_exec_test{
+                        auto         t0  = sys.clk().now();
+                        asrt::result res = co_await cntr_assembly_exec_test{
                             sys, tid, roots[ri] != 0 ? &params.tree : nullptr, roots[ri], timeout };
 
                         bool const do_output = !output_dir.empty();

@@ -4,7 +4,7 @@
 #include "../asrtl/cobs.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtr/status_to_str.h"
+#include "../asrtr/assembly.h"
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
@@ -28,30 +28,22 @@ struct conn_ctx
         uv_tcp_t                                     client;
         bool                                         disconnected = false;
         std::mt19937                                 rng;
-        asrtr::reactor                               reac;
-        asrtr::diag                                  r_diag;
-        uint8_t                                      param_buf[256] = {};
-        asrtr::param_client                          r_param;
-        asrtr::collect_client                        r_collect;
-        asrtr::stream_client                         r_stream;
-        std::list< asrtr::unit< demo_test > >        demo_tests;
+        asrtr_assembly                               assm;
+        std::list< asrt::unit< demo_test > >         demo_tests;
         std::vector< std::shared_ptr< asrtr_test > > task_demo_tests;
 
-        asrtl::malloc_free_memory_resource mem;
-        asrtr::task_ctx                    task_ctx{ mem };
+        asrt::malloc_free_memory_resource mem;
+        asrt::task_ctx                    task_ctx{ mem };
 
         conn_ctx( uint32_t seed )
           : rng( seed )
-          , reac( *this, "simulator reactor" )
-          , r_diag( reac.node(), *this )
-          , r_param(
-                r_diag.node(),
-                *this,
-                asrtl_span{ .b = param_buf, .e = param_buf + sizeof( param_buf ) },
-                100 )
-          , r_collect( r_param.node(), *this )
-          , r_stream( r_collect.node(), *this )
         {
+                if ( asrtr_assembly_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
+                     ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG( "asrtio", "Failed to initialize assembly" );
+                        throw std::runtime_error( "Failed to initialize assembly" );
+                }
+
                 client.data = this;
 
                 reg_demo( make_demo_pass() );
@@ -72,36 +64,31 @@ struct conn_ctx
                 reg_task_demo< check_demo_task >();
                 reg_task_demo< check_fail_demo_task >();
                 reg_task_demo< multi_step_fail_demo_task >();
-                reg_task_demo< param_query_demo_task >( r_param );
-                reg_task_demo< param_type_overview_task >( r_param );
-                reg_task_demo< collect_demo_task >( r_collect );
-                reg_task_demo< stream_demo_task >( r_stream );
-                reg_task_demo< stream_sensor_demo_task >( r_stream );
+                reg_task_demo< param_query_demo_task >( assm.param );
+                reg_task_demo< param_type_overview_task >( assm.param );
+                reg_task_demo< collect_demo_task >( assm.collect );
+                reg_task_demo< stream_demo_task >( assm.stream );
+                reg_task_demo< stream_sensor_demo_task >( assm.stream );
         }
 
         void reg_demo( demo_spec spec )
         {
-                auto& t = demo_tests.emplace_back( std::move( spec ), r_diag, r_param, rng );
-                reac.add_test( t );
+                auto& t = demo_tests.emplace_back( std::move( spec ), assm.diag, assm.param, rng );
+                add_test( assm.reactor, t );
         }
 
         template < typename T, typename... Args >
         void reg_task_demo( Args&&... args )
         {
                 auto s =
-                    std::make_shared< asrtr::task_unit< T > >( T{ task_ctx, (Args&&) args... } );
+                    std::make_shared< asrt::task_unit< T > >( T{ task_ctx, (Args&&) args... } );
                 auto& t = task_demo_tests.emplace_back( s, (asrtr_test*) s.get() );
-                reac.add_test( *t );
+                asrt::add_test( assm.reactor, *t );
         }
 
-        asrtr::param_client& param()
-        {
-                return r_param;
-        }
-
-        asrtl::status operator()(
-            asrtl::chann_id    id,
-            asrtl::rec_span*   buff,
+        asrt::status operator()(
+            asrt::chann_id     id,
+            asrt::rec_span*    buff,
             asrtl_send_done_cb done_cb,
             void*              done_ptr )
         {
@@ -115,7 +102,7 @@ struct conn_ctx
         {
                 task_ctx.tick();
                 auto now = uv_now( client.loop );
-                asrtl_chann_tick_successors( reac.node(), now );
+                asrtr_assembly_tick( &assm, now );
         }
 
         cobs_node rx;
@@ -123,17 +110,21 @@ struct conn_ctx
 
         void start()
         {
-                rx.start( (uv_stream_t*) &client, reac.node(), "asrtio_rsim", [&]( ssize_t nread ) {
-                        if ( nread == UV_EOF ) {
-                                ASRTL_DBG_LOG( "test_rsim", "Connection closed by remote" );
-                        } else {
-                                ASRTL_ERR_LOG(
-                                    "test_rsim",
-                                    "Read error: %s",
-                                    uv_strerror( static_cast< int >( nread ) ) );
-                        }
-                        disconnect();
-                } );
+                rx.start(
+                    (uv_stream_t*) &client,
+                    &assm.reactor.node,
+                    "asrtio_rsim",
+                    [&]( ssize_t nread ) {
+                            if ( nread == UV_EOF ) {
+                                    ASRTL_DBG_LOG( "test_rsim", "Connection closed by remote" );
+                            } else {
+                                    ASRTL_ERR_LOG(
+                                        "test_rsim",
+                                        "Read error: %s",
+                                        uv_strerror( static_cast< int >( nread ) ) );
+                            }
+                            disconnect();
+                    } );
         }
 
         void disconnect()
@@ -192,7 +183,7 @@ struct rsim_ctx
                         c.tick();
         }
 
-        status start()
+        asrt::status start()
         {
                 struct sockaddr_in addr;
                 uv_ip4_addr( "127.0.0.1", 0, &addr );
@@ -201,14 +192,14 @@ struct rsim_ctx
                 if ( r != 0 ) {
                         ASRTL_ERR_LOG(
                             "asrtio", "Failed to initialize server: %s", uv_strerror( r ) );
-                        return status::init_failed;
+                        return ASRTL_INIT_ERR;
                 }
 
                 r = uv_tcp_bind( &server, (const struct sockaddr*) &addr, 0 );
                 if ( r != 0 ) {
                         ASRTL_ERR_LOG(
                             "asrtio", "Failed to bind to address: %s", uv_strerror( r ) );
-                        return status::bind_failed;
+                        return ASRTL_INIT_ERR;
                 }
                 server.data = this;
                 uv_idle_init( server.loop, &idle );
@@ -234,9 +225,9 @@ struct rsim_ctx
                 } );
                 if ( r != 0 ) {
                         ASRTL_ERR_LOG( "test_rsim", "uv_listen failed: %s", uv_strerror( r ) );
-                        return status::listen_failed;
+                        return ASRTL_INIT_ERR;
                 }
-                return status::success;
+                return ASRTL_SUCCESS;
         }
 
         void close()

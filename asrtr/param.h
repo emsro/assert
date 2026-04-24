@@ -18,7 +18,6 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/param_proto.h"
-#include "./status.h"
 
 enum asrtr_param_client_pending
 {
@@ -57,7 +56,7 @@ struct asrtr_param_client
         } pending_data;
 };
 
-enum asrtr_status asrtr_param_client_init(
+enum asrtl_status asrtr_param_client_init(
     struct asrtr_param_client* client,
     struct asrtl_node*         prev,
     struct asrtl_sender        sender,

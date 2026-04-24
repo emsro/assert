@@ -18,7 +18,6 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/collect_proto.h"
 #include "../asrtl/flat_tree.h"
-#include "./status.h"
 
 enum asrtr_collect_client_state
 {
@@ -45,7 +44,7 @@ struct asrtr_collect_client
 
 /// Initialise a collect client and link it into the node chain.
 ///
-enum asrtr_status asrtr_collect_client_init(
+enum asrtl_status asrtr_collect_client_init(
     struct asrtr_collect_client* client,
     struct asrtl_node*           prev,
     struct asrtl_sender          sender );

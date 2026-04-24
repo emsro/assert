@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-#include "./status.h"
+#include "../asrtl/status.h"
 
 #include <stdint.h>
 
@@ -30,7 +30,7 @@ enum asrtr_test_state
 };
 
 struct asrtr_record;
-typedef enum asrtr_status ( *asrtr_test_callback )( struct asrtr_record* );
+typedef enum asrtl_status ( *asrtr_test_callback )( struct asrtr_record* );
 
 struct asrtr_test_input
 {
@@ -58,7 +58,7 @@ void asrtr_fail( struct asrtr_record* rec );
         do {                                   \
                 if ( !( x ) ) {                \
                         asrtr_fail( ( rec ) ); \
-                        return ASRTR_SUCCESS;  \
+                        return ASRTL_SUCCESS;  \
                 }                              \
         } while ( 0 )
 

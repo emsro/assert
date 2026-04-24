@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace asrtl
+namespace asrt
 {
 
 using flat_id = asrtl_flat_id;
@@ -88,4 +88,4 @@ struct flat_type_traits< arr >
         static constexpr bool is_scalar = false;
 };
 
-}  // namespace asrtl
+}  // namespace asrt

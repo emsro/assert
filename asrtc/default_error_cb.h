@@ -26,17 +26,18 @@ extern "C" {
 static inline enum asrtl_status asrtc_default_error_callback(
     void*             ptr,
     enum asrtl_source src,
-    uint16_t          ecode )
+    enum asrtl_ecode  ecode )
 {
         (void) ptr;
         printf(
             "Error reported from %s: %i %s",
             asrtl_source_to_str( src ),
             ecode,
-            asrtl_ecode_to_str( (enum asrtl_ecode) ecode ) );
+            asrtl_ecode_to_str( ecode ) );
         return ASRTL_SUCCESS;
 }
 
+/// XXX: is this even necessary? can't we don't have the error callback at all?
 static inline struct asrtc_error_cb asrtc_default_error_cb( void )
 {
         return ( struct asrtc_error_cb ){

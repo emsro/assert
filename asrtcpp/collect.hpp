@@ -9,76 +9,43 @@
 #include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
-namespace asrtc
+namespace asrt
 {
 
-/// C++ wrapper for the controller-side collect server.
-///
-/// Owns an asrtc_collect_server and provides RAII lifetime, type-safe
-/// send_ready() overloads, and const tree access.  See asrtc/collect.h
-/// for protocol details.
-struct collect_server
+inline status init(
+    ref< asrtc_collect_server > srv,
+    asrtl_node&                 prev,
+    autosender                  send_cb,
+    asrtl_allocator             alloc,
+    uint32_t                    tree_block_cap,
+    uint32_t                    tree_node_cap )
 {
-        /// Construct and link into the node chain.
-        template < typename CB >
-        collect_server(
-            asrtl_node*            prev,
-            CB&                    send_cb,
-            struct asrtl_allocator alloc,
-            uint32_t               tree_block_cap,
-            uint32_t               tree_node_cap )
-        {
-                if ( auto s = asrtc_collect_server_init(
-                         &server_,
-                         prev,
-                         asrtl::make_sender( send_cb ),
-                         alloc,
-                         tree_block_cap,
-                         tree_node_cap );
-                     s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtc_collect", "init failed: %s", asrtl_status_to_str( s ) );
-                        ASRTL_ASSERT( false );
-                }
-        }
+        return asrtc_collect_server_init(
+            srv, &prev, send_cb, alloc, tree_block_cap, tree_node_cap );
+}
 
-        collect_server( collect_server&& )      = delete;
-        collect_server( collect_server const& ) = delete;
+inline status send_ready(
+    ref< asrtc_collect_server >            srv,
+    flat_id                                root_id,
+    callback< asrtc_collect_ready_ack_cb > ack_cb,
+    uint32_t                               timeout )
+{
+        return asrtc_collect_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
+}
 
-        asrtl_node* node()
-        {
-                return &server_.node;
-        }
+inline asrtl_flat_tree const& tree( ref< asrtc_collect_server > srv )
+{
+        return *asrtc_collect_server_tree( srv );
+}
 
-        /// Send READY with a callback (lambda/functor or raw fn-ptr + void*).
-        [[nodiscard]] asrtl_status send_ready(
-            asrtl::flat_id                                root_id,
-            asrtl::callback< asrtc_collect_ready_ack_cb > ack_cb,
-            uint32_t                                      timeout )
-        {
-                return asrtc_collect_server_send_ready(
-                    &server_, root_id, timeout, ack_cb.fn, ack_cb.ptr );
-        }
+inline flat_id next_node_id( ref< asrtc_collect_server > srv )
+{
+        return srv->next_node_id;
+}
 
-        /// Access the built tree.  Valid until next send_ready() or destruction.
-        asrtl_flat_tree const* tree() const
-        {
-                return asrtc_collect_server_tree( &server_ );
-        }
+inline void deinit( ref< asrtc_collect_server > srv )
+{
+        asrtc_collect_server_deinit( srv );
+}
 
-        /// Next auto-assigned node ID (matches the reactor's counter).
-        asrtl::flat_id next_node_id() const
-        {
-                return server_.next_node_id;
-        }
-
-        ~collect_server()
-        {
-                asrtc_collect_server_deinit( &server_ );
-        }
-
-private:
-        asrtc_collect_server server_;
-};
-
-}  // namespace asrtc
+}  // namespace asrt

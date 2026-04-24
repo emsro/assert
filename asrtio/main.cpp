@@ -25,7 +25,7 @@ using namespace std::literals::chrono_literals;
 
 namespace asrtio
 {
-using asrtl::opt;
+using asrt::opt;
 
 struct pbar_reporter : suite_reporter
 {
@@ -38,10 +38,7 @@ struct pbar_reporter : suite_reporter
         {
         }
 
-        void on_count( uint32_t total ) override
-        {
-                bar.set_total( (int) total );
-        }
+        void on_count( uint32_t total ) override { bar.set_total( (int) total ); }
 
         void on_test_start( std::string_view name, uint32_t run_idx, uint32_t run_total ) override
         {
@@ -79,7 +76,7 @@ struct pbar_reporter : suite_reporter
 
         void on_collect_data( std::string_view, asrtl_flat_tree const* ) override {}
 
-        void on_stream_data( std::string_view, asrtc::stream_schemas const& ) override {}
+        void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
 std::shared_ptr< pbar::terminal_progress > g_bar;
@@ -101,11 +98,11 @@ static std::string plain_log_line(
                 ls = "INFO ";
         else
                 ls = "DEBUG";
-        auto      now   = std::chrono::system_clock::now();
-        auto      now_t = std::chrono::system_clock::to_time_t( now );
-        auto      us    = std::chrono::duration_cast< std::chrono::microseconds >(
-                       now.time_since_epoch() ) %
-                     std::chrono::seconds( 1 );
+        auto now   = std::chrono::system_clock::now();
+        auto now_t = std::chrono::system_clock::to_time_t( now );
+        auto us =
+            std::chrono::duration_cast< std::chrono::microseconds >( now.time_since_epoch() ) %
+            std::chrono::seconds( 1 );
         struct tm ti{};
         localtime_r( &now_t, &ti );
         char ts[16];
@@ -183,7 +180,7 @@ task< void > run_tcp(
         auto          client = std::make_shared< uv_tcp_t >();
         if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                co_await ecor::just_error( status::init_failed );
+                co_await ecor::just_error( ASRTL_INIT_ERR );
         }
         co_await tcp_connect{ client.get(), host, port };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
@@ -212,7 +209,7 @@ task< void > run_rsim(
         auto client = std::make_shared< uv_tcp_t >();
         if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
                 ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                co_await ecor::just_error( status::init_failed );
+                co_await ecor::just_error( ASRTL_INIT_ERR );
         }
         co_await tcp_connect{ client.get(), "0.0.0.0", rs->port() };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
@@ -247,9 +244,9 @@ struct final_receiver
                 stop_idle();
         }
 
-        void set_error( asrtio::status s )
+        void set_error( asrt::status s )
         {
-                ASRTL_ERR_LOG( "asrtio_main", "Task error: %s", status_to_str( s ) );
+                ASRTL_ERR_LOG( "asrtio_main", "Task error: %s", asrtl_status_to_str( s ) );
                 stop_idle();
         }
 
@@ -276,14 +273,14 @@ int main( int argc, char* argv[] )
         using namespace asrtio;
         uv_loop_t* loop = uv_default_loop();
         std::optional< asrtio::complete_arena_connect_result< task< void >, final_receiver > > t;
-        asrtl::malloc_free_memory_resource mem_res;
-        real_fs                            rfs;
-        null_fs                            nfs;
-        task_ctx                           ctx{ mem_res };
-        arena                              ar{ ctx, mem_res };
-        steady_clock                       clk;
-        uv_idle_t                          idle;
-        CLI::App                           app{ "App description" };
+        asrt::malloc_free_memory_resource mem_res;
+        real_fs                           rfs;
+        null_fs                           nfs;
+        task_ctx                          ctx{ mem_res };
+        arena                             ar{ ctx, mem_res };
+        steady_clock                      clk;
+        uv_idle_t                         idle;
+        CLI::App                          app{ "App description" };
         argv = app.ensure_utf8( argv );
 
         auto opt       = std::make_shared< tcp_opts >();
@@ -377,7 +374,8 @@ int main( int argc, char* argv[] )
         std::optional< file_writer > log_writer;
         if ( !output_dir.empty() ) {
                 rfs.create_directories( output_dir );
-                log_writer.emplace( rfs.open_write( std::filesystem::path{ output_dir } / "asrtio.log" ) );
+                log_writer.emplace(
+                    rfs.open_write( std::filesystem::path{ output_dir } / "asrtio.log" ) );
                 g_log_file = &log_writer->stream();
         }
 

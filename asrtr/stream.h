@@ -17,7 +17,6 @@ extern "C" {
 
 #include "../asrtl/chann.h"
 #include "../asrtl/stream_proto.h"
-#include "./status.h"
 
 #include <stdint.h>
 
@@ -69,7 +68,7 @@ struct asrtr_stream_client
 };
 
 /// Initialise a stream client and link it into the node chain.
-enum asrtr_status asrtr_stream_client_init(
+enum asrtl_status asrtr_stream_client_init(
     struct asrtr_stream_client* client,
     struct asrtl_node*          prev,
     struct asrtl_sender         sender );
@@ -80,7 +79,7 @@ void asrtr_stream_client_deinit( struct asrtr_stream_client* client );
 /// Prepare a DEFINE message with a definition of schema. This will be sent from tick() and done
 /// will be called once the sender acknowledges the send. The caller must keep the \c fields array
 /// alive until the done_cb fires (or tick() returns when no callback is set).
-enum asrtr_status asrtr_stream_client_define(
+enum asrtl_status asrtr_stream_client_define(
     struct asrtr_stream_client*         client,
     uint8_t                             schema_id,
     enum asrtl_strm_field_type_e const* fields,
@@ -91,7 +90,7 @@ enum asrtr_status asrtr_stream_client_define(
 /// Prepare a DATA message for a schema. The message will be sent from tick() and done will be
 /// called once the sender acknowledges the send. The caller must keep the \c data array alive until
 /// the done_cb fires (or tick() returns when no callback is set).
-enum asrtr_status asrtr_stream_client_emit(
+enum asrtl_status asrtr_stream_client_emit(
     struct asrtr_stream_client* client,
     uint8_t                     schema_id,
     uint8_t const*              data,
@@ -101,7 +100,7 @@ enum asrtr_status asrtr_stream_client_emit(
 
 /// Reset the client to IDLE state.  Returns ASRTR_BUSY if a send
 /// transaction is in progress (DEFINE_SEND or DEFINE_WAIT).
-enum asrtr_status asrtr_stream_client_reset( struct asrtr_stream_client* client );
+enum asrtl_status asrtr_stream_client_reset( struct asrtr_stream_client* client );
 
 #ifdef __cplusplus
 }
