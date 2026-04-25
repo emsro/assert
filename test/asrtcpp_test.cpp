@@ -579,14 +579,14 @@ static uint8_t* build_csrv_ready_ack( uint8_t* buf )
 }
 
 static uint8_t* build_csrv_append(
-    uint8_t*                       buf,
-    asrt::flat_id                  parent_id,
-    asrt::flat_id                  node_id,
-    char const*                    key,
-    struct asrtl_flat_value const* value )
+    uint8_t*                      buf,
+    asrt::flat_id                 parent_id,
+    asrt::flat_id                 node_id,
+    char const*                   key,
+    struct asrt_flat_value const* value )
 {
         struct asrtl_span sp = { .b = buf, .e = buf + 256 };
-        asrtl_msg_rtoc_collect_append(
+        asrt_msg_rtoc_collect_append(
             parent_id, node_id, key, value, asrtl_rec_span_to_span_cb, &sp );
         return sp.b;
 }
@@ -687,8 +687,8 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_append_builds_tree" )
         make_active();
 
         // Append: parent=0, node_id=1, key="root", type=OBJECT
-        asrtl_flat_value obj_val = { .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t          buf[256];
+        asrt_flat_value obj_val = { .type = ASRTL_FLAT_CTYPE_OBJECT };
+        uint8_t         buf[256];
         CHECK_EQ(
             ASRTL_SUCCESS,
             inject_csrv_msg(
@@ -696,8 +696,8 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_append_builds_tree" )
         CHECK_EQ( ASRTL_SUCCESS, asrt::tick( asrt::node( srv ), t++ ) );
 
         // Append: parent=1, node_id=2, key="val", type=U32, value=42
-        asrtl_flat_value u32_val = { .type = ASRTL_FLAT_STYPE_U32 };
-        u32_val.data.s.u32_val   = 42;
+        asrt_flat_value u32_val = { .type = ASRTL_FLAT_STYPE_U32 };
+        u32_val.data.s.u32_val  = 42;
         CHECK_EQ(
             ASRTL_SUCCESS,
             inject_csrv_msg(
@@ -724,8 +724,8 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_append_string_value" )
 {
         make_active();
 
-        asrtl_flat_value str_val = { .type = ASRTL_FLAT_STYPE_STR };
-        str_val.data.s.str_val   = "hello";
+        asrt_flat_value str_val = { .type = ASRTL_FLAT_STYPE_STR };
+        str_val.data.s.str_val  = "hello";
         uint8_t buf[256];
         CHECK_EQ(
             ASRTL_SUCCESS,
@@ -745,8 +745,8 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_duplicate_append_sends_er
 {
         make_active();
 
-        asrtl_flat_value u32_val = { .type = ASRTL_FLAT_STYPE_U32 };
-        u32_val.data.s.u32_val   = 1;
+        asrt_flat_value u32_val = { .type = ASRTL_FLAT_STYPE_U32 };
+        u32_val.data.s.u32_val  = 1;
         uint8_t buf[256];
         CHECK_EQ(
             ASRTL_SUCCESS,

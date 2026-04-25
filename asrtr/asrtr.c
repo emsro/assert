@@ -90,7 +90,7 @@ void asrtr_diag_client_record(
         ASRTL_INF_LOG( "asrtr_diag", "Sending diag message: %s:%u", file, line );
 
         enum asrtl_status st =
-            asrtl_msg_rtoc_diag_record( file, line, extra, asrtr_diag_send_cb, diag );
+            asrt_msg_rtoc_diag_record( file, line, extra, asrtr_diag_send_cb, diag );
         if ( st != ASRTL_SUCCESS )
                 ASRTL_ERR_LOG(
                     "asrtr_diag", "Failed to send diag message: %s", asrtl_status_to_str( st ) );
@@ -107,10 +107,10 @@ static enum asrtl_status asrtr_send_test_error(
     uint16_t              test_id,
     uint32_t              run_id )
 {
-        enum asrtl_status st = asrtl_msg_rtoc_test_start( test_id, run_id, asrtr_send, reac );
+        enum asrtl_status st = asrt_msg_rtoc_test_start( test_id, run_id, asrtr_send, reac );
         if ( st != ASRTL_SUCCESS )
                 return st;
-        return asrtl_msg_rtoc_test_result( run_id, ASRTL_TEST_ERROR, asrtr_send, reac );
+        return asrt_msg_rtoc_test_result( run_id, ASRTL_TEST_ERROR, asrtr_send, reac );
 }
 
 
@@ -121,7 +121,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrtl_msg_rtoc_test_info(
+                if ( asrt_msg_rtoc_test_info(
                          reac->recv_test_info_id,
                          ASRTL_TEST_INFO_MISSING_TEST_ERR,
                          "",
@@ -132,7 +132,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor
                         return ASRTL_SEND_ERR;
                 }
         } else if (
-            asrtl_msg_rtoc_test_info(
+            asrt_msg_rtoc_test_info(
                 reac->recv_test_info_id,
                 ASRTL_TEST_INFO_SUCCESS,
                 t->desc,
@@ -178,7 +178,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_start( struct asrtr_reacto
                     .inpt  = &reac->test_info,
                 };
                 reac->state = ASRTR_REAC_TEST_EXEC;
-                if ( asrtl_msg_rtoc_test_start(
+                if ( asrt_msg_rtoc_test_start(
                          reac->recv_test_start_id, reac->record.inpt->run_id, asrtr_send, reac ) !=
                      ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test start" );
@@ -190,7 +190,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_start( struct asrtr_reacto
 
 static enum asrtl_status asrtr_reactor_tick_flag_desc( struct asrtr_reactor* reac )
 {
-        if ( asrtl_msg_rtoc_desc( reac->desc, strlen( reac->desc ), asrtr_send, reac ) !=
+        if ( asrt_msg_rtoc_desc( reac->desc, strlen( reac->desc ), asrtr_send, reac ) !=
              ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send description" );
                 return ASRTL_SEND_ERR;
@@ -200,7 +200,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_desc( struct asrtr_reactor* rea
 
 static enum asrtl_status asrtr_reactor_tick_flag_proto_ver( struct asrtr_reactor* reac )
 {
-        if ( asrtl_msg_rtoc_proto_version(
+        if ( asrt_msg_rtoc_proto_version(
                  ASRTL_PROTO_MAJOR, ASRTL_PROTO_MINOR, ASRTL_PROTO_PATCH, asrtr_send, reac ) !=
              ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send protocol version" );
@@ -216,7 +216,7 @@ static enum asrtl_status asrtr_reactor_tick_flag_tc( struct asrtr_reactor* reac 
         while ( t != NULL )
                 ++count, t = t->next;
         ASRTL_INF_LOG( "asrtr_asrtr", "Sending test count: %u", count );
-        if ( asrtl_msg_rtoc_test_count( count, asrtr_send, reac ) != ASRTL_SUCCESS ) {
+        if ( asrt_msg_rtoc_test_count( count, asrtr_send, reac ) != ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test count" );
                 return ASRTL_SEND_ERR;
         }
@@ -298,7 +298,7 @@ static enum asrtl_status asrtr_reactor_tick_report( struct asrtr_reactor* reac )
         asrtl_test_result    res    = record->state == ASRTR_TEST_ERROR ? ASRTL_TEST_ERROR :
                                       record->state == ASRTR_TEST_FAIL  ? ASRTL_TEST_FAILURE :
                                                                           ASRTL_TEST_SUCCESS;
-        if ( asrtl_msg_rtoc_test_result( record->inpt->run_id, res, asrtr_send, reac ) !=
+        if ( asrt_msg_rtoc_test_result( record->inpt->run_id, res, asrtr_send, reac ) !=
              ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test result" );
                 return ASRTL_SEND_ERR;

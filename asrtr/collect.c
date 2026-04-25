@@ -75,8 +75,7 @@ static enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client*
         if ( client->state != ASRTR_COLLECT_CLIENT_READY_RECV )
                 return ASRTL_SUCCESS;
 
-        enum asrtl_status st =
-            asrtl_msg_rtoc_collect_ready_ack( asrtr_collect_client_send, client );
+        enum asrtl_status st = asrt_msg_rtoc_collect_ready_ack( asrtr_collect_client_send, client );
         if ( st != ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_collect_client", "tick: failed to send ready_ack" );
                 return st;
@@ -125,11 +124,11 @@ enum asrtl_status asrtr_collect_client_init(
 }
 
 enum asrtl_status asrtr_collect_client_append(
-    struct asrtr_collect_client*   client,
-    asrtl_flat_id                  parent_id,
-    char const*                    key,
-    struct asrtl_flat_value const* value,
-    asrtl_flat_id*                 out_id )
+    struct asrtr_collect_client*  client,
+    asrt_flat_id                  parent_id,
+    char const*                   key,
+    struct asrt_flat_value const* value,
+    asrt_flat_id*                 out_id )
 {
         if ( client->state == ASRTR_COLLECT_CLIENT_ERROR ) {
                 ASRTL_ERR_LOG( "asrtr_collect_client", "append: in error state" );
@@ -140,8 +139,8 @@ enum asrtl_status asrtr_collect_client_append(
                 return ASRTL_ARG_ERR;
         }
 
-        asrtl_flat_id     node_id = client->next_node_id++;
-        enum asrtl_status st      = asrtl_msg_rtoc_collect_append(
+        asrt_flat_id      node_id = client->next_node_id++;
+        enum asrtl_status st      = asrt_msg_rtoc_collect_append(
             parent_id, node_id, key, value, asrtr_collect_client_send, client );
         if ( st == ASRTL_SUCCESS && out_id )
                 *out_id = node_id;

@@ -207,7 +207,7 @@ struct param_qr
         asrtr_param_query q           = {};
 };
 
-inline void param_obj_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_child_list val )
+inline void param_obj_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrt_flat_child_list val )
 {
         auto& s = *static_cast< param_qr* >( qq->cb_ptr );
         if ( qq->error_code == 0 ) {
@@ -225,7 +225,7 @@ inline void param_u32_qr_cb( asrtr_param_client*, asrtr_param_query* qq, uint32_
         }
 }
 
-inline void param_any_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrtl_flat_value )
+inline void param_any_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrt_flat_value )
 {
         auto& s = *static_cast< param_qr* >( qq->cb_ptr );
         if ( qq->error_code == 0 )
@@ -614,11 +614,11 @@ struct param_type_overview_task : asrt::task_test
                 if ( !b )
                         co_yield asrt::with_error{ asrt::test_fail };
 
-                asrtl_flat_child_list obj = co_await asrt::find< asrt::obj >( pc, root, "obj" );
+                asrt_flat_child_list obj = co_await asrt::find< asrt::obj >( pc, root, "obj" );
                 if ( obj.first_child == 0 )
                         co_yield asrt::with_error{ asrt::test_fail };
 
-                asrtl_flat_child_list arr = co_await asrt::find< asrt::arr >( pc, root, "arr" );
+                asrt_flat_child_list arr = co_await asrt::find< asrt::arr >( pc, root, "arr" );
                 if ( arr.first_child == 0 )
                         co_yield asrt::with_error{ asrt::test_fail };
 
@@ -638,7 +638,7 @@ struct param_type_overview_task : asrt::task_test
                 id    = obj.first_child;
                 while ( id != 0 ) {
                         auto [val, key, next_sibling] =
-                            co_await asrt::fetch< asrtl_flat_value >( pc, id );
+                            co_await asrt::fetch< asrt_flat_value >( pc, id );
                         if ( !key || key[0] == '\0' )
                                 co_yield asrt::with_error{ asrt::test_fail };
                         ++count;

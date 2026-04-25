@@ -17,7 +17,7 @@
 namespace asrt
 {
 
-using flat_id = asrtl_flat_id;
+using flat_id = asrt_flat_id;
 
 // Shared tag types for object/array containers
 struct obj
@@ -83,8 +83,8 @@ struct flat_type_traits< bool >
 template <>
 struct flat_type_traits< obj >
 {
-        using raw_type                  = asrtl_flat_child_list;
-        using value_type                = asrtl_flat_child_list;
+        using raw_type                  = asrt_flat_child_list;
+        using value_type                = asrt_flat_child_list;
         static constexpr auto flat_type = ASRTL_FLAT_CTYPE_OBJECT;
         static constexpr bool is_scalar = false;
 };
@@ -92,8 +92,8 @@ struct flat_type_traits< obj >
 template <>
 struct flat_type_traits< arr >
 {
-        using raw_type                  = asrtl_flat_child_list;
-        using value_type                = asrtl_flat_child_list;
+        using raw_type                  = asrt_flat_child_list;
+        using value_type                = asrt_flat_child_list;
         static constexpr auto flat_type = ASRTL_FLAT_CTYPE_ARRAY;
         static constexpr bool is_scalar = false;
 };

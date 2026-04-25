@@ -15,13 +15,13 @@
 #include <string.h>
 
 static void asrtr_param_dispatch_cb(
-    struct asrtr_param_client*     client,
-    struct asrtr_param_query*      q,
-    struct asrtl_flat_value const* val,
-    int                            type_ok )
+    struct asrtr_param_client*    client,
+    struct asrtr_param_query*     q,
+    struct asrt_flat_value const* val,
+    int                           type_ok )
 {
-        static const struct asrtl_flat_value zero_val = { 0 };
-        struct asrtl_flat_value const*       v        = type_ok ? val : &zero_val;
+        static const struct asrt_flat_value zero_val = { 0 };
+        struct asrt_flat_value const*       v        = type_ok ? val : &zero_val;
 
         switch ( q->expected_type ) {
         case ASRTL_FLAT_STYPE_NONE:
@@ -65,8 +65,8 @@ static void asrtr_param_dispatch_cb(
 }
 
 static void asrtr_param_finish_query(
-    struct asrtr_param_client*     client,
-    struct asrtl_flat_value const* val )
+    struct asrtr_param_client*    client,
+    struct asrt_flat_value const* val )
 {
         struct asrtr_param_query* q = client->pending_query;
         client->pending_query       = NULL;
@@ -115,7 +115,7 @@ static enum asrtl_status asrtr_cache_try_deliver(
         };
 
         while ( (size_t) ( sp.e - sp.b ) > 4U ) {
-                asrtl_flat_id nid;
+                asrt_flat_id nid;
                 asrtl_cut_u32( &sp.b, &nid );
 
                 size_t   search_len = (size_t) ( sp.e - sp.b ) - 4U;
@@ -133,8 +133,8 @@ static enum asrtl_status asrtr_cache_try_deliver(
                 }
                 uint8_t raw_type = *sp.b++;
 
-                struct asrtl_flat_value val;
-                enum asrtl_status       vst = asrtl_param_decode_value( &sp, raw_type, &val );
+                struct asrt_flat_value val;
+                enum asrtl_status      vst = asrtl_param_decode_value( &sp, raw_type, &val );
                 if ( vst != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             "asrtr_param_client", "cache: bad value (type %u)", raw_type );
@@ -143,7 +143,7 @@ static enum asrtl_status asrtr_cache_try_deliver(
 
                 if ( ( mode == SEARCH_BY_NODE && nid == client->pending_query->node_id ) ||
                      ( mode == SEARCH_BY_KEY && strcmp( key, client->pending_query->key ) == 0 ) ) {
-                        asrtl_flat_id next_sib;
+                        asrt_flat_id next_sib;
                         if ( (size_t) ( sp.e - sp.b ) > 4U )
                                 asrtl_u8d4_to_u32( sp.b, &next_sib );
                         else
@@ -161,14 +161,14 @@ static enum asrtl_status asrtr_cache_try_deliver(
         if ( mode == SEARCH_BY_KEY ) {
                 struct asrtl_span buf = {
                     .b = client->cache_buf, .e = client->cache_buf + client->cache_capacity };
-                return asrtl_msg_rtoc_param_find_by_key(
+                return asrt_msg_rtoc_param_find_by_key(
                     &buf,
                     client->pending_query->node_id,
                     client->pending_query->key,
                     asrtr_param_client_send,
                     client );
         }
-        return asrtl_msg_rtoc_param_query(
+        return asrt_msg_rtoc_param_query(
             client->pending_query->node_id, asrtr_param_client_send, client );
 }
 
@@ -184,7 +184,7 @@ static enum asrtl_status asrtr_param_client_handle_ready(
                 ASRTL_ERR_LOG( "asrtr_param_client", "ready: message too short" );
                 return ASRTL_RECV_ERR;
         }
-        asrtl_flat_id root_id;
+        asrt_flat_id root_id;
         asrtl_cut_u32( &buff->b, &root_id );
 
         client->pending              = ASRTR_PARAM_CLIENT_PENDING_READY;
@@ -230,8 +230,8 @@ static enum asrtl_status asrtr_param_client_handle_error(
                 ASRTL_ERR_LOG( "asrtr_param_client", "error: message too short" );
                 return ASRTL_RECV_ERR;
         }
-        uint8_t       error_code = *buff->b++;
-        asrtl_flat_id node_id;
+        uint8_t      error_code = *buff->b++;
+        asrt_flat_id node_id;
         asrtl_cut_u32( &buff->b, &node_id );
 
         client->pending_data.error.error_code = error_code;
@@ -250,21 +250,21 @@ static enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* cli
                         if ( q->start == 0 ) {
                                 q->start = now;
                         } else if ( ( now - q->start ) >= client->timeout ) {
-                                q->error_code                    = ASRTL_PARAM_ERR_TIMEOUT;
-                                struct asrtl_flat_value zero_val = { 0 };
+                                q->error_code                   = ASRTL_PARAM_ERR_TIMEOUT;
+                                struct asrt_flat_value zero_val = { 0 };
                                 asrtr_param_finish_query( client, &zero_val );
                         }
                 }
                 return ASRTL_SUCCESS;
 
         case ASRTR_PARAM_CLIENT_PENDING_READY: {
-                asrtl_flat_id root_id = client->pending_data.root_id;
-                client->pending       = ASRTR_PARAM_CLIENT_PENDING_NONE;
-                client->ready         = 0;
-                client->root_id       = root_id;
-                client->cache_len     = 0;
+                asrt_flat_id root_id = client->pending_data.root_id;
+                client->pending      = ASRTR_PARAM_CLIENT_PENDING_NONE;
+                client->ready        = 0;
+                client->root_id      = root_id;
+                client->cache_len    = 0;
 
-                enum asrtl_status st = asrtl_msg_rtoc_param_ready_ack(
+                enum asrtl_status st = asrt_msg_rtoc_param_ready_ack(
                     client->cache_capacity, asrtr_param_client_send, client );
                 if ( st != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG( "asrtr_param_client", "ready: failed to send READY_ACK" );
@@ -280,13 +280,13 @@ static enum asrtl_status asrtr_param_client_tick( struct asrtr_param_client* cli
                     client, client->pending_query->key ? SEARCH_BY_KEY : SEARCH_BY_NODE );
 
         case ASRTR_PARAM_CLIENT_PENDING_QUERY_ERROR: {
-                uint8_t       error_code          = client->pending_data.error.error_code;
-                asrtl_flat_id node_id             = client->pending_data.error.node_id;
+                uint8_t      error_code           = client->pending_data.error.error_code;
+                asrt_flat_id node_id              = client->pending_data.error.node_id;
                 client->pending                   = ASRTR_PARAM_CLIENT_PENDING_NONE;
                 client->pending_query->error_code = error_code;
                 client->pending_query->node_id    = node_id;
 
-                struct asrtl_flat_value zero_val = { 0 };
+                struct asrt_flat_value zero_val = { 0 };
                 asrtr_param_finish_query( client, &zero_val );
                 return ASRTL_SUCCESS;
         }
@@ -365,7 +365,7 @@ enum asrtl_status asrtr_param_client_init(
         return ASRTL_SUCCESS;
 }
 
-asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client )
+asrt_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client )
 {
         return client->root_id;
 }
@@ -373,7 +373,7 @@ asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* clien
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     char const*                key )
 {
         if ( !client->ready ) {

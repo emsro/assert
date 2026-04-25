@@ -77,8 +77,8 @@ static enum asrtl_status asrtc_collect_server_handle_append(
                 return ASRTL_RECV_ERR;
         }
 
-        asrtl_flat_id parent_id;
-        asrtl_flat_id node_id;
+        asrt_flat_id parent_id;
+        asrt_flat_id node_id;
         asrtl_cut_u32( &buff->b, &parent_id );
         asrtl_cut_u32( &buff->b, &node_id );
 
@@ -99,9 +99,9 @@ static enum asrtl_status asrtc_collect_server_handle_append(
 
         uint8_t raw_type = *buff->b++;
 
-        struct asrtl_flat_value val;
+        struct asrt_flat_value val;
         if ( raw_type == ASRTL_FLAT_CTYPE_OBJECT || raw_type == ASRTL_FLAT_CTYPE_ARRAY ) {
-                val = ( struct asrtl_flat_value ){ .type = (asrtl_flat_value_type) raw_type };
+                val = ( struct asrt_flat_value ){ .type = (asrtl_flat_value_type) raw_type };
         } else {
                 enum asrtl_status vst = asrtl_flat_value_decode( buff, raw_type, &val );
                 if ( vst != ASRTL_SUCCESS ) {
@@ -252,7 +252,7 @@ enum asrtl_status asrtc_collect_server_init(
 
 enum asrtl_status asrtc_collect_server_send_ready(
     struct asrtc_collect_server* server,
-    asrtl_flat_id                root_id,
+    asrt_flat_id                 root_id,
     uint32_t                     timeout,
     asrtc_collect_ready_ack_cb   ack_cb,
     void*                        ack_cb_ptr )

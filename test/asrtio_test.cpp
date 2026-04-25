@@ -402,10 +402,10 @@ TEST_CASE( "suite_seed_changes_outcomes" )
 
 struct param_received_node
 {
-        asrt::flat_id    id;
-        std::string      key;
-        asrtl_flat_value value;
-        asrt::flat_id    next_sibling;
+        asrt::flat_id   id;
+        std::string     key;
+        asrt_flat_value value;
+        asrt::flat_id   next_sibling;
 };
 
 struct param_e2e_state
@@ -416,7 +416,7 @@ struct param_e2e_state
         int                                errors = 0;
         asrtr_param_query                  query  = {};
 
-        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_value val )
+        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrt_flat_value val )
         {
                 auto* s = static_cast< param_e2e_state* >( q->cb_ptr );
                 if ( q->error_code != 0 ) {

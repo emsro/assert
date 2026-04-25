@@ -33,7 +33,7 @@ enum asrtc_collect_server_state
 
 struct asrtc_collect_ready_data
 {
-        asrtl_flat_id              root_id;
+        asrt_flat_id               root_id;
         asrtc_collect_ready_ack_cb ack_cb;
         void*                      ack_cb_ptr;
         uint32_t                   timeout;
@@ -61,7 +61,7 @@ struct asrtc_collect_server
         uint32_t               tree_node_cap;
 
         enum asrtc_collect_server_state state;
-        asrtl_flat_id                   next_node_id;
+        asrt_flat_id                    next_node_id;
 
         struct asrtc_collect_ready_data cmd;
 };
@@ -86,7 +86,7 @@ enum asrtl_status asrtc_collect_server_init(
 ///
 enum asrtl_status asrtc_collect_server_send_ready(
     struct asrtc_collect_server* server,
-    asrtl_flat_id                root_id,
+    asrt_flat_id                 root_id,
     uint32_t                     timeout,
     asrtc_collect_ready_ack_cb   ack_cb,
     void*                        ack_cb_ptr );

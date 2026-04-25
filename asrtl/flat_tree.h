@@ -39,10 +39,10 @@ extern "C" {
 #include <stdint.h>
 #include <string.h>
 
-typedef uint32_t asrtl_flat_id;
+typedef uint32_t asrt_flat_id;
 
 /// Scalar value types — leaf data carried by nodes.
-enum asrtl_flat_stype
+enum asrt_flat_stype
 {
         ASRTL_FLAT_STYPE_NONE  = 0,
         ASRTL_FLAT_STYPE_STR   = 1,
@@ -54,7 +54,7 @@ enum asrtl_flat_stype
 };
 
 /// Container value types — nodes that hold child lists.
-enum asrtl_flat_ctype
+enum asrt_flat_ctype
 {
         ASRTL_FLAT_CTYPE_NONE   = 0,
         ASRTL_FLAT_CTYPE_OBJECT = 7,
@@ -65,13 +65,13 @@ enum asrtl_flat_ctype
 /// not overlap (except NONE = 0), so a single uint8_t can hold either.
 typedef uint8_t asrtl_flat_value_type;
 
-struct asrtl_flat_child_list
+struct asrt_flat_child_list
 {
-        asrtl_flat_id first_child;
-        asrtl_flat_id last_child;
+        asrt_flat_id first_child;
+        asrt_flat_id last_child;
 };
 
-union asrtl_flat_scalar
+union asrt_flat_scalar
 {
         char const* str_val;
         uint32_t    u32_val;
@@ -80,23 +80,23 @@ union asrtl_flat_scalar
         uint32_t    bool_val;
 };
 
-union asrtl_flat_data
+union asrt_flat_data
 {
-        union asrtl_flat_scalar      s;
-        struct asrtl_flat_child_list cont;
+        union asrt_flat_scalar      s;
+        struct asrt_flat_child_list cont;
 };
 
-struct asrtl_flat_value
+struct asrt_flat_value
 {
         asrtl_flat_value_type type;
-        union asrtl_flat_data data;
+        union asrt_flat_data  data;
 };
 
 struct asrtl_flat_node
 {
-        struct asrtl_flat_value value;
-        char const*   key;  ///< Owned copy. Non-NULL for OBJECT children, NULL for ARRAY children.
-        asrtl_flat_id next_sibling;  ///< 0 = no next sibling.
+        struct asrt_flat_value value;
+        char const*  key;  ///< Owned copy. Non-NULL for OBJECT children, NULL for ARRAY children.
+        asrt_flat_id next_sibling;  ///< 0 = no next sibling.
 };
 
 /// Contiguous array of nodes. Lazily allocated per block.
@@ -138,38 +138,38 @@ enum asrtl_status asrtl_flat_tree_init(
 /// ARRAY parents require NULL key. Rejects duplicate node_ids.
 enum asrtl_status asrtl_flat_tree_append_scalar(
     struct asrtl_flat_tree* tree,
-    asrtl_flat_id           parent_id,
-    asrtl_flat_id           node_id,
+    asrt_flat_id            parent_id,
+    asrt_flat_id            node_id,
     char const*             key,
     asrtl_flat_value_type   type,
-    union asrtl_flat_scalar scalar );
+    union asrt_flat_scalar  scalar );
 
 /// Insert a container node (OBJECT or ARRAY). Same rules as append_scalar.
 enum asrtl_status asrtl_flat_tree_append_cont(
     struct asrtl_flat_tree* tree,
-    asrtl_flat_id           parent_id,
-    asrtl_flat_id           node_id,
+    asrt_flat_id            parent_id,
+    asrt_flat_id            node_id,
     char const*             key,
     asrtl_flat_value_type   type );
 
 struct asrtl_flat_query_result
 {
-        asrtl_flat_id           id;
-        char const*             key;
-        struct asrtl_flat_value value;
-        asrtl_flat_id           next_sibling;  ///< 0 = no next sibling.
+        asrt_flat_id           id;
+        char const*            key;
+        struct asrt_flat_value value;
+        asrt_flat_id           next_sibling;  ///< 0 = no next sibling.
 };
 
 /// Read a single node by ID.
 enum asrtl_status asrtl_flat_tree_query(
     struct asrtl_flat_tree const*   tree,
-    asrtl_flat_id                   node_id,
+    asrt_flat_id                    node_id,
     struct asrtl_flat_query_result* result );
 
 /// Find a child of parent_id whose key matches. Returns the child's query result.
 enum asrtl_status asrtl_flat_tree_find_by_key(
     struct asrtl_flat_tree*         tree,
-    asrtl_flat_id                   parent_id,
+    asrt_flat_id                    parent_id,
     char const*                     key,
     struct asrtl_flat_query_result* result );
 
@@ -177,11 +177,11 @@ enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* tree );
 
 /// Returns the number of bytes the value payload occupies on the wire (not
 /// including node_id, key, or type byte).
-static inline size_t asrtl_flat_value_wire_size( struct asrtl_flat_value v )
+static inline size_t asrtl_flat_value_wire_size( struct asrt_flat_value v )
 {
         switch ( v.type ) {
         case ASRTL_FLAT_STYPE_STR:
-                return v.data.s.str_val ? strlen( v.data.s.str_val ) + 1U : 1U;
+                return v.data.s.str_val ? strlen( v.data.s.str_val ) + 1UL : 1UL;
         case ASRTL_FLAT_STYPE_U32:
         case ASRTL_FLAT_STYPE_BOOL:
         case ASRTL_FLAT_STYPE_FLOAT:
@@ -197,7 +197,7 @@ static inline size_t asrtl_flat_value_wire_size( struct asrtl_flat_value v )
 
 /// Serialize a flat_value into the buffer at *p, advancing *p past the written
 /// bytes.  Does not write the type byte — caller is responsible for that.
-static inline void asrtl_flat_value_write( uint8_t** p, struct asrtl_flat_value v )
+static inline void asrtl_flat_value_write( uint8_t** p, struct asrt_flat_value v )
 {
         switch ( v.type ) {
         case ASRTL_FLAT_STYPE_NONE:
@@ -238,9 +238,9 @@ static inline void asrtl_flat_value_write( uint8_t** p, struct asrtl_flat_value 
 /// Decode a flat_value from the buffer, advancing buff->b past the consumed
 /// bytes.  raw_type is the type byte already read by the caller.
 enum asrtl_status asrtl_flat_value_decode(
-    struct asrtl_span*       buff,
-    uint8_t                  raw_type,
-    struct asrtl_flat_value* val );
+    struct asrtl_span*      buff,
+    uint8_t                 raw_type,
+    struct asrt_flat_value* val );
 
 #ifdef __cplusplus
 }

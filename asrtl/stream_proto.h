@@ -165,7 +165,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_strm_data(
 }
 
 /// Send ERROR message from controller to reactor.
-static inline enum asrtl_status asrtl_msg_ctor_strm_error(
+static inline enum asrtl_status asrt_msg_ctor_strm_error(
     enum asrtl_strm_err_e   error_code,
     asrtl_strm_msg_callback cb,
     void*                   cb_ptr )

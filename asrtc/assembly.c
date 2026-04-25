@@ -98,7 +98,7 @@ static void asrtc_on_param_ack( void* ptr, enum asrtl_status s )
 enum asrtl_status asrtc_assembly_exec_test(
     struct asrtc_assembly*        a,
     struct asrtl_flat_tree const* tree,
-    asrtl_flat_id                 root_id,
+    asrt_flat_id                  root_id,
     uint16_t                      tid,
     uint32_t                      timeout,
     asrtc_assembly_exec_cb        cb,

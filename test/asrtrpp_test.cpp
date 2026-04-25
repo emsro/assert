@@ -360,17 +360,17 @@ struct param_loopback_cpp_ctx
         // response state
         struct received_node
         {
-                asrt::flat_id    id;
-                std::string      key;
-                asrtl_flat_value value;
-                asrt::flat_id    next_sibling;
+                asrt::flat_id   id;
+                std::string     key;
+                asrt_flat_value value;
+                asrt::flat_id   next_sibling;
         };
         std::vector< received_node > received;
         int                          error_called = 0;
         uint32_t                     t            = 1;
         asrtr_param_query            query        = {};
 
-        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_value val )
+        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrt_flat_value val )
         {
                 auto* ctx = (param_loopback_cpp_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -551,15 +551,15 @@ struct typed_loopback_ctx
         asrtr_param_query query = {};
 
         // results
-        uint32_t              u32_val = 0;
-        int32_t               i32_val = 0;
-        float                 flt_val = 0.0f;
-        std::string           str_val;
-        asrtl_flat_child_list obj_val  = {};
-        asrtl_flat_child_list arr_val  = {};
-        uint32_t              bool_val = 0;
-        int                   cb_count = 0;
-        bool                  got_null = false;
+        uint32_t             u32_val = 0;
+        int32_t              i32_val = 0;
+        float                flt_val = 0.0f;
+        std::string          str_val;
+        asrt_flat_child_list obj_val  = {};
+        asrt_flat_child_list arr_val  = {};
+        uint32_t             bool_val = 0;
+        int                  cb_count = 0;
+        bool                 got_null = false;
 
         typed_loopback_ctx()
         {
@@ -716,12 +716,12 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
             &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, asrtl_flat_value v ) {
+        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, asrt_flat_value v ) {
                 cb_count++;
                 u32_val = v.data.s.u32_val;
         };
         // untyped query — explicit asrtl_flat_value
-        CHECK_EQ( ASRTL_SUCCESS, asrt::fetch< asrtl_flat_value >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrt::fetch< asrt_flat_value >( cli, &query, 2u, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( 99u, u32_val );

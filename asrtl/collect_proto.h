@@ -39,8 +39,8 @@ enum asrtl_collect_err_e
 typedef enum asrtl_status ( *asrtl_collect_msg_callback )( void* ptr, struct asrtl_rec_span* buff );
 
 static inline enum asrtl_status asrtl_msg_ctor_collect_ready(
-    asrtl_flat_id              root_id,
-    asrtl_flat_id              next_node_id,
+    asrt_flat_id               root_id,
+    asrt_flat_id               next_node_id,
     asrtl_collect_msg_callback cb,
     void*                      cb_ptr )
 {
@@ -53,7 +53,7 @@ static inline enum asrtl_status asrtl_msg_ctor_collect_ready(
         return cb( cb_ptr, &span );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_collect_ready_ack(
+static inline enum asrtl_status asrt_msg_rtoc_collect_ready_ack(
     asrtl_collect_msg_callback cb,
     void*                      cb_ptr )
 {
@@ -62,13 +62,13 @@ static inline enum asrtl_status asrtl_msg_rtoc_collect_ready_ack(
         return cb( cb_ptr, &span );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_collect_append(
-    asrtl_flat_id                  parent_id,
-    asrtl_flat_id                  node_id,
-    char const*                    key,
-    struct asrtl_flat_value const* value,
-    asrtl_collect_msg_callback     cb,
-    void*                          cb_ptr )
+static inline enum asrtl_status asrt_msg_rtoc_collect_append(
+    asrt_flat_id                  parent_id,
+    asrt_flat_id                  node_id,
+    char const*                   key,
+    struct asrt_flat_value const* value,
+    asrtl_collect_msg_callback    cb,
+    void*                         cb_ptr )
 {
         // tail: type byte + encoded value (strings chain to their pointer)
         // OBJECT/ARRAY carry no value payload in the collect protocol — the

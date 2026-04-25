@@ -43,7 +43,7 @@ static inline enum asrtl_status asrtl_msg_u16( uint16_t val, asrtl_msg_callback 
         return cb( cb_ptr, &buff );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_proto_version(
+static inline enum asrtl_status asrt_msg_rtoc_proto_version(
     uint16_t           major,
     uint16_t           minor,
     uint16_t           patch,
@@ -64,7 +64,7 @@ static inline enum asrtl_status asrtl_msg_ctor_proto_version( asrtl_msg_callback
         return asrtl_msg_u16( ASRTL_MSG_PROTO_VERSION, cb, cb_ptr );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_desc(
+static inline enum asrtl_status asrt_msg_rtoc_desc(
     char const*        desc,
     uint32_t           desc_size,
     asrtl_msg_callback cb,
@@ -84,7 +84,7 @@ static inline enum asrtl_status asrtl_msg_ctor_desc( asrtl_msg_callback cb, void
         return asrtl_msg_u16( ASRTL_MSG_DESC, cb, cb_ptr );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_test_count(
+static inline enum asrtl_status asrt_msg_rtoc_test_count(
     uint16_t           count,
     asrtl_msg_callback cb,
     void*              cb_ptr )
@@ -110,7 +110,7 @@ enum asrtl_test_info_result_e
 };
 typedef uint8_t asrtl_test_info_result;
 
-static inline enum asrtl_status asrtl_msg_rtoc_test_info(
+static inline enum asrtl_status asrt_msg_rtoc_test_info(
     uint16_t               id,
     asrtl_test_info_result res,
     char const*            desc,
@@ -148,7 +148,7 @@ static inline enum asrtl_status asrtl_msg_ctor_test_info(
 }
 
 
-static inline enum asrtl_status asrtl_msg_rtoc_test_start(
+static inline enum asrtl_status asrt_msg_rtoc_test_start(
     uint16_t           test_id,
     uint32_t           run_id,
     asrtl_msg_callback cb,
@@ -170,7 +170,7 @@ static inline enum asrtl_status asrtl_msg_ctor_test_start(
     void*              cb_ptr )
 {
         // The messages are the same, so we can reuse the rtoc version.
-        return asrtl_msg_rtoc_test_start( test_id, run_id, cb, cb_ptr );
+        return asrt_msg_rtoc_test_start( test_id, run_id, cb, cb_ptr );
 }
 
 enum asrtl_test_result_e
@@ -182,7 +182,7 @@ enum asrtl_test_result_e
 };
 typedef uint16_t asrtl_test_result;
 
-static inline enum asrtl_status asrtl_msg_rtoc_test_result(
+static inline enum asrtl_status asrt_msg_rtoc_test_result(
     uint32_t           run_id,
     asrtl_test_result  res,
     asrtl_msg_callback cb,

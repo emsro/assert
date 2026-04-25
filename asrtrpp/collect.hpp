@@ -32,31 +32,31 @@ struct collect_append_traits;
 template <>
 struct collect_append_traits< uint32_t > : flat_type_traits< uint32_t >
 {
-        static constexpr auto member = &asrtl_flat_scalar::u32_val;
+        static constexpr auto member = &asrt_flat_scalar::u32_val;
 };
 
 template <>
 struct collect_append_traits< int32_t > : flat_type_traits< int32_t >
 {
-        static constexpr auto member = &asrtl_flat_scalar::i32_val;
+        static constexpr auto member = &asrt_flat_scalar::i32_val;
 };
 
 template <>
 struct collect_append_traits< float > : flat_type_traits< float >
 {
-        static constexpr auto member = &asrtl_flat_scalar::float_val;
+        static constexpr auto member = &asrt_flat_scalar::float_val;
 };
 
 template <>
 struct collect_append_traits< char const* > : flat_type_traits< char const* >
 {
-        static constexpr auto member = &asrtl_flat_scalar::str_val;
+        static constexpr auto member = &asrt_flat_scalar::str_val;
 };
 
 template <>
 struct collect_append_traits< bool > : flat_type_traits< bool >
 {
-        static constexpr auto member = &asrtl_flat_scalar::bool_val;
+        static constexpr auto member = &asrt_flat_scalar::bool_val;
 };
 
 template <>
@@ -92,8 +92,8 @@ template < collect_scalar T >
 status_sender append( ref< asrtr_collect_client > cc, flat_id parent, char const* key, T val )
 {
         using traits             = collect_append_traits< T >;
-        using member_type        = decltype( asrtl_flat_scalar{}.*traits::member );
-        asrtl_flat_value v       = { .type = traits::flat_type };
+        using member_type        = decltype( asrt_flat_scalar{}.*traits::member );
+        asrt_flat_value v        = { .type = traits::flat_type };
         v.data.s.*traits::member = static_cast< member_type >( val );
         return asrtr_collect_client_append( cc, parent, key, &v, nullptr );
 }
@@ -114,8 +114,8 @@ status_sender append(
     char const*                 key,
     flat_id&                    out )
 {
-        using traits       = collect_append_traits< T >;
-        asrtl_flat_value v = { .type = traits::flat_type };
+        using traits      = collect_append_traits< T >;
+        asrt_flat_value v = { .type = traits::flat_type };
         return asrtr_collect_client_append( cc, parent, key, &v, &out );
 }
 

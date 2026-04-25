@@ -63,19 +63,19 @@ static enum asrtl_status asrtc_stream_server_handle_define(
 
         if ( schema_id >= ASRTC_STREAM_MAX_SCHEMAS ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "define: schema_id %u out of range", schema_id );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
         if ( field_count == 0 ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "define: zero field_count" );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
         if ( server->lookup[schema_id] ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "define: schema %u already defined", schema_id );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_DUPLICATE_SCHEMA, asrtc_stream_server_send, server );
         }
 
@@ -83,7 +83,7 @@ static enum asrtl_status asrtc_stream_server_handle_define(
         struct asrtc_stream_schema* schema = asrtl_alloc( &server->alloc, sizeof( *schema ) );
         if ( !schema ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "define: schema alloc failed" );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         *schema = ( struct asrtc_stream_schema ){
@@ -102,7 +102,7 @@ static enum asrtl_status asrtc_stream_server_handle_define(
         if ( !schema->fields ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "define: fields alloc failed" );
                 asrtl_free( &server->alloc, (void**) &schema );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         memset( schema->fields, 0, (size_t) field_count * sizeof( *schema->fields ) );
@@ -113,7 +113,7 @@ static enum asrtl_status asrtc_stream_server_handle_define(
                 ASRTL_ERR_LOG( "asrtc_stream", "define: truncated field tags" );
                 asrtl_free( &server->alloc, (void**) &schema->fields );
                 asrtl_free( &server->alloc, (void**) &schema );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
@@ -128,7 +128,7 @@ static enum asrtl_status asrtc_stream_server_handle_define(
                             i );
                         asrtl_free( &server->alloc, (void**) &schema->fields );
                         asrtl_free( &server->alloc, (void**) &schema );
-                        return asrtl_msg_ctor_strm_error(
+                        return asrt_msg_ctor_strm_error(
                             ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
                 }
 
@@ -152,7 +152,7 @@ static enum asrtl_status asrtc_stream_server_handle_data(
 
         if ( schema_id >= ASRTC_STREAM_MAX_SCHEMAS || !server->lookup[schema_id] ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "data: unknown schema %u", schema_id );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_UNKNOWN_SCHEMA, asrtc_stream_server_send, server );
         }
 
@@ -166,7 +166,7 @@ static enum asrtl_status asrtc_stream_server_handle_data(
                     schema_id,
                     remaining,
                     schema->record_size );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_SIZE_MISMATCH, asrtc_stream_server_send, server );
         }
 
@@ -174,7 +174,7 @@ static enum asrtl_status asrtc_stream_server_handle_data(
         struct asrtc_stream_record* rec = asrtl_alloc( &server->alloc, (uint32_t) sizeof( *rec ) );
         if ( !rec ) {
                 ASRTL_ERR_LOG( "asrtc_stream", "data: alloc failed for schema %u", schema_id );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
 
@@ -183,7 +183,7 @@ static enum asrtl_status asrtc_stream_server_handle_data(
         if ( !rec->data ) {
                 asrtl_free( &server->alloc, (void**) &rec );
                 ASRTL_ERR_LOG( "asrtc_stream", "data: data alloc failed for schema %u", schema_id );
-                return asrtl_msg_ctor_strm_error(
+                return asrt_msg_ctor_strm_error(
                     ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         memcpy( rec->data, buff->b, schema->record_size );

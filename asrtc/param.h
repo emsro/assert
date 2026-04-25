@@ -41,8 +41,8 @@ struct asrtc_param_server
         enum asrtc_param_server_pending pending;
         union
         {
-                uint32_t      max_msg_size;
-                asrtl_flat_id node_id;
+                uint32_t     max_msg_size;
+                asrt_flat_id node_id;
         } pending_data;
         asrtc_param_ready_ack_cb ack_cb;
         void*                    ack_cb_ptr;
@@ -62,7 +62,7 @@ void asrtc_param_server_set_tree(
 
 enum asrtl_status asrtc_param_server_send_ready(
     struct asrtc_param_server* param,
-    asrtl_flat_id              root_id,
+    asrt_flat_id               root_id,
     uint32_t                   timeout,
     asrtc_param_ready_ack_cb   ack_cb,
     void*                      ack_cb_ptr );

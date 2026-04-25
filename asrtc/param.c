@@ -59,7 +59,7 @@ static enum asrtl_status asrtc_param_server_handle_query(
                 return ASRTL_RECV_ERR;
         }
 
-        asrtl_flat_id node_id;
+        asrt_flat_id node_id;
         asrtl_cut_u32( &buff->b, &node_id );
 
         param->pending              = ASRTC_PARAM_SERVER_PENDING_QUERY;
@@ -88,7 +88,7 @@ static enum asrtl_status asrtc_param_server_handle_find_by_key(
                 return ASRTL_RECV_ERR;
         }
 
-        asrtl_flat_id parent_id;
+        asrt_flat_id parent_id;
         asrtl_cut_u32( &buff->b, &parent_id );
 
         size_t   search_len = (size_t) ( buff->e - buff->b );
@@ -157,8 +157,8 @@ static enum asrtl_status asrtc_param_server_tick( struct asrtc_param_server* par
         }
 
         case ASRTC_PARAM_SERVER_PENDING_QUERY: {
-                asrtl_flat_id node_id = param->pending_data.node_id;
-                param->pending        = ASRTC_PARAM_SERVER_PENDING_NONE;
+                asrt_flat_id node_id = param->pending_data.node_id;
+                param->pending       = ASRTC_PARAM_SERVER_PENDING_NONE;
 
                 uint32_t          out_len;
                 enum asrtl_status st = asrtl_msg_ctor_param_response(
@@ -275,7 +275,7 @@ void asrtc_param_server_set_tree(
 
 enum asrtl_status asrtc_param_server_send_ready(
     struct asrtc_param_server* param,
-    asrtl_flat_id              root_id,
+    asrt_flat_id               root_id,
     uint32_t                   timeout,
     asrtc_param_ready_ack_cb   ack_cb,
     void*                      ack_cb_ptr )

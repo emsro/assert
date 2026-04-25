@@ -27,9 +27,9 @@ bool _flat_tree_from_json_impl(
 {
         asrt::flat_id const my_id = next_id++;
 
-        std::string             str_storage;
-        asrtl_flat_value_type   type   = ASRTL_FLAT_STYPE_NONE;
-        union asrtl_flat_scalar scalar = {};
+        std::string            str_storage;
+        asrtl_flat_value_type  type   = ASRTL_FLAT_STYPE_NONE;
+        union asrt_flat_scalar scalar = {};
         switch ( j.type() ) {
         case nlohmann::json::value_t::null:
                 type = ASRTL_FLAT_STYPE_NULL;

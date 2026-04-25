@@ -31,13 +31,13 @@ struct asrtr_param_client
 {
         struct asrtl_node   node;
         struct asrtl_sender sendr;
-        asrtl_flat_id       root_id;
+        asrt_flat_id        root_id;
         int                 ready;
 
-        uint8_t*      cache_buf;
-        uint32_t      cache_capacity;
-        uint32_t      cache_len;           // valid bytes (includes trailing 4-byte next_sib)
-        asrtl_flat_id cache_next_sibling;  // trailing next_sibling_id from last RESPONSE
+        uint8_t*     cache_buf;
+        uint32_t     cache_capacity;
+        uint32_t     cache_len;           // valid bytes (includes trailing 4-byte next_sib)
+        asrt_flat_id cache_next_sibling;  // trailing next_sibling_id from last RESPONSE
 
         struct asrtr_param_query* pending_query;
 
@@ -47,11 +47,11 @@ struct asrtr_param_client
 
         union
         {
-                asrtl_flat_id root_id;
+                asrt_flat_id root_id;
                 struct
                 {
-                        uint8_t       error_code;
-                        asrtl_flat_id node_id;
+                        uint8_t      error_code;
+                        asrt_flat_id node_id;
                 } error;
         } pending_data;
 };
@@ -63,7 +63,7 @@ enum asrtl_status asrtr_param_client_init(
     struct asrtl_span          msg_buffer,
     uint32_t                   timeout );
 
-asrtl_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client );
+asrt_flat_id asrtr_param_client_root_id( struct asrtr_param_client const* client );
 
 
 typedef void (
@@ -79,15 +79,15 @@ typedef void (
 typedef void ( *asrtr_param_obj_cb )(
     struct asrtr_param_client*,
     struct asrtr_param_query*,
-    struct asrtl_flat_child_list val );
+    struct asrt_flat_child_list val );
 typedef void ( *asrtr_param_arr_cb )(
     struct asrtr_param_client*,
     struct asrtr_param_query*,
-    struct asrtl_flat_child_list val );
+    struct asrt_flat_child_list val );
 typedef void ( *asrtr_param_any_cb )(
     struct asrtr_param_client*,
     struct asrtr_param_query*,
-    struct asrtl_flat_value val );
+    struct asrt_flat_value val );
 
 union asrtr_param_cb
 {
@@ -104,9 +104,9 @@ union asrtr_param_cb
 struct asrtr_param_query
 {
         enum asrtl_param_err_e error_code;
-        asrtl_flat_id          node_id;
+        asrt_flat_id           node_id;
         char const*            key;
-        asrtl_flat_id          next_sibling;
+        asrt_flat_id           next_sibling;
 
         asrtl_flat_value_type expected_type;
         union asrtr_param_cb  cb;
@@ -120,7 +120,7 @@ struct asrtr_param_query
 enum asrtl_status asrtr_param_client_query(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     char const*                key );
 
 static inline int asrtr_param_query_pending( struct asrtr_param_client const* client )
@@ -132,7 +132,7 @@ static inline int asrtr_param_query_pending( struct asrtr_param_client const* cl
 static inline enum asrtl_status asrtr_param_client_fetch_any(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_any_cb         cb,
     void*                      cb_ptr )
 {
@@ -145,7 +145,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_any(
 static inline enum asrtl_status asrtr_param_client_fetch_u32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_u32_cb         cb,
     void*                      cb_ptr )
 {
@@ -158,7 +158,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_u32(
 static inline enum asrtl_status asrtr_param_client_fetch_i32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_i32_cb         cb,
     void*                      cb_ptr )
 {
@@ -171,7 +171,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_i32(
 static inline enum asrtl_status asrtr_param_client_fetch_str(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_str_cb         cb,
     void*                      cb_ptr )
 {
@@ -184,7 +184,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_str(
 static inline enum asrtl_status asrtr_param_client_fetch_float(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_float_cb       cb,
     void*                      cb_ptr )
 {
@@ -197,7 +197,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_float(
 static inline enum asrtl_status asrtr_param_client_fetch_bool(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_bool_cb        cb,
     void*                      cb_ptr )
 {
@@ -210,7 +210,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_bool(
 static inline enum asrtl_status asrtr_param_client_fetch_obj(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_obj_cb         cb,
     void*                      cb_ptr )
 {
@@ -223,7 +223,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_obj(
 static inline enum asrtl_status asrtr_param_client_fetch_arr(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              node_id,
+    asrt_flat_id               node_id,
     asrtr_param_arr_cb         cb,
     void*                      cb_ptr )
 {
@@ -237,7 +237,7 @@ static inline enum asrtl_status asrtr_param_client_fetch_arr(
 static inline enum asrtl_status asrtr_param_client_find_any(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_any_cb         cb,
     void*                      cb_ptr )
@@ -251,7 +251,7 @@ static inline enum asrtl_status asrtr_param_client_find_any(
 static inline enum asrtl_status asrtr_param_client_find_u32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_u32_cb         cb,
     void*                      cb_ptr )
@@ -265,7 +265,7 @@ static inline enum asrtl_status asrtr_param_client_find_u32(
 static inline enum asrtl_status asrtr_param_client_find_i32(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_i32_cb         cb,
     void*                      cb_ptr )
@@ -279,7 +279,7 @@ static inline enum asrtl_status asrtr_param_client_find_i32(
 static inline enum asrtl_status asrtr_param_client_find_str(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_str_cb         cb,
     void*                      cb_ptr )
@@ -293,7 +293,7 @@ static inline enum asrtl_status asrtr_param_client_find_str(
 static inline enum asrtl_status asrtr_param_client_find_float(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_float_cb       cb,
     void*                      cb_ptr )
@@ -307,7 +307,7 @@ static inline enum asrtl_status asrtr_param_client_find_float(
 static inline enum asrtl_status asrtr_param_client_find_bool(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_bool_cb        cb,
     void*                      cb_ptr )
@@ -321,7 +321,7 @@ static inline enum asrtl_status asrtr_param_client_find_bool(
 static inline enum asrtl_status asrtr_param_client_find_obj(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_obj_cb         cb,
     void*                      cb_ptr )
@@ -335,7 +335,7 @@ static inline enum asrtl_status asrtr_param_client_find_obj(
 static inline enum asrtl_status asrtr_param_client_find_arr(
     struct asrtr_param_query*  query,
     struct asrtr_param_client* client,
-    asrtl_flat_id              parent_id,
+    asrt_flat_id               parent_id,
     char const*                key,
     asrtr_param_arr_cb         cb,
     void*                      cb_ptr )

@@ -78,10 +78,10 @@ struct param_query_traits< arr > : flat_type_traits< arr >
 };
 
 template <>
-struct param_query_traits< asrtl_flat_value >
+struct param_query_traits< asrt_flat_value >
 {
-        using raw_type                  = asrtl_flat_value;
-        using value_type                = asrtl_flat_value;
+        using raw_type                  = asrt_flat_value;
+        using value_type                = asrt_flat_value;
         using cb_type                   = asrtr_param_any_cb;
         static constexpr auto flat_type = ASRTL_FLAT_STYPE_NONE;
         static constexpr auto cb_member = &asrtr_param_cb::any;
@@ -89,7 +89,7 @@ struct param_query_traits< asrtl_flat_value >
 
 // Convenience aliases
 template <>
-struct param_query_traits< void > : param_query_traits< asrtl_flat_value >
+struct param_query_traits< void > : param_query_traits< asrt_flat_value >
 {
 };
 

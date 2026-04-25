@@ -35,7 +35,7 @@ enum asrtl_param_message_id_e
 typedef uint8_t asrtl_param_message_id;
 
 // node_id=0 is the reserved NONE sentinel.
-#define ASRTL_PARAM_NONE_ID ( (asrtl_flat_id) 0 )
+#define ASRTL_PARAM_NONE_ID ( (asrt_flat_id) 0 )
 
 // Error codes in PARAM_ERROR payload
 enum asrtl_param_err_e
@@ -52,7 +52,7 @@ typedef enum asrtl_status ( *asrtl_param_msg_callback )( void* ptr, struct asrtl
 
 
 static inline enum asrtl_status asrtl_msg_ctor_param_ready(
-    asrtl_flat_id            root_id,
+    asrt_flat_id             root_id,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )
 {
@@ -64,7 +64,7 @@ static inline enum asrtl_status asrtl_msg_ctor_param_ready(
         return cb( cb_ptr, &span );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_param_ready_ack(
+static inline enum asrtl_status asrt_msg_rtoc_param_ready_ack(
     uint32_t                 max_msg_size,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )
@@ -77,8 +77,8 @@ static inline enum asrtl_status asrtl_msg_rtoc_param_ready_ack(
         return cb( cb_ptr, &span );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_param_query(
-    asrtl_flat_id            node_id,
+static inline enum asrtl_status asrt_msg_rtoc_param_query(
+    asrt_flat_id             node_id,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )
 {
@@ -90,9 +90,9 @@ static inline enum asrtl_status asrtl_msg_rtoc_param_query(
         return cb( cb_ptr, &span );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_param_find_by_key(
+static inline enum asrtl_status asrt_msg_rtoc_param_find_by_key(
     struct asrtl_span*       buff,
-    asrtl_flat_id            parent_id,
+    asrt_flat_id             parent_id,
     char const*              key,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )
@@ -112,7 +112,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_param_find_by_key(
 
 static inline enum asrtl_status asrtl_msg_ctor_param_error(
     enum asrtl_param_err_e   error_code,
-    asrtl_flat_id            node_id,
+    asrt_flat_id             node_id,
     asrtl_param_msg_callback cb,
     void*                    cb_ptr )
 {
@@ -127,20 +127,20 @@ static inline enum asrtl_status asrtl_msg_ctor_param_error(
 
 // Returns the number of bytes the value payload occupies on the wire (not
 // including node_id, key, or type byte).
-static inline size_t asrtl_param_value_wire_size( struct asrtl_flat_value v )
+static inline size_t asrtl_param_value_wire_size( struct asrt_flat_value v )
 {
         return asrtl_flat_value_wire_size( v );
 }
 
-static inline void asrtl_param_write_value( uint8_t** p, struct asrtl_flat_value v )
+static inline void asrtl_param_write_value( uint8_t** p, struct asrt_flat_value v )
 {
         asrtl_flat_value_write( p, v );
 }
 
 static inline enum asrtl_status asrtl_param_decode_value(
-    struct asrtl_span*       buff,
-    uint8_t                  raw_type,
-    struct asrtl_flat_value* val )
+    struct asrtl_span*      buff,
+    uint8_t                 raw_type,
+    struct asrt_flat_value* val )
 {
         return asrtl_flat_value_decode( buff, raw_type, val );
 }
@@ -151,7 +151,7 @@ static inline enum asrtl_status asrtl_param_decode_value(
 // A missing node is encoded as type=NONE with an empty key.
 static inline enum asrtl_status asrtl_msg_ctor_param_response(
     struct asrtl_flat_tree* tree,
-    asrtl_flat_id           start_id,
+    asrt_flat_id            start_id,
     uint32_t                max_bytes,
     uint8_t*                out_buff,
     uint32_t*               out_len )
@@ -161,11 +161,11 @@ static inline enum asrtl_status asrtl_msg_ctor_param_response(
         if ( max_bytes < 11U )  // msg_id(1)+node_id(4)+key\0(1)+type(1)+next_sib(4)
                 return ASRTL_SIZE_ERR;
 
-        uint8_t*      p         = out_buff;
-        uint8_t*      nodes_end = out_buff + max_bytes - 4;  // 4 bytes reserved for trailer
-        asrtl_flat_id current   = start_id;
-        asrtl_flat_id next_sib  = ASRTL_PARAM_NONE_ID;
-        int           encoded   = 0;
+        uint8_t*     p         = out_buff;
+        uint8_t*     nodes_end = out_buff + max_bytes - 4;  // 4 bytes reserved for trailer
+        asrt_flat_id current   = start_id;
+        asrt_flat_id next_sib  = ASRTL_PARAM_NONE_ID;
+        int          encoded   = 0;
 
         *p++ = ASRTL_PARAM_MSG_RESPONSE;
 

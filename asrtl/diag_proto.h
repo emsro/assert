@@ -29,7 +29,7 @@ typedef uint8_t asrtl_diag_message_id;
 typedef enum asrtl_status ( *asrtl_diag_msg_callback )( void* ptr, struct asrtl_rec_span* buff );
 
 /// Sends a diag record message: 1-byte message ID, 4-byte line number, filename string.
-static inline enum asrtl_status asrtl_msg_rtoc_diag_record(
+static inline enum asrtl_status asrt_msg_rtoc_diag_record(
     char const*             file,
     uint32_t                line,
     char const*             extra,

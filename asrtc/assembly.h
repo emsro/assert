@@ -61,7 +61,7 @@ static inline void asrtc_assembly_tick( struct asrtc_assembly* assembly, uint32_
 enum asrtl_status asrtc_assembly_exec_test(
     struct asrtc_assembly*        assembly,
     struct asrtl_flat_tree const* tree,
-    asrtl_flat_id                 root_id,
+    asrt_flat_id                  root_id,
     uint16_t                      tid,
     uint32_t                      timeout,
     asrtc_assembly_exec_cb        cb,

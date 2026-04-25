@@ -1040,7 +1040,7 @@ struct param_client_ctx
         static void query_cb(
             struct asrtr_param_client*,
             struct asrtr_param_query* q,
-            struct asrtl_flat_value   val )
+            struct asrt_flat_value    val )
         {
                 auto* ctx = (param_client_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -1518,14 +1518,14 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_type_mismatch" )
 TEST_CASE_FIXTURE( param_client_ctx, "query_obj_happy" )
 {
         make_ready( 1u );
-        int                   called = 0;
-        asrtl_flat_child_list got    = {};
+        int                  called = 0;
+        asrt_flat_child_list got    = {};
         struct
         {
-                int*                   called;
-                asrtl_flat_child_list* got;
+                int*                  called;
+                asrt_flat_child_list* got;
         } ctx   = { &called, &got };
-        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list val ) {
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrt_flat_child_list val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
@@ -1550,7 +1550,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
         {
                 int* called;
         } ctx   = { &called };
-        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list ) {
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrt_flat_child_list ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
@@ -1569,14 +1569,14 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
 TEST_CASE_FIXTURE( param_client_ctx, "query_arr_happy" )
 {
         make_ready( 1u );
-        int                   called = 0;
-        asrtl_flat_child_list got    = {};
+        int                  called = 0;
+        asrt_flat_child_list got    = {};
         struct
         {
-                int*                   called;
-                asrtl_flat_child_list* got;
+                int*                  called;
+                asrt_flat_child_list* got;
         } ctx   = { &called, &got };
-        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list val ) {
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrt_flat_child_list val ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
                 *c->got = val;
@@ -1601,7 +1601,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_type_mismatch" )
         {
                 int* called;
         } ctx   = { &called };
-        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrtl_flat_child_list ) {
+        auto cb = []( asrtr_param_client*, asrtr_param_query* q, asrt_flat_child_list ) {
                 auto* c = (decltype( ctx )*) q->cb_ptr;
                 ( *c->called )++;
         };
@@ -1702,7 +1702,7 @@ struct param_timeout_ctx
         static void query_cb(
             struct asrtr_param_client*,
             struct asrtr_param_query* q,
-            struct asrtl_flat_value   val )
+            struct asrt_flat_value    val )
         {
                 auto* ctx = (param_timeout_ctx*) q->cb_ptr;
                 ctx->cb_called++;

@@ -175,14 +175,14 @@ struct _cntr_assembly_exec_test
         cntr_tcp_sys&             sys;
         uint16_t                  tid;
         asrtl_flat_tree const*    tree;
-        asrtl_flat_id             root_id;
+        asrt_flat_id              root_id;
         std::chrono::milliseconds timeout;
 
         _cntr_assembly_exec_test(
             cntr_tcp_sys&             s,
             uint16_t                  tid_,
             asrtl_flat_tree const*    t,
-            asrtl_flat_id             rid,
+            asrt_flat_id              rid,
             std::chrono::milliseconds to )
           : sys( s )
           , tid( tid_ )
