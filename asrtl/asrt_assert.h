@@ -8,15 +8,15 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_ASRTL_ASSERT_H
-#define ASRTL_ASRTL_ASSERT_H
+#ifndef ASRT_ASRT_ASSERT_H
+#define ASRT_ASRT_ASSERT_H
 
-#ifndef ASRTL_ASSERT
-#ifdef ASRTL_DEFAULT_ASSERT
+#ifndef ASRT_ASSERT
+#ifdef ASRT_DEFAULT_ASSERT
 #include <assert.h>
-#define ASRTL_ASSERT( x ) assert( x )
+#define ASRT_ASSERT( x ) assert( x )
 #else
-#define ASRTL_ASSERT( x ) ( (void) 0 )
+#define ASRT_ASSERT( x ) ( (void) 0 )
 #endif
 #endif
 

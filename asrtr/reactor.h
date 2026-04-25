@@ -54,9 +54,9 @@ enum asrtr_reactor_flags
 
 struct asrtr_reactor
 {
-        struct asrtl_node   node;
-        struct asrtl_sender sendr;
-        char const*         desc;
+        struct asrt_node   node;
+        struct asrt_sender sendr;
+        char const*        desc;
 
         struct asrtr_test* first_test;
         struct asrtr_test* last_test;
@@ -72,18 +72,18 @@ struct asrtr_reactor
         uint32_t recv_test_run_id;
 };
 
-enum asrtl_status asrtr_reactor_init(
+enum asrt_status asrtr_reactor_init(
     struct asrtr_reactor* reac,
-    struct asrtl_sender   sender,
+    struct asrt_sender    sender,
     char const*           desc );
 
-enum asrtl_status asrtr_test_init(
+enum asrt_status asrtr_test_init(
     struct asrtr_test*  t,
     char const*         desc,
     void*               ptr,
     asrtr_test_callback start_f );
-enum asrtl_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
-void              asrtr_reactor_deinit( struct asrtr_reactor* reac );
+enum asrt_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
+void             asrtr_reactor_deinit( struct asrtr_reactor* reac );
 
 #ifdef __cplusplus
 }

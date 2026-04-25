@@ -9,8 +9,8 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 
-#ifndef ASRTL_SPAN_H
-#define ASRTL_SPAN_H
+#ifndef ASRT_SPAN_H
+#define ASRT_SPAN_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,23 +18,23 @@ extern "C" {
 
 #include <stdint.h>
 
-struct asrtl_span
+struct asrt_span
 {
         uint8_t* b;
         uint8_t* e;
 };
 
 // Returns 1 if the buffer cannot fit `size` bytes, 0 otherwise.
-static inline uint8_t asrtl_span_unfit_for( struct asrtl_span const* buff, uint32_t size )
+static inline uint8_t asrt_span_unfit_for( struct asrt_span const* buff, uint32_t size )
 {
         return (uint32_t) ( buff->e - buff->b ) < size ? 1U : 0U;
 }
 
-struct asrtl_rec_span
+struct asrt_rec_span
 {
-        uint8_t*               b;
-        uint8_t*               e;
-        struct asrtl_rec_span* next;
+        uint8_t*              b;
+        uint8_t*              e;
+        struct asrt_rec_span* next;
 };
 
 #ifdef __cplusplus

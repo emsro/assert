@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/flat_type_traits.hpp"
@@ -77,7 +77,7 @@ concept collect_scalar = collect_append_traits< T >::is_scalar;
 template < typename T >
 concept collect_container = !collect_append_traits< T >::is_scalar;
 
-inline status init( ref< asrtr_collect_client > client, asrtl_node& prev, autosender s )
+inline status init( ref< asrtr_collect_client > client, asrt_node& prev, autosender s )
 {
         return asrtr_collect_client_init( client, &prev, s );
 }
@@ -141,7 +141,7 @@ struct collect_append_sender
                 {
                         flat_id out = 0;
                         auto    st  = append< T >( s.client_, s.parent, s.key, out );
-                        if ( st == ASRTL_SUCCESS )
+                        if ( st == ASRT_SUCCESS )
                                 recv.set_value( out );
                         else
                                 recv.set_error( st );

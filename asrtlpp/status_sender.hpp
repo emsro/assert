@@ -22,7 +22,7 @@ namespace asrt
 ///
 /// -> maybe we can merge these two together?
 
-/// Sender that completes with success if the contained status is ASRTL_SUCCESS, and with test_fail
+/// Sender that completes with success if the contained status is ASRT_SUCCESS, and with test_fail
 /// otherwise. Can also be used as simple status wrapper - is comparable with status and convertible
 /// to status.
 struct status_sender
@@ -31,9 +31,9 @@ struct status_sender
         using completion_signatures =
             ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
 
-        asrtl_status status;
+        asrt_status status;
 
-        status_sender( asrtl_status s )
+        status_sender( asrt_status s )
           : status( s )
         {
         }
@@ -41,12 +41,12 @@ struct status_sender
         template < ecor::receiver R >
         struct op
         {
-                asrtl_status s;
-                R            recv;
+                asrt_status s;
+                R           recv;
 
                 void start()
                 {
-                        if ( s == ASRTL_SUCCESS )
+                        if ( s == ASRT_SUCCESS )
                                 recv.set_value();
                         else
                                 recv.set_error( s );
@@ -59,8 +59,8 @@ struct status_sender
                 return op< R >{ status, (R&&) r };
         }
 
-        constexpr      operator asrtl_status() const { return status; }
-        constexpr bool operator==( asrtl_status st ) const { return status == st; }
+        constexpr      operator asrt_status() const { return status; }
+        constexpr bool operator==( asrt_status st ) const { return status == st; }
 };
 
 }  // namespace asrt

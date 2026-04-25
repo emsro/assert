@@ -11,7 +11,7 @@
 #pragma once
 
 #include "../asrtc/stream.h"
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
@@ -63,9 +63,9 @@ private:
 
 inline status init(
     ref< asrtc_stream_server > srv,
-    asrtl_node&                prev,
+    asrt_node&                 prev,
     autosender                 send_cb,
-    asrtl_allocator            alloc )
+    asrt_allocator             alloc )
 {
         return asrtc_stream_server_init( srv, &prev, send_cb, alloc );
 }

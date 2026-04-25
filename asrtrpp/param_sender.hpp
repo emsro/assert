@@ -66,8 +66,8 @@ struct param_query_sender
                                        asrtr_param_query*        q,
                                        typename traits::raw_type raw ) {
                                 auto& self = *reinterpret_cast< op* >( q->cb_ptr );
-                                if ( q->error_code != ASRTL_PARAM_ERR_NONE )
-                                        self.recv.set_error( ASRTL_RECV_ERR );
+                                if ( q->error_code != ASRT_PARAM_ERR_NONE )
+                                        self.recv.set_error( ASRT_RECV_ERR );
                                 else
                                         self.recv.set_value( param_result< T >{
                                             static_cast< typename traits::value_type >( raw ),
@@ -75,8 +75,8 @@ struct param_query_sender
                                             q->next_sibling } );
                         };
                         auto s = query< T >( c, &q, node_id, key, cb, this );
-                        if ( s != ASRTL_SUCCESS )
-                                recv.set_error( ASRTL_RECV_ERR );
+                        if ( s != ASRT_SUCCESS )
+                                recv.set_error( ASRT_RECV_ERR );
                 }
         };
 

@@ -21,8 +21,8 @@ extern "C" {
 #include "../asrtc/param.h"
 #include "../asrtc/stream.h"
 
-typedef enum asrtl_status (
-    *asrtc_assembly_exec_cb )( void* ptr, enum asrtl_status s, struct asrtc_result* res );
+typedef enum asrt_status (
+    *asrtc_assembly_exec_cb )( void* ptr, enum asrt_status s, struct asrtc_result* res );
 
 struct asrtc_assembly_exec_handler
 {
@@ -43,29 +43,29 @@ struct asrtc_assembly
         struct asrtc_assembly_exec_handler exec_hndl;
 };
 
-enum asrtl_status asrtc_assembly_init(
+enum asrt_status asrtc_assembly_init(
     struct asrtc_assembly* assembly,
-    struct asrtl_sender    sender,
-    struct asrtl_allocator alloc );
+    struct asrt_sender     sender,
+    struct asrt_allocator  alloc );
 
 void asrtc_assembly_deinit( struct asrtc_assembly* assembly );
 
 static inline void asrtc_assembly_tick( struct asrtc_assembly* assembly, uint32_t now )
 {
-        asrtl_chann_tick_successors( &assembly->cntr.node, now );
+        asrt_chann_tick_successors( &assembly->cntr.node, now );
 }
 
 /// Execute a test: optionally upload param tree, clear+ready collect, then
 /// exec the test.  \p tree may be NULL to skip the param upload step.
 /// \p cb is called exactly once with the test result (or first error status).
-enum asrtl_status asrtc_assembly_exec_test(
-    struct asrtc_assembly*        assembly,
-    struct asrtl_flat_tree const* tree,
-    asrt_flat_id                  root_id,
-    uint16_t                      tid,
-    uint32_t                      timeout,
-    asrtc_assembly_exec_cb        cb,
-    void*                         cb_ptr );
+enum asrt_status asrtc_assembly_exec_test(
+    struct asrtc_assembly*       assembly,
+    struct asrt_flat_tree const* tree,
+    asrt_flat_id                 root_id,
+    uint16_t                     tid,
+    uint32_t                     timeout,
+    asrtc_assembly_exec_cb       cb,
+    void*                        cb_ptr );
 
 #ifdef __cplusplus
 }

@@ -28,9 +28,9 @@ static inline void asrtc_call_free( void* ptr, void* mem )
         free( mem );
 }
 
-static inline struct asrtl_allocator asrtc_default_allocator( void )
+static inline struct asrt_allocator asrtc_default_allocator( void )
 {
-        return ( struct asrtl_allocator ){
+        return ( struct asrt_allocator ){
             .ptr   = NULL,
             .alloc = &asrtc_call_malloc,
             .free  = &asrtc_call_free,

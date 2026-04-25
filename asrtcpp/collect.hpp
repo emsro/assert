@@ -11,7 +11,7 @@
 #pragma once
 
 #include "../asrtc/collect.h"
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/callback.hpp"
@@ -24,9 +24,9 @@ namespace asrt
 
 inline status init(
     ref< asrtc_collect_server > srv,
-    asrtl_node&                 prev,
+    asrt_node&                  prev,
     autosender                  send_cb,
-    asrtl_allocator             alloc,
+    asrt_allocator              alloc,
     uint32_t                    tree_block_cap,
     uint32_t                    tree_node_cap )
 {
@@ -43,7 +43,7 @@ inline status send_ready(
         return asrtc_collect_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
 }
 
-inline asrtl_flat_tree const& tree( ref< asrtc_collect_server > srv )
+inline asrt_flat_tree const& tree( ref< asrtc_collect_server > srv )
 {
         return *asrtc_collect_server_tree( srv );
 }

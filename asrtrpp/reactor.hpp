@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
@@ -39,11 +39,11 @@ struct unit : asrtr_test
         unit( unit&& )      = delete;
         unit( unit const& ) = delete;
 
-        static asrtl_status cb( record* rec )
+        static asrt_status cb( record* rec )
         {
-                auto*        self = static_cast< unit* >( rec->inpt->test_ptr );
-                asrtl_status st   = self->test( *rec );
-                if ( st != ASRTL_SUCCESS )
+                auto*       self = static_cast< unit* >( rec->inpt->test_ptr );
+                asrt_status st   = self->test( *rec );
+                if ( st != ASRT_SUCCESS )
                         rec->state = ASRTR_TEST_FAIL;
                 return st;
         }
@@ -52,12 +52,12 @@ struct unit : asrtr_test
 };
 
 /// XXX: add C++ init to other asrt:: abstractions, inluding deinit
-inline enum asrtl_status init( ref< asrtr_reactor > reac, autosender sender, char const* desc )
+inline enum asrt_status init( ref< asrtr_reactor > reac, autosender sender, char const* desc )
 {
         return asrtr_reactor_init( reac, sender, desc );
 }
 
-inline enum asrtl_status add_test( ref< asrtr_reactor > reac, asrtr_test& test )
+inline enum asrt_status add_test( ref< asrtr_reactor > reac, asrtr_test& test )
 {
         return asrtr_reactor_add_test( reac, &test );
 }

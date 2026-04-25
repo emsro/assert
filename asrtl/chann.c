@@ -15,73 +15,72 @@
 
 #include <stddef.h>
 
-struct asrtl_node* asrtl_chann_find( struct asrtl_node* head, asrtl_chann_id id )
+struct asrt_node* asrt_chann_find( struct asrt_node* head, asrt_chann_id id )
 {
-        for ( struct asrtl_node* p = head; p; p = p->next )
+        for ( struct asrt_node* p = head; p; p = p->next )
                 if ( p->chid == id )
                         return p;
         return NULL;
 }
 
-enum asrtl_status asrtl_chann_dispatch( struct asrtl_node* head, struct asrtl_span buff )
+enum asrt_status asrt_chann_dispatch( struct asrt_node* head, struct asrt_span buff )
 {
         if ( !head )
-                return ASRTL_RECV_INTERNAL_ERR;
+                return ASRT_RECV_INTERNAL_ERR;
 
-        if ( asrtl_span_unfit_for( &buff, sizeof( asrtl_chann_id ) ) )
-                return ASRTL_SIZE_ERR;
+        if ( asrt_span_unfit_for( &buff, sizeof( asrt_chann_id ) ) )
+                return ASRT_SIZE_ERR;
 
-        asrtl_chann_id id;
-        asrtl_cut_u16( &buff.b, &id );
+        asrt_chann_id id;
+        asrt_cut_u16( &buff.b, &id );
 
-        ASRTL_DBG_LOG( "asrtl_chann", "Dispatch to channel %u of size %i", id, buff.e - buff.b );
+        ASRT_DBG_LOG( "asrt_chann", "Dispatch to channel %u of size %i", id, buff.e - buff.b );
 
-        struct asrtl_node* p = asrtl_chann_find( head, id );
+        struct asrt_node* p = asrt_chann_find( head, id );
         if ( !p )
-                return ASRTL_CHANN_NOT_FOUND;
-        return asrtl_chann_recv( p, buff );
+                return ASRT_CHANN_NOT_FOUND;
+        return asrt_chann_recv( p, buff );
 }
 
-enum asrtl_status asrtl_chann_cobs_dispatch(
-    struct asrtl_cobs_ibuffer* ibuff,
-    struct asrtl_node*         head,
-    struct asrtl_span          in_buff )
+enum asrt_status asrt_chann_cobs_dispatch(
+    struct asrt_cobs_ibuffer* ibuff,
+    struct asrt_node*         head,
+    struct asrt_span          in_buff )
 {
-        enum asrtl_status st = asrtl_cobs_ibuffer_insert( ibuff, in_buff );
-        if ( st != ASRTL_SUCCESS )
+        enum asrt_status st = asrt_cobs_ibuffer_insert( ibuff, in_buff );
+        if ( st != ASRT_SUCCESS )
                 return st;
 
         for ( ;; ) {
-                uint8_t           buffer[1024];
-                struct asrtl_span sp = { .b = buffer, .e = buffer + sizeof buffer };
-                int8_t            r  = asrtl_cobs_ibuffer_iter( ibuff, &sp );
+                uint8_t          buffer[1024];
+                struct asrt_span sp = { .b = buffer, .e = buffer + sizeof buffer };
+                int8_t           r  = asrt_cobs_ibuffer_iter( ibuff, &sp );
                 if ( r == -1 ) {
-                        ASRTL_ERR_LOG(
-                            "asrtl_chann", "Received COBS message too large for buffer" );
-                        return ASRTL_SIZE_ERR;
+                        ASRT_ERR_LOG( "asrt_chann", "Received COBS message too large for buffer" );
+                        return ASRT_SIZE_ERR;
                 }
                 if ( r == 0 )
                         break;
                 if ( sp.b == sp.e )
                         continue;
-                st = asrtl_chann_dispatch( head, ( struct asrtl_span ){ .b = sp.b, .e = sp.e } );
-                if ( st != ASRTL_SUCCESS )
+                st = asrt_chann_dispatch( head, ( struct asrt_span ){ .b = sp.b, .e = sp.e } );
+                if ( st != ASRT_SUCCESS )
                         return st;
         }
 
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-void asrtl_chann_tick_successors( struct asrtl_node* node, uint32_t now )
+void asrt_chann_tick_successors( struct asrt_node* node, uint32_t now )
 {
-        for ( struct asrtl_node* p = node; p != NULL; p = p->next ) {
-                enum asrtl_status const s = asrtl_chann_tick( p, now );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtl_chann",
+        for ( struct asrt_node* p = node; p != NULL; p = p->next ) {
+                enum asrt_status const s = asrt_chann_tick( p, now );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
+                            "asrt_chann",
                             "Tick failed for channel %u: %s",
                             p->chid,
-                            asrtl_status_to_str( s ) );
+                            asrt_status_to_str( s ) );
                 }
         }
 }

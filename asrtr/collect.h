@@ -27,15 +27,15 @@ enum asrtr_collect_client_state
         ASRTR_COLLECT_CLIENT_ERROR,
 };
 
-/// Reactor-side collect client (ASRTL_COLL channel).
+/// Reactor-side collect client (ASRT_COLL channel).
 ///
 /// Receives READY from the controller, replies with READY_ACK, then
 /// provides fire-and-forget append() calls to push tree nodes upstream.
 /// Node IDs are auto-assigned from next_node_id (received in READY).
 struct asrtr_collect_client
 {
-        struct asrtl_node   node;
-        struct asrtl_sender sendr;
+        struct asrt_node   node;
+        struct asrt_sender sendr;
 
         enum asrtr_collect_client_state state;
         asrt_flat_id                    root_id;       ///< Root ID from READY message.
@@ -44,10 +44,10 @@ struct asrtr_collect_client
 
 /// Initialise a collect client and link it into the node chain.
 ///
-enum asrtl_status asrtr_collect_client_init(
+enum asrt_status asrtr_collect_client_init(
     struct asrtr_collect_client* client,
-    struct asrtl_node*           prev,
-    struct asrtl_sender          sender );
+    struct asrt_node*            prev,
+    struct asrt_sender           sender );
 
 /// Deinitialise a collect client and unlink it from the node chain.
 ///
@@ -59,7 +59,7 @@ void asrtr_collect_client_deinit( struct asrtr_collect_client* client );
 /// types (OBJECT, ARRAY) the assigned ID is written to @p out_id so the
 /// caller can use it as parent_id for child appends.
 ///
-enum asrtl_status asrtr_collect_client_append(
+enum asrt_status asrtr_collect_client_append(
     struct asrtr_collect_client*  client,
     asrt_flat_id                  parent_id,
     char const*                   key,
@@ -67,94 +67,94 @@ enum asrtl_status asrtr_collect_client_append(
     asrt_flat_id*                 out_id );
 
 /// Convenience: append an OBJECT container node.
-static inline enum asrtl_status asrtr_collect_client_append_object(
+static inline enum asrt_status asrtr_collect_client_append_object(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     asrt_flat_id*                out_id )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_CTYPE_OBJECT };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_CTYPE_OBJECT };
         return asrtr_collect_client_append( client, parent_id, key, &v, out_id );
 }
 
 /// Convenience: append an ARRAY container node.
-static inline enum asrtl_status asrtr_collect_client_append_array(
+static inline enum asrt_status asrtr_collect_client_append_array(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     asrt_flat_id*                out_id )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_CTYPE_ARRAY };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_CTYPE_ARRAY };
         return asrtr_collect_client_append( client, parent_id, key, &v, out_id );
 }
 
 /// Convenience: append a U32 scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_u32(
+static inline enum asrt_status asrtr_collect_client_append_u32(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     uint32_t                     val )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_U32 };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_U32 };
         v.data.s.u32_val         = val;
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 
 /// Convenience: append an I32 scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_i32(
+static inline enum asrt_status asrtr_collect_client_append_i32(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     int32_t                      val )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_I32 };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_I32 };
         v.data.s.i32_val         = val;
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 
 /// Convenience: append a STR scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_str(
+static inline enum asrt_status asrtr_collect_client_append_str(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     char const*                  val )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_STR };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_STR };
         v.data.s.str_val         = val;
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 
 /// Convenience: append a BOOL scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_bool(
+static inline enum asrt_status asrtr_collect_client_append_bool(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     uint32_t                     val )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_BOOL };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_BOOL };
         v.data.s.bool_val        = val;
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 
 /// Convenience: append a FLOAT scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_float(
+static inline enum asrt_status asrtr_collect_client_append_float(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key,
     float                        val )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_FLOAT };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_FLOAT };
         v.data.s.float_val       = val;
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 
 /// Convenience: append a NULL scalar node.
-static inline enum asrtl_status asrtr_collect_client_append_null(
+static inline enum asrt_status asrtr_collect_client_append_null(
     struct asrtr_collect_client* client,
     asrt_flat_id                 parent_id,
     char const*                  key )
 {
-        struct asrt_flat_value v = { .type = ASRTL_FLAT_STYPE_NULL };
+        struct asrt_flat_value v = { .type = ASRT_FLAT_STYPE_NULL };
         return asrtr_collect_client_append( client, parent_id, key, &v, NULL );
 }
 

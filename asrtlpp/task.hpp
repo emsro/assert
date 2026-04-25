@@ -44,7 +44,7 @@ private:
         ecor::task_core            core;
 };
 
-using status = asrtl_status;
+using status = asrt_status;
 
 struct test_fail_t
 {

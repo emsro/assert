@@ -9,8 +9,8 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 
-#ifndef ASRTL_LOG_H
-#define ASRTL_LOG_H
+#ifndef ASRT_LOG_H
+#define ASRT_LOG_H
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -20,35 +20,35 @@
 extern "C" {
 #endif
 
-enum asrtl_log_level
+enum asrt_log_level
 {
-        ASRTL_LOG_DEBUG = 1,
-        ASRTL_LOG_INFO  = 2,
-        ASRTL_LOG_ERROR = 4,
+        ASRT_LOG_DEBUG = 1,
+        ASRT_LOG_INFO  = 2,
+        ASRT_LOG_ERROR = 4,
 };
 
-void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... );
+void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... );
 
-#define ASRTL_DBG_LOG( module, ... ) asrtl_log( ASRTL_LOG_DEBUG, module, __VA_ARGS__ )
+#define ASRT_DBG_LOG( module, ... ) asrt_log( ASRT_LOG_DEBUG, module, __VA_ARGS__ )
 
-#define ASRTL_INF_LOG( module, ... ) asrtl_log( ASRTL_LOG_INFO, module, __VA_ARGS__ )
+#define ASRT_INF_LOG( module, ... ) asrt_log( ASRT_LOG_INFO, module, __VA_ARGS__ )
 
-#define ASRTL_ERR_LOG( module, ... ) asrtl_log( ASRTL_LOG_ERROR, module, __VA_ARGS__ )
+#define ASRT_ERR_LOG( module, ... ) asrt_log( ASRT_LOG_ERROR, module, __VA_ARGS__ )
 
-#define ASRTL_DEFINE_GPOS_LOG_IMPL                                                            \
-        void asrtl_log_impl(                                                                  \
-            enum asrtl_log_level level, char const* module, char const* fmt, va_list args )   \
+#define ASRT_DEFINE_GPOS_LOG_IMPL                                                             \
+        void asrt_log_impl(                                                                   \
+            enum asrt_log_level level, char const* module, char const* fmt, va_list args )    \
         {                                                                                     \
                                                                                               \
                 char const* level_str = "UNK";                                                \
                 switch ( level ) {                                                            \
-                case ASRTL_LOG_DEBUG:                                                         \
+                case ASRT_LOG_DEBUG:                                                          \
                         level_str = "\033[36mDEBUG\033[0m";                                   \
                         break;                                                                \
-                case ASRTL_LOG_INFO:                                                          \
+                case ASRT_LOG_INFO:                                                           \
                         level_str = "\033[32mINFO\033[0m";                                    \
                         break;                                                                \
-                case ASRTL_LOG_ERROR:                                                         \
+                case ASRT_LOG_ERROR:                                                          \
                         level_str = "\033[31mERROR\033[0m";                                   \
                         break;                                                                \
                 default:                                                                      \
@@ -66,14 +66,14 @@ void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt,
                 fprintf( stderr, "\n" );                                                      \
         }
 
-#define ASRTL_DEFINE_GPOS_LOG()                                                                \
-        ASRTL_DEFINE_GPOS_LOG_IMPL                                                             \
-        void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... ) \
-        {                                                                                      \
-                va_list args;                                                                  \
-                va_start( args, fmt );                                                         \
-                asrtl_log_impl( level, module, fmt, args );                                    \
-                va_end( args );                                                                \
+#define ASRT_DEFINE_GPOS_LOG()                                                               \
+        ASRT_DEFINE_GPOS_LOG_IMPL                                                            \
+        void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... ) \
+        {                                                                                    \
+                va_list args;                                                                \
+                va_start( args, fmt );                                                       \
+                asrt_log_impl( level, module, fmt, args );                                   \
+                va_end( args );                                                              \
         }
 
 #ifdef __cplusplus

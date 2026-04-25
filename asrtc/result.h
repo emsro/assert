@@ -20,21 +20,19 @@ extern "C" {
 
 #include <stdint.h>
 
-typedef asrtl_test_result asrtc_test_result;
-
 enum
 {
-        ASRTC_TEST_SUCCESS = ASRTL_TEST_SUCCESS,
-        ASRTC_TEST_ERROR   = ASRTL_TEST_ERROR,
-        ASRTC_TEST_FAILURE = ASRTL_TEST_FAILURE,
+        ASRTC_TEST_SUCCESS = ASRT_TEST_SUCCESS,
+        ASRTC_TEST_ERROR   = ASRT_TEST_ERROR,
+        ASRTC_TEST_FAILURE = ASRT_TEST_FAILURE,
         ASRTC_TEST_UNKNOWN = 0x04,
 };
 
 struct asrtc_result
 {
-        uint16_t          test_id;
-        uint32_t          run_id;
-        asrtc_test_result res;
+        uint16_t         test_id;
+        uint32_t         run_id;
+        asrt_test_result res;
 };
 
 #ifdef __cplusplus

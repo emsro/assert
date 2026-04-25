@@ -44,21 +44,21 @@ struct cntr_tcp_sys
           , clk_( clk )
         {
                 std::ignore = asrtc_assembly_init(
-                    &asm_, asrtl_sender{ .ptr = this, .cb = send_cb }, asrtl_default_allocator() );
+                    &asm_, asrt_sender{ .ptr = this, .cb = send_cb }, asrt_default_allocator() );
         }
 
-        static asrtl_status send_cb(
-            void*              ptr,
-            asrtl_chann_id     id,
-            asrtl_rec_span*    buff,
-            asrtl_send_done_cb done_cb,
-            void*              done_ptr )
+        static asrt_status send_cb(
+            void*             ptr,
+            asrt_chann_id     id,
+            asrt_rec_span*    buff,
+            asrt_send_done_cb done_cb,
+            void*             done_ptr )
         {
                 auto* sys = static_cast< cntr_tcp_sys* >( ptr );
                 if ( sys->disconnected_ ) {
                         if ( done_cb )
-                                done_cb( done_ptr, ASRTL_SEND_ERR );
-                        return ASRTL_SEND_ERR;
+                                done_cb( done_ptr, ASRT_SEND_ERR );
+                        return ASRT_SEND_ERR;
                 }
                 auto st = sys->rx.write( (uv_stream_t*) sys->client.get(), id, *buff );
                 if ( done_cb )
@@ -90,13 +90,13 @@ struct cntr_tcp_sys
                     "asrtio_cntr",
                     [this]( ssize_t nread ) {
                             if ( nread == UV_EOF )
-                                    ASRTL_DBG_LOG( "asrtio_main", "Connection closed by remote" );
+                                    ASRT_DBG_LOG( "asrtio_main", "Connection closed by remote" );
                             else
-                                    ASRTL_ERR_LOG(
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Read error: %s",
                                         uv_strerror( static_cast< int >( nread ) ) );
-                            ASRTL_INF_LOG(
+                            ASRT_INF_LOG(
                                 "asrtio_main",
                                 "Stopping cntr_tcp_sys system and closing connection" );
                             disconnect();
@@ -118,7 +118,7 @@ struct cntr_tcp_sys
                 return asrt::stream_schemas{ asrtc_stream_server_take( &asm_.stream ) };
         }
 
-        asrtl_flat_tree const* collect_tree() { return asrtc_collect_server_tree( &asm_.collect ); }
+        asrt_flat_tree const* collect_tree() { return asrtc_collect_server_tree( &asm_.collect ); }
 
         asrtc_assembly& assembly() { return asm_; }
 
@@ -160,8 +160,8 @@ struct suite_reporter
         virtual void on_diagnostic(
             std::string_view file,
             uint32_t         line,
-            std::string_view extra )                                                       = 0;
-        virtual void on_collect_data( std::string_view name, asrtl_flat_tree const* tree ) = 0;
+            std::string_view extra )                                                      = 0;
+        virtual void on_collect_data( std::string_view name, asrt_flat_tree const* tree ) = 0;
         virtual void on_stream_data(
             std::string_view            name,
             asrt::stream_schemas const& schemas ) = 0;
@@ -174,14 +174,14 @@ struct _cntr_assembly_exec_test
 
         cntr_tcp_sys&             sys;
         uint16_t                  tid;
-        asrtl_flat_tree const*    tree;
+        asrt_flat_tree const*     tree;
         asrt_flat_id              root_id;
         std::chrono::milliseconds timeout;
 
         _cntr_assembly_exec_test(
             cntr_tcp_sys&             s,
             uint16_t                  tid_,
-            asrtl_flat_tree const*    t,
+            asrt_flat_tree const*     t,
             asrt_flat_id              rid,
             std::chrono::milliseconds to )
           : sys( s )
@@ -201,73 +201,73 @@ struct _cntr_assembly_exec_test
                     root_id,
                     tid,
                     static_cast< uint32_t >( timeout.count() ),
-                    +[]( void* p, asrtl_status s, asrtc_result* res ) -> asrtl_status {
+                    +[]( void* p, asrt_status s, asrtc_result* res ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
-                            if ( s != ASRTL_SUCCESS ) {
-                                    ASRTL_ERR_LOG(
+                            if ( s != ASRT_SUCCESS ) {
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Assembly exec_test failed: %s",
-                                        asrtl_status_to_str( s ) );
+                                        asrt_status_to_str( s ) );
                                     op_->recv.set_error( s );
-                                    return ASRTL_SUCCESS;
+                                    return ASRT_SUCCESS;
                             }
                             op_->recv.set_value( *res );
-                            return ASRTL_SUCCESS;
+                            return ASRT_SUCCESS;
                     },
                     &op );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
                             "asrtio_main",
                             "Assembly exec_test failed: %s",
-                            asrtl_status_to_str( s ) );
+                            asrt_status_to_str( s ) );
                         op.recv.set_error( s );
                 }
         }
 };
 using cntr_assembly_exec_test = asrt::gen_sender< _cntr_assembly_exec_test >;
 
-inline void write_strm_field( std::ostream& os, enum asrtl_strm_field_type_e ft, uint8_t*& p )
+inline void write_strm_field( std::ostream& os, enum asrt_strm_field_type_e ft, uint8_t*& p )
 {
         switch ( ft ) {
-        case ASRTL_STRM_FIELD_U8:
+        case ASRT_STRM_FIELD_U8:
                 os << static_cast< unsigned >( *p++ );
                 break;
-        case ASRTL_STRM_FIELD_U16: {
+        case ASRT_STRM_FIELD_U16: {
                 uint16_t v;
-                asrtl_cut_u16( &p, &v );
+                asrt_cut_u16( &p, &v );
                 os << v;
                 break;
         }
-        case ASRTL_STRM_FIELD_U32: {
+        case ASRT_STRM_FIELD_U32: {
                 uint32_t v;
-                asrtl_cut_u32( &p, &v );
+                asrt_cut_u32( &p, &v );
                 os << v;
                 break;
         }
-        case ASRTL_STRM_FIELD_I8:
+        case ASRT_STRM_FIELD_I8:
                 os << static_cast< int >( static_cast< int8_t >( *p++ ) );
                 break;
-        case ASRTL_STRM_FIELD_I16: {
+        case ASRT_STRM_FIELD_I16: {
                 uint16_t uv;
-                asrtl_cut_u16( &p, &uv );
+                asrt_cut_u16( &p, &uv );
                 os << static_cast< int16_t >( uv );
                 break;
         }
-        case ASRTL_STRM_FIELD_I32: {
+        case ASRT_STRM_FIELD_I32: {
                 int32_t v;
-                asrtl_cut_i32( &p, &v );
+                asrt_cut_i32( &p, &v );
                 os << v;
                 break;
         }
-        case ASRTL_STRM_FIELD_FLOAT: {
+        case ASRT_STRM_FIELD_FLOAT: {
                 uint32_t bits;
-                asrtl_cut_u32( &p, &bits );
+                asrt_cut_u32( &p, &bits );
                 float v;
                 std::memcpy( &v, &bits, 4 );
                 os << v;
                 break;
         }
-        case ASRTL_STRM_FIELD_BOOL:
+        case ASRT_STRM_FIELD_BOOL:
                 os << ( *p++ ? "true" : "false" );
                 break;
         default:
@@ -285,7 +285,7 @@ inline void write_stream_csv(
         for ( uint8_t fi = 0; fi < sc.field_count; ++fi ) {
                 if ( fi > 0 )
                         os << ",";
-                os << asrtl_strm_field_type_to_str( sc.fields[fi] );
+                os << asrt_strm_field_type_to_str( sc.fields[fi] );
         }
         os << "\n";
         for ( auto* rec = sc.first; rec; rec = rec->next ) {
@@ -336,7 +336,7 @@ inline void handle_collect(
         if ( !do_output )
                 return;
         nlohmann::json j;
-        if ( flat_tree_to_json( const_cast< asrtl_flat_tree& >( *tree ), j ) ) {
+        if ( flat_tree_to_json( const_cast< asrt_flat_tree& >( *tree ), j ) ) {
                 auto w = fs.open_write( path );
                 w.stream() << j.dump( 2 ) << "\n";
         }
@@ -417,7 +417,7 @@ inline task< void > run_test_suite(
         }
 
         for ( auto const& key : unseen_keys )
-                ASRTL_INF_LOG(
+                ASRT_INF_LOG(
                     "asrtio",
                     "param config: key \"%s\" does not match any device test",
                     key.c_str() );

@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/callback.hpp"
@@ -30,7 +30,7 @@ struct strm_field_traits;
 template <>
 struct strm_field_traits< uint8_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_U8;
+        static constexpr auto tag  = ASRT_STRM_FIELD_U8;
         static constexpr auto size = 1;
         static void           encode( uint8_t*& p, uint8_t v ) { *p++ = v; }
 };
@@ -38,23 +38,23 @@ struct strm_field_traits< uint8_t >
 template <>
 struct strm_field_traits< uint16_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_U16;
+        static constexpr auto tag  = ASRT_STRM_FIELD_U16;
         static constexpr auto size = 2;
-        static void           encode( uint8_t*& p, uint16_t v ) { asrtl_add_u16( &p, v ); }
+        static void           encode( uint8_t*& p, uint16_t v ) { asrt_add_u16( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< uint32_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_U32;
+        static constexpr auto tag  = ASRT_STRM_FIELD_U32;
         static constexpr auto size = 4;
-        static void           encode( uint8_t*& p, uint32_t v ) { asrtl_add_u32( &p, v ); }
+        static void           encode( uint8_t*& p, uint32_t v ) { asrt_add_u32( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< int8_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_I8;
+        static constexpr auto tag  = ASRT_STRM_FIELD_I8;
         static constexpr auto size = 1;
         static void encode( uint8_t*& p, int8_t v ) { *p++ = static_cast< uint8_t >( v ); }
 };
@@ -62,54 +62,54 @@ struct strm_field_traits< int8_t >
 template <>
 struct strm_field_traits< int16_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_I16;
+        static constexpr auto tag  = ASRT_STRM_FIELD_I16;
         static constexpr auto size = 2;
         static void           encode( uint8_t*& p, int16_t v )
         {
-                asrtl_add_u16( &p, static_cast< uint16_t >( v ) );
+                asrt_add_u16( &p, static_cast< uint16_t >( v ) );
         }
 };
 
 template <>
 struct strm_field_traits< int32_t >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_I32;
+        static constexpr auto tag  = ASRT_STRM_FIELD_I32;
         static constexpr auto size = 4;
-        static void           encode( uint8_t*& p, int32_t v ) { asrtl_add_i32( &p, v ); }
+        static void           encode( uint8_t*& p, int32_t v ) { asrt_add_i32( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< float >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_FLOAT;
+        static constexpr auto tag  = ASRT_STRM_FIELD_FLOAT;
         static constexpr auto size = 4;
         static void           encode( uint8_t*& p, float v )
         {
                 uint32_t u;
                 std::memcpy( &u, &v, 4 );
-                asrtl_add_u32( &p, u );
+                asrt_add_u32( &p, u );
         }
 };
 
 template <>
 struct strm_field_traits< bool >
 {
-        static constexpr auto tag  = ASRTL_STRM_FIELD_BOOL;
+        static constexpr auto tag  = ASRT_STRM_FIELD_BOOL;
         static constexpr auto size = 1;
         static void           encode( uint8_t*& p, bool v ) { *p++ = v ? 1 : 0; }
 };
 
-inline status init( ref< asrtr_stream_client > client, asrtl_node& prev, autosender s )
+inline status init( ref< asrtr_stream_client > client, asrt_node& prev, autosender s )
 {
         return asrtr_stream_client_init( client, &prev, s );
 }
 
 inline status define(
-    ref< asrtr_stream_client >          client,
-    uint8_t                             schema_id,
-    enum asrtl_strm_field_type_e const* fields,
-    uint8_t                             field_count,
-    callback< asrtr_stream_done_cb >    done_cb )
+    ref< asrtr_stream_client >         client,
+    uint8_t                            schema_id,
+    enum asrt_strm_field_type_e const* fields,
+    uint8_t                            field_count,
+    callback< asrtr_stream_done_cb >   done_cb )
 {
         return asrtr_stream_client_define(
             client, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
@@ -154,9 +154,9 @@ struct stream_schema
           , schema_id_( schema_id )
         {
                 auto s = define( client_, schema_id_, fields_, sizeof...( Ts ), done_cb );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_stream_schema", "define failed" );
-                        ASRTL_ASSERT( false );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG( "asrtr_stream_schema", "define failed" );
+                        ASRT_ASSERT( false );
                 }
         }
 
@@ -200,7 +200,7 @@ struct stream_schema
 
         ~stream_schema() = default;
 
-        static constexpr enum asrtl_strm_field_type_e fields_[] = {
+        static constexpr enum asrt_strm_field_type_e fields_[] = {
             strm_field_traits< Ts >::tag... };
 
 private:

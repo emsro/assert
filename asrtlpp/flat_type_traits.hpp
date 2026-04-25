@@ -31,7 +31,7 @@ struct arr
 // Each specialisation exposes:
 //   raw_type   — the type stored in the C union (e.g. uint32_t for bool)
 //   value_type — the C++ facing type
-//   flat_type  — the asrtl_flat_value_type constant
+//   flat_type  — the asrt_flat_value_type constant
 template < typename T >
 struct flat_type_traits;
 
@@ -40,7 +40,7 @@ struct flat_type_traits< uint32_t >
 {
         using raw_type                  = uint32_t;
         using value_type                = uint32_t;
-        static constexpr auto flat_type = ASRTL_FLAT_STYPE_U32;
+        static constexpr auto flat_type = ASRT_FLAT_STYPE_U32;
         static constexpr bool is_scalar = true;
 };
 
@@ -49,7 +49,7 @@ struct flat_type_traits< int32_t >
 {
         using raw_type                  = int32_t;
         using value_type                = int32_t;
-        static constexpr auto flat_type = ASRTL_FLAT_STYPE_I32;
+        static constexpr auto flat_type = ASRT_FLAT_STYPE_I32;
         static constexpr bool is_scalar = true;
 };
 
@@ -58,7 +58,7 @@ struct flat_type_traits< float >
 {
         using raw_type                  = float;
         using value_type                = float;
-        static constexpr auto flat_type = ASRTL_FLAT_STYPE_FLOAT;
+        static constexpr auto flat_type = ASRT_FLAT_STYPE_FLOAT;
         static constexpr bool is_scalar = true;
 };
 
@@ -67,7 +67,7 @@ struct flat_type_traits< char const* >
 {
         using raw_type                  = char const*;
         using value_type                = char const*;
-        static constexpr auto flat_type = ASRTL_FLAT_STYPE_STR;
+        static constexpr auto flat_type = ASRT_FLAT_STYPE_STR;
         static constexpr bool is_scalar = true;
 };
 
@@ -76,7 +76,7 @@ struct flat_type_traits< bool >
 {
         using raw_type                  = uint32_t;
         using value_type                = bool;
-        static constexpr auto flat_type = ASRTL_FLAT_STYPE_BOOL;
+        static constexpr auto flat_type = ASRT_FLAT_STYPE_BOOL;
         static constexpr bool is_scalar = true;
 };
 
@@ -85,7 +85,7 @@ struct flat_type_traits< obj >
 {
         using raw_type                  = asrt_flat_child_list;
         using value_type                = asrt_flat_child_list;
-        static constexpr auto flat_type = ASRTL_FLAT_CTYPE_OBJECT;
+        static constexpr auto flat_type = ASRT_FLAT_CTYPE_OBJECT;
         static constexpr bool is_scalar = false;
 };
 
@@ -94,7 +94,7 @@ struct flat_type_traits< arr >
 {
         using raw_type                  = asrt_flat_child_list;
         using value_type                = asrt_flat_child_list;
-        static constexpr auto flat_type = ASRTL_FLAT_CTYPE_ARRAY;
+        static constexpr auto flat_type = ASRT_FLAT_CTYPE_ARRAY;
         static constexpr bool is_scalar = false;
 };
 

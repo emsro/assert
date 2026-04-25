@@ -27,13 +27,13 @@ namespace asrtio
 
 struct param_config
 {
-        asrtl_flat_tree tree{};
+        asrt_flat_tree tree{};
 
-        param_config() { asrtl_flat_tree_init( &tree, asrtl_default_allocator(), 4, 32 ); }
+        param_config() { asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 32 ); }
         ~param_config()
         {
                 if ( tree.alloc.free )
-                        asrtl_flat_tree_deinit( &tree );
+                        asrt_flat_tree_deinit( &tree );
         }
         param_config( param_config const& )            = delete;
         param_config& operator=( param_config const& ) = delete;

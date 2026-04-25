@@ -42,7 +42,7 @@ A fix without a reproduction test is incomplete unless there is a strong reason 
 
 ## 5. C/C++ code guidelines
 
-- Public functions should return `enum asrtl_status` unless there is a strong existing pattern in that module.
+- Public functions should return `enum asrt_status` unless there is a strong existing pattern in that module.
 - Validate inputs early and return explicit status codes.
 - Keep ownership rules explicit:
   - Caller-owned buffers stay caller-owned.

@@ -34,9 +34,9 @@ enum asrtc_cntr_state
 
 struct asrtc_controller
 {
-        struct asrtl_node      node;
-        struct asrtl_sender    sendr;
-        struct asrtl_allocator alloc;
+        struct asrt_node      node;
+        struct asrt_sender    sendr;
+        struct asrt_allocator alloc;
 
         uint32_t              run_id;
         enum asrtc_cntr_state state;
@@ -52,12 +52,12 @@ struct asrtc_controller
         } hndl;
 };
 
-enum asrtl_status asrtc_cntr_init(
+enum asrt_status asrtc_cntr_init(
     struct asrtc_controller* c,
-    struct asrtl_sender      s,
-    struct asrtl_allocator   alloc );
+    struct asrt_sender       s,
+    struct asrt_allocator    alloc );
 
-enum asrtl_status asrtc_cntr_start(
+enum asrt_status asrtc_cntr_start(
     struct asrtc_controller* c,
     asrtc_init_callback      cb,
     void*                    ptr,
@@ -65,24 +65,24 @@ enum asrtl_status asrtc_cntr_start(
 
 uint32_t asrtc_cntr_idle( struct asrtc_controller const* c );
 
-enum asrtl_status asrtc_cntr_desc(
+enum asrt_status asrtc_cntr_desc(
     struct asrtc_controller* c,
     asrtc_desc_callback      cb,
     void*                    ptr,
     uint32_t                 timeout );
-enum asrtl_status asrtc_cntr_test_count(
+enum asrt_status asrtc_cntr_test_count(
     struct asrtc_controller*  c,
     asrtc_test_count_callback cb,
     void*                     ptr,
     uint32_t                  timeout );
-enum asrtl_status asrtc_cntr_test_info(
+enum asrt_status asrtc_cntr_test_info(
     struct asrtc_controller* c,
     uint16_t                 id,
     asrtc_test_info_callback cb,
     void*                    ptr,
     uint32_t                 timeout );
 
-enum asrtl_status asrtc_cntr_test_exec(
+enum asrt_status asrtc_cntr_test_exec(
     struct asrtc_controller*   c,
     uint16_t                   id,
     asrtc_test_result_callback cb,

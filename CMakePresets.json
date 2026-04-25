@@ -7,14 +7,14 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic -DASRTL_DEFAULT_ASSERT"
+        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic -DASRT_DEFAULT_ASSERT"
       }
     },
     {
       "name": "coverage",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRTL_DEFAULT_ASSERT",
+        "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRT_DEFAULT_ASSERT",
         "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },
@@ -22,7 +22,7 @@
       "name": "asan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=address -DASRTL_DEFAULT_ASSERT",
+        "CMAKE_C_FLAGS": "-fsanitize=address -DASRT_DEFAULT_ASSERT",
         "CMAKE_CXX_FLAGS": "-fsanitize=address",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address",
         "BUILD_SHARED_LIBS": "OFF"
@@ -32,7 +32,7 @@
       "name": "ubsan",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRTL_DEFAULT_ASSERT",
+        "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRT_DEFAULT_ASSERT",
         "CMAKE_CXX_FLAGS": "-fsanitize=undefined",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined",
         "BUILD_SHARED_LIBS": "OFF"

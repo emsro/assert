@@ -11,7 +11,7 @@
 
 /// Arena-allocated flat tree for JSON-like structured data.
 ///
-/// Nodes are addressed by integer IDs (asrtl_flat_id). ID 0 is a virtual root
+/// Nodes are addressed by integer IDs (asrt_flat_id). ID 0 is a virtual root
 /// sentinel — never stores data, serves as parent for top-level nodes.
 ///
 /// Storage is split into fixed-size blocks, lazily allocated on first use.
@@ -25,8 +25,8 @@
 ///
 /// Each node_id may be appended exactly once; duplicate appends are rejected.
 
-#ifndef ASRTL_FLAT_TREE_H
-#define ASRTL_FLAT_TREE_H
+#ifndef ASRT_FLAT_TREE_H
+#define ASRT_FLAT_TREE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,26 +44,26 @@ typedef uint32_t asrt_flat_id;
 /// Scalar value types — leaf data carried by nodes.
 enum asrt_flat_stype
 {
-        ASRTL_FLAT_STYPE_NONE  = 0,
-        ASRTL_FLAT_STYPE_STR   = 1,
-        ASRTL_FLAT_STYPE_U32   = 2,
-        ASRTL_FLAT_STYPE_FLOAT = 3,
-        ASRTL_FLAT_STYPE_BOOL  = 4,
-        ASRTL_FLAT_STYPE_NULL  = 5,
-        ASRTL_FLAT_STYPE_I32   = 6,
+        ASRT_FLAT_STYPE_NONE  = 0,
+        ASRT_FLAT_STYPE_STR   = 1,
+        ASRT_FLAT_STYPE_U32   = 2,
+        ASRT_FLAT_STYPE_FLOAT = 3,
+        ASRT_FLAT_STYPE_BOOL  = 4,
+        ASRT_FLAT_STYPE_NULL  = 5,
+        ASRT_FLAT_STYPE_I32   = 6,
 };
 
 /// Container value types — nodes that hold child lists.
 enum asrt_flat_ctype
 {
-        ASRTL_FLAT_CTYPE_NONE   = 0,
-        ASRTL_FLAT_CTYPE_OBJECT = 7,
-        ASRTL_FLAT_CTYPE_ARRAY  = 8,
+        ASRT_FLAT_CTYPE_NONE   = 0,
+        ASRT_FLAT_CTYPE_OBJECT = 7,
+        ASRT_FLAT_CTYPE_ARRAY  = 8,
 };
 
 /// Common type for both scalar and container type tags.  The enum values do
 /// not overlap (except NONE = 0), so a single uint8_t can hold either.
-typedef uint8_t asrtl_flat_value_type;
+typedef uint8_t asrt_flat_value_type;
 
 struct asrt_flat_child_list
 {
@@ -88,11 +88,11 @@ union asrt_flat_data
 
 struct asrt_flat_value
 {
-        asrtl_flat_value_type type;
-        union asrt_flat_data  data;
+        asrt_flat_value_type type;
+        union asrt_flat_data data;
 };
 
-struct asrtl_flat_node
+struct asrt_flat_node
 {
         struct asrt_flat_value value;
         char const*  key;  ///< Owned copy. Non-NULL for OBJECT children, NULL for ARRAY children.
@@ -100,59 +100,59 @@ struct asrtl_flat_node
 };
 
 /// Contiguous array of nodes. Lazily allocated per block.
-struct asrtl_flat_block
+struct asrt_flat_block
 {
-        struct asrtl_flat_node* nodes;
-        uint32_t                node_count;
+        struct asrt_flat_node* nodes;
+        uint32_t               node_count;
 };
 
-enum asrtl_status asrtl_flat_block_init(
-    struct asrtl_flat_block* block,
-    struct asrtl_allocator*  alloc,
-    uint32_t                 node_capacity );
+enum asrt_status asrt_flat_block_init(
+    struct asrt_flat_block* block,
+    struct asrt_allocator*  alloc,
+    uint32_t                node_capacity );
 
-enum asrtl_status asrtl_flat_block_deinit(
-    struct asrtl_flat_block* block,
-    struct asrtl_allocator*  alloc,
-    uint32_t                 node_capacity );
+enum asrt_status asrt_flat_block_deinit(
+    struct asrt_flat_block* block,
+    struct asrt_allocator*  alloc,
+    uint32_t                node_capacity );
 
 /// node_id maps to blocks[node_id / node_capacity][node_id % node_capacity].
-struct asrtl_flat_tree
+struct asrt_flat_tree
 {
-        struct asrtl_allocator alloc;
+        struct asrt_allocator alloc;
 
-        struct asrtl_flat_block* blocks;
-        uint32_t                 block_capacity;
+        struct asrt_flat_block* blocks;
+        uint32_t                block_capacity;
 
         uint32_t node_capacity;  ///< Nodes per block, fixed at init.
 };
 
-enum asrtl_status asrtl_flat_tree_init(
-    struct asrtl_flat_tree* tree,
-    struct asrtl_allocator  alloc,
-    uint32_t                block_capacity,
-    uint32_t                node_capacity );
+enum asrt_status asrt_flat_tree_init(
+    struct asrt_flat_tree* tree,
+    struct asrt_allocator  alloc,
+    uint32_t               block_capacity,
+    uint32_t               node_capacity );
 
 /// Insert a scalar leaf node. Grows blocks if node_id exceeds capacity.
 /// parent_id=0 for root nodes. OBJECT parents require non-NULL key,
 /// ARRAY parents require NULL key. Rejects duplicate node_ids.
-enum asrtl_status asrtl_flat_tree_append_scalar(
-    struct asrtl_flat_tree* tree,
-    asrt_flat_id            parent_id,
-    asrt_flat_id            node_id,
-    char const*             key,
-    asrtl_flat_value_type   type,
-    union asrt_flat_scalar  scalar );
+enum asrt_status asrt_flat_tree_append_scalar(
+    struct asrt_flat_tree* tree,
+    asrt_flat_id           parent_id,
+    asrt_flat_id           node_id,
+    char const*            key,
+    asrt_flat_value_type   type,
+    union asrt_flat_scalar scalar );
 
 /// Insert a container node (OBJECT or ARRAY). Same rules as append_scalar.
-enum asrtl_status asrtl_flat_tree_append_cont(
-    struct asrtl_flat_tree* tree,
-    asrt_flat_id            parent_id,
-    asrt_flat_id            node_id,
-    char const*             key,
-    asrtl_flat_value_type   type );
+enum asrt_status asrt_flat_tree_append_cont(
+    struct asrt_flat_tree* tree,
+    asrt_flat_id           parent_id,
+    asrt_flat_id           node_id,
+    char const*            key,
+    asrt_flat_value_type   type );
 
-struct asrtl_flat_query_result
+struct asrt_flat_query_result
 {
         asrt_flat_id           id;
         char const*            key;
@@ -161,34 +161,34 @@ struct asrtl_flat_query_result
 };
 
 /// Read a single node by ID.
-enum asrtl_status asrtl_flat_tree_query(
-    struct asrtl_flat_tree const*   tree,
-    asrt_flat_id                    node_id,
-    struct asrtl_flat_query_result* result );
+enum asrt_status asrt_flat_tree_query(
+    struct asrt_flat_tree const*   tree,
+    asrt_flat_id                   node_id,
+    struct asrt_flat_query_result* result );
 
 /// Find a child of parent_id whose key matches. Returns the child's query result.
-enum asrtl_status asrtl_flat_tree_find_by_key(
-    struct asrtl_flat_tree*         tree,
-    asrt_flat_id                    parent_id,
-    char const*                     key,
-    struct asrtl_flat_query_result* result );
+enum asrt_status asrt_flat_tree_find_by_key(
+    struct asrt_flat_tree*         tree,
+    asrt_flat_id                   parent_id,
+    char const*                    key,
+    struct asrt_flat_query_result* result );
 
-enum asrtl_status asrtl_flat_tree_deinit( struct asrtl_flat_tree* tree );
+enum asrt_status asrt_flat_tree_deinit( struct asrt_flat_tree* tree );
 
 /// Returns the number of bytes the value payload occupies on the wire (not
 /// including node_id, key, or type byte).
-static inline size_t asrtl_flat_value_wire_size( struct asrt_flat_value v )
+static inline size_t asrt_flat_value_wire_size( struct asrt_flat_value v )
 {
         switch ( v.type ) {
-        case ASRTL_FLAT_STYPE_STR:
+        case ASRT_FLAT_STYPE_STR:
                 return v.data.s.str_val ? strlen( v.data.s.str_val ) + 1UL : 1UL;
-        case ASRTL_FLAT_STYPE_U32:
-        case ASRTL_FLAT_STYPE_BOOL:
-        case ASRTL_FLAT_STYPE_FLOAT:
-        case ASRTL_FLAT_STYPE_I32:
+        case ASRT_FLAT_STYPE_U32:
+        case ASRT_FLAT_STYPE_BOOL:
+        case ASRT_FLAT_STYPE_FLOAT:
+        case ASRT_FLAT_STYPE_I32:
                 return 4U;
-        case ASRTL_FLAT_CTYPE_OBJECT:
-        case ASRTL_FLAT_CTYPE_ARRAY:
+        case ASRT_FLAT_CTYPE_OBJECT:
+        case ASRT_FLAT_CTYPE_ARRAY:
                 return 8U;
         default:
                 return 0U;
@@ -197,38 +197,38 @@ static inline size_t asrtl_flat_value_wire_size( struct asrt_flat_value v )
 
 /// Serialize a flat_value into the buffer at *p, advancing *p past the written
 /// bytes.  Does not write the type byte — caller is responsible for that.
-static inline void asrtl_flat_value_write( uint8_t** p, struct asrt_flat_value v )
+static inline void asrt_flat_value_write( uint8_t** p, struct asrt_flat_value v )
 {
         switch ( v.type ) {
-        case ASRTL_FLAT_STYPE_NONE:
-        case ASRTL_FLAT_STYPE_NULL:
+        case ASRT_FLAT_STYPE_NONE:
+        case ASRT_FLAT_STYPE_NULL:
                 break;
-        case ASRTL_FLAT_STYPE_STR: {
+        case ASRT_FLAT_STYPE_STR: {
                 size_t sl = strlen( v.data.s.str_val );
                 memcpy( *p, v.data.s.str_val, sl );
                 *p += sl;
                 *( *p )++ = '\0';
                 break;
         }
-        case ASRTL_FLAT_STYPE_U32:
-                asrtl_add_u32( p, v.data.s.u32_val );
+        case ASRT_FLAT_STYPE_U32:
+                asrt_add_u32( p, v.data.s.u32_val );
                 break;
-        case ASRTL_FLAT_STYPE_I32:
-                asrtl_add_i32( p, v.data.s.i32_val );
+        case ASRT_FLAT_STYPE_I32:
+                asrt_add_i32( p, v.data.s.i32_val );
                 break;
-        case ASRTL_FLAT_STYPE_BOOL:
-                asrtl_add_u32( p, v.data.s.bool_val );
+        case ASRT_FLAT_STYPE_BOOL:
+                asrt_add_u32( p, v.data.s.bool_val );
                 break;
-        case ASRTL_FLAT_STYPE_FLOAT: {
+        case ASRT_FLAT_STYPE_FLOAT: {
                 uint32_t bits;
                 memcpy( &bits, &v.data.s.float_val, sizeof bits );
-                asrtl_add_u32( p, bits );
+                asrt_add_u32( p, bits );
                 break;
         }
-        case ASRTL_FLAT_CTYPE_OBJECT:
-        case ASRTL_FLAT_CTYPE_ARRAY:
-                asrtl_add_u32( p, v.data.cont.first_child );
-                asrtl_add_u32( p, v.data.cont.last_child );
+        case ASRT_FLAT_CTYPE_OBJECT:
+        case ASRT_FLAT_CTYPE_ARRAY:
+                asrt_add_u32( p, v.data.cont.first_child );
+                asrt_add_u32( p, v.data.cont.last_child );
                 break;
         default:
                 break;
@@ -237,8 +237,8 @@ static inline void asrtl_flat_value_write( uint8_t** p, struct asrt_flat_value v
 
 /// Decode a flat_value from the buffer, advancing buff->b past the consumed
 /// bytes.  raw_type is the type byte already read by the caller.
-enum asrtl_status asrtl_flat_value_decode(
-    struct asrtl_span*      buff,
+enum asrt_status asrt_flat_value_decode(
+    struct asrt_span*       buff,
     uint8_t                 raw_type,
     struct asrt_flat_value* val );
 

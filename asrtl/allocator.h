@@ -8,61 +8,61 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_ALLOCATOR_H
-#define ASRTL_ALLOCATOR_H
+#ifndef ASRT_ALLOCATOR_H
+#define ASRT_ALLOCATOR_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "./asrtl_assert.h"
+#include "./asrt_assert.h"
 #include "./span.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 
-struct asrtl_allocator
+struct asrt_allocator
 {
         void* ptr;
         void* ( *alloc )( void* ptr, uint32_t size );
         void ( *free )( void* ptr, void* mem );
 };
 
-static inline void* asrtl_alloc( struct asrtl_allocator* a, uint32_t size )
+static inline void* asrt_alloc( struct asrt_allocator* a, uint32_t size )
 {
-        ASRTL_ASSERT( a && a->free );
+        ASRT_ASSERT( a && a->free );
         return a->alloc( a->ptr, size );
 }
 
-static inline void asrtl_free( struct asrtl_allocator* a, void** mem )
+static inline void asrt_free( struct asrt_allocator* a, void** mem )
 {
-        ASRTL_ASSERT( a && a->free );
-        ASRTL_ASSERT( *mem );
+        ASRT_ASSERT( a && a->free );
+        ASRT_ASSERT( *mem );
         a->free( a->ptr, *mem );
         *mem = NULL;
 }
 
-char* asrtl_realloc_str( struct asrtl_allocator* a, struct asrtl_span* buff );
+char* asrt_realloc_str( struct asrt_allocator* a, struct asrt_span* buff );
 
-static inline void* asrtl_call_malloc( void* ptr, uint32_t size )
+static inline void* asrt_call_malloc( void* ptr, uint32_t size )
 {
         (void) ptr;
         return malloc( size );
 }
 
-static inline void asrtl_call_free( void* ptr, void* mem )
+static inline void asrt_call_free( void* ptr, void* mem )
 {
         (void) ptr;
         free( mem );
 }
 
-static inline struct asrtl_allocator asrtl_default_allocator( void )
+static inline struct asrt_allocator asrt_default_allocator( void )
 {
-        return ( struct asrtl_allocator ){
+        return ( struct asrt_allocator ){
             .ptr   = NULL,
-            .alloc = &asrtl_call_malloc,
-            .free  = &asrtl_call_free,
+            .alloc = &asrt_call_malloc,
+            .free  = &asrt_call_free,
         };
 }
 

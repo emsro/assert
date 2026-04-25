@@ -11,14 +11,14 @@
 
 #include "./allocator.h"
 
-char* asrtl_realloc_str( struct asrtl_allocator* a, struct asrtl_span* buff )
+char* asrt_realloc_str( struct asrt_allocator* a, struct asrt_span* buff )
 {
         uint8_t* p = buff->b;
         for ( ; p != buff->e && *p != 0; ++p )
                 ;
         uint32_t i   = p - buff->b;
         uint32_t s   = p == buff->e ? i + 1 : i;
-        char*    res = asrtl_alloc( a, s );
+        char*    res = asrt_alloc( a, s );
         if ( !res )
                 return NULL;
         memcpy( res, buff->b, i );

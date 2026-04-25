@@ -20,7 +20,7 @@ extern "C" {
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/param_proto.h"
 
-typedef void ( *asrtc_param_ready_ack_cb )( void* ptr, enum asrtl_status status );
+typedef void ( *asrtc_param_ready_ack_cb )( void* ptr, enum asrt_status status );
 
 enum asrtc_param_server_pending
 {
@@ -31,10 +31,10 @@ enum asrtc_param_server_pending
 
 struct asrtc_param_server
 {
-        struct asrtl_node               node;
-        struct asrtl_sender             sendr;
-        struct asrtl_flat_tree const*   tree;  // non-owning; must outlive each test
-        struct asrtl_allocator          alloc;
+        struct asrt_node                node;
+        struct asrt_sender              sendr;
+        struct asrt_flat_tree const*    tree;  // non-owning; must outlive each test
+        struct asrt_allocator           alloc;
         uint32_t                        max_msg_size;
         int                             ack_received;
         uint8_t*                        enc_buff;  // allocated on READY_ACK tick, freed on deinit
@@ -50,17 +50,17 @@ struct asrtc_param_server
         uint32_t                 deadline;
 };
 
-enum asrtl_status asrtc_param_server_init(
+enum asrt_status asrtc_param_server_init(
     struct asrtc_param_server* param,
-    struct asrtl_node*         prev,
-    struct asrtl_sender        sender,
-    struct asrtl_allocator     alloc );
+    struct asrt_node*          prev,
+    struct asrt_sender         sender,
+    struct asrt_allocator      alloc );
 
 void asrtc_param_server_set_tree(
-    struct asrtc_param_server*    param,
-    struct asrtl_flat_tree const* tree );
+    struct asrtc_param_server*   param,
+    struct asrt_flat_tree const* tree );
 
-enum asrtl_status asrtc_param_server_send_ready(
+enum asrt_status asrtc_param_server_send_ready(
     struct asrtc_param_server* param,
     asrt_flat_id               root_id,
     uint32_t                   timeout,

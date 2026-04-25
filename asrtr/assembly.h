@@ -31,49 +31,49 @@ struct asrtr_assembly
         struct asrtr_stream_client  stream;
 };
 
-inline enum asrtl_status asrtr_assembly_init(
+inline enum asrt_status asrtr_assembly_init(
     struct asrtr_assembly* assembly,
-    struct asrtl_sender    sender,
+    struct asrt_sender     sender,
     char const*            desc,
     uint32_t               timeout )
 {
-        if ( asrtr_reactor_init( &assembly->reactor, sender, desc ) != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_assembly", "reactor init failed" );
-                return ASRTL_INIT_ERR;
+        if ( asrtr_reactor_init( &assembly->reactor, sender, desc ) != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_assembly", "reactor init failed" );
+                return ASRT_INIT_ERR;
         }
         if ( asrtr_diag_client_init( &assembly->diag, &assembly->reactor.node, sender ) !=
-             ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_assembly", "diag init failed" );
-                return ASRTL_INIT_ERR;
+             ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_assembly", "diag init failed" );
+                return ASRT_INIT_ERR;
         }
         if ( asrtr_collect_client_init( &assembly->collect, &assembly->diag.node, sender ) !=
-             ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_assembly", "collect client init failed" );
-                return ASRTL_INIT_ERR;
+             ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_assembly", "collect client init failed" );
+                return ASRT_INIT_ERR;
         }
         if ( asrtr_param_client_init(
                  &assembly->param,
                  &assembly->collect.node,
                  sender,
-                 ( struct asrtl_span ){
+                 ( struct asrt_span ){
                      .b = assembly->param_cache_buf,
                      .e = assembly->param_cache_buf + sizeof( assembly->param_cache_buf ),
                  },
-                 timeout ) != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_assembly", "param client init failed" );
-                return ASRTL_INIT_ERR;
+                 timeout ) != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_assembly", "param client init failed" );
+                return ASRT_INIT_ERR;
         }
         if ( asrtr_stream_client_init( &assembly->stream, &assembly->param.node, sender ) !=
-             ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_assembly", "stream client init failed" );
-                return ASRTL_INIT_ERR;
+             ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_assembly", "stream client init failed" );
+                return ASRT_INIT_ERR;
         }
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
 static inline void asrtr_assembly_tick( struct asrtr_assembly* assembly, uint32_t now )
 {
-        asrtl_chann_tick_successors( &assembly->reactor.node, now );
+        asrt_chann_tick_successors( &assembly->reactor.node, now );
 }
 
 static inline void asrtr_assembly_deinit( struct asrtr_assembly* assembly )

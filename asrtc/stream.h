@@ -26,13 +26,13 @@ extern "C" {
 /// Descriptor for a defined schema.
 struct asrtc_stream_schema
 {
-        uint8_t                       schema_id;    ///< Schema ID as defined by the reactor.
-        uint8_t                       field_count;  ///< Number of fields.
-        uint16_t                      record_size;  ///< Sum of field wire sizes.
-        enum asrtl_strm_field_type_e* fields;       ///< Allocated array of field type tags.
-        struct asrtc_stream_record*   first;        ///< Head of record linked list.
-        struct asrtc_stream_record*   last;         ///< Tail of record linked list.
-        uint32_t                      count;        ///< Number of records in the list.
+        uint8_t                      schema_id;    ///< Schema ID as defined by the reactor.
+        uint8_t                      field_count;  ///< Number of fields.
+        uint16_t                     record_size;  ///< Sum of field wire sizes.
+        enum asrt_strm_field_type_e* fields;       ///< Allocated array of field type tags.
+        struct asrtc_stream_record*  first;        ///< Head of record linked list.
+        struct asrtc_stream_record*  last;         ///< Tail of record linked list.
+        uint32_t                     count;        ///< Number of records in the list.
 };
 
 /// A single stored record with a separately allocated data buffer.
@@ -48,10 +48,10 @@ struct asrtc_stream_schemas
 {
         struct asrtc_stream_schema* schemas;       ///< Allocated array of schemas.
         uint32_t                    schema_count;  ///< Number of schemas in the array.
-        struct asrtl_allocator      alloc;         ///< Allocator used for all contained memory.
+        struct asrt_allocator       alloc;         ///< Allocator used for all contained memory.
 };
 
-/// Controller-side stream server (ASRTL_STRM channel).
+/// Controller-side stream server (ASRT_STRM channel).
 ///
 /// Receives DEFINE messages to register schemas and DATA messages carrying raw
 /// records.  Records are stored in per-schema linked lists and handed out to
@@ -64,19 +64,19 @@ struct asrtc_stream_schemas
 ///   4. Free the result with asrtc_stream_schemas_free().
 struct asrtc_stream_server
 {
-        struct asrtl_node      node;
-        struct asrtl_sender    sendr;
-        struct asrtl_allocator alloc;
+        struct asrt_node      node;
+        struct asrt_sender    sendr;
+        struct asrt_allocator alloc;
 
         struct asrtc_stream_schema* lookup[ASRTC_STREAM_MAX_SCHEMAS];  ///< Internal lookup by ID.
 };
 
 /// Initialise a stream server and link it into the node chain.
-enum asrtl_status asrtc_stream_server_init(
+enum asrt_status asrtc_stream_server_init(
     struct asrtc_stream_server* server,
-    struct asrtl_node*          prev,
-    struct asrtl_sender         sender,
-    struct asrtl_allocator      alloc );
+    struct asrt_node*           prev,
+    struct asrt_sender          sender,
+    struct asrt_allocator       alloc );
 
 /// Take all defined schemas and their records.
 ///

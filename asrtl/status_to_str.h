@@ -8,8 +8,8 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_STATUS_TO_STR_H
-#define ASRTL_STATUS_TO_STR_H
+#ifndef ASRT_STATUS_TO_STR_H
+#define ASRT_STATUS_TO_STR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,48 +17,48 @@ extern "C" {
 
 #include "./status.h"
 
-inline static char const* asrtl_status_to_str( enum asrtl_status st )
+inline static char const* asrt_status_to_str( enum asrt_status st )
 {
         switch ( st ) {
-        case ASRTL_VERSION_ERR:
+        case ASRT_VERSION_ERR:
                 return "version mismatch error";
-        case ASRTL_TIMEOUT_ERR:
+        case ASRT_TIMEOUT_ERR:
                 return "timeout error";
-        case ASRTL_CALLBACK_ERR:
+        case ASRT_CALLBACK_ERR:
                 return "callback error";
-        case ASRTL_INVALID_EVENT_ERR:
+        case ASRT_INVALID_EVENT_ERR:
                 return "invalid event error";
-        case ASRTL_KEY_FORBIDDEN_ERR:
+        case ASRT_KEY_FORBIDDEN_ERR:
                 return "key forbidden on array child";
-        case ASRTL_KEY_REQUIRED_ERR:
+        case ASRT_KEY_REQUIRED_ERR:
                 return "key required on object child";
-        case ASRTL_INTERNAL_ERR:
+        case ASRT_INTERNAL_ERR:
                 return "internal error";
-        case ASRTL_ARG_ERR:
+        case ASRT_ARG_ERR:
                 return "argument error";
-        case ASRTL_INIT_ERR:
+        case ASRT_INIT_ERR:
                 return "initialization error";
-        case ASRTL_RECV_TRAILING_ERR:
+        case ASRT_RECV_TRAILING_ERR:
                 return "receive trailing bytes error";
-        case ASRTL_CHANN_NOT_FOUND:
+        case ASRT_CHANN_NOT_FOUND:
                 return "channel not found";
-        case ASRTL_ALLOC_ERR:
+        case ASRT_ALLOC_ERR:
                 return "allocation error";
-        case ASRTL_SEND_ERR:
+        case ASRT_SEND_ERR:
                 return "send error";
-        case ASRTL_RECV_INTERNAL_ERR:
+        case ASRT_RECV_INTERNAL_ERR:
                 return "receive internal error";
-        case ASRTL_RECV_UNEXPECTED_ERR:
+        case ASRT_RECV_UNEXPECTED_ERR:
                 return "receive unexpected message error";
-        case ASRTL_RECV_UNKNOWN_ID_ERR:
+        case ASRT_RECV_UNKNOWN_ID_ERR:
                 return "receive unknown id error";
-        case ASRTL_BUSY_ERR:
+        case ASRT_BUSY_ERR:
                 return "busy error";
-        case ASRTL_RECV_ERR:
+        case ASRT_RECV_ERR:
                 return "receive error";
-        case ASRTL_SIZE_ERR:
+        case ASRT_SIZE_ERR:
                 return "size error";
-        case ASRTL_SUCCESS:
+        case ASRT_SUCCESS:
                 return "success";
         }
         return "unknown error";

@@ -39,9 +39,9 @@ struct stream_define_sender
 
                 void start()
                 {
-                        auto cb = +[]( void* ptr, enum asrtl_status status ) {
+                        auto cb = +[]( void* ptr, enum asrt_status status ) {
                                 auto& self = *static_cast< op* >( ptr );
-                                if ( status == ASRTL_SUCCESS )
+                                if ( status == ASRT_SUCCESS )
                                         self.recv.set_value( stream_schema< Ts... >{
                                             self.client_, self.schema_id_ } );
                                 else
@@ -53,7 +53,7 @@ struct stream_define_sender
                             stream_schema< Ts... >::fields_,
                             sizeof...( Ts ),
                             { cb, this } );
-                        if ( s != ASRTL_SUCCESS )
+                        if ( s != ASRT_SUCCESS )
                                 recv.set_error( s );
                 }
         };
@@ -95,15 +95,15 @@ struct stream_emit_sender
 
                 void start()
                 {
-                        auto cb = +[]( void* ptr, enum asrtl_status status ) {
+                        auto cb = +[]( void* ptr, enum asrt_status status ) {
                                 auto& self = *static_cast< op* >( ptr );
-                                if ( status == ASRTL_SUCCESS )
+                                if ( status == ASRT_SUCCESS )
                                         self.recv.set_value();
                                 else
                                         self.recv.set_error( status );
                         };
                         auto st = schema_->emit_raw( buf_, { cb, this } );
-                        if ( st != ASRTL_SUCCESS )
+                        if ( st != ASRT_SUCCESS )
                                 recv.set_error( st );
                 }
         };

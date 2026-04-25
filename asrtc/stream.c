@@ -15,14 +15,14 @@
 #include <string.h>
 
 
-static enum asrtl_status asrtc_stream_server_send( void* p, struct asrtl_rec_span* buff )
+static enum asrt_status asrtc_stream_server_send( void* p, struct asrt_rec_span* buff )
 {
         struct asrtc_stream_server* server = (struct asrtc_stream_server*) p;
-        return asrtl_send( &server->sendr, ASRTL_STRM, buff, NULL, NULL );
+        return asrt_send( &server->sendr, ASRT_STRM, buff, NULL, NULL );
 }
 
 static void asrtc_stream_clear_schema(
-    struct asrtl_allocator*     alloc,
+    struct asrt_allocator*      alloc,
     struct asrtc_stream_schema* schema )
 {
         // Free records
@@ -30,61 +30,61 @@ static void asrtc_stream_clear_schema(
         while ( rec ) {
                 struct asrtc_stream_record* next = rec->next;
                 if ( rec->data )
-                        asrtl_free( alloc, (void**) &rec->data );
-                asrtl_free( alloc, (void**) &rec );
+                        asrt_free( alloc, (void**) &rec->data );
+                asrt_free( alloc, (void**) &rec );
                 rec = next;
         }
 
         // Free fields array
         if ( schema->fields )
-                asrtl_free( alloc, (void**) &schema->fields );
+                asrt_free( alloc, (void**) &schema->fields );
 }
 
 static void asrtc_stream_free_schema(
-    struct asrtl_allocator*     alloc,
+    struct asrt_allocator*      alloc,
     struct asrtc_stream_schema* schema )
 {
         if ( !schema )
                 return;
         asrtc_stream_clear_schema( alloc, schema );
-        asrtl_free( alloc, (void**) &schema );
+        asrt_free( alloc, (void**) &schema );
 }
 
-static enum asrtl_status asrtc_stream_server_handle_define(
+static enum asrt_status asrtc_stream_server_handle_define(
     struct asrtc_stream_server* server,
-    struct asrtl_span*          buff )
+    struct asrt_span*           buff )
 {
         // Need at least schema_id(1) + field_count(1)
-        if ( asrtl_span_unfit_for( buff, 2 ) )
-                return ASRTL_RECV_ERR;
+        if ( asrt_span_unfit_for( buff, 2 ) )
+                return ASRT_RECV_ERR;
 
         uint8_t schema_id   = *buff->b++;
         uint8_t field_count = *buff->b++;
 
         if ( schema_id >= ASRTC_STREAM_MAX_SCHEMAS ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: schema_id %u out of range", schema_id );
+                ASRT_ERR_LOG( "asrtc_stream", "define: schema_id %u out of range", schema_id );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
         if ( field_count == 0 ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: zero field_count" );
+                ASRT_ERR_LOG( "asrtc_stream", "define: zero field_count" );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
         if ( server->lookup[schema_id] ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: schema %u already defined", schema_id );
+                ASRT_ERR_LOG( "asrtc_stream", "define: schema %u already defined", schema_id );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_DUPLICATE_SCHEMA, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_DUPLICATE_SCHEMA, asrtc_stream_server_send, server );
         }
 
         // Allocate schema
-        struct asrtc_stream_schema* schema = asrtl_alloc( &server->alloc, sizeof( *schema ) );
+        struct asrtc_stream_schema* schema = asrt_alloc( &server->alloc, sizeof( *schema ) );
         if ( !schema ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: schema alloc failed" );
+                ASRT_ERR_LOG( "asrtc_stream", "define: schema alloc failed" );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         *schema = ( struct asrtc_stream_schema ){
             .schema_id   = schema_id,
@@ -97,94 +97,94 @@ static enum asrtl_status asrtc_stream_server_handle_define(
         };
 
         // Allocate fields array
-        schema->fields = asrtl_alloc(
+        schema->fields = asrt_alloc(
             &server->alloc, (uint32_t) field_count * (uint32_t) sizeof( *schema->fields ) );
         if ( !schema->fields ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: fields alloc failed" );
-                asrtl_free( &server->alloc, (void**) &schema );
+                ASRT_ERR_LOG( "asrtc_stream", "define: fields alloc failed" );
+                asrt_free( &server->alloc, (void**) &schema );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         memset( schema->fields, 0, (size_t) field_count * sizeof( *schema->fields ) );
 
         // Parse each field: type_tag(1)
         uint16_t record_size = 0;
-        if ( asrtl_span_unfit_for( buff, field_count ) ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "define: truncated field tags" );
-                asrtl_free( &server->alloc, (void**) &schema->fields );
-                asrtl_free( &server->alloc, (void**) &schema );
+        if ( asrt_span_unfit_for( buff, field_count ) ) {
+                ASRT_ERR_LOG( "asrtc_stream", "define: truncated field tags" );
+                asrt_free( &server->alloc, (void**) &schema->fields );
+                asrt_free( &server->alloc, (void**) &schema );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
         }
 
         for ( uint8_t i = 0; i < field_count; i++ ) {
                 uint8_t type_tag = *buff->b++;
 
-                if ( !asrtl_strm_field_valid( type_tag ) ) {
-                        ASRTL_ERR_LOG(
+                if ( !asrt_strm_field_valid( type_tag ) ) {
+                        ASRT_ERR_LOG(
                             "asrtc_stream",
                             "define: bad type tag 0x%02x at field %u",
                             type_tag,
                             i );
-                        asrtl_free( &server->alloc, (void**) &schema->fields );
-                        asrtl_free( &server->alloc, (void**) &schema );
+                        asrt_free( &server->alloc, (void**) &schema->fields );
+                        asrt_free( &server->alloc, (void**) &schema );
                         return asrt_msg_ctor_strm_error(
-                            ASRTL_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
+                            ASRT_STRM_ERR_INVALID_DEFINE, asrtc_stream_server_send, server );
                 }
 
                 schema->fields[i] = type_tag;
-                record_size += asrtl_strm_field_size( type_tag );
+                record_size += asrt_strm_field_size( type_tag );
         }
 
         schema->record_size       = record_size;
         server->lookup[schema_id] = schema;
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_stream_server_handle_data(
+static enum asrt_status asrtc_stream_server_handle_data(
     struct asrtc_stream_server* server,
-    struct asrtl_span*          buff )
+    struct asrt_span*           buff )
 {
-        if ( asrtl_span_unfit_for( buff, 1 ) )
-                return ASRTL_RECV_ERR;
+        if ( asrt_span_unfit_for( buff, 1 ) )
+                return ASRT_RECV_ERR;
 
         uint8_t schema_id = *buff->b++;
 
         if ( schema_id >= ASRTC_STREAM_MAX_SCHEMAS || !server->lookup[schema_id] ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "data: unknown schema %u", schema_id );
+                ASRT_ERR_LOG( "asrtc_stream", "data: unknown schema %u", schema_id );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_UNKNOWN_SCHEMA, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_UNKNOWN_SCHEMA, asrtc_stream_server_send, server );
         }
 
         struct asrtc_stream_schema* schema    = server->lookup[schema_id];
         uint32_t                    remaining = (uint32_t) ( buff->e - buff->b );
 
         if ( remaining != schema->record_size ) {
-                ASRTL_ERR_LOG(
+                ASRT_ERR_LOG(
                     "asrtc_stream",
                     "data: size mismatch for schema %u: got %u, expected %u",
                     schema_id,
                     remaining,
                     schema->record_size );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_SIZE_MISMATCH, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_SIZE_MISMATCH, asrtc_stream_server_send, server );
         }
 
         // Allocate record node and data buffer
-        struct asrtc_stream_record* rec = asrtl_alloc( &server->alloc, (uint32_t) sizeof( *rec ) );
+        struct asrtc_stream_record* rec = asrt_alloc( &server->alloc, (uint32_t) sizeof( *rec ) );
         if ( !rec ) {
-                ASRTL_ERR_LOG( "asrtc_stream", "data: alloc failed for schema %u", schema_id );
+                ASRT_ERR_LOG( "asrtc_stream", "data: alloc failed for schema %u", schema_id );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
 
         rec->next = NULL;
-        rec->data = asrtl_alloc( &server->alloc, (uint32_t) schema->record_size );
+        rec->data = asrt_alloc( &server->alloc, (uint32_t) schema->record_size );
         if ( !rec->data ) {
-                asrtl_free( &server->alloc, (void**) &rec );
-                ASRTL_ERR_LOG( "asrtc_stream", "data: data alloc failed for schema %u", schema_id );
+                asrt_free( &server->alloc, (void**) &rec );
+                ASRT_ERR_LOG( "asrtc_stream", "data: data alloc failed for schema %u", schema_id );
                 return asrt_msg_ctor_strm_error(
-                    ASRTL_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
+                    ASRT_STRM_ERR_ALLOC_FAILURE, asrtc_stream_server_send, server );
         }
         memcpy( rec->data, buff->b, schema->record_size );
 
@@ -198,53 +198,53 @@ static enum asrtl_status asrtc_stream_server_handle_data(
         }
         schema->count++;
 
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_stream_server_recv( void* data, struct asrtl_span buff )
+static enum asrt_status asrtc_stream_server_recv( void* data, struct asrt_span buff )
 {
         struct asrtc_stream_server* server = (struct asrtc_stream_server*) data;
 
-        if ( asrtl_span_unfit_for( &buff, 1 ) )
-                return ASRTL_SUCCESS;
-        asrtl_strm_message_id id = (asrtl_strm_message_id) *buff.b++;
+        if ( asrt_span_unfit_for( &buff, 1 ) )
+                return ASRT_SUCCESS;
+        asrt_strm_message_id id = (asrt_strm_message_id) *buff.b++;
 
         switch ( id ) {
-        case ASRTL_STRM_MSG_DEFINE:
+        case ASRT_STRM_MSG_DEFINE:
                 return asrtc_stream_server_handle_define( server, &buff );
-        case ASRTL_STRM_MSG_DATA:
+        case ASRT_STRM_MSG_DATA:
                 return asrtc_stream_server_handle_data( server, &buff );
         default:
-                ASRTL_ERR_LOG( "asrtc_stream", "unknown message id: %u", id );
-                return ASRTL_RECV_UNEXPECTED_ERR;
+                ASRT_ERR_LOG( "asrtc_stream", "unknown message id: %u", id );
+                return ASRT_RECV_UNEXPECTED_ERR;
         }
 }
 
-static enum asrtl_status asrtc_stream_server_event( void* p, enum asrtl_event_e e, void* arg )
+static enum asrt_status asrtc_stream_server_event( void* p, enum asrt_event_e e, void* arg )
 {
         struct asrtc_stream_server* server = (struct asrtc_stream_server*) p;
         switch ( e ) {
-        case ASRTL_EVENT_TICK:
-                return ASRTL_SUCCESS;
-        case ASRTL_EVENT_RECV:
-                return asrtc_stream_server_recv( server, *(struct asrtl_span*) arg );
+        case ASRT_EVENT_TICK:
+                return ASRT_SUCCESS;
+        case ASRT_EVENT_RECV:
+                return asrtc_stream_server_recv( server, *(struct asrt_span*) arg );
         }
-        ASRTL_ERR_LOG( "asrtc_stream_server", "unexpected event: %s", asrtl_event_to_str( e ) );
-        return ASRTL_INVALID_EVENT_ERR;
+        ASRT_ERR_LOG( "asrtc_stream_server", "unexpected event: %s", asrt_event_to_str( e ) );
+        return ASRT_INVALID_EVENT_ERR;
 }
 
-enum asrtl_status asrtc_stream_server_init(
+enum asrt_status asrtc_stream_server_init(
     struct asrtc_stream_server* server,
-    struct asrtl_node*          prev,
-    struct asrtl_sender         sender,
-    struct asrtl_allocator      alloc )
+    struct asrt_node*           prev,
+    struct asrt_sender          sender,
+    struct asrt_allocator       alloc )
 {
         if ( !server || !prev )
-                return ASRTL_INIT_ERR;
+                return ASRT_INIT_ERR;
         *server = ( struct asrtc_stream_server ){
             .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_STRM,
+                ( struct asrt_node ){
+                    .chid     = ASRT_STRM,
                     .e_cb_ptr = server,
                     .e_cb     = asrtc_stream_server_event,
                     .next     = NULL,
@@ -253,8 +253,8 @@ enum asrtl_status asrtc_stream_server_init(
             .alloc = alloc,
         };
         memset( (void*) server->lookup, 0, sizeof server->lookup );
-        asrtl_node_link( prev, &server->node );
-        return ASRTL_SUCCESS;
+        asrt_node_link( prev, &server->node );
+        return ASRT_SUCCESS;
 }
 
 struct asrtc_stream_schemas asrtc_stream_server_take( struct asrtc_stream_server* server )
@@ -273,7 +273,7 @@ struct asrtc_stream_schemas asrtc_stream_server_take( struct asrtc_stream_server
 
         // Allocate output array
         struct asrtc_stream_schema* arr =
-            asrtl_alloc( &server->alloc, count * (uint32_t) sizeof( *arr ) );
+            asrt_alloc( &server->alloc, count * (uint32_t) sizeof( *arr ) );
         if ( !arr )
                 return result;
 
@@ -282,7 +282,7 @@ struct asrtc_stream_schemas asrtc_stream_server_take( struct asrtc_stream_server
         for ( uint16_t i = 0; i < ASRTC_STREAM_MAX_SCHEMAS; i++ ) {
                 if ( server->lookup[i] ) {
                         arr[idx] = *server->lookup[i];
-                        asrtl_free( &server->alloc, (void**) &server->lookup[i] );
+                        asrt_free( &server->alloc, (void**) &server->lookup[i] );
                         idx++;
                 }
         }
@@ -297,10 +297,10 @@ void asrtc_stream_schemas_free( struct asrtc_stream_schemas* schemas )
 {
         if ( !schemas || !schemas->schemas )
                 return;
-        struct asrtl_allocator* alloc = &schemas->alloc;
+        struct asrt_allocator* alloc = &schemas->alloc;
         for ( uint32_t i = 0; i < schemas->schema_count; i++ )
                 asrtc_stream_clear_schema( alloc, &schemas->schemas[i] );
-        asrtl_free( alloc, (void**) &schemas->schemas );
+        asrt_free( alloc, (void**) &schemas->schemas );
         schemas->schema_count = 0;
 }
 
@@ -318,6 +318,6 @@ void asrtc_stream_server_clear( struct asrtc_stream_server* server )
 
 void asrtc_stream_server_deinit( struct asrtc_stream_server* server )
 {
-        asrtl_node_unlink( &server->node );
+        asrt_node_unlink( &server->node );
         asrtc_stream_server_clear( server );
 }

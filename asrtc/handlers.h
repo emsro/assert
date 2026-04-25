@@ -17,14 +17,14 @@ extern "C" {
 
 #include "./result.h"
 
-typedef enum asrtl_status ( *asrtc_init_callback )( void* ptr, enum asrtl_status s );
-typedef enum asrtl_status (
-    *asrtc_test_count_callback )( void* ptr, enum asrtl_status s, uint16_t test_count );
-typedef enum asrtl_status ( *asrtc_desc_callback )( void* ptr, enum asrtl_status s, char* desc );
-typedef enum asrtl_status (
-    *asrtc_test_info_callback )( void* ptr, enum asrtl_status s, uint16_t tid, char* desc );
-typedef enum asrtl_status (
-    *asrtc_test_result_callback )( void* ptr, enum asrtl_status s, struct asrtc_result* res );
+typedef enum asrt_status ( *asrtc_init_callback )( void* ptr, enum asrt_status s );
+typedef enum asrt_status (
+    *asrtc_test_count_callback )( void* ptr, enum asrt_status s, uint16_t test_count );
+typedef enum asrt_status ( *asrtc_desc_callback )( void* ptr, enum asrt_status s, char* desc );
+typedef enum asrt_status (
+    *asrtc_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char* desc );
+typedef enum asrt_status (
+    *asrtc_test_result_callback )( void* ptr, enum asrt_status s, struct asrtc_result* res );
 
 enum asrtc_stage_e
 {
@@ -66,7 +66,7 @@ struct asrtc_desc_handler
 struct asrtc_ti_handler
 {
         uint16_t                 tid;
-        asrtl_test_info_result   result;
+        asrt_test_info_result    result;
         char*                    desc;
         void*                    ptr;
         asrtc_test_info_callback cb;

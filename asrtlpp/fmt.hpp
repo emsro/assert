@@ -18,7 +18,7 @@
 #include <format>
 
 template <>
-struct std::formatter< enum asrtl_status, char >
+struct std::formatter< enum asrt_status, char >
 {
         template < class ParseContext >
         constexpr auto parse( ParseContext& ctx )
@@ -26,14 +26,14 @@ struct std::formatter< enum asrtl_status, char >
                 return ctx.begin();
         }
 
-        auto format( enum asrtl_status status, auto& ctx ) const
+        auto format( enum asrt_status status, auto& ctx ) const
         {
-                return std::format_to( ctx.out(), "{}", asrtl_status_to_str( status ) );
+                return std::format_to( ctx.out(), "{}", asrt_status_to_str( status ) );
         }
 };
 
 template <>
-struct std::formatter< enum asrtl_source, char >
+struct std::formatter< enum asrt_source, char >
 {
         template < class ParseContext >
         constexpr auto parse( ParseContext& ctx )
@@ -41,8 +41,8 @@ struct std::formatter< enum asrtl_source, char >
                 return ctx.begin();
         }
 
-        auto format( enum asrtl_source st, auto& ctx ) const
+        auto format( enum asrt_source st, auto& ctx ) const
         {
-                return std::format_to( ctx.out(), "{}", asrtl_source_to_str( st ) );
+                return std::format_to( ctx.out(), "{}", asrt_source_to_str( st ) );
         }
 };

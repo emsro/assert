@@ -33,134 +33,134 @@ static char const* asrtc_collect_server_state_to_str( enum asrtc_collect_server_
         return "unknown";
 }
 
-static enum asrtl_status asrtc_collect_server_send( void* p, struct asrtl_rec_span* buff )
+static enum asrt_status asrtc_collect_server_send( void* p, struct asrt_rec_span* buff )
 {
         struct asrtc_collect_server* server = (struct asrtc_collect_server*) p;
-        return asrtl_send( &server->sendr, ASRTL_COLL, buff, NULL, NULL );
+        return asrt_send( &server->sendr, ASRT_COLL, buff, NULL, NULL );
 }
 
 // ---------------------------------------------------------------------------
 // recv handlers (fast path — store data, set pending)
 // ---------------------------------------------------------------------------
 
-static enum asrtl_status asrtc_collect_server_handle_ready_ack(
+static enum asrt_status asrtc_collect_server_handle_ready_ack(
     struct asrtc_collect_server* server,
-    struct asrtl_span*           buff )
+    struct asrt_span*            buff )
 {
         (void) buff;
         if ( server->state != ASRTC_COLLECT_SERVER_READY_SENT ) {
-                ASRTL_ERR_LOG(
+                ASRT_ERR_LOG(
                     "asrtc_collect_server",
                     "ready_ack: expected state ready_sent, got %s",
                     asrtc_collect_server_state_to_str( server->state ) );
-                return ASRTL_RECV_ERR;
+                return ASRT_RECV_ERR;
         }
         server->state = ASRTC_COLLECT_SERVER_READY_ACK_RECV;
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_collect_server_handle_append(
+static enum asrt_status asrtc_collect_server_handle_append(
     struct asrtc_collect_server* server,
-    struct asrtl_span*           buff )
+    struct asrt_span*            buff )
 {
         if ( server->state != ASRTC_COLLECT_SERVER_ACTIVE ) {
-                ASRTL_ERR_LOG(
+                ASRT_ERR_LOG(
                     "asrtc_collect_server",
                     "append: expected state active, got %s",
                     asrtc_collect_server_state_to_str( server->state ) );
-                return ASRTL_RECV_ERR;
+                return ASRT_RECV_ERR;
         }
 
         uint32_t remaining = (uint32_t) ( buff->e - buff->b );
         if ( remaining < ASRTC_COLLECT_APPEND_MIN_LEN ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "append: message too short" );
-                return ASRTL_RECV_ERR;
+                ASRT_ERR_LOG( "asrtc_collect_server", "append: message too short" );
+                return ASRT_RECV_ERR;
         }
 
         asrt_flat_id parent_id;
         asrt_flat_id node_id;
-        asrtl_cut_u32( &buff->b, &parent_id );
-        asrtl_cut_u32( &buff->b, &node_id );
+        asrt_cut_u32( &buff->b, &parent_id );
+        asrt_cut_u32( &buff->b, &node_id );
 
         // Parse key\0
         uint8_t* nul = (uint8_t*) memchr( buff->b, '\0', (size_t) ( buff->e - buff->b ) );
         if ( !nul ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "append: missing key terminator" );
-                return ASRTL_RECV_ERR;
+                ASRT_ERR_LOG( "asrtc_collect_server", "append: missing key terminator" );
+                return ASRT_RECV_ERR;
         }
         char const* key = ( nul == buff->b ) ? NULL : (char const*) buff->b;
         buff->b         = nul + 1;
 
         // Parse type + value
         if ( buff->b >= buff->e ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "append: missing type byte" );
-                return ASRTL_RECV_ERR;
+                ASRT_ERR_LOG( "asrtc_collect_server", "append: missing type byte" );
+                return ASRT_RECV_ERR;
         }
 
         uint8_t raw_type = *buff->b++;
 
         struct asrt_flat_value val;
-        if ( raw_type == ASRTL_FLAT_CTYPE_OBJECT || raw_type == ASRTL_FLAT_CTYPE_ARRAY ) {
-                val = ( struct asrt_flat_value ){ .type = (asrtl_flat_value_type) raw_type };
+        if ( raw_type == ASRT_FLAT_CTYPE_OBJECT || raw_type == ASRT_FLAT_CTYPE_ARRAY ) {
+                val = ( struct asrt_flat_value ){ .type = (asrt_flat_value_type) raw_type };
         } else {
-                enum asrtl_status vst = asrtl_flat_value_decode( buff, raw_type, &val );
-                if ( vst != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtc_collect_server", "append: decode failure" );
-                        return ASRTL_RECV_ERR;
+                enum asrt_status vst = asrt_flat_value_decode( buff, raw_type, &val );
+                if ( vst != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG( "asrtc_collect_server", "append: decode failure" );
+                        return ASRT_RECV_ERR;
                 }
         }
 
         // Append to tree
-        enum asrtl_status st;
-        if ( raw_type == ASRTL_FLAT_CTYPE_OBJECT || raw_type == ASRTL_FLAT_CTYPE_ARRAY ) {
-                st = asrtl_flat_tree_append_cont(
-                    &server->tree, parent_id, node_id, key, (asrtl_flat_value_type) raw_type );
+        enum asrt_status st;
+        if ( raw_type == ASRT_FLAT_CTYPE_OBJECT || raw_type == ASRT_FLAT_CTYPE_ARRAY ) {
+                st = asrt_flat_tree_append_cont(
+                    &server->tree, parent_id, node_id, key, (asrt_flat_value_type) raw_type );
         } else {
-                st = asrtl_flat_tree_append_scalar(
+                st = asrt_flat_tree_append_scalar(
                     &server->tree, parent_id, node_id, key, val.type, val.data.s );
         }
-        if ( st != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG(
+        if ( st != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG(
                     "asrtc_collect_server", "append: tree append failed for node %u", node_id );
                 server->state = ASRTC_COLLECT_SERVER_IDLE;
-                return asrtl_msg_ctor_collect_error(
-                    ASRTL_COLLECT_ERR_NONE, asrtc_collect_server_send, server );
+                return asrt_msg_ctor_collect_error(
+                    ASRT_COLLECT_ERR_NONE, asrtc_collect_server_send, server );
         }
 
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_collect_server_recv( void* data, struct asrtl_span buff )
+static enum asrt_status asrtc_collect_server_recv( void* data, struct asrt_span buff )
 {
         struct asrtc_collect_server* server = (struct asrtc_collect_server*) data;
 
-        if ( asrtl_span_unfit_for( &buff, 1 ) )
-                return ASRTL_SUCCESS;
-        asrtl_collect_message_id id = (asrtl_collect_message_id) *buff.b++;
+        if ( asrt_span_unfit_for( &buff, 1 ) )
+                return ASRT_SUCCESS;
+        asrt_collect_message_id id = (asrt_collect_message_id) *buff.b++;
 
         switch ( id ) {
-        case ASRTL_COLLECT_MSG_READY_ACK:
+        case ASRT_COLLECT_MSG_READY_ACK:
                 return asrtc_collect_server_handle_ready_ack( server, &buff );
-        case ASRTL_COLLECT_MSG_APPEND:
+        case ASRT_COLLECT_MSG_APPEND:
                 return asrtc_collect_server_handle_append( server, &buff );
         default:
-                ASRTL_ERR_LOG( "asrtc_collect_server", "unknown message id: %u", id );
-                return ASRTL_RECV_UNEXPECTED_ERR;
+                ASRT_ERR_LOG( "asrtc_collect_server", "unknown message id: %u", id );
+                return ASRT_RECV_UNEXPECTED_ERR;
         }
 }
 
-static enum asrtl_status asrtc_collect_server_tick_ready_ack( struct asrtc_collect_server* server )
+static enum asrt_status asrtc_collect_server_tick_ready_ack( struct asrtc_collect_server* server )
 {
-        enum asrtl_status dst = asrtl_flat_tree_deinit( &server->tree );
-        if ( dst != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "ready_ack: tree deinit failed" );
+        enum asrt_status dst = asrt_flat_tree_deinit( &server->tree );
+        if ( dst != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtc_collect_server", "ready_ack: tree deinit failed" );
                 return dst;
         }
 
-        enum asrtl_status st = asrtl_flat_tree_init(
+        enum asrt_status st = asrt_flat_tree_init(
             &server->tree, server->alloc, server->tree_block_cap, server->tree_node_cap );
-        if ( st != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "ready_ack: tree re-init failed" );
+        if ( st != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtc_collect_server", "ready_ack: tree re-init failed" );
                 return st;
         }
 
@@ -168,19 +168,19 @@ static enum asrtl_status asrtc_collect_server_tick_ready_ack( struct asrtc_colle
         if ( server->cmd.ack_cb ) {
                 asrtc_collect_ready_ack_cb cb = server->cmd.ack_cb;
                 void*                      p  = server->cmd.ack_cb_ptr;
-                cb( p, ASRTL_SUCCESS );
+                cb( p, ASRT_SUCCESS );
         }
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_collect_server_tick(
+static enum asrt_status asrtc_collect_server_tick(
     struct asrtc_collect_server* server,
     uint32_t                     now )
 {
         switch ( server->state ) {
         case ASRTC_COLLECT_SERVER_IDLE:
         case ASRTC_COLLECT_SERVER_ACTIVE:
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
 
         case ASRTC_COLLECT_SERVER_READY_SENT:
                 if ( server->cmd.deadline == 0 )
@@ -190,43 +190,43 @@ static enum asrtl_status asrtc_collect_server_tick(
                         void*                      p  = server->cmd.ack_cb_ptr;
                         server->state                 = ASRTC_COLLECT_SERVER_IDLE;
                         if ( cb )
-                                cb( p, ASRTL_TIMEOUT_ERR );
+                                cb( p, ASRT_TIMEOUT_ERR );
                 }
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
 
         case ASRTC_COLLECT_SERVER_READY_ACK_RECV:
                 return asrtc_collect_server_tick_ready_ack( server );
         }
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtc_collect_server_event( void* p, enum asrtl_event_e e, void* arg )
+static enum asrt_status asrtc_collect_server_event( void* p, enum asrt_event_e e, void* arg )
 {
         struct asrtc_collect_server* server = (struct asrtc_collect_server*) p;
         switch ( e ) {
-        case ASRTL_EVENT_TICK:
+        case ASRT_EVENT_TICK:
                 return asrtc_collect_server_tick( server, *(uint32_t*) arg );
-        case ASRTL_EVENT_RECV:
-                return asrtc_collect_server_recv( server, *(struct asrtl_span*) arg );
+        case ASRT_EVENT_RECV:
+                return asrtc_collect_server_recv( server, *(struct asrt_span*) arg );
         }
-        ASRTL_ERR_LOG( "asrtc_collect", "unexpected event: %s", asrtl_event_to_str( e ) );
-        return ASRTL_INVALID_EVENT_ERR;
+        ASRT_ERR_LOG( "asrtc_collect", "unexpected event: %s", asrt_event_to_str( e ) );
+        return ASRT_INVALID_EVENT_ERR;
 }
 
-enum asrtl_status asrtc_collect_server_init(
+enum asrt_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
-    struct asrtl_node*           prev,
-    struct asrtl_sender          sender,
-    struct asrtl_allocator       alloc,
+    struct asrt_node*            prev,
+    struct asrt_sender           sender,
+    struct asrt_allocator        alloc,
     uint32_t                     tree_block_cap,
     uint32_t                     tree_node_cap )
 {
         if ( !server || !prev )
-                return ASRTL_INIT_ERR;
+                return ASRT_INIT_ERR;
         *server = ( struct asrtc_collect_server ){
             .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_COLL,
+                ( struct asrt_node ){
+                    .chid     = ASRT_COLL,
                     .e_cb_ptr = server,
                     .e_cb     = asrtc_collect_server_event,
                     .next     = NULL,
@@ -241,16 +241,16 @@ enum asrtl_status asrtc_collect_server_init(
             .cmd            = { 0 },
         };
 
-        enum asrtl_status st =
-            asrtl_flat_tree_init( &server->tree, alloc, tree_block_cap, tree_node_cap );
-        if ( st != ASRTL_SUCCESS )
-                return ASRTL_INIT_ERR;
+        enum asrt_status st =
+            asrt_flat_tree_init( &server->tree, alloc, tree_block_cap, tree_node_cap );
+        if ( st != ASRT_SUCCESS )
+                return ASRT_INIT_ERR;
 
-        asrtl_node_link( prev, &server->node );
-        return ASRTL_SUCCESS;
+        asrt_node_link( prev, &server->node );
+        return ASRT_SUCCESS;
 }
 
-enum asrtl_status asrtc_collect_server_send_ready(
+enum asrt_status asrtc_collect_server_send_ready(
     struct asrtc_collect_server* server,
     asrt_flat_id                 root_id,
     uint32_t                     timeout,
@@ -258,16 +258,16 @@ enum asrtl_status asrtc_collect_server_send_ready(
     void*                        ack_cb_ptr )
 {
         if ( !server ) {
-                ASRTL_ERR_LOG( "asrtc_collect_server", "send_ready: server is NULL" );
-                return ASRTL_ARG_ERR;
+                ASRT_ERR_LOG( "asrtc_collect_server", "send_ready: server is NULL" );
+                return ASRT_ARG_ERR;
         }
         if ( server->state != ASRTC_COLLECT_SERVER_IDLE &&
              server->state != ASRTC_COLLECT_SERVER_ACTIVE ) {
-                ASRTL_ERR_LOG(
+                ASRT_ERR_LOG(
                     "asrtc_collect_server",
                     "send_ready: expected state idle or active, got %s",
                     asrtc_collect_server_state_to_str( server->state ) );
-                return ASRTL_ARG_ERR;
+                return ASRT_ARG_ERR;
         }
 
         server->state          = ASRTC_COLLECT_SERVER_READY_SENT;
@@ -276,11 +276,11 @@ enum asrtl_status asrtc_collect_server_send_ready(
         server->cmd.ack_cb_ptr = ack_cb_ptr;
         server->cmd.timeout    = timeout;
         server->cmd.deadline   = 0;
-        return asrtl_msg_ctor_collect_ready(
+        return asrt_msg_ctor_collect_ready(
             root_id, server->next_node_id, asrtc_collect_server_send, server );
 }
 
-struct asrtl_flat_tree const* asrtc_collect_server_tree( struct asrtc_collect_server const* server )
+struct asrt_flat_tree const* asrtc_collect_server_tree( struct asrtc_collect_server const* server )
 {
         return &server->tree;
 }
@@ -289,6 +289,6 @@ void asrtc_collect_server_deinit( struct asrtc_collect_server* server )
 {
         if ( !server )
                 return;
-        asrtl_node_unlink( &server->node );
-        asrtl_flat_tree_deinit( &server->tree );
+        asrt_node_unlink( &server->node );
+        asrt_flat_tree_deinit( &server->tree );
 }

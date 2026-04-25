@@ -24,7 +24,7 @@
 struct collected_data
 {
         std::vector< uint8_t > data;
-        asrtl_chann_id         id;
+        asrt_chann_id          id;
 };
 
 struct collector
@@ -47,17 +47,17 @@ static void assert_data_ll_contain_str(
 }
 
 
-static enum asrtl_status sender_collect(
-    void*                  data,
-    asrtl_chann_id         id,
-    struct asrtl_rec_span* buff,
-    asrtl_send_done_cb     done_cb,
-    void*                  done_ptr )
+static enum asrt_status sender_collect(
+    void*                 data,
+    asrt_chann_id         id,
+    struct asrt_rec_span* buff,
+    asrt_send_done_cb     done_cb,
+    void*                 done_ptr )
 {
         assert( data );
         collector* c     = (collector*) data;
         uint32_t   total = 0;
-        for ( struct asrtl_rec_span* seg = buff; seg; seg = seg->next )
+        for ( struct asrt_rec_span* seg = buff; seg; seg = seg->next )
                 total += (uint32_t) ( seg->e - seg->b );
 
         struct collected_data p
@@ -66,20 +66,20 @@ static enum asrtl_status sender_collect(
         };
         p.data.resize( total );
         uint8_t* dst = p.data.data();
-        struct asrtl_span sp
+        struct asrt_span sp
         {
                 .b = dst, .e = dst + total
         };
-        asrtl_rec_span_to_span( &sp, buff );
+        asrt_rec_span_to_span( &sp, buff );
         c->data.push_back( p );
         if ( done_cb )
-                done_cb( done_ptr, ASRTL_SUCCESS );
-        return ASRTL_SUCCESS;
+                done_cb( done_ptr, ASRT_SUCCESS );
+        return ASRT_SUCCESS;
 }
 
-static void setup_sender_collector( struct asrtl_sender* s, collector* ptr )
+static void setup_sender_collector( struct asrt_sender* s, collector* ptr )
 {
-        *s = ( struct asrtl_sender ){
+        *s = ( struct asrt_sender ){
             .ptr = (void*) ptr,
             .cb  = &sender_collect,
         };
@@ -87,21 +87,19 @@ static void setup_sender_collector( struct asrtl_sender* s, collector* ptr )
 
 
 void assert_collected_core_hdr(
-    struct collected_data&  collected,
-    uint32_t                size,
-    enum asrtl_message_id_e mid )
+    struct collected_data& collected,
+    uint32_t               size,
+    enum asrt_message_id_e mid )
 {
         REQUIRE_NE( &collected, nullptr );
-        CHECK_EQ( ASRTL_CORE, collected.id );
+        CHECK_EQ( ASRT_CORE, collected.id );
         assert_u16( mid, collected.data.data() );
         CHECK_EQ( size, collected.data.size() );
 }
 
-void assert_collected_diag_hdr(
-    struct collected_data&       collected,
-    enum asrtl_diag_message_id_e type )
+void assert_collected_diag_hdr( struct collected_data& collected, enum asrt_diag_message_id_e type )
 {
         REQUIRE_NE( &collected, nullptr );
-        CHECK_EQ( ASRTL_DIAG, collected.id );
+        CHECK_EQ( ASRT_DIAG, collected.id );
         CHECK_EQ( type, collected.data[0] );
 }

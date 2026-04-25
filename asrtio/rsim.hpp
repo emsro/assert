@@ -49,8 +49,8 @@ struct conn_ctx
           : rng( seed )
         {
                 if ( asrtr_assembly_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
-                     ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtio", "Failed to initialize assembly" );
+                     ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
                 }
 
@@ -97,10 +97,10 @@ struct conn_ctx
         }
 
         asrt::status operator()(
-            asrt::chann_id     id,
-            asrt::rec_span*    buff,
-            asrtl_send_done_cb done_cb,
-            void*              done_ptr )
+            asrt::chann_id    id,
+            asrt::rec_span*   buff,
+            asrt_send_done_cb done_cb,
+            void*             done_ptr )
         {
                 auto st = rx.write( (uv_stream_t*) &client, id, *buff );
                 if ( done_cb )
@@ -126,9 +126,9 @@ struct conn_ctx
                     "asrtio_rsim",
                     [&]( ssize_t nread ) {
                             if ( nread == UV_EOF ) {
-                                    ASRTL_DBG_LOG( "test_rsim", "Connection closed by remote" );
+                                    ASRT_DBG_LOG( "test_rsim", "Connection closed by remote" );
                             } else {
-                                    ASRTL_ERR_LOG(
+                                    ASRT_ERR_LOG(
                                         "test_rsim",
                                         "Read error: %s",
                                         uv_strerror( static_cast< int >( nread ) ) );
@@ -141,7 +141,7 @@ struct conn_ctx
         {
                 if ( !disconnected ) {
                         disconnected = true;
-                        ASRTL_INF_LOG( "asrtio", "Closing rsim reactor connection" );
+                        ASRT_INF_LOG( "asrtio", "Closing rsim reactor connection" );
                         uv_close( (uv_handle_t*) &client, nullptr );
                 }
         }
@@ -152,7 +152,7 @@ inline task< void > async_close( task_ctx&, conn_ctx& ctx )
         if ( ctx.disconnected )
                 co_return;
         ctx.disconnected = true;
-        ASRTL_INF_LOG( "asrtio", "Asynchronously closing rsim reactor connection" );
+        ASRT_INF_LOG( "asrtio", "Asynchronously closing rsim reactor connection" );
         co_await uv_close_handle{ (uv_handle_t*) &ctx.client };
 }
 
@@ -177,8 +177,7 @@ struct rsim_ctx
                 int                     namelen = sizeof( bound_addr );
                 int r = uv_tcp_getsockname( &server, (struct sockaddr*) &bound_addr, &namelen );
                 if ( r != 0 ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio", "Failed to get socket name: %s", uv_strerror( r ) );
+                        ASRT_ERR_LOG( "asrtio", "Failed to get socket name: %s", uv_strerror( r ) );
                         return 0;
                 }
                 return ntohs( ( (struct sockaddr_in*) &bound_addr )->sin_port );
@@ -200,16 +199,15 @@ struct rsim_ctx
 
                 int r = uv_tcp_init( loop, &server );
                 if ( r != 0 ) {
-                        ASRTL_ERR_LOG(
+                        ASRT_ERR_LOG(
                             "asrtio", "Failed to initialize server: %s", uv_strerror( r ) );
-                        return ASRTL_INIT_ERR;
+                        return ASRT_INIT_ERR;
                 }
 
                 r = uv_tcp_bind( &server, (const struct sockaddr*) &addr, 0 );
                 if ( r != 0 ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio", "Failed to bind to address: %s", uv_strerror( r ) );
-                        return ASRTL_INIT_ERR;
+                        ASRT_ERR_LOG( "asrtio", "Failed to bind to address: %s", uv_strerror( r ) );
+                        return ASRT_INIT_ERR;
                 }
                 server.data = this;
                 uv_idle_init( server.loop, &idle );
@@ -219,7 +217,7 @@ struct rsim_ctx
                 } );
                 r = uv_listen( (uv_stream_t*) &server, 128, []( uv_stream_t* server, int status ) {
                         if ( status < 0 ) {
-                                ASRTL_ERR_LOG(
+                                ASRT_ERR_LOG(
                                     "test_rsim", "Listen error: %s", uv_strerror( status ) );
                                 return;
                         }
@@ -227,17 +225,17 @@ struct rsim_ctx
                         auto& ctx  = self.conns.emplace_back( self.seed );
                         uv_tcp_init( server->loop, &ctx.client );
                         if ( uv_accept( server, (uv_stream_t*) &ctx.client ) == 0 ) {
-                                ASRTL_INF_LOG( "test_rsim", "Accepted connection" );
+                                ASRT_INF_LOG( "test_rsim", "Accepted connection" );
                                 ctx.start();
                         } else {
                                 ctx.disconnect();
                         }
                 } );
                 if ( r != 0 ) {
-                        ASRTL_ERR_LOG( "test_rsim", "uv_listen failed: %s", uv_strerror( r ) );
-                        return ASRTL_INIT_ERR;
+                        ASRT_ERR_LOG( "test_rsim", "uv_listen failed: %s", uv_strerror( r ) );
+                        return ASRT_INIT_ERR;
                 }
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
         }
 
         void close()

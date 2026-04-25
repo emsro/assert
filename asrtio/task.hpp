@@ -63,14 +63,14 @@ struct _complete_arena_sender
 
                         void set_value()
                         {
-                                ASRTL_INF_LOG(
+                                ASRT_INF_LOG(
                                     "asrtio_task", "Task completed, starting arena cleanup" );
                                 o.advance();
                         }
 
                         void set_error( auto ) noexcept
                         {
-                                ASRTL_INF_LOG(
+                                ASRT_INF_LOG(
                                     "asrtio_task",
                                     "Task completed with error, starting arena cleanup" );
                                 o.advance();
@@ -78,7 +78,7 @@ struct _complete_arena_sender
 
                         void set_stopped() noexcept
                         {
-                                ASRTL_INF_LOG(
+                                ASRT_INF_LOG(
                                     "asrtio_task", "Task stopped, starting arena cleanup" );
                                 o.advance();
                         }

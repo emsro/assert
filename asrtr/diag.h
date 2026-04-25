@@ -23,14 +23,14 @@ extern "C" {
 
 struct asrtr_diag_client
 {
-        struct asrtl_node   node;
-        struct asrtl_sender sendr;
+        struct asrt_node   node;
+        struct asrt_sender sendr;
 };
 
-enum asrtl_status asrtr_diag_client_init(
+enum asrt_status asrtr_diag_client_init(
     struct asrtr_diag_client* diag,
-    struct asrtl_node*        prev,
-    struct asrtl_sender       sender );
+    struct asrt_node*         prev,
+    struct asrt_sender        sender );
 
 void asrtr_diag_client_record(
     struct asrtr_diag_client* diag,
@@ -64,7 +64,7 @@ void asrtr_diag_client_deinit( struct asrtr_diag_client* diag );
                 if ( !( x ) ) {                                                             \
                         asrtr_fail( ( rec ) );                                              \
                         asrtr_diag_client_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
-                        return ASRTL_SUCCESS;                                               \
+                        return ASRT_SUCCESS;                                                \
                 }                                                                           \
         } while ( 0 )
 

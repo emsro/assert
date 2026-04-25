@@ -41,9 +41,9 @@ static inline void stub_free_fn( void* ptr, void* mem )
         std::free( mem );
 }
 
-static inline asrtl_allocator asrtl_stub_allocator( stub_allocator_ctx* ctx )
+static inline asrt_allocator asrt_stub_allocator( stub_allocator_ctx* ctx )
 {
-        return asrtl_allocator{
+        return asrt_allocator{
             .ptr   = ctx,
             .alloc = &stub_alloc_fn,
             .free  = &stub_free_fn,

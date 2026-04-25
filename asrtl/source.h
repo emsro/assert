@@ -9,17 +9,17 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_SOURCE_H
-#define ASRTL_SOURCE_H
+#ifndef ASRT_SOURCE_H
+#define ASRT_SOURCE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum asrtl_source
+enum asrt_source
 {
-        ASRTL_CONTROLLER,
-        ASRTL_REACTOR,
+        ASRT_CONTROLLER,
+        ASRT_REACTOR,
 };
 
 #ifdef __cplusplus

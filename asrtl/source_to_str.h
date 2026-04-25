@@ -9,8 +9,8 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTL_SOURCE_TO_STR_H
-#define ASRTL_SOURCE_TO_STR_H
+#ifndef ASRT_SOURCE_TO_STR_H
+#define ASRT_SOURCE_TO_STR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,12 +18,12 @@ extern "C" {
 
 #include "./source.h"
 
-inline static char const* asrtl_source_to_str( enum asrtl_source st )
+inline static char const* asrt_source_to_str( enum asrt_source st )
 {
         switch ( st ) {
-        case ASRTL_REACTOR:
+        case ASRT_REACTOR:
                 return "react";
-        case ASRTL_CONTROLLER:
+        case ASRT_CONTROLLER:
                 return "contr";
         }
         return "unknown";

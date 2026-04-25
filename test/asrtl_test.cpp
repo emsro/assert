@@ -24,14 +24,14 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-ASRTL_DEFINE_GPOS_LOG()
+ASRT_DEFINE_GPOS_LOG()
 
 TEST_CASE( "reactor_init" )
 {
-        uint8_t        data[3] = { 0x33, 0x66, 0x99 };
-        uint8_t*       p       = data;
-        asrtl_chann_id id;
-        asrtl_cut_u16( &p, &id );
+        uint8_t       data[3] = { 0x33, 0x66, 0x99 };
+        uint8_t*      p       = data;
+        asrt_chann_id id;
+        asrt_cut_u16( &p, &id );
         CHECK_EQ( id, 0x3366 );
         CHECK_EQ( p, &data[2] );
 }
@@ -40,7 +40,7 @@ TEST_CASE( "add_chann_id" )
 {
         uint8_t  data[3] = { 0x33, 0x66, 0x99 };
         uint8_t* p       = data;
-        asrtl_add_u16( &p, 0x1122 );
+        asrt_add_u16( &p, 0x1122 );
         CHECK_EQ( data[0], 0x11 );
         CHECK_EQ( data[1], 0x22 );
         CHECK_EQ( p, &data[2] );
@@ -51,8 +51,8 @@ TEST_CASE( "fill_buffer" )
         uint8_t data1[2] = { 0x01, 0x01 };
         uint8_t data2[4] = { 0x02, 0x02, 0x02, 0x02 };
 
-        struct asrtl_span sp = { .b = data2, .e = data2 + sizeof data2 };
-        asrtl_fill_buffer( data1, sizeof data1, &sp );
+        struct asrt_span sp = { .b = data2, .e = data2 + sizeof data2 };
+        asrt_fill_buffer( data1, sizeof data1, &sp );
 
         CHECK_EQ( &data2[2], sp.b );
         CHECK_EQ( 0x01, data2[0] );
@@ -61,8 +61,8 @@ TEST_CASE( "fill_buffer" )
         CHECK_EQ( 0x02, data2[3] );
 
         uint8_t data3[4] = { 0x03, 0x03, 0x03, 0x03 };
-        sp               = ( struct asrtl_span ){ .b = data1, .e = data1 + sizeof data1 };
-        asrtl_fill_buffer( data3, sizeof data3, &sp );
+        sp               = ( struct asrt_span ){ .b = data1, .e = data1 + sizeof data1 };
+        asrt_fill_buffer( data3, sizeof data3, &sp );
 
         CHECK_EQ( &data1[2], sp.b );
         CHECK_EQ( 0x03, data1[0] );
@@ -71,12 +71,12 @@ TEST_CASE( "fill_buffer" )
 
 TEST_CASE( "fill_buffer_zero_source" )
 {
-        uint8_t           dest[4]       = { 0xAA, 0xBB, 0xCC, 0xDD };
-        struct asrtl_span sp            = { .b = dest, .e = dest + sizeof dest };
-        uint8_t*          dest_b_before = sp.b;
-        uint8_t*          dest_e_before = sp.e;
+        uint8_t          dest[4]       = { 0xAA, 0xBB, 0xCC, 0xDD };
+        struct asrt_span sp            = { .b = dest, .e = dest + sizeof dest };
+        uint8_t*         dest_b_before = sp.b;
+        uint8_t*         dest_e_before = sp.e;
 
-        asrtl_fill_buffer( NULL, 0, &sp );
+        asrt_fill_buffer( NULL, 0, &sp );
 
         CHECK_EQ( dest_b_before, sp.b );
         CHECK_EQ( dest_e_before, sp.e );
@@ -88,13 +88,13 @@ TEST_CASE( "fill_buffer_zero_source" )
 
 TEST_CASE( "fill_buffer_zero_capacity_dest" )
 {
-        uint8_t           source[4] = { 0x11, 0x22, 0x33, 0x44 };
-        uint8_t           dest[0];
-        struct asrtl_span sp            = { .b = dest, .e = dest };
-        uint8_t*          dest_b_before = sp.b;
-        uint8_t*          dest_e_before = sp.e;
+        uint8_t          source[4] = { 0x11, 0x22, 0x33, 0x44 };
+        uint8_t          dest[0];
+        struct asrt_span sp            = { .b = dest, .e = dest };
+        uint8_t*         dest_b_before = sp.b;
+        uint8_t*         dest_e_before = sp.e;
 
-        asrtl_fill_buffer( source, sizeof source, &sp );
+        asrt_fill_buffer( source, sizeof source, &sp );
 
         CHECK_EQ( dest_b_before, sp.b );
         CHECK_EQ( dest_e_before, sp.e );
@@ -102,12 +102,12 @@ TEST_CASE( "fill_buffer_zero_capacity_dest" )
 
 TEST_CASE( "fill_buffer_both_zero" )
 {
-        uint8_t           dest[0];
-        struct asrtl_span sp            = { .b = dest, .e = dest };
-        uint8_t*          dest_b_before = sp.b;
-        uint8_t*          dest_e_before = sp.e;
+        uint8_t          dest[0];
+        struct asrt_span sp            = { .b = dest, .e = dest };
+        uint8_t*         dest_b_before = sp.b;
+        uint8_t*         dest_e_before = sp.e;
 
-        asrtl_fill_buffer( NULL, 0, &sp );
+        asrt_fill_buffer( NULL, 0, &sp );
 
         CHECK_EQ( dest_b_before, sp.b );
         CHECK_EQ( dest_e_before, sp.e );
@@ -115,11 +115,11 @@ TEST_CASE( "fill_buffer_both_zero" )
 
 TEST_CASE( "fill_buffer_exact_fit" )
 {
-        uint8_t           source[3] = { 0xDE, 0xAD, 0xBE };
-        uint8_t           dest[3]   = { 0x00, 0x00, 0x00 };
-        struct asrtl_span sp        = { .b = dest, .e = dest + sizeof dest };
+        uint8_t          source[3] = { 0xDE, 0xAD, 0xBE };
+        uint8_t          dest[3]   = { 0x00, 0x00, 0x00 };
+        struct asrt_span sp        = { .b = dest, .e = dest + sizeof dest };
 
-        asrtl_fill_buffer( source, sizeof source, &sp );
+        asrt_fill_buffer( source, sizeof source, &sp );
 
         CHECK_EQ( dest + 3, sp.b );
         CHECK_EQ( 0xDE, dest[0] );
@@ -228,24 +228,24 @@ TEST_CASE( "cobs" )
         std::unique_ptr< cobs_record > head = create_dataset();
 
         for ( auto* node = head.get(); node; node = node->next.get() ) {
-                uint8_t                   buffer[512];
-                struct asrtl_cobs_encoder enc;
-                asrtl_cobs_encoder_init( &enc, buffer );
+                uint8_t                  buffer[512];
+                struct asrt_cobs_encoder enc;
+                asrt_cobs_encoder_init( &enc, buffer );
                 for ( uint32_t i = 0; i < node->raw_size; i++ )
-                        asrtl_cobs_encoder_iter( &enc, node->raw[i] );
+                        asrt_cobs_encoder_iter( &enc, node->raw[i] );
                 *enc.p++ = 0x00;
                 CHECK_EQ( node->encoded_size, enc.p - buffer );
                 CHECK( memcmp( node->encoded, buffer, node->encoded_size ) == 0 );
         }
 
         for ( auto* node = head.get(); node; node = node->next.get() ) {
-                struct asrtl_cobs_decoder dec;
-                uint8_t                   buffer[512];
-                asrtl_cobs_decoder_init( &dec );
+                struct asrt_cobs_decoder dec;
+                uint8_t                  buffer[512];
+                asrt_cobs_decoder_init( &dec );
                 uint8_t* p = buffer;
                 uint8_t* e = buffer + sizeof buffer;
                 for ( uint32_t i = 0; i < node->encoded_size - 1; ++i ) {
-                        asrtl_cobs_decoder_iter( &dec, node->encoded[i], &p );
+                        asrt_cobs_decoder_iter( &dec, node->encoded[i], &p );
                         if ( p == e )
                                 FAIL_CHECK( "" );
                 }
@@ -260,22 +260,22 @@ static size_t cobs_encode_payload(
     uint8_t*       out,
     size_t         out_cap )
 {
-        struct asrtl_cobs_encoder enc;
-        asrtl_cobs_encoder_init( &enc, out );
+        struct asrt_cobs_encoder enc;
+        asrt_cobs_encoder_init( &enc, out );
         for ( size_t i = 0; i < raw_size; ++i )
-                asrtl_cobs_encoder_iter( &enc, raw[i] );
+                asrt_cobs_encoder_iter( &enc, raw[i] );
         *enc.p++ = 0x00;
         CHECK( (size_t) ( enc.p - out ) <= out_cap );
         return (size_t) ( enc.p - out );
 }
 
 static void cobs_ibuffer_prime(
-    struct asrtl_cobs_ibuffer* ib,
-    uint8_t*                   storage,
-    size_t                     storage_size )
+    struct asrt_cobs_ibuffer* ib,
+    uint8_t*                  storage,
+    size_t                    storage_size )
 {
-        struct asrtl_span sp = { .b = storage, .e = storage + storage_size };
-        asrtl_cobs_ibuffer_init( ib, sp );
+        struct asrt_span sp = { .b = storage, .e = storage + storage_size };
+        asrt_cobs_ibuffer_init( ib, sp );
         ib->used.b = storage;
         ib->used.e = storage + 1;
         storage[0] = 0xAA;
@@ -283,19 +283,19 @@ static void cobs_ibuffer_prime(
 
 TEST_CASE( "cobs_ibuffer_iter_no_message" )
 {
-        uint8_t                   storage[16] = { 0x03, 0x11, 0x22 };
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[16] = { 0x03, 0x11, 0x22 };
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
         ib.used.b = storage;
         ib.used.e = storage + 3;
 
-        uint8_t           out[8]       = { 0xFF, 0xFF, 0xFF, 0xFF };
-        struct asrtl_span out_sp       = { .b = out, .e = out + sizeof out };
-        uint8_t*          out_b_before = out_sp.b;
-        uint8_t*          out_e_before = out_sp.e;
+        uint8_t          out[8]       = { 0xFF, 0xFF, 0xFF, 0xFF };
+        struct asrt_span out_sp       = { .b = out, .e = out + sizeof out };
+        uint8_t*         out_b_before = out_sp.b;
+        uint8_t*         out_e_before = out_sp.e;
 
-        CHECK_EQ( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 0, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( out_b_before, out_sp.b );
         CHECK_EQ( out_e_before, out_sp.e );
 }
@@ -306,16 +306,16 @@ TEST_CASE( "cobs_ibuffer_iter_single_message" )
         uint8_t encoded[32];
         size_t  enc_len = cobs_encode_payload( raw, sizeof raw, encoded, sizeof encoded );
 
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = encoded, .e = encoded + enc_len };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = encoded, .e = encoded + enc_len };
+        asrt_cobs_ibuffer_init( &ib, sp );
         ib.used.b = encoded;
         ib.used.e = encoded + enc_len;
 
-        uint8_t           out[16];
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        uint8_t          out[16];
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
         CHECK( memcmp( raw, out, sizeof raw ) == 0 );
         CHECK_EQ( encoded + ( enc_len - 1 ), ib.used.b );
@@ -323,17 +323,17 @@ TEST_CASE( "cobs_ibuffer_iter_single_message" )
 
 TEST_CASE( "cobs_ibuffer_iter_zero_length_message" )
 {
-        uint8_t                   storage[4] = { 0x00 };
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + 1 };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[4] = { 0x00 };
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + 1 };
+        asrt_cobs_ibuffer_init( &ib, sp );
         ib.used.b = storage;
         ib.used.e = storage + 1;
 
-        uint8_t           out[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        uint8_t          out[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( 0, (int) ( out_sp.e - out_sp.b ) );
         CHECK_EQ( storage + 1, ib.used.b );
 }
@@ -344,32 +344,32 @@ TEST_CASE( "cobs_ibuffer_iter_buffer_too_small" )
         uint8_t encoded[32];
         size_t  enc_len = cobs_encode_payload( raw, sizeof raw, encoded, sizeof encoded );
 
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = encoded, .e = encoded + enc_len };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = encoded, .e = encoded + enc_len };
+        asrt_cobs_ibuffer_init( &ib, sp );
         ib.used.b = encoded;
         ib.used.e = encoded + enc_len;
 
-        uint8_t           out[2];
-        struct asrtl_span out_sp       = { .b = out, .e = out + sizeof out };
-        uint8_t*          out_b_before = out_sp.b;
-        uint8_t*          out_e_before = out_sp.e;
+        uint8_t          out[2];
+        struct asrt_span out_sp       = { .b = out, .e = out + sizeof out };
+        uint8_t*         out_b_before = out_sp.b;
+        uint8_t*         out_e_before = out_sp.e;
 
-        CHECK_EQ( -1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( -1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( out_b_before, out_sp.b );
         CHECK_EQ( out_e_before, out_sp.e );
 }
 
 TEST_CASE( "cobs_ibuffer_insert_fits_capacity" )
 {
-        uint8_t                   storage[16] = { 0 };
-        struct asrtl_cobs_ibuffer ib;
+        uint8_t                  storage[16] = { 0 };
+        struct asrt_cobs_ibuffer ib;
         cobs_ibuffer_prime( &ib, storage, sizeof storage );
 
-        uint8_t           payload[] = { 0x10, 0x20, 0x30 };
-        struct asrtl_span sp        = { .b = payload, .e = payload + sizeof payload };
+        uint8_t          payload[] = { 0x10, 0x20, 0x30 };
+        struct asrt_span sp        = { .b = payload, .e = payload + sizeof payload };
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_ibuffer_insert( &ib, sp ) );
         CHECK_EQ( storage + 1 + sizeof payload, ib.used.e );
         CHECK_EQ( 0x10, storage[1] );
         CHECK_EQ( 0x20, storage[2] );
@@ -378,10 +378,10 @@ TEST_CASE( "cobs_ibuffer_insert_fits_capacity" )
 
 TEST_CASE( "cobs_ibuffer_insert_shift_then_fit" )
 {
-        uint8_t                   storage[8] = { 0 };
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[8] = { 0 };
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         ib.used.b  = storage + 3;
         ib.used.e  = storage + 6;
@@ -389,10 +389,10 @@ TEST_CASE( "cobs_ibuffer_insert_shift_then_fit" )
         storage[4] = 0xBB;
         storage[5] = 0xCC;
 
-        uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04 };
-        struct asrtl_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
+        uint8_t          payload[] = { 0x01, 0x02, 0x03, 0x04 };
+        struct asrt_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_ibuffer_insert( &ib, ins_sp ) );
         CHECK_EQ( storage, ib.used.b );
         CHECK_EQ( storage + 7, ib.used.e );
         CHECK_EQ( 0xAA, storage[0] );
@@ -407,10 +407,10 @@ TEST_CASE( "cobs_ibuffer_insert_shift_then_fit" )
 TEST_CASE( "cobs_ibuffer_insert_shift_no_fit" )
 {
         // After shifting, still not enough room — must return SIZE_ERR, not recurse infinitely
-        uint8_t                   storage[6] = { 0 };
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[6] = { 0 };
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // used starts mid-buffer so shift is possible, but even after shift the 5-byte
         // payload won't fit in a 6-byte buffer that already holds 4 bytes
@@ -421,15 +421,15 @@ TEST_CASE( "cobs_ibuffer_insert_shift_no_fit" )
         storage[4] = 0xCC;
         storage[5] = 0xDD;
 
-        uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
-        struct asrtl_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
-        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, ins_sp ) );
+        uint8_t          payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+        struct asrt_span ins_sp    = { .b = payload, .e = payload + sizeof payload };
+        CHECK_EQ( ASRT_SIZE_ERR, asrt_cobs_ibuffer_insert( &ib, ins_sp ) );
 }
 
 TEST_CASE( "cobs_ibuffer_insert_size_err" )
 {
-        uint8_t                   storage[8] = { 0 };
-        struct asrtl_cobs_ibuffer ib;
+        uint8_t                  storage[8] = { 0 };
+        struct asrt_cobs_ibuffer ib;
         cobs_ibuffer_prime( &ib, storage, sizeof storage );
 
         ib.used.b  = storage;
@@ -440,10 +440,10 @@ TEST_CASE( "cobs_ibuffer_insert_size_err" )
         storage[3] = 0xDD;
         storage[4] = 0xEE;
 
-        uint8_t           payload[] = { 0x01, 0x02, 0x03, 0x04 };
-        struct asrtl_span sp        = { .b = payload, .e = payload + sizeof payload };
+        uint8_t          payload[] = { 0x01, 0x02, 0x03, 0x04 };
+        struct asrt_span sp        = { .b = payload, .e = payload + sizeof payload };
 
-        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_ibuffer_insert( &ib, sp ) );
+        CHECK_EQ( ASRT_SIZE_ERR, asrt_cobs_ibuffer_insert( &ib, sp ) );
 }
 
 TEST_CASE( "cobs_ibuffer_partial_then_complete" )
@@ -452,29 +452,29 @@ TEST_CASE( "cobs_ibuffer_partial_then_complete" )
         uint8_t encoded[32];
         size_t  enc_len = cobs_encode_payload( raw, sizeof raw, encoded, sizeof encoded );
 
-        uint8_t                   storage[64] = { 0 };
-        struct asrtl_cobs_ibuffer ib;
+        uint8_t                  storage[64] = { 0 };
+        struct asrt_cobs_ibuffer ib;
         cobs_ibuffer_prime( &ib, storage, sizeof storage );
 
-        size_t            half = enc_len / 2;
-        struct asrtl_span sp1  = { .b = encoded, .e = encoded + half };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp1 ) );
+        size_t           half = enc_len / 2;
+        struct asrt_span sp1  = { .b = encoded, .e = encoded + half };
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_ibuffer_insert( &ib, sp1 ) );
 
         ib.used.b = storage + 1;
 
-        uint8_t           out[16]      = { 0 };
-        struct asrtl_span out_sp       = { .b = out, .e = out + sizeof out };
-        uint8_t*          out_b_before = out_sp.b;
-        uint8_t*          out_e_before = out_sp.e;
+        uint8_t          out[16]      = { 0 };
+        struct asrt_span out_sp       = { .b = out, .e = out + sizeof out };
+        uint8_t*         out_b_before = out_sp.b;
+        uint8_t*         out_e_before = out_sp.e;
 
-        CHECK_EQ( 0, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 0, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( out_b_before, out_sp.b );
         CHECK_EQ( out_e_before, out_sp.e );
 
-        struct asrtl_span sp2 = { .b = encoded + half, .e = encoded + enc_len };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_ibuffer_insert( &ib, sp2 ) );
+        struct asrt_span sp2 = { .b = encoded + half, .e = encoded + enc_len };
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_ibuffer_insert( &ib, sp2 ) );
 
-        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
         CHECK( memcmp( raw, out, sizeof raw ) == 0 );
 }
@@ -485,17 +485,17 @@ TEST_CASE( "cobs_encode_buffer_success" )
         uint8_t out[16];
         uint8_t expected[32];
 
-        struct asrtl_cobs_encoder enc;
-        asrtl_cobs_encoder_init( &enc, expected );
+        struct asrt_cobs_encoder enc;
+        asrt_cobs_encoder_init( &enc, expected );
         for ( size_t i = 0; i < sizeof raw; ++i )
-                asrtl_cobs_encoder_iter( &enc, raw[i] );
+                asrt_cobs_encoder_iter( &enc, raw[i] );
         *enc.p++            = 0x00;
         size_t expected_len = enc.p - expected;
 
-        struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
         CHECK_EQ( expected_len, (size_t) ( out_sp.e - out_sp.b ) );
         CHECK( memcmp( expected, out, expected_len ) == 0 );
 }
@@ -505,10 +505,10 @@ TEST_CASE( "cobs_encode_buffer_empty_input" )
         uint8_t raw[0];
         uint8_t out[16];
 
-        struct asrtl_span in     = { .b = raw, .e = raw };
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_span in     = { .b = raw, .e = raw };
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
         CHECK_EQ( 2, (int) ( out_sp.e - out_sp.b ) );
         CHECK_EQ( 0x01, out[0] );
         CHECK_EQ( 0x00, out[1] );
@@ -516,12 +516,12 @@ TEST_CASE( "cobs_encode_buffer_empty_input" )
 
 TEST_CASE( "cobs_encode_buffer_insufficient_space" )
 {
-        uint8_t           raw[] = { 0x11, 0x22, 0x33, 0x44 };
-        uint8_t           out[4];
-        struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        uint8_t          raw[] = { 0x11, 0x22, 0x33, 0x44 };
+        uint8_t          out[4];
+        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SIZE_ERR, asrt_cobs_encode_buffer( in, &out_sp ) );
 }
 
 TEST_CASE( "cobs_encode_buffer_large_input" )
@@ -531,17 +531,17 @@ TEST_CASE( "cobs_encode_buffer_large_input" )
         for ( size_t i = 0; i < sizeof raw; ++i )
                 raw[i] = (uint8_t) ( i + 1 );
 
-        struct asrtl_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
 
-        struct asrtl_cobs_decoder dec;
-        uint8_t                   decoded[300];
-        asrtl_cobs_decoder_init( &dec );
+        struct asrt_cobs_decoder dec;
+        uint8_t                  decoded[300];
+        asrt_cobs_decoder_init( &dec );
         uint8_t* p = decoded;
         for ( uint8_t* q = out; q < out_sp.e - 1; ++q )
-                asrtl_cobs_decoder_iter( &dec, *q, &p );
+                asrt_cobs_decoder_iter( &dec, *q, &p );
 
         CHECK_EQ( sizeof raw, (size_t) ( p - decoded ) );
         CHECK( memcmp( raw, decoded, sizeof raw ) == 0 );
@@ -553,56 +553,56 @@ TEST_CASE( "cobs_ibuffer_iter_consumes_trailing_zero" )
         uint8_t encoded[32];
         size_t  enc_len = cobs_encode_payload( raw, sizeof raw, encoded, sizeof encoded );
 
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = encoded, .e = encoded + enc_len };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = encoded, .e = encoded + enc_len };
+        asrt_cobs_ibuffer_init( &ib, sp );
         ib.used.b = encoded;
         ib.used.e = encoded + enc_len;
 
-        uint8_t           out[16];
-        struct asrtl_span out_sp = { .b = out, .e = out + sizeof out };
+        uint8_t          out[16];
+        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
 
         // First call should return the message
-        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
         CHECK_EQ( sizeof raw, (size_t) ( out_sp.e - out_sp.b ) );
         CHECK( memcmp( raw, out, sizeof raw ) == 0 );
 
         out_sp.b = out;
         out_sp.e = out + sizeof out;
-        CHECK_EQ( 1, asrtl_cobs_ibuffer_iter( &ib, &out_sp ) );
+        CHECK_EQ( 1, asrt_cobs_ibuffer_iter( &ib, &out_sp ) );
 
         // Verify the buffer is now empty (used.b should be past the 0)
         CHECK_EQ( encoded + enc_len, ib.used.b );
 }
 
 // ============================================================================
-// Tests for asrtl_chann_cobs_dispatch
+// Tests for asrt_chann_cobs_dispatch
 // ============================================================================
 
 // Structure to track received messages
 struct test_msg_record
 {
-        asrtl_chann_id chid;
-        uint8_t        data[256];
-        size_t         size;
+        asrt_chann_id chid;
+        uint8_t       data[256];
+        size_t        size;
 };
 
 struct test_channel_ctx
 {
         struct test_msg_record messages[16];
         size_t                 msg_count;
-        enum asrtl_status      return_status;
+        enum asrt_status       return_status;
 };
 
-static enum asrtl_status test_channel_recv_cb( void* ptr, enum asrtl_event_e event, void* arg )
+static enum asrt_status test_channel_recv_cb( void* ptr, enum asrt_event_e event, void* arg )
 {
-        if ( event != ASRTL_EVENT_RECV )
-                return ASRTL_SUCCESS;
+        if ( event != ASRT_EVENT_RECV )
+                return ASRT_SUCCESS;
 
         struct test_channel_ctx* ctx  = (struct test_channel_ctx*) ptr;
-        struct asrtl_span        buff = *(struct asrtl_span*) arg;
+        struct asrt_span         buff = *(struct asrt_span*) arg;
         if ( ctx->msg_count >= 16 )
-                return ASRTL_RECV_INTERNAL_ERR;
+                return ASRT_RECV_INTERNAL_ERR;
 
         struct test_msg_record* rec = &ctx->messages[ctx->msg_count++];
         rec->size                   = buff.e - buff.b;
@@ -615,7 +615,7 @@ static enum asrtl_status test_channel_recv_cb( void* ptr, enum asrtl_event_e eve
 
 // Helper to create a COBS-encoded message with channel ID and payload
 static size_t create_channel_message(
-    asrtl_chann_id chid,
+    asrt_chann_id  chid,
     uint8_t const* payload,
     size_t         payload_size,
     uint8_t*       out,
@@ -623,7 +623,7 @@ static size_t create_channel_message(
 {
         uint8_t  raw[2048];  // Increased to handle large payloads in tests
         uint8_t* p = raw;
-        asrtl_add_u16( &p, chid );
+        asrt_add_u16( &p, chid );
         if ( payload && payload_size > 0 )
                 memcpy( p, payload, payload_size );
 
@@ -632,22 +632,22 @@ static size_t create_channel_message(
 
 TEST_CASE( "chann_cobs_dispatch_single_message" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAA, 0xBB, 0xCC };
         uint8_t encoded[128];
         size_t  enc_len =
             create_channel_message( 42, payload, sizeof payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
         CHECK_EQ( 1, ctx.msg_count );
         CHECK_EQ( sizeof payload, ctx.messages[0].size );
@@ -656,9 +656,9 @@ TEST_CASE( "chann_cobs_dispatch_single_message" )
 
 TEST_CASE( "chann_cobs_dispatch_multiple_messages" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 10, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 10, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0x11, 0x22 };
         uint8_t msg2[] = { 0x33, 0x44, 0x55 };
@@ -670,13 +670,13 @@ TEST_CASE( "chann_cobs_dispatch_multiple_messages" )
         pos += create_channel_message( 10, msg2, sizeof msg2, encoded + pos, sizeof encoded - pos );
         pos += create_channel_message( 10, msg3, sizeof msg3, encoded + pos, sizeof encoded - pos );
 
-        uint8_t                   storage[512];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[512];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + pos };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + pos };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
         CHECK_EQ( 3, ctx.msg_count );
         CHECK_EQ( sizeof msg1, ctx.messages[0].size );
@@ -689,30 +689,30 @@ TEST_CASE( "chann_cobs_dispatch_multiple_messages" )
 
 TEST_CASE( "chann_cobs_dispatch_partial_then_complete" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 20, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 20, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xDE, 0xAD, 0xBE, 0xEF };
         uint8_t encoded[128];
         size_t  enc_len =
             create_channel_message( 20, payload, sizeof payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // Send first half
-        size_t            half  = enc_len / 2;
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + half };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        size_t           half  = enc_len / 2;
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + half };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         CHECK_EQ( 0, ctx.msg_count );  // No complete message yet
 
         // Send second half
         in_sp.b = encoded + half;
         in_sp.e = encoded + enc_len;
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
         CHECK_EQ( 1, ctx.msg_count );
         CHECK_EQ( sizeof payload, ctx.messages[0].size );
@@ -721,20 +721,20 @@ TEST_CASE( "chann_cobs_dispatch_partial_then_complete" )
 
 TEST_CASE( "chann_cobs_dispatch_empty_payload" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 99, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 99, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t encoded[128];
         size_t  enc_len = create_channel_message( 99, NULL, 0, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 
         CHECK_EQ( 1, ctx.msg_count );
         CHECK_EQ( 0, ctx.messages[0].size );
@@ -742,15 +742,15 @@ TEST_CASE( "chann_cobs_dispatch_empty_payload" )
 
 TEST_CASE( "chann_cobs_dispatch_multiple_channels" )
 {
-        struct test_channel_ctx ctx1 = { .return_status = ASRTL_SUCCESS };
-        struct test_channel_ctx ctx2 = { .return_status = ASRTL_SUCCESS };
-        struct test_channel_ctx ctx3 = { .return_status = ASRTL_SUCCESS };
+        struct test_channel_ctx ctx1 = { .return_status = ASRT_SUCCESS };
+        struct test_channel_ctx ctx2 = { .return_status = ASRT_SUCCESS };
+        struct test_channel_ctx ctx3 = { .return_status = ASRT_SUCCESS };
 
-        struct asrtl_node node3 = {
+        struct asrt_node node3 = {
             .chid = 30, .e_cb_ptr = &ctx3, .e_cb = test_channel_recv_cb, .next = NULL };
-        struct asrtl_node node2 = {
+        struct asrt_node node2 = {
             .chid = 20, .e_cb_ptr = &ctx2, .e_cb = test_channel_recv_cb, .next = &node3 };
-        struct asrtl_node node1 = {
+        struct asrt_node node1 = {
             .chid = 10, .e_cb_ptr = &ctx1, .e_cb = test_channel_recv_cb, .next = &node2 };
 
         uint8_t payload1[] = { 0x01 };
@@ -766,13 +766,13 @@ TEST_CASE( "chann_cobs_dispatch_multiple_channels" )
         pos += create_channel_message(
             20, payload2, sizeof payload2, encoded + pos, sizeof encoded - pos );
 
-        uint8_t                   storage[512];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[512];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + pos };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node1, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + pos };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node1, in_sp ) );
 
         CHECK_EQ( 1, ctx1.msg_count );
         CHECK( memcmp( payload1, ctx1.messages[0].data, sizeof payload1 ) == 0 );
@@ -784,9 +784,9 @@ TEST_CASE( "chann_cobs_dispatch_multiple_channels" )
 
 TEST_CASE( "chann_cobs_dispatch_unknown_channel" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 42, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAA };
         uint8_t encoded[128];
@@ -794,22 +794,22 @@ TEST_CASE( "chann_cobs_dispatch_unknown_channel" )
         size_t enc_len =
             create_channel_message( 99, payload, sizeof payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
         // Channel not found — error propagated
-        CHECK_EQ( ASRTL_CHANN_NOT_FOUND, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRT_CHANN_NOT_FOUND, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         CHECK_EQ( 0, ctx.msg_count );
 }
 
 TEST_CASE( "chann_cobs_dispatch_incremental_state" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 7, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 7, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0x11 };
         uint8_t msg2[] = { 0x22, 0x22 };
@@ -820,22 +820,22 @@ TEST_CASE( "chann_cobs_dispatch_incremental_state" )
         size_t  len2 = create_channel_message( 7, msg2, sizeof msg2, enc2, sizeof enc2 );
         size_t  len3 = create_channel_message( 7, msg3, sizeof msg3, enc3, sizeof enc3 );
 
-        uint8_t                   storage[512];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[512];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // Process messages one at a time, maintaining state
-        struct asrtl_span in_sp1 = { .b = enc1, .e = enc1 + len1 };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp1 ) );
+        struct asrt_span in_sp1 = { .b = enc1, .e = enc1 + len1 };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp1 ) );
         CHECK_EQ( 1, ctx.msg_count );
 
-        struct asrtl_span in_sp2 = { .b = enc2, .e = enc2 + len2 };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp2 ) );
+        struct asrt_span in_sp2 = { .b = enc2, .e = enc2 + len2 };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp2 ) );
         CHECK_EQ( 2, ctx.msg_count );
 
-        struct asrtl_span in_sp3 = { .b = enc3, .e = enc3 + len3 };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp3 ) );
+        struct asrt_span in_sp3 = { .b = enc3, .e = enc3 + len3 };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp3 ) );
         CHECK_EQ( 3, ctx.msg_count );
 
         CHECK( memcmp( msg1, ctx.messages[0].data, sizeof msg1 ) == 0 );
@@ -845,9 +845,9 @@ TEST_CASE( "chann_cobs_dispatch_incremental_state" )
 
 TEST_CASE( "chann_cobs_dispatch_message_too_large" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 5, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 5, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         // Create a message larger than the internal 1024-byte buffer
         uint8_t large_payload[1200];
@@ -858,22 +858,22 @@ TEST_CASE( "chann_cobs_dispatch_message_too_large" )
         size_t  enc_len = create_channel_message(
             5, large_payload, sizeof large_payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[2048];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[2048];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
         // Should return size error because message is too large for internal buffer
-        CHECK_EQ( ASRTL_SIZE_ERR, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRT_SIZE_ERR, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         CHECK_EQ( 0, ctx.msg_count );
 }
 
 TEST_CASE( "chann_cobs_dispatch_mixed_partial_and_complete" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 15, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 15, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t msg1[] = { 0xF1 };
         uint8_t msg2[] = { 0xF2, 0xF2 };
@@ -886,21 +886,21 @@ TEST_CASE( "chann_cobs_dispatch_mixed_partial_and_complete" )
         pos += create_channel_message( 15, msg2, sizeof msg2, encoded + pos, sizeof encoded - pos );
         pos += create_channel_message( 15, msg3, sizeof msg3, encoded + pos, sizeof encoded - pos );
 
-        uint8_t                   storage[512];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[512];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // First call: complete msg1 + partial msg2
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + split_point };
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + split_point };
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         CHECK_EQ( 1, ctx.msg_count );  // Only msg1
         CHECK( memcmp( msg1, ctx.messages[0].data, sizeof msg1 ) == 0 );
 
         // Second call: rest of msg2 + msg3
         in_sp.b = encoded + split_point;
         in_sp.e = encoded + pos;
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         CHECK_EQ( 3, ctx.msg_count );  // msg1, msg2, msg3
         CHECK( memcmp( msg2, ctx.messages[1].data, sizeof msg2 ) == 0 );
         CHECK( memcmp( msg3, ctx.messages[2].data, sizeof msg3 ) == 0 );
@@ -908,24 +908,24 @@ TEST_CASE( "chann_cobs_dispatch_mixed_partial_and_complete" )
 
 TEST_CASE( "chann_cobs_dispatch_byte_by_byte" )
 {
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 88, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 88, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xCA, 0xFE };
         uint8_t encoded[128];
         size_t  enc_len =
             create_channel_message( 88, payload, sizeof payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // Feed data byte by byte
         for ( size_t i = 0; i < enc_len; i++ ) {
-                struct asrtl_span in_sp = { .b = encoded + i, .e = encoded + i + 1 };
-                CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+                struct asrt_span in_sp = { .b = encoded + i, .e = encoded + i + 1 };
+                CHECK_EQ( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
         }
 
         CHECK_EQ( 1, ctx.msg_count );
@@ -937,9 +937,9 @@ TEST_CASE( "chann_cobs_dispatch_ibuffer_size_err" )
 {
         // ibuffer too small for the incoming encoded message — insert must return SIZE_ERR
         // and cobs_dispatch must propagate it rather than silently succeed
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_SUCCESS };
-        struct asrtl_node       node = {
-                  .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_SUCCESS };
+        struct asrt_node        node = {
+                   .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
         uint8_t encoded[128];
@@ -947,55 +947,55 @@ TEST_CASE( "chann_cobs_dispatch_ibuffer_size_err" )
             create_channel_message( 1, payload, sizeof payload, encoded, sizeof encoded );
 
         // ibuffer only 4 bytes — far too small for the encoded message
-        uint8_t                   storage[4];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[4];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        CHECK_NE( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        CHECK_NE( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 }
 
 TEST_CASE( "chann_cobs_dispatch_recv_cb_error" )
 {
         // When recv_cb returns an error, cobs_dispatch must propagate it
-        struct test_channel_ctx ctx  = { .return_status = ASRTL_RECV_INTERNAL_ERR };
-        struct asrtl_node       node = {
-                  .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_RECV_INTERNAL_ERR };
+        struct asrt_node        node = {
+                   .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 
         uint8_t payload[] = { 0xAB };
         uint8_t encoded[64];
         size_t  enc_len =
             create_channel_message( 1, payload, sizeof payload, encoded, sizeof encoded );
 
-        uint8_t                   storage[256];
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage, .e = storage + sizeof storage };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        uint8_t                  storage[256];
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage, .e = storage + sizeof storage };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
-        struct asrtl_span in_sp = { .b = encoded, .e = encoded + enc_len };
-        CHECK_NE( ASRTL_SUCCESS, asrtl_chann_cobs_dispatch( &ib, &node, in_sp ) );
+        struct asrt_span in_sp = { .b = encoded, .e = encoded + enc_len };
+        CHECK_NE( ASRT_SUCCESS, asrt_chann_cobs_dispatch( &ib, &node, in_sp ) );
 }
 
 TEST_CASE( "u8d4_to_u32_high_bit" )
 {
         uint8_t  data[4] = { 0x80, 0x00, 0x00, 0x01 };
         uint32_t val     = 0;
-        asrtl_u8d4_to_u32( data, &val );
+        asrt_u8d4_to_u32( data, &val );
         CHECK_EQ( 0x80000001, val );
 }
 
 TEST_CASE( "cobs_encode_buffer_l11" )
 {
-        // L11: Verify asrtl_cobs_encode_buffer works correctly (out_ptr is dead code)
-        uint8_t           input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
-        uint8_t           output[32];
-        struct asrtl_span in  = { .b = input, .e = input + sizeof input };
-        struct asrtl_span out = { .b = output, .e = output + sizeof output };
+        // L11: Verify asrt_cobs_encode_buffer works correctly (out_ptr is dead code)
+        uint8_t          input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
+        uint8_t          output[32];
+        struct asrt_span in  = { .b = input, .e = input + sizeof input };
+        struct asrt_span out = { .b = output, .e = output + sizeof output };
 
-        enum asrtl_status st = asrtl_cobs_encode_buffer( in, &out );
+        enum asrt_status st = asrt_cobs_encode_buffer( in, &out );
 
-        CHECK_EQ( ASRTL_SUCCESS, st );
+        CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( 7, (size_t) ( out.e - out.b ) );
         CHECK_EQ( 0x03, output[0] );
         CHECK_EQ( 0x11, output[1] );
@@ -1008,14 +1008,14 @@ TEST_CASE( "cobs_encode_buffer_l11" )
 
 TEST_CASE( "cobs_ibuffer_insert_l13" )
 {
-        // L13: Verify asrtl_cobs_ibuffer_insert works with larger buffers
+        // L13: Verify asrt_cobs_ibuffer_insert works with larger buffers
         // (uses int instead of ptrdiff_t, but should work for reasonable sizes)
         size_t                 buf_size = 1024 * 1024;  // 1MB buffer
         std::vector< uint8_t > storage( buf_size, 0 );
 
-        struct asrtl_cobs_ibuffer ib;
-        struct asrtl_span         sp = { .b = storage.data(), .e = storage.data() + buf_size };
-        asrtl_cobs_ibuffer_init( &ib, sp );
+        struct asrt_cobs_ibuffer ib;
+        struct asrt_span         sp = { .b = storage.data(), .e = storage.data() + buf_size };
+        asrt_cobs_ibuffer_init( &ib, sp );
 
         // Insert data that's large but fits
         size_t                 insert_size = 100 * 1024;  // 100KB
@@ -1023,35 +1023,35 @@ TEST_CASE( "cobs_ibuffer_insert_l13" )
         for ( size_t i = 0; i < insert_size; i++ )
                 payload[i] = (uint8_t) ( i & 0xFF );
 
-        struct asrtl_span payload_span = { .b = payload.data(), .e = payload.data() + insert_size };
-        enum asrtl_status st           = asrtl_cobs_ibuffer_insert( &ib, payload_span );
+        struct asrt_span payload_span = { .b = payload.data(), .e = payload.data() + insert_size };
+        enum asrt_status st           = asrt_cobs_ibuffer_insert( &ib, payload_span );
 
-        CHECK_EQ( ASRTL_SUCCESS, st );
+        CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( insert_size, (size_t) ( ib.used.e - ib.used.b ) );
 }
 
-// asrtl_span_unfit_for direct tests
+// asrt_span_unfit_for direct tests
 TEST_CASE( "span_unfit_for" )
 {
         uint8_t buf[8];
 
-        struct asrtl_span full = { .b = buf, .e = buf + 8 };
-        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 0 ) );
-        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 1 ) );
-        CHECK_EQ( 0, asrtl_span_unfit_for( &full, 8 ) );
-        CHECK_NE( 0, asrtl_span_unfit_for( &full, 9 ) );
+        struct asrt_span full = { .b = buf, .e = buf + 8 };
+        CHECK_EQ( 0, asrt_span_unfit_for( &full, 0 ) );
+        CHECK_EQ( 0, asrt_span_unfit_for( &full, 1 ) );
+        CHECK_EQ( 0, asrt_span_unfit_for( &full, 8 ) );
+        CHECK_NE( 0, asrt_span_unfit_for( &full, 9 ) );
 
-        struct asrtl_span empty = { .b = buf, .e = buf };
-        CHECK_EQ( 0, asrtl_span_unfit_for( &empty, 0 ) );
-        CHECK_NE( 0, asrtl_span_unfit_for( &empty, 1 ) );
+        struct asrt_span empty = { .b = buf, .e = buf };
+        CHECK_EQ( 0, asrt_span_unfit_for( &empty, 0 ) );
+        CHECK_NE( 0, asrt_span_unfit_for( &empty, 1 ) );
 }
 
-// asrtl_u8d2_to_u16 with high bit set
+// asrt_u8d2_to_u16 with high bit set
 TEST_CASE( "u8d2_to_u16_high_bit" )
 {
         uint8_t  data[2] = { 0x80, 0x01 };
         uint16_t val     = 0;
-        asrtl_u8d2_to_u16( data, &val );
+        asrt_u8d2_to_u16( data, &val );
         CHECK_EQ( 0x8001, val );
 }
 
@@ -1061,143 +1061,136 @@ TEST_CASE( "u8d2_to_u16_high_bit" )
 
 TEST_CASE( "flat_tree_init_null" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_init( NULL, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_init( NULL, alloc, 4, 8 ) );
 }
 
 TEST_CASE( "flat_tree_deinit_null" )
 {
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_deinit( NULL ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_deinit( NULL ) );
 }
 
 TEST_CASE( "flat_tree_init_and_deinit" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        CHECK_EQ( ASRTL_SUCCESS, asrtl_flat_tree_deinit( &tree ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        CHECK_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_flat_tree_deinit( &tree ) );
 }
 
 TEST_CASE( "flat_tree_append_node_id_zero" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        asrtl_flat_tree_init( &tree, alloc, 4, 8 );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        asrt_flat_tree_init( &tree, alloc, 4, 8 );
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_cont( &tree, 0, 0, "k", ASRTL_FLAT_CTYPE_OBJECT ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_ARG_ERR, asrt_flat_tree_append_cont( &tree, 0, 0, "k", ASRT_FLAT_CTYPE_OBJECT ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_node_eq_parent" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        asrtl_flat_tree_init( &tree, alloc, 4, 8 );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        asrt_flat_tree_init( &tree, alloc, 4, 8 );
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 1, "k", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_ARG_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 1, "k", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // Append root node at id=1 under virtual parent 0 (no key needed at root level)
 TEST_CASE( "flat_tree_append_root_object" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_object_child" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "count", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "count", ASRT_FLAT_STYPE_U32, { .u32_val = 42 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_multiple_object_children" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRT_FLAT_STYPE_STR, { .str_val = "hi" } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_array_child" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 20 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_object_requires_key" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_KEY_REQUIRED_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_KEY_REQUIRED_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_array_rejects_key" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
-            ASRTL_KEY_FORBIDDEN_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_KEY_FORBIDDEN_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_retry_after_key_to_array_fails" )
@@ -1205,26 +1198,24 @@ TEST_CASE( "flat_tree_retry_after_key_to_array_fails" )
         // Appending a keyed node to an array parent fails. The same node_id
         // should remain usable — retrying with a correct (object) parent must
         // succeed.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 3, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         // keyed node to array — should fail
         REQUIRE_EQ(
-            ASRTL_KEY_FORBIDDEN_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_KEY_FORBIDDEN_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // retry same node_id with correct object parent — should succeed
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 3, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 3, 2, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_retry_after_null_key_to_object_fails" )
@@ -1232,88 +1223,83 @@ TEST_CASE( "flat_tree_retry_after_null_key_to_object_fails" )
         // Appending a keyless node to an object parent fails. The same node_id
         // should remain usable — retrying with a correct (array) parent must
         // succeed.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 3, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         // keyless node to object — should fail
         REQUIRE_EQ(
-            ASRTL_KEY_REQUIRED_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 5 } ) );
+            ASRT_KEY_REQUIRED_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 5 } ) );
         // retry same node_id with correct array parent — should succeed
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 3, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 5 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 3, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 5 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_retry_after_duplicate_key_fails" )
 {
         // Duplicate key rejection must not poison the node_id — retrying with
         // a different key must succeed.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // duplicate key — should fail
         REQUIRE_EQ(
-            ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+            ASRT_ARG_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "name", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         // retry same node_id with different key — should succeed
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "other", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "other", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_beyond_initial_capacity" )
 {
         // node_id larger than initial capacity should trigger realloc
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 4 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 2, 4 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         // id=16 is well beyond initial capacity of 2*4=8
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 16, "far", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 16, "far", ASRT_FLAT_STYPE_U32, { .u32_val = 99 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_nested_objects" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 2, "inner", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_cont( &tree, 1, 2, "inner", ASRT_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 3, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 3, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 7 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1322,154 +1308,145 @@ TEST_CASE( "flat_tree_append_nested_objects" )
 
 TEST_CASE( "flat_tree_append_duplicate_node_id" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // second append with same node_id should fail
         CHECK_NE(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_duplicate_no_corruption" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         // try to duplicate id=2
-        asrtl_flat_tree_append_scalar( &tree, 1, 2, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } );
+        asrt_flat_tree_append_scalar( &tree, 1, 2, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 99 } );
         // original value should be unchanged
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
         CHECK_EQ( 10, r.value.data.s.u32_val );
         // sibling chain: query parent, first_child=2, last_child=3
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 1, &r ) );
         CHECK_EQ( 2, r.value.data.cont.first_child );
         CHECK_EQ( 3, r.value.data.cont.last_child );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_duplicate_key_in_object" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // second child with same key "name" should fail
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "name", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_ARG_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "name", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_duplicate_key_different_parents" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 2, "a", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 1, 2, "a", ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 3, "b", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 1, 3, "b", ASRT_FLAT_CTYPE_OBJECT ) );
         // same key "x" under different parents — both should succeed
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 4, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 4, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 3, 5, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 3, 5, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_array_allows_duplicate_values" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         // array children have NULL key — no duplicate-key check applies
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_parent_never_appended" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         // parent_id=5 was never appended — block memory is zeroed, type=0
         CHECK_NE(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 5, 6, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 5, 6, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_append_parent_is_leaf" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "num", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "num", ASRT_FLAT_STYPE_U32, { .u32_val = 42 } ) );
         // parent_id=2 is U32, not a container
         CHECK_EQ(
-            ASRTL_ARG_ERR,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_ARG_ERR,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 3, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1478,122 +1455,116 @@ TEST_CASE( "flat_tree_append_parent_is_leaf" )
 
 TEST_CASE( "flat_tree_query_null_value" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar( &tree, 1, 2, "n", ASRTL_FLAT_STYPE_NULL, { 0 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_NULL, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar( &tree, 1, 2, "n", ASRT_FLAT_STYPE_NULL, { 0 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_NULL, r.value.type );
         CHECK( r.key != nullptr );
         CHECK( strcmp( r.key, "n" ) == 0 );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_bool_values" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "t", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "t", ASRT_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "f", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 0 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "f", ASRT_FLAT_STYPE_BOOL, { .bool_val = 0 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
         CHECK_EQ( 1, r.value.data.s.bool_val );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 3, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 3, &r ) );
         CHECK_EQ( 0, r.value.data.s.bool_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_u32_value" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "big", ASRTL_FLAT_STYPE_U32, { .u32_val = 0xDEADBEEF } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "big", ASRT_FLAT_STYPE_U32, { .u32_val = 0xDEADBEEF } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
         CHECK_EQ( 0xDEADBEEF, r.value.data.s.u32_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_float_value" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "pi", ASRTL_FLAT_STYPE_FLOAT, { .float_val = 3.14f } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_FLOAT, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "pi", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14f } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_FLOAT, r.value.type );
         CHECK( r.value.data.s.float_val == doctest::Approx( 3.14f ) );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_i32_value" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "neg", ASRTL_FLAT_STYPE_I32, { .i32_val = -42 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_I32, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "neg", ASRT_FLAT_STYPE_I32, { .i32_val = -42 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_I32, r.value.type );
         CHECK_EQ( -42, r.value.data.s.i32_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_str_value" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "name", ASRTL_FLAT_STYPE_STR, { .str_val = "hello" } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_STR, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "name", ASRT_FLAT_STYPE_STR, { .str_val = "hello" } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_STR, r.value.type );
         CHECK( strcmp( r.value.data.s.str_val, "hello" ) == 0 );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1602,79 +1573,76 @@ TEST_CASE( "flat_tree_query_str_value" )
 
 TEST_CASE( "flat_tree_single_child_first_eq_last" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "only", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 1, &r ) );
         CHECK_EQ( 2, r.value.data.cont.first_child );
         CHECK_EQ( 2, r.value.data.cont.last_child );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_three_children_chain" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 30 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRT_FLAT_STYPE_U32, { .u32_val = 30 } ) );
         // parent child list
-        struct asrtl_flat_query_result rp;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &rp ) );
+        struct asrt_flat_query_result rp;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 1, &rp ) );
         CHECK_EQ( 2, rp.value.data.cont.first_child );
         CHECK_EQ( 4, rp.value.data.cont.last_child );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_object_children_keys_preserved" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, { .str_val = "two" } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "beta", ASRT_FLAT_STYPE_STR, { .str_val = "two" } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "gamma", ASRT_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK( strcmp( r.key, "alpha" ) == 0 );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 3, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 3, &r ) );
         CHECK( strcmp( r.key, "beta" ) == 0 );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 4, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 4, &r ) );
         CHECK( strcmp( r.key, "gamma" ) == 0 );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1683,91 +1651,83 @@ TEST_CASE( "flat_tree_object_children_keys_preserved" )
 
 TEST_CASE( "flat_tree_depth_10" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         for ( asrt::flat_id i = 2; i <= 11; i++ ) {
                 REQUIRE_EQ(
-                    ASRTL_SUCCESS,
-                    asrtl_flat_tree_append_cont(
-                        &tree, i - 1, i, "lvl", ASRTL_FLAT_CTYPE_OBJECT ) );
+                    ASRT_SUCCESS,
+                    asrt_flat_tree_append_cont( &tree, i - 1, i, "lvl", ASRT_FLAT_CTYPE_OBJECT ) );
         }
         // deepest node gets a leaf
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 11, 12, "leaf", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 12, &r ) );
-        CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 11, 12, "leaf", ASRT_FLAT_STYPE_U32, { .u32_val = 42 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 12, &r ) );
+        CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
         CHECK_EQ( 42, r.value.data.s.u32_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_object_containing_array_containing_objects" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 16 ) );
         // root object
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         // array child
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 2, "items", ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_cont( &tree, 1, 2, "items", ASRT_FLAT_CTYPE_ARRAY ) );
         // objects inside array
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 2, 3, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 2, 3, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 2, 4, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 2, 4, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         // leaf in first array object
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 3, 5, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 3, 5, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         // leaf in second array object
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 4, 6, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 4, 6, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         // verify array child list
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( 3, r.value.data.cont.first_child );
         CHECK_EQ( 4, r.value.data.cont.last_child );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_array_of_arrays" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 2, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 1, 2, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 3, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 1, 3, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 4, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 4, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 3, 5, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
-        asrtl_flat_tree_deinit( &tree );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 3, 5, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 20 } ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1776,54 +1736,52 @@ TEST_CASE( "flat_tree_array_of_arrays" )
 
 TEST_CASE( "flat_tree_100_nodes_under_one_parent" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 2, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         for ( asrt::flat_id i = 2; i <= 101; i++ ) {
                 REQUIRE_EQ(
-                    ASRTL_SUCCESS,
-                    asrtl_flat_tree_append_scalar(
-                        &tree, 1, i, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = i } ) );
+                    ASRT_SUCCESS,
+                    asrt_flat_tree_append_scalar(
+                        &tree, 1, i, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = i } ) );
         }
         // verify first and last
-        struct asrtl_flat_query_result rp;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 1, &rp ) );
+        struct asrt_flat_query_result rp;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 1, &rp ) );
         CHECK_EQ( 2, rp.value.data.cont.first_child );
         CHECK_EQ( 101, rp.value.data.cont.last_child );
         // spot-check a few values
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 50, &r ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 50, &r ) );
         CHECK_EQ( 50, r.value.data.s.u32_val );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 101, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 101, &r ) );
         CHECK_EQ( 101, r.value.data.s.u32_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_sparse_ids" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 2, 4 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 2, 4 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 50, "mid", ASRTL_FLAT_STYPE_U32, { .u32_val = 50 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 50, "mid", ASRT_FLAT_STYPE_U32, { .u32_val = 50 } ) );
         CHECK_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 99, "far", ASRTL_FLAT_STYPE_U32, { .u32_val = 99 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 50, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 99, "far", ASRT_FLAT_STYPE_U32, { .u32_val = 99 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 50, &r ) );
         CHECK_EQ( 50, r.value.data.s.u32_val );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 99, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 99, &r ) );
         CHECK_EQ( 99, r.value.data.s.u32_val );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1832,27 +1790,27 @@ TEST_CASE( "flat_tree_sparse_ids" )
 
 TEST_CASE( "flat_tree_query_null_tree" )
 {
-        struct asrtl_flat_query_result r;
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_query( NULL, 1, &r ) );
+        struct asrt_flat_query_result r;
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_query( NULL, 1, &r ) );
 }
 
 TEST_CASE( "flat_tree_query_null_result" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_query( &tree, 1, NULL ) );
-        asrtl_flat_tree_deinit( &tree );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_query( &tree, 1, NULL ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_nonexistent_id" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
-        struct asrtl_flat_query_result r;
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_query( &tree, 999, &r ) );
-        asrtl_flat_tree_deinit( &tree );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_flat_query_result r;
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_query( &tree, 999, &r ) );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1862,103 +1820,99 @@ TEST_CASE( "flat_tree_query_nonexistent_id" )
 TEST_CASE( "flat_tree_query_next_sibling_only_child" )
 {
         // A single child has no next sibling; next_sibling must be 0.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "only", ASRTL_FLAT_STYPE_U32, { .u32_val = 7 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "only", ASRT_FLAT_STYPE_U32, { .u32_val = 7 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_next_sibling_first_of_two" )
 {
         // First of two siblings must report the second sibling's id.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_next_sibling_last_of_three" )
 {
         // Last of three siblings must have next_sibling == 0.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 1 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 2 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 2 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 3 } ) );
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 4, &r ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRT_FLAT_STYPE_U32, { .u32_val = 3 } ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 4, &r ) );
         CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_query_next_sibling_chain" )
 {
         // Walking next_sibling from first child visits every sibling in order.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "a", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "a", ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "b", ASRTL_FLAT_STYPE_U32, { .u32_val = 20 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "b", ASRT_FLAT_STYPE_U32, { .u32_val = 20 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "c", ASRTL_FLAT_STYPE_U32, { .u32_val = 30 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "c", ASRT_FLAT_STYPE_U32, { .u32_val = 30 } ) );
 
         // Walk: 2 -> 3 -> 4 -> 0
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, 2, &r ) );
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, r.next_sibling, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, r.next_sibling, &r ) );
         CHECK_EQ( (asrt::flat_id) 4, r.next_sibling );
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_query( &tree, r.next_sibling, &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, r.next_sibling, &r ) );
         CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
@@ -1967,202 +1921,196 @@ TEST_CASE( "flat_tree_query_next_sibling_chain" )
 
 TEST_CASE( "flat_tree_find_by_key_null_args" )
 {
-        struct asrtl_allocator         alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree         tree;
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator         alloc = asrt_default_allocator();
+        struct asrt_flat_tree         tree;
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
 
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( NULL, 1, "k", &r ) );
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( &tree, 1, NULL, &r ) );
-        CHECK_EQ( ASRTL_INIT_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "k", NULL ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_find_by_key( NULL, 1, "k", &r ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_find_by_key( &tree, 1, NULL, &r ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_flat_tree_find_by_key( &tree, 1, "k", NULL ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_parent_not_found" )
 {
-        struct asrtl_allocator         alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree         tree;
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator         alloc = asrt_default_allocator();
+        struct asrt_flat_tree         tree;
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
 
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 999, "k", &r ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 999, "k", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_parent_not_object" )
 {
-        struct asrtl_allocator         alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree         tree;
-        struct asrtl_flat_query_result r;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator         alloc = asrt_default_allocator();
+        struct asrt_flat_tree         tree;
+        struct asrt_flat_query_result r;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_ARRAY ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_ARRAY ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, NULL, ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, NULL, ASRT_FLAT_STYPE_U32, { .u32_val = 42 } ) );
 
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "k", &r ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 1, "k", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_happy" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 3, "beta", ASRTL_FLAT_STYPE_STR, { .str_val = "hi" } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 3, "beta", ASRT_FLAT_STYPE_STR, { .str_val = "hi" } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 4, "gamma", ASRTL_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 4, "gamma", ASRT_FLAT_STYPE_BOOL, { .bool_val = 1 } ) );
 
-        struct asrtl_flat_query_result r;
+        struct asrt_flat_query_result r;
 
         // Find first child
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "alpha", &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_find_by_key( &tree, 1, "alpha", &r ) );
         CHECK_EQ( (asrt::flat_id) 2, r.id );
         CHECK( strcmp( r.key, "alpha" ) == 0 );
-        CHECK_EQ( ASRTL_FLAT_STYPE_U32, r.value.type );
+        CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
         CHECK_EQ( 10u, r.value.data.s.u32_val );
         CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
 
         // Find middle child
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "beta", &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_find_by_key( &tree, 1, "beta", &r ) );
         CHECK_EQ( (asrt::flat_id) 3, r.id );
         CHECK( strcmp( r.key, "beta" ) == 0 );
-        CHECK_EQ( ASRTL_FLAT_STYPE_STR, r.value.type );
+        CHECK_EQ( ASRT_FLAT_STYPE_STR, r.value.type );
         CHECK_EQ( (asrt::flat_id) 4, r.next_sibling );
 
         // Find last child
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "gamma", &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_find_by_key( &tree, 1, "gamma", &r ) );
         CHECK_EQ( (asrt::flat_id) 4, r.id );
         CHECK( strcmp( r.key, "gamma" ) == 0 );
-        CHECK_EQ( ASRTL_FLAT_STYPE_BOOL, r.value.type );
+        CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
         CHECK_EQ( 1u, r.value.data.s.bool_val );
         CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_not_found" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "alpha", ASRTL_FLAT_STYPE_U32, { .u32_val = 10 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "alpha", ASRT_FLAT_STYPE_U32, { .u32_val = 10 } ) );
 
-        struct asrtl_flat_query_result r;
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "missing", &r ) );
+        struct asrt_flat_query_result r;
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 1, "missing", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_empty_object" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
 
-        struct asrtl_flat_query_result r;
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "any", &r ) );
+        struct asrt_flat_query_result r;
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 1, "any", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_nested_object" )
 {
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 16 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 16 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 1, 2, "sub", ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_cont( &tree, 1, 2, "sub", ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 3, "x", ASRTL_FLAT_STYPE_U32, { .u32_val = 100 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 3, "x", ASRT_FLAT_STYPE_U32, { .u32_val = 100 } ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 2, 4, "y", ASRTL_FLAT_STYPE_I32, { .i32_val = -7 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 2, 4, "y", ASRT_FLAT_STYPE_I32, { .i32_val = -7 } ) );
 
-        struct asrtl_flat_query_result r;
+        struct asrt_flat_query_result r;
 
         // Find in top-level object returns the nested object
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 1, "sub", &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_find_by_key( &tree, 1, "sub", &r ) );
         CHECK_EQ( (asrt::flat_id) 2, r.id );
-        CHECK_EQ( ASRTL_FLAT_CTYPE_OBJECT, r.value.type );
+        CHECK_EQ( ASRT_FLAT_CTYPE_OBJECT, r.value.type );
 
         // Find inside the nested object
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_find_by_key( &tree, 2, "y", &r ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_find_by_key( &tree, 2, "y", &r ) );
         CHECK_EQ( (asrt::flat_id) 4, r.id );
-        CHECK_EQ( ASRTL_FLAT_STYPE_I32, r.value.type );
+        CHECK_EQ( ASRT_FLAT_STYPE_I32, r.value.type );
         CHECK_EQ( -7, r.value.data.s.i32_val );
 
         // Key from wrong parent fails
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 1, "x", &r ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 1, "x", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 TEST_CASE( "flat_tree_find_by_key_leaf_parent" )
 {
         // Searching inside a leaf (non-container) node must fail.
-        struct asrtl_allocator alloc = asrtl_default_allocator();
-        struct asrtl_flat_tree tree;
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtl_flat_tree_init( &tree, alloc, 4, 8 ) );
+        struct asrt_allocator alloc = asrt_default_allocator();
+        struct asrt_flat_tree tree;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_cont( &tree, 0, 1, NULL, ASRTL_FLAT_CTYPE_OBJECT ) );
+            ASRT_SUCCESS, asrt_flat_tree_append_cont( &tree, 0, 1, NULL, ASRT_FLAT_CTYPE_OBJECT ) );
         REQUIRE_EQ(
-            ASRTL_SUCCESS,
-            asrtl_flat_tree_append_scalar(
-                &tree, 1, 2, "val", ASRTL_FLAT_STYPE_U32, { .u32_val = 42 } ) );
+            ASRT_SUCCESS,
+            asrt_flat_tree_append_scalar(
+                &tree, 1, 2, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 42 } ) );
 
-        struct asrtl_flat_query_result r;
-        CHECK_EQ( ASRTL_ARG_ERR, asrtl_flat_tree_find_by_key( &tree, 2, "anything", &r ) );
+        struct asrt_flat_query_result r;
+        CHECK_EQ( ASRT_ARG_ERR, asrt_flat_tree_find_by_key( &tree, 2, "anything", &r ) );
 
-        asrtl_flat_tree_deinit( &tree );
+        asrt_flat_tree_deinit( &tree );
 }
 
 // ============================================================================
 // param_proto — encode/decode helpers
 // ============================================================================
 
-// Captures a single asrtl_rec_span chain into a flat byte vector.
+// Captures a single asrt_rec_span chain into a flat byte vector.
 struct ParamCapture
 {
         uint8_t  buf[512];
         uint32_t len = 0;
 
-        static enum asrtl_status cb( void* ptr, struct asrtl_rec_span* sp )
+        static enum asrt_status cb( void* ptr, struct asrt_rec_span* sp )
         {
                 auto* self = static_cast< ParamCapture* >( ptr );
                 for ( ; sp; sp = sp->next ) {
@@ -2170,7 +2118,7 @@ struct ParamCapture
                         memcpy( self->buf + self->len, sp->b, n );
                         self->len += (uint32_t) n;
                 }
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
         }
 };
 
@@ -2183,7 +2131,7 @@ struct strm_capture
         uint8_t  buf[512] = {};
         uint32_t len      = 0;
 
-        static enum asrtl_status cb( void* ptr, struct asrtl_rec_span* sp )
+        static enum asrt_status cb( void* ptr, struct asrt_rec_span* sp )
         {
                 auto* self = static_cast< strm_capture* >( ptr );
                 for ( ; sp; sp = sp->next ) {
@@ -2191,50 +2139,48 @@ struct strm_capture
                         memcpy( self->buf + self->len, sp->b, n );
                         self->len += (uint32_t) n;
                 }
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
         }
 };
 
 TEST_CASE( "strm_proto: define serializes header and fields" )
 {
-        strm_capture                 cap;
-        enum asrtl_strm_field_type_e fields[] = {
-            ASRTL_STRM_FIELD_U8, ASRTL_STRM_FIELD_FLOAT, ASRTL_STRM_FIELD_I16 };
+        strm_capture                cap;
+        enum asrt_strm_field_type_e fields[] = {
+            ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT, ASRT_STRM_FIELD_I16 };
 
-        CHECK_EQ(
-            asrtl_msg_rtoc_strm_define( 7, fields, 3, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+        CHECK_EQ( asrt_msg_rtoc_strm_define( 7, fields, 3, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
         REQUIRE_EQ( cap.len, 6u );
-        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DEFINE );
+        CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DEFINE );
         CHECK_EQ( cap.buf[1], 7 );
         CHECK_EQ( cap.buf[2], 3 );
-        CHECK_EQ( cap.buf[3], ASRTL_STRM_FIELD_U8 );
-        CHECK_EQ( cap.buf[4], ASRTL_STRM_FIELD_FLOAT );
-        CHECK_EQ( cap.buf[5], ASRTL_STRM_FIELD_I16 );
+        CHECK_EQ( cap.buf[3], ASRT_STRM_FIELD_U8 );
+        CHECK_EQ( cap.buf[4], ASRT_STRM_FIELD_FLOAT );
+        CHECK_EQ( cap.buf[5], ASRT_STRM_FIELD_I16 );
 }
 
 TEST_CASE( "strm_proto: define single field" )
 {
-        strm_capture                 cap;
-        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_BOOL };
+        strm_capture                cap;
+        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_BOOL };
 
-        CHECK_EQ(
-            asrtl_msg_rtoc_strm_define( 0, fields, 1, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+        CHECK_EQ( asrt_msg_rtoc_strm_define( 0, fields, 1, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
         REQUIRE_EQ( cap.len, 4u );
-        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DEFINE );
+        CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DEFINE );
         CHECK_EQ( cap.buf[1], 0 );
         CHECK_EQ( cap.buf[2], 1 );
-        CHECK_EQ( cap.buf[3], ASRTL_STRM_FIELD_BOOL );
+        CHECK_EQ( cap.buf[3], ASRT_STRM_FIELD_BOOL );
 }
 
 TEST_CASE( "strm_proto: define rejects field_count > 255" )
 {
-        strm_capture                 cap;
-        enum asrtl_strm_field_type_e fields[1] = { ASRTL_STRM_FIELD_U8 };
+        strm_capture                cap;
+        enum asrt_strm_field_type_e fields[1] = { ASRT_STRM_FIELD_U8 };
 
         CHECK_EQ(
-            asrtl_msg_rtoc_strm_define( 0, fields, 256, strm_capture::cb, &cap ), ASRTL_ARG_ERR );
+            asrt_msg_rtoc_strm_define( 0, fields, 256, strm_capture::cb, &cap ), ASRT_ARG_ERR );
         CHECK_EQ( cap.len, 0u );
 }
 
@@ -2243,11 +2189,10 @@ TEST_CASE( "strm_proto: data serializes header and payload" )
         strm_capture  cap;
         uint8_t const payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
 
-        CHECK_EQ(
-            asrtl_msg_rtoc_strm_data( 12, payload, 4, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+        CHECK_EQ( asrt_msg_rtoc_strm_data( 12, payload, 4, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
         REQUIRE_EQ( cap.len, 6u );
-        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DATA );
+        CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DATA );
         CHECK_EQ( cap.buf[1], 12 );
         CHECK_EQ( cap.buf[2], 0xAA );
         CHECK_EQ( cap.buf[3], 0xBB );
@@ -2259,41 +2204,40 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 {
         strm_capture cap;
 
-        CHECK_EQ(
-            asrtl_msg_rtoc_strm_data( 0, nullptr, 0, strm_capture::cb, &cap ), ASRTL_SUCCESS );
+        CHECK_EQ( asrt_msg_rtoc_strm_data( 0, nullptr, 0, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
         REQUIRE_EQ( cap.len, 2u );
-        CHECK_EQ( cap.buf[0], ASRTL_STRM_MSG_DATA );
+        CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DATA );
         CHECK_EQ( cap.buf[1], 0 );
 }
 
 TEST_CASE( "strm_proto: define propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
-                return ASRTL_SEND_ERR;
+        auto fail_cb = []( void*, struct asrt_rec_span* ) -> enum asrt_status {
+                return ASRT_SEND_ERR;
         };
-        enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
+        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
 
-        CHECK_EQ( asrtl_msg_rtoc_strm_define( 0, fields, 1, fail_cb, nullptr ), ASRTL_SEND_ERR );
+        CHECK_EQ( asrt_msg_rtoc_strm_define( 0, fields, 1, fail_cb, nullptr ), ASRT_SEND_ERR );
 }
 
 TEST_CASE( "strm_proto: data propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
-                return ASRTL_SEND_ERR;
+        auto fail_cb = []( void*, struct asrt_rec_span* ) -> enum asrt_status {
+                return ASRT_SEND_ERR;
         };
         uint8_t const payload[] = { 0x01 };
 
-        CHECK_EQ( asrtl_msg_rtoc_strm_data( 0, payload, 1, fail_cb, nullptr ), ASRTL_SEND_ERR );
+        CHECK_EQ( asrt_msg_rtoc_strm_data( 0, payload, 1, fail_cb, nullptr ), ASRT_SEND_ERR );
 }
 
 // ============================================================================
-// asrtl_node_link / asrtl_node_unlink
+// asrt_node_link / asrt_node_unlink
 // ============================================================================
 
-static struct asrtl_node make_node( asrtl_chann_id chid )
+static struct asrt_node make_node( asrt_chann_id chid )
 {
-        return ( struct asrtl_node ){
+        return ( struct asrt_node ){
             .chid     = chid,
             .e_cb_ptr = NULL,
             .e_cb     = NULL,
@@ -2304,60 +2248,60 @@ static struct asrtl_node make_node( asrtl_chann_id chid )
 
 TEST_CASE( "node_link_appends_after" )
 {
-        struct asrtl_node head  = make_node( 1 );
-        struct asrtl_node child = make_node( 2 );
+        struct asrt_node head  = make_node( 1 );
+        struct asrt_node child = make_node( 2 );
 
-        asrtl_node_link( &head, &child );
+        asrt_node_link( &head, &child );
 
         CHECK_EQ( head.next, &child );
         CHECK_EQ( child.prev, &head );
-        CHECK_EQ( child.next, (struct asrtl_node*) NULL );
+        CHECK_EQ( child.next, (struct asrt_node*) NULL );
 }
 
 TEST_CASE( "node_link_three_nodes_chain" )
 {
-        struct asrtl_node n1 = make_node( 1 );
-        struct asrtl_node n2 = make_node( 2 );
-        struct asrtl_node n3 = make_node( 3 );
+        struct asrt_node n1 = make_node( 1 );
+        struct asrt_node n2 = make_node( 2 );
+        struct asrt_node n3 = make_node( 3 );
 
-        asrtl_node_link( &n1, &n2 );
-        asrtl_node_link( &n2, &n3 );
+        asrt_node_link( &n1, &n2 );
+        asrt_node_link( &n2, &n3 );
 
         CHECK_EQ( n1.next, &n2 );
         CHECK_EQ( n2.prev, &n1 );
         CHECK_EQ( n2.next, &n3 );
         CHECK_EQ( n3.prev, &n2 );
-        CHECK_EQ( n3.next, (struct asrtl_node*) NULL );
+        CHECK_EQ( n3.next, (struct asrt_node*) NULL );
 }
 
 TEST_CASE( "node_unlink_middle_node_patches_neighbours" )
 {
-        struct asrtl_node n1 = make_node( 1 );
-        struct asrtl_node n2 = make_node( 2 );
-        struct asrtl_node n3 = make_node( 3 );
+        struct asrt_node n1 = make_node( 1 );
+        struct asrt_node n2 = make_node( 2 );
+        struct asrt_node n3 = make_node( 3 );
 
-        asrtl_node_link( &n1, &n2 );
-        asrtl_node_link( &n2, &n3 );
+        asrt_node_link( &n1, &n2 );
+        asrt_node_link( &n2, &n3 );
 
-        asrtl_node_unlink( &n2 );
+        asrt_node_unlink( &n2 );
 
         // n1 should now point directly to n3
         CHECK_EQ( n1.next, &n3 );
         CHECK_EQ( n3.prev, &n1 );
         // n2 pointers should be cleared
-        CHECK_EQ( n2.next, (struct asrtl_node*) NULL );
-        CHECK_EQ( n2.prev, (struct asrtl_node*) NULL );
+        CHECK_EQ( n2.next, (struct asrt_node*) NULL );
+        CHECK_EQ( n2.prev, (struct asrt_node*) NULL );
 }
 
 TEST_CASE( "node_unlink_last_node" )
 {
-        struct asrtl_node n1 = make_node( 1 );
-        struct asrtl_node n2 = make_node( 2 );
+        struct asrt_node n1 = make_node( 1 );
+        struct asrt_node n2 = make_node( 2 );
 
-        asrtl_node_link( &n1, &n2 );
-        asrtl_node_unlink( &n2 );
+        asrt_node_link( &n1, &n2 );
+        asrt_node_unlink( &n2 );
 
-        CHECK_EQ( n1.next, (struct asrtl_node*) NULL );
-        CHECK_EQ( n2.prev, (struct asrtl_node*) NULL );
-        CHECK_EQ( n2.next, (struct asrtl_node*) NULL );
+        CHECK_EQ( n1.next, (struct asrt_node*) NULL );
+        CHECK_EQ( n2.prev, (struct asrt_node*) NULL );
+        CHECK_EQ( n2.next, (struct asrt_node*) NULL );
 }

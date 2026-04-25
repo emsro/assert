@@ -43,8 +43,8 @@ struct _tcp_connect
         void start( OP& op )
         {
                 if ( uv_ip4_addr( host.data(), port, &dest ) != 0 ) {
-                        ASRTL_ERR_LOG( "asrtio_main", "Failed to resolve address" );
-                        op.recv.set_error( ASRTL_INIT_ERR );
+                        ASRT_ERR_LOG( "asrtio_main", "Failed to resolve address" );
+                        op.recv.set_error( ASRT_INIT_ERR );
                         return;
                 }
                 req.data = &op;
@@ -55,19 +55,19 @@ struct _tcp_connect
                     []( uv_connect_t* req, int status ) {
                             auto& op = *static_cast< OP* >( req->data );
                             if ( status < 0 ) {
-                                    ASRTL_ERR_LOG(
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "TCP connect failed: %s",
                                         uv_strerror( status ) );
-                                    op.recv.set_error( ASRTL_INIT_ERR );
+                                    op.recv.set_error( ASRT_INIT_ERR );
                             } else {
                                     op.recv.set_value();
                             }
                     } );
                 if ( res != 0 ) {
-                        ASRTL_ERR_LOG(
+                        ASRT_ERR_LOG(
                             "asrtio_main", "TCP connect request failed: %s", uv_strerror( res ) );
-                        op.recv.set_error( ASRTL_INIT_ERR );
+                        op.recv.set_error( ASRT_INIT_ERR );
                         return;
                 }
         }
@@ -93,26 +93,24 @@ struct _cntr_start
         {
                 auto s = asrtc_cntr_start(
                     &cntr,
-                    +[]( void* p, asrtl_status s ) -> asrtl_status {
+                    +[]( void* p, asrt_status s ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
-                            if ( s != ASRTL_SUCCESS ) {
-                                    ASRTL_ERR_LOG(
+                            if ( s != ASRT_SUCCESS ) {
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Controller start callback failed: %s",
-                                        asrtl_status_to_str( s ) );
+                                        asrt_status_to_str( s ) );
                                     op_->recv.set_error( s );
-                                    return ASRTL_SUCCESS;
+                                    return ASRT_SUCCESS;
                             }
                             op_->recv.set_value();
-                            return ASRTL_SUCCESS;
+                            return ASRT_SUCCESS;
                     },
                     &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio_main",
-                            "Controller start failed: %s",
-                            asrtl_status_to_str( s ) );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
+                            "asrtio_main", "Controller start failed: %s", asrt_status_to_str( s ) );
                         op.recv.set_error( s );
                 }
         }
@@ -137,26 +135,24 @@ struct _cntr_query_test_count
         {
                 auto s = asrtc_cntr_test_count(
                     &cntr,
-                    +[]( void* p, asrtl_status s, uint16_t count ) -> asrtl_status {
+                    +[]( void* p, asrt_status s, uint16_t count ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
-                            if ( s != ASRTL_SUCCESS ) {
-                                    ASRTL_ERR_LOG(
+                            if ( s != ASRT_SUCCESS ) {
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Query test count failed: %s",
-                                        asrtl_status_to_str( s ) );
+                                        asrt_status_to_str( s ) );
                                     op_->recv.set_error( s );
-                                    return ASRTL_SUCCESS;
+                                    return ASRT_SUCCESS;
                             }
                             op_->recv.set_value( count );
-                            return ASRTL_SUCCESS;
+                            return ASRT_SUCCESS;
                     },
                     &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio_main",
-                            "Query test count failed: %s",
-                            asrtl_status_to_str( s ) );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
+                            "asrtio_main", "Query test count failed: %s", asrt_status_to_str( s ) );
                         op.recv.set_error( s );
                 }
         }
@@ -184,24 +180,24 @@ struct _cntr_query_test_info
                 auto s = asrtc_cntr_test_info(
                     &cntr,
                     static_cast< uint16_t >( id ),
-                    +[]( void* p, asrtl_status s, uint16_t tid, char* desc ) -> asrtl_status {
+                    +[]( void* p, asrt_status s, uint16_t tid, char* desc ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
-                            if ( s != ASRTL_SUCCESS ) {
-                                    ASRTL_ERR_LOG(
+                            if ( s != ASRT_SUCCESS ) {
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Query test info failed: %s",
-                                        asrtl_status_to_str( s ) );
+                                        asrt_status_to_str( s ) );
                                     op_->recv.set_error( s );
-                                    return ASRTL_SUCCESS;
+                                    return ASRT_SUCCESS;
                             }
                             op_->recv.set_value( tid, std::string{ desc } );
-                            return ASRTL_SUCCESS;
+                            return ASRT_SUCCESS;
                     },
                     &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Query test info failed: %s", asrtl_status_to_str( s ) );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
+                            "asrtio_main", "Query test info failed: %s", asrt_status_to_str( s ) );
                         op.recv.set_error( s );
                 }
         }
@@ -229,24 +225,24 @@ struct _cntr_exec_test
                 auto s = asrtc_cntr_test_exec(
                     &cntr,
                     static_cast< uint16_t >( id ),
-                    +[]( void* p, asrtl_status s, asrtc_result* res ) -> asrtl_status {
+                    +[]( void* p, asrt_status s, asrtc_result* res ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
-                            if ( s != ASRTL_SUCCESS ) {
-                                    ASRTL_ERR_LOG(
+                            if ( s != ASRT_SUCCESS ) {
+                                    ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Test execution failed: %s",
-                                        asrtl_status_to_str( s ) );
+                                        asrt_status_to_str( s ) );
                                     op_->recv.set_error( s );
-                                    return ASRTL_SUCCESS;
+                                    return ASRT_SUCCESS;
                             }
                             op_->recv.set_value( *res );
-                            return ASRTL_SUCCESS;
+                            return ASRT_SUCCESS;
                     },
                     &op,
                     static_cast< uint32_t >( timeout.count() ) );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtio_main", "Test execution failed: %s", asrtl_status_to_str( s ) );
+                if ( s != ASRT_SUCCESS ) {
+                        ASRT_ERR_LOG(
+                            "asrtio_main", "Test execution failed: %s", asrt_status_to_str( s ) );
                         op.recv.set_error( s );
                 }
         }

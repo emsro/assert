@@ -11,7 +11,7 @@
 #pragma once
 
 #include "../asrtc/param.h"
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/callback.hpp"
@@ -23,14 +23,14 @@ namespace asrt
 
 inline status init(
     ref< asrtc_param_server > srv,
-    asrtl_node&               prev,
+    asrt_node&                prev,
     autosender                sender,
-    asrtl_allocator           alloc )
+    asrt_allocator            alloc )
 {
         return asrtc_param_server_init( srv, &prev, sender, alloc );
 }
 
-inline void set_tree( ref< asrtc_param_server > srv, asrtl_flat_tree const& tree )
+inline void set_tree( ref< asrtc_param_server > srv, asrt_flat_tree const& tree )
 {
         asrtc_param_server_set_tree( srv, &tree );
 }

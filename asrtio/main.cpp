@@ -84,27 +84,27 @@ struct pbar_reporter : suite_reporter
                 bar.log( pbar::colored_wall_time() + "    " + pbar::fg( loc, pbar::colors::red ) );
         }
 
-        void on_collect_data( std::string_view, asrtl_flat_tree const* ) override {}
+        void on_collect_data( std::string_view, asrt_flat_tree const* ) override {}
 
         void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
 std::shared_ptr< pbar::terminal_progress > g_bar;
-asrtl_log_level                            g_log_level = ASRTL_LOG_ERROR;
+asrt_log_level                             g_log_level = ASRT_LOG_ERROR;
 std::ostream*                              g_log_file  = nullptr;
 
 static std::string plain_log_line(
-    enum asrtl_log_level level,
-    char const*          module,
-    char const*          fmt,
-    va_list              args )
+    enum asrt_log_level level,
+    char const*         module,
+    char const*         fmt,
+    va_list             args )
 {
         char msgbuf[1024];
         vsnprintf( msgbuf, sizeof( msgbuf ), fmt, args );
         char const* ls;
-        if ( level == ASRTL_LOG_ERROR )
+        if ( level == ASRT_LOG_ERROR )
                 ls = "ERROR";
-        else if ( level == ASRTL_LOG_INFO )
+        else if ( level == ASRT_LOG_INFO )
                 ls = "INFO ";
         else
                 ls = "DEBUG";
@@ -130,19 +130,19 @@ static std::string plain_log_line(
 }
 
 static std::string pbar_format_log(
-    enum asrtl_log_level level,
-    char const*          module,
-    char const*          fmt,
-    va_list              args )
+    enum asrt_log_level level,
+    char const*         module,
+    char const*         fmt,
+    va_list             args )
 {
         char msgbuf[1024];
         vsnprintf( msgbuf, sizeof( msgbuf ), fmt, args );
         pbar::color lc;
         char const* ls;
-        if ( level == ASRTL_LOG_ERROR ) {
+        if ( level == ASRT_LOG_ERROR ) {
                 lc = pbar::colors::red;
                 ls = "ERROR";
-        } else if ( level == ASRTL_LOG_INFO ) {
+        } else if ( level == ASRT_LOG_INFO ) {
                 lc = pbar::colors::green;
                 ls = "INFO ";
         } else {
@@ -154,7 +154,7 @@ static std::string pbar_format_log(
 }
 
 extern "C" {
-void asrtl_log( enum asrtl_log_level level, char const* module, char const* fmt, ... )
+void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... )
 {
         if ( g_log_file ) {
                 va_list fargs;
@@ -191,8 +191,8 @@ task< void > run_tcp(
         pbar_reporter reporter{ *g_bar };
         auto          client = std::make_shared< uv_tcp_t >();
         if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
-                ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                co_await ecor::just_error( ASRTL_INIT_ERR );
+                ASRT_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
+                co_await ecor::just_error( ASRT_INIT_ERR );
         }
         co_await tcp_connect{ client.get(), host, port };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
@@ -220,15 +220,15 @@ task< void > run_rsim(
 
         auto client = std::make_shared< uv_tcp_t >();
         if ( auto r = uv_tcp_init( loop, client.get() ); r != 0 ) {
-                ASRTL_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
-                co_await ecor::just_error( ASRTL_INIT_ERR );
+                ASRT_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
+                co_await ecor::just_error( ASRT_INIT_ERR );
         }
         co_await tcp_connect{ client.get(), "0.0.0.0", rs->port() };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
         co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
-        ASRTL_INF_LOG( "asrtio", "run test suite finished" );
+        ASRT_INF_LOG( "asrtio", "run test suite finished" );
         g_bar->finish();
         g_bar.reset();
 }
@@ -246,25 +246,25 @@ struct final_receiver
 
         void set_value()
         {
-                ASRTL_INF_LOG( "asrtio_main", "Task completed successfully" );
+                ASRT_INF_LOG( "asrtio_main", "Task completed successfully" );
                 stop_idle();
         }
 
         void set_error( ecor::task_error )
         {
-                ASRTL_ERR_LOG( "asrtio_main", "Task error" );
+                ASRT_ERR_LOG( "asrtio_main", "Task error" );
                 stop_idle();
         }
 
         void set_error( asrt::status s )
         {
-                ASRTL_ERR_LOG( "asrtio_main", "Task error: %s", asrtl_status_to_str( s ) );
+                ASRT_ERR_LOG( "asrtio_main", "Task error: %s", asrt_status_to_str( s ) );
                 stop_idle();
         }
 
         void set_stopped()
         {
-                ASRTL_INF_LOG( "asrtio_main", "Task stopped" );
+                ASRT_INF_LOG( "asrtio_main", "Task stopped" );
                 stop_idle();
         }
 
@@ -316,7 +316,7 @@ int main( int argc, char* argv[] )
         auto launch = [&]( auto make_task ) {
                 auto timeout = std::chrono::milliseconds{ timeout_ms };
                 if ( output_dir.empty() )
-                        ASRTL_INF_LOG(
+                        ASRT_INF_LOG(
                             "asrtio", "No --output specified; data files will not be written" );
                 auto params = std::make_unique< param_config >();
                 if ( !params_file.empty() ) {
@@ -377,11 +377,11 @@ int main( int argc, char* argv[] )
         CLI11_PARSE( app, argc, argv );
 
         if ( verbosity >= 2 )
-                g_log_level = ASRTL_LOG_DEBUG;
+                g_log_level = ASRT_LOG_DEBUG;
         else if ( verbosity == 1 )
-                g_log_level = ASRTL_LOG_INFO;
+                g_log_level = ASRT_LOG_INFO;
         else
-                g_log_level = ASRTL_LOG_ERROR;
+                g_log_level = ASRT_LOG_ERROR;
 
         std::optional< file_writer > log_writer;
         if ( !output_dir.empty() ) {

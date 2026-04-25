@@ -21,7 +21,7 @@
 
 namespace asrt
 {
-using status = asrtl_status;
+using status = asrt_status;
 using result = asrtc_result;
 
 /// XXX: revise nodiscard in C++ code

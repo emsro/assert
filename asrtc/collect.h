@@ -21,7 +21,7 @@ extern "C" {
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/status.h"
 
-typedef void ( *asrtc_collect_ready_ack_cb )( void* ptr, enum asrtl_status status );
+typedef void ( *asrtc_collect_ready_ack_cb )( void* ptr, enum asrt_status status );
 
 enum asrtc_collect_server_state
 {
@@ -40,7 +40,7 @@ struct asrtc_collect_ready_data
         uint32_t                   deadline;
 };
 
-/// Controller-side collect server (ASRTL_COLL channel).
+/// Controller-side collect server (ASRT_COLL channel).
 ///
 /// Owns a flat_tree that the reactor populates remotely via APPEND messages.
 /// This is the inverse of the param channel: param reads a tree from the
@@ -53,12 +53,12 @@ struct asrtc_collect_ready_data
 ///   4. After test ends, controller reads the tree via tree().
 struct asrtc_collect_server
 {
-        struct asrtl_node      node;
-        struct asrtl_sender    sendr;
-        struct asrtl_allocator alloc;
-        struct asrtl_flat_tree tree;
-        uint32_t               tree_block_cap;
-        uint32_t               tree_node_cap;
+        struct asrt_node      node;
+        struct asrt_sender    sendr;
+        struct asrt_allocator alloc;
+        struct asrt_flat_tree tree;
+        uint32_t              tree_block_cap;
+        uint32_t              tree_node_cap;
 
         enum asrtc_collect_server_state state;
         asrt_flat_id                    next_node_id;
@@ -68,11 +68,11 @@ struct asrtc_collect_server
 
 /// Initialise a collect server and link it into the node chain.
 ///
-enum asrtl_status asrtc_collect_server_init(
+enum asrt_status asrtc_collect_server_init(
     struct asrtc_collect_server* server,
-    struct asrtl_node*           prev,
-    struct asrtl_sender          sender,
-    struct asrtl_allocator       alloc,
+    struct asrt_node*            prev,
+    struct asrt_sender           sender,
+    struct asrt_allocator        alloc,
     uint32_t                     tree_block_cap,
     uint32_t                     tree_node_cap );
 
@@ -84,7 +84,7 @@ enum asrtl_status asrtc_collect_server_init(
 ///
 /// May be called from IDLE or ACTIVE state (to start a new session).
 ///
-enum asrtl_status asrtc_collect_server_send_ready(
+enum asrt_status asrtc_collect_server_send_ready(
     struct asrtc_collect_server* server,
     asrt_flat_id                 root_id,
     uint32_t                     timeout,
@@ -92,8 +92,7 @@ enum asrtl_status asrtc_collect_server_send_ready(
     void*                        ack_cb_ptr );
 
 /// Access the built flat_tree.
-struct asrtl_flat_tree const* asrtc_collect_server_tree(
-    struct asrtc_collect_server const* server );
+struct asrt_flat_tree const* asrtc_collect_server_tree( struct asrtc_collect_server const* server );
 
 /// Free internal resources (flat_tree storage, any buffered append data).
 void asrtc_collect_server_deinit( struct asrtc_collect_server* server );

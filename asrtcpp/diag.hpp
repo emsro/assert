@@ -11,7 +11,7 @@
 #pragma once
 
 #include "../asrtc/diag.h"
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
@@ -26,15 +26,15 @@ using diag_record = asrtc_diag_record;
 
 struct diag_record_deleter
 {
-        struct asrtl_allocator* alloc;
+        struct asrt_allocator* alloc;
         void operator()( asrtc_diag_record* rec ) const { asrtc_diag_free_record( alloc, rec ); }
 };
 
 inline status init(
     ref< asrtc_diag_server > d,
-    asrtl_node&              prev,
+    asrt_node&               prev,
     autosender               sender,
-    asrtl_allocator          alloc )
+    asrt_allocator           alloc )
 {
         return asrtc_diag_server_init( d, &prev, sender, alloc );
 }

@@ -12,57 +12,57 @@
 
 #include "../asrtl/log.h"
 
-static enum asrtl_status asrtr_collect_client_send( void* p, struct asrtl_rec_span* buff )
+static enum asrt_status asrtr_collect_client_send( void* p, struct asrt_rec_span* buff )
 {
         struct asrtr_collect_client* client = (struct asrtr_collect_client*) p;
-        return asrtl_send( &client->sendr, ASRTL_COLL, buff, NULL, NULL );
+        return asrt_send( &client->sendr, ASRT_COLL, buff, NULL, NULL );
 }
 
 // ---------------------------------------------------------------------------
 // recv handlers (fast path)
 // ---------------------------------------------------------------------------
 
-static enum asrtl_status asrtr_collect_client_handle_ready(
+static enum asrt_status asrtr_collect_client_handle_ready(
     struct asrtr_collect_client* client,
-    struct asrtl_span*           buff )
+    struct asrt_span*            buff )
 {
-        if ( asrtl_span_unfit_for( buff, 8 ) ) {
-                ASRTL_ERR_LOG( "asrtr_collect_client", "ready: message too short" );
-                return ASRTL_RECV_ERR;
+        if ( asrt_span_unfit_for( buff, 8 ) ) {
+                ASRT_ERR_LOG( "asrtr_collect_client", "ready: message too short" );
+                return ASRT_RECV_ERR;
         }
 
-        asrtl_cut_u32( &buff->b, &client->root_id );
-        asrtl_cut_u32( &buff->b, &client->next_node_id );
+        asrt_cut_u32( &buff->b, &client->root_id );
+        asrt_cut_u32( &buff->b, &client->next_node_id );
         client->state = ASRTR_COLLECT_CLIENT_READY_RECV;
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtr_collect_client_handle_error(
+static enum asrt_status asrtr_collect_client_handle_error(
     struct asrtr_collect_client* client,
-    struct asrtl_span*           buff )
+    struct asrt_span*            buff )
 {
         (void) buff;
-        ASRTL_ERR_LOG( "asrtr_collect_client", "error received from controller" );
+        ASRT_ERR_LOG( "asrtr_collect_client", "error received from controller" );
         client->state = ASRTR_COLLECT_CLIENT_ERROR;
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtr_collect_client_recv( void* data, struct asrtl_span buff )
+static enum asrt_status asrtr_collect_client_recv( void* data, struct asrt_span buff )
 {
         struct asrtr_collect_client* client = (struct asrtr_collect_client*) data;
 
-        if ( asrtl_span_unfit_for( &buff, 1 ) )
-                return ASRTL_SUCCESS;
-        asrtl_collect_message_id id = (asrtl_collect_message_id) *buff.b++;
+        if ( asrt_span_unfit_for( &buff, 1 ) )
+                return ASRT_SUCCESS;
+        asrt_collect_message_id id = (asrt_collect_message_id) *buff.b++;
 
         switch ( id ) {
-        case ASRTL_COLLECT_MSG_READY:
+        case ASRT_COLLECT_MSG_READY:
                 return asrtr_collect_client_handle_ready( client, &buff );
-        case ASRTL_COLLECT_MSG_ERROR:
+        case ASRT_COLLECT_MSG_ERROR:
                 return asrtr_collect_client_handle_error( client, &buff );
         default:
-                ASRTL_ERR_LOG( "asrtr_collect_client", "unknown message id: %u", id );
-                return ASRTL_RECV_UNEXPECTED_ERR;
+                ASRT_ERR_LOG( "asrtr_collect_client", "unknown message id: %u", id );
+                return ASRT_RECV_UNEXPECTED_ERR;
         }
 }
 
@@ -70,45 +70,45 @@ static enum asrtl_status asrtr_collect_client_recv( void* data, struct asrtl_spa
 // Public API
 // ---------------------------------------------------------------------------
 
-static enum asrtl_status asrtr_collect_client_tick( struct asrtr_collect_client* client )
+static enum asrt_status asrtr_collect_client_tick( struct asrtr_collect_client* client )
 {
         if ( client->state != ASRTR_COLLECT_CLIENT_READY_RECV )
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
 
-        enum asrtl_status st = asrt_msg_rtoc_collect_ready_ack( asrtr_collect_client_send, client );
-        if ( st != ASRTL_SUCCESS ) {
-                ASRTL_ERR_LOG( "asrtr_collect_client", "tick: failed to send ready_ack" );
+        enum asrt_status st = asrt_msg_rtoc_collect_ready_ack( asrtr_collect_client_send, client );
+        if ( st != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_collect_client", "tick: failed to send ready_ack" );
                 return st;
         }
 
         client->state = ASRTR_COLLECT_CLIENT_ACTIVE;
-        return ASRTL_SUCCESS;
+        return ASRT_SUCCESS;
 }
 
-static enum asrtl_status asrtr_collect_client_event( void* p, enum asrtl_event_e e, void* arg )
+static enum asrt_status asrtr_collect_client_event( void* p, enum asrt_event_e e, void* arg )
 {
         struct asrtr_collect_client* client = (struct asrtr_collect_client*) p;
         switch ( e ) {
-        case ASRTL_EVENT_TICK:
+        case ASRT_EVENT_TICK:
                 return asrtr_collect_client_tick( client );
-        case ASRTL_EVENT_RECV:
-                return asrtr_collect_client_recv( client, *(struct asrtl_span*) arg );
+        case ASRT_EVENT_RECV:
+                return asrtr_collect_client_recv( client, *(struct asrt_span*) arg );
         }
-        ASRTL_ERR_LOG( "asrtr_collect_client", "unexpected event: %s", asrtl_event_to_str( e ) );
-        return ASRTL_INVALID_EVENT_ERR;
+        ASRT_ERR_LOG( "asrtr_collect_client", "unexpected event: %s", asrt_event_to_str( e ) );
+        return ASRT_INVALID_EVENT_ERR;
 }
 
-enum asrtl_status asrtr_collect_client_init(
+enum asrt_status asrtr_collect_client_init(
     struct asrtr_collect_client* client,
-    struct asrtl_node*           prev,
-    struct asrtl_sender          sender )
+    struct asrt_node*            prev,
+    struct asrt_sender           sender )
 {
         if ( !client || !prev )
-                return ASRTL_INIT_ERR;
+                return ASRT_INIT_ERR;
         *client = ( struct asrtr_collect_client ){
             .node =
-                ( struct asrtl_node ){
-                    .chid     = ASRTL_COLL,
+                ( struct asrt_node ){
+                    .chid     = ASRT_COLL,
                     .e_cb_ptr = client,
                     .e_cb     = asrtr_collect_client_event,
                     .next     = NULL,
@@ -119,11 +119,11 @@ enum asrtl_status asrtr_collect_client_init(
             .next_node_id = 1,
         };
 
-        asrtl_node_link( prev, &client->node );
-        return ASRTL_SUCCESS;
+        asrt_node_link( prev, &client->node );
+        return ASRT_SUCCESS;
 }
 
-enum asrtl_status asrtr_collect_client_append(
+enum asrt_status asrtr_collect_client_append(
     struct asrtr_collect_client*  client,
     asrt_flat_id                  parent_id,
     char const*                   key,
@@ -131,18 +131,18 @@ enum asrtl_status asrtr_collect_client_append(
     asrt_flat_id*                 out_id )
 {
         if ( client->state == ASRTR_COLLECT_CLIENT_ERROR ) {
-                ASRTL_ERR_LOG( "asrtr_collect_client", "append: in error state" );
-                return ASRTL_ARG_ERR;
+                ASRT_ERR_LOG( "asrtr_collect_client", "append: in error state" );
+                return ASRT_ARG_ERR;
         }
         if ( client->state != ASRTR_COLLECT_CLIENT_ACTIVE ) {
-                ASRTL_ERR_LOG( "asrtr_collect_client", "append: not active" );
-                return ASRTL_ARG_ERR;
+                ASRT_ERR_LOG( "asrtr_collect_client", "append: not active" );
+                return ASRT_ARG_ERR;
         }
 
-        asrt_flat_id      node_id = client->next_node_id++;
-        enum asrtl_status st      = asrt_msg_rtoc_collect_append(
+        asrt_flat_id     node_id = client->next_node_id++;
+        enum asrt_status st      = asrt_msg_rtoc_collect_append(
             parent_id, node_id, key, value, asrtr_collect_client_send, client );
-        if ( st == ASRTL_SUCCESS && out_id )
+        if ( st == ASRT_SUCCESS && out_id )
                 *out_id = node_id;
         return st;
 }
@@ -151,5 +151,5 @@ void asrtr_collect_client_deinit( struct asrtr_collect_client* client )
 {
         if ( !client )
                 return;
-        asrtl_node_unlink( &client->node );
+        asrt_node_unlink( &client->node );
 }

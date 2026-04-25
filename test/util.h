@@ -16,21 +16,21 @@
 #include <doctest/doctest.h>
 #include <stdlib.h>
 
-static inline enum asrtl_status asrtl_rec_span_to_span_cb( void* ptr, struct asrtl_rec_span* rec )
+static inline enum asrt_status asrt_rec_span_to_span_cb( void* ptr, struct asrt_rec_span* rec )
 {
-        return asrtl_rec_span_to_span( (struct asrtl_span*) ptr, rec );
+        return asrt_rec_span_to_span( (struct asrt_span*) ptr, rec );
 }
 
 inline void assert_u16( uint16_t val, uint8_t const* data )
 {
         uint16_t tmp;
-        asrtl_u8d2_to_u16( data, &tmp );
+        asrt_u8d2_to_u16( data, &tmp );
         CHECK_EQ( val, tmp );
 }
 inline void assert_u32( uint32_t val, uint8_t const* data )
 {
         uint32_t tmp;
-        asrtl_u8d4_to_u32( data, &tmp );
+        asrt_u8d4_to_u32( data, &tmp );
         CHECK_EQ( val, tmp );
 }
 

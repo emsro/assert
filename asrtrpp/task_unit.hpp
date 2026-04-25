@@ -63,7 +63,7 @@ struct task_unit : asrtr_test
                 asrtr_test_init( this, def.name, static_cast< task_unit* >( this ), task_unit::cb );
         }
 
-        static asrtl_status cb( record* rec )
+        static asrt_status cb( record* rec )
         {
                 auto& self = *static_cast< task_unit* >( rec->inpt->test_ptr );
 
@@ -73,7 +73,7 @@ struct task_unit : asrtr_test
                         self.op.start();
                 }
 
-                return ASRTL_SUCCESS;
+                return ASRT_SUCCESS;
         }
 
 private:

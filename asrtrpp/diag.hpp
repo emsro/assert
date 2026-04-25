@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
-#include "../asrtl/asrtl_assert.h"
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/sender.hpp"
@@ -30,7 +30,7 @@ void rec_diag(
         asrtr_diag_client_record( d, file, line, extra );
 }
 
-inline status init( ref< asrtr_diag_client > d, asrtl_node& prev, autosender sender )
+inline status init( ref< asrtr_diag_client > d, asrt_node& prev, autosender sender )
 {
         return asrtr_diag_client_init( d, &prev, sender );
 }

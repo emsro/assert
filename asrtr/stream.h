@@ -20,7 +20,7 @@ extern "C" {
 
 #include <stdint.h>
 
-typedef void ( *asrtr_stream_done_cb )( void* ptr, enum asrtl_status status );
+typedef void ( *asrtr_stream_done_cb )( void* ptr, enum asrt_status status );
 
 /// Pending define operation.  The \c fields pointer is borrowed — the caller
 /// must keep the pointed-to array alive until the done_cb fires (or tick()
@@ -28,15 +28,15 @@ typedef void ( *asrtr_stream_done_cb )( void* ptr, enum asrtl_status status );
 
 struct asrtr_stream_pending_define
 {
-        uint8_t                             schema_id;
-        uint8_t                             field_count;
-        enum asrtl_strm_field_type_e const* fields;
+        uint8_t                            schema_id;
+        uint8_t                            field_count;
+        enum asrt_strm_field_type_e const* fields;
 };
 
 /// Completed-send state.  Holds the transport result.
 struct asrtr_stream_pending_done
 {
-        enum asrtl_status send_status;
+        enum asrt_status send_status;
 };
 
 enum asrtr_stream_client_state
@@ -48,14 +48,14 @@ enum asrtr_stream_client_state
         ASRTR_STRM_ERROR       = 4,  ///< error received from controller.
 };
 
-/// Reactor-side stream client (ASRTL_STRM channel).
+/// Reactor-side stream client (ASRT_STRM channel).
 struct asrtr_stream_client
 {
-        struct asrtl_node   node;
-        struct asrtl_sender sendr;
+        struct asrt_node   node;
+        struct asrt_sender sendr;
 
         enum asrtr_stream_client_state state;
-        enum asrtl_strm_err_e          err_code;  ///< valid when state == ASRTR_STRM_ERROR.
+        enum asrt_strm_err_e           err_code;  ///< valid when state == ASRTR_STRM_ERROR.
 
         asrtr_stream_done_cb done_cb;      ///< user callback, fired in DONE state.
         void*                done_cb_ptr;  ///< user context for done_cb.
@@ -68,10 +68,10 @@ struct asrtr_stream_client
 };
 
 /// Initialise a stream client and link it into the node chain.
-enum asrtl_status asrtr_stream_client_init(
+enum asrt_status asrtr_stream_client_init(
     struct asrtr_stream_client* client,
-    struct asrtl_node*          prev,
-    struct asrtl_sender         sender );
+    struct asrt_node*           prev,
+    struct asrt_sender          sender );
 
 /// Deinitialise a stream client and unlink it from the node chain.
 void asrtr_stream_client_deinit( struct asrtr_stream_client* client );
@@ -79,18 +79,18 @@ void asrtr_stream_client_deinit( struct asrtr_stream_client* client );
 /// Prepare a DEFINE message with a definition of schema. This will be sent from tick() and done
 /// will be called once the sender acknowledges the send. The caller must keep the \c fields array
 /// alive until the done_cb fires (or tick() returns when no callback is set).
-enum asrtl_status asrtr_stream_client_define(
-    struct asrtr_stream_client*         client,
-    uint8_t                             schema_id,
-    enum asrtl_strm_field_type_e const* fields,
-    uint8_t                             field_count,
-    asrtr_stream_done_cb                done_cb,
-    void*                               done_cb_ptr );
+enum asrt_status asrtr_stream_client_define(
+    struct asrtr_stream_client*        client,
+    uint8_t                            schema_id,
+    enum asrt_strm_field_type_e const* fields,
+    uint8_t                            field_count,
+    asrtr_stream_done_cb               done_cb,
+    void*                              done_cb_ptr );
 
 /// Prepare a DATA message for a schema. The message will be sent from tick() and done will be
 /// called once the sender acknowledges the send. The caller must keep the \c data array alive until
 /// the done_cb fires (or tick() returns when no callback is set).
-enum asrtl_status asrtr_stream_client_emit(
+enum asrt_status asrtr_stream_client_emit(
     struct asrtr_stream_client* client,
     uint8_t                     schema_id,
     uint8_t const*              data,
@@ -100,7 +100,7 @@ enum asrtl_status asrtr_stream_client_emit(
 
 /// Reset the client to IDLE state.  Returns ASRTR_BUSY if a send
 /// transaction is in progress (DEFINE_SEND or DEFINE_WAIT).
-enum asrtl_status asrtr_stream_client_reset( struct asrtr_stream_client* client );
+enum asrt_status asrtr_stream_client_reset( struct asrtr_stream_client* client );
 
 #ifdef __cplusplus
 }
