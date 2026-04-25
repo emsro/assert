@@ -46,9 +46,15 @@ static std::vector< uint8_t > make_cobs_packet( uint16_t chid, std::vector< uint
                 *pp++ = b;
         size_t raw_len = pp - raw;
 
-        uint8_t           out[1024];
-        struct asrtl_span in_sp{ .b = raw, .e = raw + raw_len };
-        struct asrtl_span out_sp{ .b = out, .e = out + sizeof( out ) };
+        uint8_t out[1024];
+        struct asrtl_span in_sp
+        {
+                .b = raw, .e = raw + raw_len
+        };
+        struct asrtl_span out_sp
+        {
+                .b = out, .e = out + sizeof( out )
+        };
         REQUIRE( asrtl_cobs_encode_buffer( in_sp, &out_sp ) == ASRTL_SUCCESS );
 
         std::vector< uint8_t > result( out_sp.b, out_sp.e );
@@ -64,7 +70,7 @@ static asrtio::cobs_node make_cobs_node( asrtl_node* node, std::function< void( 
         cn.on_error = std::move( on_err );
         asrtl_cobs_ibuffer_init(
             &cn.recv,
-            (struct asrtl_span) { .b = cn.ibuffer, .e = cn.ibuffer + sizeof( cn.ibuffer ) } );
+            ( struct asrtl_span ){ .b = cn.ibuffer, .e = cn.ibuffer + sizeof( cn.ibuffer ) } );
         return cn;
 }
 
@@ -81,12 +87,10 @@ TEST_CASE( "cobs_on_data_dispatch" )
         asrtl_node test_node{};
         test_node.chid     = ASRTL_CORE;
         test_node.e_cb_ptr = &cap;
-        test_node.e_cb     = []( void* ptr, enum asrtl_event_e event, void* arg )->enum asrtl_status
-        {
-                if ( event != ASRTL_EVENT_RECV )
-                        return ASRTL_SUCCESS;
+        test_node.e_cb = []( void* ptr, enum asrtl_event_e event, void* arg ) -> enum asrtl_status {
+                if ( event != ASRTL_EVENT_RECV ) return ASRTL_SUCCESS;
                 struct asrtl_span sp = *static_cast< struct asrtl_span* >( arg );
-                auto&             c  = *static_cast< recv_capture* >( ptr );
+                auto& c              = *static_cast< recv_capture* >( ptr );
                 c.payload.assign( sp.b, sp.e );
                 ++c.call_cnt;
                 return ASRTL_SUCCESS;
@@ -111,8 +115,7 @@ TEST_CASE( "cobs_on_data_error_cb" )
 {
         asrtl_node dummy_node{};
         dummy_node.chid = ASRTL_CORE;
-        dummy_node.e_cb = []( void*, enum asrtl_event_e, void* )->enum asrtl_status
-        {
+        dummy_node.e_cb = []( void*, enum asrtl_event_e, void* ) -> enum asrtl_status {
                 return ASRTL_SUCCESS;
         };
 
@@ -138,10 +141,8 @@ TEST_CASE( "cobs_on_data_multi_packet" )
         asrtl_node test_node{};
         test_node.chid     = ASRTL_CORE;
         test_node.e_cb_ptr = &cap;
-        test_node.e_cb     = []( void* ptr, enum asrtl_event_e event, void* )->enum asrtl_status
-        {
-                if ( event != ASRTL_EVENT_RECV )
-                        return ASRTL_SUCCESS;
+        test_node.e_cb     = []( void* ptr, enum asrtl_event_e event, void* ) -> enum asrtl_status {
+                if ( event != ASRTL_EVENT_RECV ) return ASRTL_SUCCESS;
                 ++static_cast< recv_capture* >( ptr )->call_cnt;
                 return ASRTL_SUCCESS;
         };

@@ -47,7 +47,7 @@ void check_tick( auto* c, uint32_t now )
 
 void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
 {
-        check_recv( c, (struct asrtl_span) { .b = beg, .e = end } );
+        check_recv( c, ( struct asrtl_span ){ .b = beg, .e = end } );
         int       i = 0;
         int const n = 1000;
         for ( ; i < n && !asrtc_cntr_idle( c ); i++ )
@@ -82,8 +82,7 @@ enum asrtl_status record_init_cb( void* ptr, enum asrtl_status s )
 
 void check_cntr_full_init( controller_ctx* ctx )
 {
-                enum asrtl_status st =
-                        asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
+        enum asrtl_status st = asrtc_cntr_init( &ctx->cntr, ctx->send, asrtc_default_allocator() );
         CHECK_EQ( ASRTL_SUCCESS, st );
         st = asrtc_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 1000 );
         CHECK_EQ( ASRTL_SUCCESS, st );
@@ -171,7 +170,7 @@ enum asrtl_status cpy_test_info_capture_cb(
     uint16_t          tid,
     char*             desc )
 {
-        auto* c = (test_info_cb_capture*) ptr;
+        auto* c   = (test_info_cb_capture*) ptr;
         c->status = s;
         c->tid    = tid;
         c->desc   = desc ? desc : "";
@@ -241,13 +240,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info" )
         coll.data.pop_back();
 
         char const* desc = "barbaz";
-                asrtl_msg_rtoc_test_info(
-                        42,
-                        ASRTL_TEST_INFO_SUCCESS,
-                        desc,
-                        strlen( desc ),
-                        asrtl_rec_span_to_span_cb,
-                        &sp );
+        asrtl_msg_rtoc_test_info(
+            42, ASRTL_TEST_INFO_SUCCESS, desc, strlen( desc ), asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buffer, sp.b, &t );
 
         CHECK( desc == p.desc );
@@ -269,15 +263,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         uint8_t           buf[64];
         struct asrtl_span sp   = { .b = buf, .e = buf + sizeof buf };
         char const*       desc = "barbaz";
-                asrtl_msg_rtoc_test_info(
-                        99,
-                        ASRTL_TEST_INFO_SUCCESS,
-                        desc,
-                        strlen( desc ),
-                        asrtl_rec_span_to_span_cb,
-                        &sp );
+        asrtl_msg_rtoc_test_info(
+            99, ASRTL_TEST_INFO_SUCCESS, desc, strlen( desc ), asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, rst );
 
         CHECK( p.desc.empty() );
@@ -297,17 +286,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_missing_status" )
         uint8_t           buf[64];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_test_info(
-            42,
-            ASRTL_TEST_INFO_MISSING_TEST_ERR,
-            "",
-            0,
-            asrtl_rec_span_to_span_cb,
-            &sp );
+            42, ASRTL_TEST_INFO_MISSING_TEST_ERR, "", 0, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
 
-                CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, capture.status );
-                CHECK_EQ( 42, capture.tid );
-                CHECK( capture.desc.empty() );
+        CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, capture.status );
+        CHECK_EQ( 42, capture.tid );
+        CHECK( capture.desc.empty() );
 }
 
 enum asrtl_status result_cb( void* ptr, enum asrtl_status s, struct asrtc_result* res )
@@ -331,7 +315,7 @@ static void failing_free( void* ptr, void* mem )
 }
 static struct asrtl_allocator failing_allocator( void )
 {
-        return (struct asrtl_allocator) {
+        return ( struct asrtl_allocator ){
             .ptr   = NULL,
             .alloc = &failing_alloc,
             .free  = &failing_free,
@@ -361,11 +345,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
         coll.data.pop_back();  // discard DESC request
 
         // Send a DESC reply — alloc will return NULL, recv must return an error
-        sp              = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp              = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         char const* msg = "hello";
         asrtl_msg_rtoc_desc( msg, strlen( msg ), asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_NE( ASRTL_SUCCESS, rst );
 }
 
@@ -388,7 +372,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
                 check_tick( &cntr, t++ );
 
         asrtl_msg_rtoc_test_start( 42, 0, asrtl_rec_span_to_span_cb, &sp );
-        check_recv( &cntr, (struct asrtl_span) { .b = buffer, .e = sp.b } );
+        check_recv( &cntr, ( struct asrtl_span ){ .b = buffer, .e = sp.b } );
         for ( int i = 0; i < 4; i++ )
                 check_tick( &cntr, t++ );
 
@@ -434,7 +418,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
         uint8_t           buf[64];
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( ASRTL_PROTO_MAJOR + 1, 0, 0, asrtl_rec_span_to_span_cb, &sp );
-        check_recv( &cntr, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        check_recv( &cntr, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
         enum asrtl_status st2 = asrtl_chann_tick( &cntr.node, t++ );
         CHECK_EQ( ASRTL_VERSION_ERR, init_status );
@@ -659,7 +643,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &sp );
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, rst );
         CHECK( asrtc_cntr_idle( &cntr ) );
 }
@@ -674,7 +658,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 
         uint8_t           buf[1];
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = buf } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = buf } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Drain: tick to send request then satisfy it
@@ -702,11 +686,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
         asrtl_add_u16( &sp.b, 0 );  // major only, 4 bytes total
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_proto_version( 0, 1, 0, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
 }
@@ -727,11 +711,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_COUNT );
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_test_count( 0, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
 }
@@ -752,19 +736,14 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
         char const* desc = "x";
-        sp               = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
-                asrtl_msg_rtoc_test_info(
-                        7,
-                        ASRTL_TEST_INFO_SUCCESS,
-                        desc,
-                        strlen( desc ),
-                        asrtl_rec_span_to_span_cb,
-                        &sp );
+        sp               = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
+        asrtl_msg_rtoc_test_info(
+            7, ASRTL_TEST_INFO_SUCCESS, desc, strlen( desc ), asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
 }
 
@@ -822,7 +801,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
 
         // empty buffer → SUCCESS, no record queued
 
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = buf } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = buf } );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // valid RECORD line=7, file="foo"
@@ -833,7 +812,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = 'f';
         *p++ = 'o';
         *p++ = 'o';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -848,7 +827,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 42 );
         *p++ = 0;  // file_len
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -864,13 +843,13 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         asrtl_add_u32( &p, 1 );
         *p++ = 1;  // file_len
         *p++ = 'a';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
         *p++ = 1;  // file_len
         *p++ = 'b';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
                 auto* r1 = asrtc_diag_take_record( &diag );
                 auto* r2 = asrtc_diag_take_record( &diag );
@@ -897,21 +876,21 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
         *p++       = 0x07;  // 3 bytes for line, need 4
         CHECK_EQ(
             ASRTL_RECV_ERR,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // unknown ID 0x00
         buf[0] = 0x00;
         CHECK_EQ(
             ASRTL_RECV_UNEXPECTED_ERR,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = buf + 1 } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // unknown ID 0xFF
         buf[0] = 0xFF;
         CHECK_EQ(
             ASRTL_RECV_UNEXPECTED_ERR,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = buf + 1 } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         asrtc_diag_deinit( &diag );
@@ -931,7 +910,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         *p++ = 'x';
         CHECK_EQ(
             ASRTL_ALLOC_ERR,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( 0u, alloc_ctx.free_calls );
 
@@ -946,7 +925,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         *p++ = 'y';
         CHECK_EQ(
             ASRTL_ALLOC_ERR,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( 1u, alloc_ctx.free_calls );
 
@@ -973,7 +952,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         *p++ = 'z';
         CHECK_EQ(
             ASRTL_SUCCESS,
-            asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
+            asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         {
                 auto* rec = asrtc_diag_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
@@ -992,7 +971,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
                 *p++ = 'a';
                 CHECK_EQ(
                     ASRTL_SUCCESS,
-                    asrtl_chann_recv( &diag.node, (struct asrtl_span) { .b = buf, .e = p } ) );
+                    asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         }
         for ( uint32_t i = 1; i <= 3; i++ ) {
                 auto* rec = asrtc_diag_take_record( &diag );
@@ -1010,7 +989,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtl_add_u32( &p, 10 );
         *p++ = 1;  // file_len
         *p++ = 'x';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         auto* rec_a = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec_a );
         p    = buf;
@@ -1018,7 +997,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtl_add_u32( &p, 20 );
         *p++ = 1;  // file_len
         *p++ = 'y';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         auto* rec_b = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec_b );
         CHECK_EQ( 20u, rec_b->line );
@@ -1048,7 +1027,7 @@ TEST_CASE( "diag_free_record" )
         *p++ = 2;  // file_len
         *p++ = 'h';
         *p++ = 'i';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
 
         // record with non-NULL file → two free calls
         auto* rec = asrtc_diag_take_record( &diag );
@@ -1101,7 +1080,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                 asrtl_add_u32( &p, 1 );
                 *p++ = 1;  // file_len
                 *p++ = 'a';
-                check_recv( &d3, (struct asrtl_span) { .b = buf, .e = p } );
+                check_recv( &d3, ( struct asrtl_span ){ .b = buf, .e = p } );
                 asrtc_diag_deinit( &d3 );
                 CHECK_EQ( nullptr, d3.first_rec );
                 CHECK_EQ( 2u, sctx3.free_calls );  // file + rec
@@ -1122,7 +1101,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                         asrtl_add_u32( &p, i );
                         *p++ = 1;  // file_len
                         *p++ = 'x';
-                        check_recv( &d4, (struct asrtl_span) { .b = buf, .e = p } );
+                        check_recv( &d4, ( struct asrtl_span ){ .b = buf, .e = p } );
                 }
                 asrtc_diag_deinit( &d4 );
                 CHECK_EQ( nullptr, d4.first_rec );
@@ -1135,14 +1114,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         asrtl_add_u32( &p, 1 );
         *p++ = 1;  // file_len
         *p++ = 'a';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
 
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
         asrtl_add_u32( &p, 2 );
         *p++ = 1;  // file_len
         *p++ = 'b';
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = p } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         auto* taken = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, taken );
         asrtc_diag_free_record( &diag.alloc, taken );
@@ -1165,15 +1144,15 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         struct asrtl_span sp;
 
         // Truncated TEST_RESULT: ID + run_id(4) only — missing res(2)
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_RESULT );
         asrtl_add_u32( &sp.b, 0 );  // run_id, but no res u16
         enum asrtl_status rst =
-            asrtl_chann_recv( &cntr.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+            asrtl_chann_recv( &cntr.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_test_result( 0, ASRTL_TEST_SUCCESS, asrtl_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
         CHECK_EQ( ASRTC_TEST_SUCCESS, res.res );
@@ -1190,7 +1169,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_diag_record( "foo.c", 7, NULL, asrtl_rec_span_to_span_cb, &sp );
 
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
         auto* rec = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1209,7 +1188,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
         struct asrtl_span sp = { .b = buf, .e = buf + sizeof buf };
         asrtl_msg_rtoc_diag_record( "test.c", 42, "x > 0", asrtl_rec_span_to_span_cb, &sp );
 
-        check_recv( &diag, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
         auto* rec = asrtc_diag_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1345,7 +1324,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_send_ready_encodes_correctly" 
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_allocates_buffer" )
 {
         uint8_t buf[8];
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 256u ) } );
         CHECK_EQ( ASRTL_SUCCESS, asrtl_chann_tick( &param.node, t++ ) );
         CHECK_EQ( 1, param.ack_received );
         CHECK_EQ( 256u, param.max_msg_size );
@@ -1359,13 +1338,13 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_allocates_buffe
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_ready_ack_while_pending_returns_error" )
 {
         uint8_t buf[8];
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 256u ) } );
         // pending == PENDING_READY_ACK; tick not called yet
         CHECK_EQ(
             ASRTL_RECV_ERR,
             asrtl_chann_recv(
                 &param.node,
-                (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 512u ) } ) );
+                ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 512u ) } ) );
         // Consume the first pending so the fixture destructor stays clean
         check_tick( &param, t++ );
 }
@@ -1380,16 +1359,16 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_recv_query_while_pending_retur
 
         uint8_t buf[8];
         // Handshake so ack_received=1 and enc_buff is ready
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 256u ) } );
         check_tick( &param, t++ );
 
         // First query stores pending
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 2u ) } );
         // pending == PENDING_QUERY; tick not called yet
         CHECK_EQ(
             ASRTL_RECV_ERR,
             asrtl_chann_recv(
-                &param.node, (struct asrtl_span) { .b = buf, .e = build_query( buf, 3u ) } ) );
+                &param.node, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 3u ) } ) );
         check_tick( &param, t++ );  // second tick to consume the second pending if it were
                                     // erroneously accepted
         asrtl_flat_tree_deinit( &tree );
@@ -1404,7 +1383,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_before_ack_returns_error
         CHECK_EQ(
             ASRTL_RECV_ERR,
             asrtl_chann_recv(
-                &param.node, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } ) );
+                &param.node, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 2u ) } ) );
         CHECK( coll.data.empty() );
         asrtl_flat_tree_deinit( &tree );
 }
@@ -1416,11 +1395,11 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_produces_response" )
 
         uint8_t buf[8];
         // Handshake
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 256u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 256u ) } );
         check_tick( &param, t++ );
 
         // Query node 2 ("alpha", u32=10)
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 2u ) } );
         check_tick( &param, t++ );
         REQUIRE_EQ( 1u, coll.data.size() );
 
@@ -1446,11 +1425,11 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_multi_batch" )
         asrtc_param_server_set_tree( &param, &tree );
 
         uint8_t buf[8];
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 20u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 20u ) } );
         check_tick( &param, t++ );
 
         // First query: only node 2 fits → next_sibling_id points to node 3
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 2u ) } );
         check_tick( &param, t++ );
         REQUIRE_EQ( 1u, coll.data.size() );
 
@@ -1476,9 +1455,9 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_oversize_returns_error" 
         asrtc_param_server_set_tree( &param, &tree );
 
         uint8_t buf[8];
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 11u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 11u ) } );
         check_tick( &param, t++ );
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_query( buf, 2u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_query( buf, 2u ) } );
         check_tick( &param, t++ );
 
         REQUIRE_EQ( 1u, coll.data.size() );
@@ -1499,7 +1478,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_query_oversize_returns_error" 
 TEST_CASE_FIXTURE( param_ctx, "asrtc_param_server_deinit_frees_buffer" )
 {
         uint8_t buf[8];
-        check_recv( &param, (struct asrtl_span) { .b = buf, .e = build_ready_ack( buf, 64u ) } );
+        check_recv( &param, ( struct asrtl_span ){ .b = buf, .e = build_ready_ack( buf, 64u ) } );
         check_tick( &param, t++ );
         CHECK_NE( nullptr, param.enc_buff );
         CHECK_EQ( 1u, alloc_ctx.alloc_calls );
@@ -2056,7 +2035,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_recv_ready_ack_activates" 
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 }
@@ -2068,12 +2047,12 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_recv_ready_ack_while_pendi
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         CHECK_EQ(
             ASRTL_RECV_ERR,
             asrtl_chann_recv(
                 &server.node,
-                (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } ) );
+                ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } ) );
         check_tick( &server, t++ );
 }
 
@@ -2085,21 +2064,27 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_builds_tree" )
         // Handshake
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Append root object (parent=0, node=1, no key)
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Append child u32 (parent=1, node=2, key="alpha", value=42)
-        struct asrtl_flat_value val{ .type = ASRTL_FLAT_STYPE_U32 };
+        struct asrtl_flat_value val
+        {
+                .type = ASRTL_FLAT_STYPE_U32
+        };
         val.data.s.u32_val = 42;
         ae                 = build_collect_append( abuf, 1, 2, "alpha", &val );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Verify tree
@@ -2121,21 +2106,27 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_string_value" )
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Append root object
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Append string child
-        struct asrtl_flat_value str_val{ .type = ASRTL_FLAT_STYPE_STR };
+        struct asrtl_flat_value str_val
+        {
+                .type = ASRTL_FLAT_STYPE_STR
+        };
         str_val.data.s.str_val = "hello";
         ae                     = build_collect_append( abuf, 1, 2, "msg", &str_val );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         struct asrtl_flat_tree const*  tree = asrtc_collect_server_tree( &server );
@@ -2147,12 +2138,15 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_string_value" )
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_before_active_returns_error" )
 {
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
         CHECK_EQ(
             ASRTL_RECV_ERR,
-            asrtl_chann_recv( &server.node, (struct asrtl_span) { .b = abuf, .e = ae } ) );
+            asrtl_chann_recv( &server.node, ( struct asrtl_span ){ .b = abuf, .e = ae } ) );
 }
 
 TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_back_to_back_appends" )
@@ -2162,20 +2156,26 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_back_to_back_appends" )
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Append root object
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
 
         // Second append WITHOUT tick() in between — simulates burst arrival
-        struct asrtl_flat_value val{ .type = ASRTL_FLAT_STYPE_U32 };
+        struct asrtl_flat_value val
+        {
+                .type = ASRTL_FLAT_STYPE_U32
+        };
         val.data.s.u32_val = 42;
         ae                 = build_collect_append( abuf, 1, 2, "alpha", &val );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
 
         // Tick to finalize
         check_tick( &server, t++ );
@@ -2199,19 +2199,22 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_duplicate_sends_err
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Append root object
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Duplicate node_id=1
         ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Error should have been sent and server deactivated
@@ -2237,7 +2240,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ack_cb_fires" )
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
         CHECK_EQ( ASRTL_SUCCESS, ack_status );
 }
@@ -2272,7 +2275,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_double_call_ret
         // Consume handshake so fixture can clean up
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 }
 
@@ -2297,7 +2300,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_send_ready_after_timeout_a
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 }
@@ -2309,14 +2312,17 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ready_ack_reinits_tree" )
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Append a node
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
         check_tick( &server, t++ );
 
         // Verify node exists
@@ -2328,7 +2334,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_ready_ack_reinits_tree" )
         CHECK_EQ( ASRTL_SUCCESS, asrtc_collect_server_send_ready( &server, 1u, 1000, NULL, NULL ) );
         coll.data.pop_front();
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
 
         // Old node should no longer exist in the fresh tree
@@ -2343,7 +2349,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends
 
         uint8_t buf[8];
         check_recv(
-            &server, (struct asrtl_span) { .b = buf, .e = build_collect_ready_ack( buf ) } );
+            &server, ( struct asrtl_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
         check_tick( &server, t++ );
         CHECK_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
 
@@ -2351,10 +2357,13 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends
         uint32_t calls_before  = alloc_ctx.alloc_calls;
         alloc_ctx.fail_at_call = calls_before + 1;
 
-        uint8_t                 abuf[128];
-        struct asrtl_flat_value obj{ .type = ASRTL_FLAT_CTYPE_OBJECT };
-        uint8_t*                ae = build_collect_append( abuf, 0, 1, NULL, &obj );
-        check_recv( &server, (struct asrtl_span) { .b = abuf, .e = ae } );
+        uint8_t abuf[128];
+        struct asrtl_flat_value obj
+        {
+                .type = ASRTL_FLAT_CTYPE_OBJECT
+        };
+        uint8_t* ae = build_collect_append( abuf, 0, 1, NULL, &obj );
+        check_recv( &server, ( struct asrtl_span ){ .b = abuf, .e = ae } );
 
         // Tree alloc failure → error sent to reactor, server resets to idle
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
@@ -2486,7 +2495,10 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
         // gets id=2 — which is unique, so we cannot trigger a duplicate via the
         // public API alone.  Instead, send a raw APPEND with the same node_id=1
         // through the loopback to test the server ERROR path.
-        struct asrtl_flat_value dup{ .type = ASRTL_FLAT_STYPE_U32 };
+        struct asrtl_flat_value dup
+        {
+                .type = ASRTL_FLAT_STYPE_U32
+        };
         dup.data.s.u32_val = 42;
         uint8_t           buf[256];
         uint8_t*          end = build_collect_append( buf, 0, 1, "dup", &dup );
@@ -2511,7 +2523,10 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         check_tick( &server, t++ );
 
         // Force duplicate via raw message
-        struct asrtl_flat_value dup{ .type = ASRTL_FLAT_STYPE_U32 };
+        struct asrtl_flat_value dup
+        {
+                .type = ASRTL_FLAT_STYPE_U32
+        };
         dup.data.s.u32_val = 1;
         uint8_t           buf[256];
         uint8_t*          end = build_collect_append( buf, 0, 1, "x", &dup );

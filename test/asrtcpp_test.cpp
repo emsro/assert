@@ -132,10 +132,7 @@ struct paired_ctx
                 (void) asrt::add_test( r, t0 );
                 (void) asrt::add_test( r, t1 );
 
-                if ( asrt::init(
-                         c,
-                         c_send,
-                         asrtl_default_allocator() ) != ASRTL_SUCCESS )
+                if ( asrt::init( c, c_send, asrtl_default_allocator() ) != ASRTL_SUCCESS )
                         throw std::runtime_error( "controller init failed" );
 
                 // start init handshake
@@ -572,7 +569,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
 
 static inline asrtl_status inject_csrv_msg( asrtl_node* n, uint8_t* b, uint8_t* e )
 {
-        return asrtl_chann_recv( n, (asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( n, ( asrtl_span ){ .b = b, .e = e } );
 }
 
 static uint8_t* build_csrv_ready_ack( uint8_t* buf )

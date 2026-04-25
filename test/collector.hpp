@@ -60,10 +60,16 @@ static enum asrtl_status sender_collect(
         for ( struct asrtl_rec_span* seg = buff; seg; seg = seg->next )
                 total += (uint32_t) ( seg->e - seg->b );
 
-        struct collected_data p{ .id = id };
+        struct collected_data p
+        {
+                .id = id
+        };
         p.data.resize( total );
-        uint8_t*          dst = p.data.data();
-        struct asrtl_span sp{ .b = dst, .e = dst + total };
+        uint8_t* dst = p.data.data();
+        struct asrtl_span sp
+        {
+                .b = dst, .e = dst + total
+        };
         asrtl_rec_span_to_span( &sp, buff );
         c->data.push_back( p );
         if ( done_cb )
@@ -73,7 +79,7 @@ static enum asrtl_status sender_collect(
 
 static void setup_sender_collector( struct asrtl_sender* s, collector* ptr )
 {
-        *s = (struct asrtl_sender) {
+        *s = ( struct asrtl_sender ){
             .ptr = (void*) ptr,
             .cb  = &sender_collect,
         };

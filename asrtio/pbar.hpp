@@ -1,3 +1,13 @@
+/// Permission to use, copy, modify, and/or distribute this software for any
+/// purpose with or without fee is hereby granted.
+///
+/// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+/// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+/// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+/// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+/// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+/// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+/// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
 // pbar.hpp — single-header terminal progress bar with scrolling log
@@ -164,7 +174,9 @@ inline int terminal_progress::terminal_width()
                 return (int) ( csbi.srWindow.Right - csbi.srWindow.Left + 1 );
         return 80;
 #else
-        struct winsize ws{};
+        struct winsize ws
+        {
+        };
         if ( ::ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws ) == 0 && ws.ws_col > 0 )
                 return (int) ws.ws_col;
         return 80;
@@ -269,8 +281,10 @@ inline std::string colored_hms( int h, int m, int s )
 // Wall-clock time colored HHMMSS
 inline std::string colored_wall_time()
 {
-        auto      now_t = std::chrono::system_clock::to_time_t( std::chrono::system_clock::now() );
-        struct tm tm_info{};
+        auto now_t = std::chrono::system_clock::to_time_t( std::chrono::system_clock::now() );
+        struct tm tm_info
+        {
+        };
 #ifdef _WIN32
         localtime_s( &tm_info, &now_t );
 #else

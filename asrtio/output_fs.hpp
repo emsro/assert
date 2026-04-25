@@ -37,10 +37,7 @@ struct file_writer
         file_writer& operator=( file_writer&& ) = delete;
         file_writer( file_writer const& )       = delete;
 
-        std::ostream& stream()
-        {
-                return *os_;
-        }
+        std::ostream& stream() { return *os_; }
 
         ~file_writer();
 
@@ -75,10 +72,7 @@ inline file_writer::~file_writer()
 /// No-op output_fs — all operations succeed but produce no output.
 struct null_fs : output_fs
 {
-        bool create_directories( std::filesystem::path const& ) override
-        {
-                return true;
-        }
+        bool create_directories( std::filesystem::path const& ) override { return true; }
 
         file_writer open_write( std::filesystem::path const& ) override
         {
@@ -90,14 +84,11 @@ struct null_fs : output_fs
 private:
         struct null_buf : std::streambuf
         {
-                int_type overflow( int_type c ) override
-                {
-                        return c;
-                }
+                int_type overflow( int_type c ) override { return c; }
         };
 
-        null_buf         buf_;
-        std::ostream     sink_{ &buf_ };
+        null_buf     buf_;
+        std::ostream sink_{ &buf_ };
 };
 
 }  // namespace asrtio

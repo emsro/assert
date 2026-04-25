@@ -81,7 +81,7 @@ void check_recv_and_spin(
     uint8_t*                 end,
     enum asrtr_reactor_flags fls )
 {
-        check_reactor_recv_flags( reac, (struct asrtl_span) { beg, end }, fls );
+        check_reactor_recv_flags( reac, ( struct asrtl_span ){ beg, end }, fls );
         int       i = 0;
         int const n = 1000;
         for ( ; i < n; i++ ) {
@@ -345,7 +345,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_start_busy" )
         setup_test( &reac, &t1, "test1", &counter, &countdown_test );
 
         asrtl_msg_ctor_test_start( 0, 0, asrtl_rec_span_to_span_cb, &sp );
-        check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TSTART );
+        check_reactor_recv_flags( &reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
         check_reactor_tick( &reac );
         CHECK_EQ( 8, counter );
@@ -358,7 +358,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_start_busy" )
                 coll.data.pop_back();
         }
 
-        check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TSTART );
+        check_reactor_recv_flags( &reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
         check_reactor_tick( &reac );
         CHECK_EQ( 7, counter );
@@ -491,10 +491,11 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_info_repeat" )
         asrtl_msg_ctor_test_info( 0, asrtl_rec_span_to_span_cb, &sp );
 
         // first recv — flag must be set
-        check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TI );
+        check_reactor_recv_flags( &reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TI );
 
         // second recv before tick — must be rejected
-        enum asrtl_status st = asrtl_chann_recv( &reac.node, (struct asrtl_span) { buffer, sp.b } );
+        enum asrtl_status st =
+            asrtl_chann_recv( &reac.node, ( struct asrtl_span ){ buffer, sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
@@ -512,10 +513,11 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_start_repeat" )
         asrtl_msg_ctor_test_start( 0, 42, asrtl_rec_span_to_span_cb, &sp );
 
         // first recv — flag must be set
-        check_reactor_recv_flags( &reac, (struct asrtl_span) { buffer, sp.b }, ASRTR_FLAG_TSTART );
+        check_reactor_recv_flags( &reac, ( struct asrtl_span ){ buffer, sp.b }, ASRTR_FLAG_TSTART );
 
         // second recv before tick — must be rejected
-        enum asrtl_status st = asrtl_chann_recv( &reac.node, (struct asrtl_span) { buffer, sp.b } );
+        enum asrtl_status st =
+            asrtl_chann_recv( &reac.node, ( struct asrtl_span ){ buffer, sp.b } );
         CHECK_EQ( ASRTL_RECV_UNEXPECTED_ERR, st );
 
         // flag must still be set
@@ -532,7 +534,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_add_test_after_recv" )
 
         // any valid recv locks registration
         asrtl_msg_ctor_proto_version( asrtl_rec_span_to_span_cb, &sp );
-        check_reactor_recv( &reac, (struct asrtl_span) { buffer, sp.b } );
+        check_reactor_recv( &reac, ( struct asrtl_span ){ buffer, sp.b } );
 
         // adding a test after recv must be rejected
         enum asrtl_status st = asrtr_test_init( &t2, "test2", NULL, &dataless_test_fun );
@@ -575,13 +577,13 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
         // First request: test count
         asrtl_msg_ctor_test_count( asrtl_rec_span_to_span_cb, &sp );
         uint8_t* end1 = sp.b;
-        check_reactor_recv( &reac, (struct asrtl_span) { buffer, end1 } );
+        check_reactor_recv( &reac, ( struct asrtl_span ){ buffer, end1 } );
 
         // Second request: description (no tick between)
         sp.b = buffer;
         asrtl_msg_ctor_desc( asrtl_rec_span_to_span_cb, &sp );
         uint8_t* end2 = sp.b;
-        check_reactor_recv( &reac, (struct asrtl_span) { buffer, end2 } );
+        check_reactor_recv( &reac, ( struct asrtl_span ){ buffer, end2 } );
 
         // Both flags must be set at the same time
         CHECK( ( reac.flags & ASRTR_FLAG_TC ) );
@@ -837,23 +839,23 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_recv_truncated" )
         enum asrtl_status rst;
 
         // Truncated TEST_INFO: only message ID, no u16 tid
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_INFO );
-        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Truncated TEST_START: only ID + partial tid(2), missing run_id(4)
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_TEST_START );
         asrtl_add_u16( &sp.b, 0 );  // tid only, no run_id
-        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 
         // Trailing bytes: PROTO_VERSION request + extra bytes
-        sp = (struct asrtl_span) { .b = buf, .e = buf + sizeof buf };
+        sp = ( struct asrtl_span ){ .b = buf, .e = buf + sizeof buf };
         asrtl_add_u16( &sp.b, ASRTL_MSG_PROTO_VERSION );
         asrtl_add_u16( &sp.b, 0xFFFF );  // extra bytes after a no-payload message
-        rst = asrtl_chann_recv( &reac.node, (struct asrtl_span) { .b = buf, .e = sp.b } );
+        rst = asrtl_chann_recv( &reac.node, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRTL_RECV_ERR, rst );
 }
 
@@ -866,7 +868,7 @@ static inline enum asrtl_status call_rtr_param_client_recv(
     uint8_t*                   b,
     uint8_t*                   e )
 {
-        return asrtl_chann_recv( &p->node, (struct asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( &p->node, ( struct asrtl_span ){ .b = b, .e = e } );
 }
 
 static uint8_t* build_param_ready( uint8_t* buf, asrt::flat_id root_id )
@@ -1844,7 +1846,7 @@ static inline enum asrtl_status call_collect_client_recv(
     uint8_t*                     b,
     uint8_t*                     e )
 {
-        return asrtl_chann_recv( &c->node, (struct asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( &c->node, ( struct asrtl_span ){ .b = b, .e = e } );
 }
 
 static uint8_t* build_coll_ready(

@@ -61,7 +61,7 @@ TEST_CASE( "fill_buffer" )
         CHECK_EQ( 0x02, data2[3] );
 
         uint8_t data3[4] = { 0x03, 0x03, 0x03, 0x03 };
-        sp               = (struct asrtl_span) { .b = data1, .e = data1 + sizeof data1 };
+        sp               = ( struct asrtl_span ){ .b = data1, .e = data1 + sizeof data1 };
         asrtl_fill_buffer( data3, sizeof data3, &sp );
 
         CHECK_EQ( &data1[2], sp.b );
@@ -2269,8 +2269,7 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 
 TEST_CASE( "strm_proto: define propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* )->enum asrtl_status
-        {
+        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
                 return ASRTL_SEND_ERR;
         };
         enum asrtl_strm_field_type_e fields[] = { ASRTL_STRM_FIELD_U8 };
@@ -2280,8 +2279,7 @@ TEST_CASE( "strm_proto: define propagates callback error" )
 
 TEST_CASE( "strm_proto: data propagates callback error" )
 {
-        auto fail_cb = []( void*, struct asrtl_rec_span* )->enum asrtl_status
-        {
+        auto fail_cb = []( void*, struct asrtl_rec_span* ) -> enum asrtl_status {
                 return ASRTL_SEND_ERR;
         };
         uint8_t const payload[] = { 0x01 };
@@ -2295,7 +2293,7 @@ TEST_CASE( "strm_proto: data propagates callback error" )
 
 static struct asrtl_node make_node( asrtl_chann_id chid )
 {
-        return (struct asrtl_node) {
+        return ( struct asrtl_node ){
             .chid     = chid,
             .e_cb_ptr = NULL,
             .e_cb     = NULL,

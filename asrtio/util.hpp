@@ -1,3 +1,13 @@
+/// Permission to use, copy, modify, and/or distribute this software for any
+/// purpose with or without fee is hereby granted.
+///
+/// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+/// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+/// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+/// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+/// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+/// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+/// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
 #include "../asrtc/test_result_to_str.h"
@@ -59,8 +69,11 @@ struct cobs_node
                         pp += sp->e - sp->b;
                         size += sp->e - sp->b;
                 }
-                struct asrtl_span sp{ .b = buffer, .e = buffer + sizeof buffer };
-                auto              s = asrtl_cobs_encode_buffer( { .b = p, .e = p + size }, &sp );
+                struct asrtl_span sp
+                {
+                        .b = buffer, .e = buffer + sizeof buffer
+                };
+                auto s = asrtl_cobs_encode_buffer( { .b = p, .e = p + size }, &sp );
                 if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             module, "COBS encoding failed: %s", asrtl_status_to_str( s ) );
@@ -89,8 +102,11 @@ struct cobs_node
 
         void on_data( std::span< uint8_t > data )
         {
-                struct asrtl_span sp{ .b = data.data(), .e = data.data() + data.size() };
-                auto              s = asrtl_chann_cobs_dispatch( &recv, node, sp );
+                struct asrtl_span sp
+                {
+                        .b = data.data(), .e = data.data() + data.size()
+                };
+                auto s = asrtl_chann_cobs_dispatch( &recv, node, sp );
                 if ( s != ASRTL_SUCCESS ) {
                         ASRTL_ERR_LOG(
                             module, "COBS dispatch failed: %s", asrtl_status_to_str( s ) );
@@ -105,7 +121,7 @@ struct cobs_node
             std::function< void( ssize_t ) > on_error )
         {
                 asrtl_cobs_ibuffer_init(
-                    &recv, (struct asrtl_span) { .b = ibuffer, .e = ibuffer + sizeof ibuffer } );
+                    &recv, ( struct asrtl_span ){ .b = ibuffer, .e = ibuffer + sizeof ibuffer } );
                 this->node     = node;
                 this->module   = mod;
                 this->on_error = std::move( on_error );
@@ -128,9 +144,8 @@ struct cobs_node
                                         uv_strerror( static_cast< int >( nread ) ) );
                                     self.on_error( nread );
                             } else {
-                                    self.on_data(
-                                        std::span< uint8_t >{
-                                            (uint8_t*) buf->base, (std::size_t) nread } );
+                                    self.on_data( std::span< uint8_t >{
+                                        (uint8_t*) buf->base, (std::size_t) nread } );
                             }
                             delete[] buf->base;
                     } );

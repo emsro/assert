@@ -1,4 +1,14 @@
 
+/// Permission to use, copy, modify, and/or distribute this software for any
+/// purpose with or without fee is hereby granted.
+///
+/// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+/// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+/// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+/// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+/// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+/// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+/// PERFORMANCE OF THIS SOFTWARE.
 #include "../asrtl/log.h"
 #include "../asrtl/stream_proto.h"
 #include "../asrtlpp/fmt.hpp"
@@ -103,7 +113,9 @@ static std::string plain_log_line(
         auto us =
             std::chrono::duration_cast< std::chrono::microseconds >( now.time_since_epoch() ) %
             std::chrono::seconds( 1 );
-        struct tm ti{};
+        struct tm ti
+        {
+        };
         localtime_r( &now_t, &ti );
         char ts[16];
         std::snprintf(

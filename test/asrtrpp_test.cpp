@@ -1754,7 +1754,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
 
 static inline asrtl_status inject_collect_msg( asrtl_node* n, uint8_t* b, uint8_t* e )
 {
-        return asrtl_chann_recv( n, (asrtl_span) { .b = b, .e = e } );
+        return asrtl_chann_recv( n, ( asrtl_span ){ .b = b, .e = e } );
 }
 
 static inline uint8_t* make_coll_ready(
