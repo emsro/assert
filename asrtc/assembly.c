@@ -13,11 +13,10 @@
 enum asrtl_status asrtc_assembly_init(
     struct asrtc_assembly* a,
     struct asrtl_sender    sender,
-    struct asrtl_allocator alloc,
-    struct asrtc_error_cb  ecb )
+    struct asrtl_allocator alloc )
 {
         enum asrtl_status st;
-        st = asrtc_cntr_init( &a->cntr, sender, alloc, ecb );
+        st = asrtc_cntr_init( &a->cntr, sender, alloc );
         if ( st != ASRTL_SUCCESS )
                 return st;
         st = asrtc_diag_init( &a->diag, &a->cntr.node, sender, alloc );

@@ -3,7 +3,6 @@
 #include "../asrtl/allocator.h"
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/chann.h"
-#include "../asrtl/ecode.h"
 #include "../asrtl/source.h"
 
 #include <functional>
@@ -20,7 +19,6 @@ using allocator = asrtl_allocator;
 using span      = asrtl_span;
 using rec_span  = asrtl_rec_span;
 using send_cb   = std::function< asrtl_status( chann_id, rec_span& ) >;
-using ecode     = asrtl_ecode;
 template < typename T >
 using uptr = std::unique_ptr< T >;
 template < typename T >

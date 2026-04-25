@@ -10,7 +10,6 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../asrtl/core_proto.h"
-#include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 #include "../asrtlpp/flat_type_traits.hpp"
@@ -272,8 +271,10 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_info" )
 
         {
                 auto& collected = coll.data.back();
-                assert_collected_core_hdr( collected, 0x04, ASRTL_MSG_ERROR );
-                assert_u16( ASRTL_ASE_MISSING_TEST, collected.data.data() + 2 );
+                assert_collected_core_hdr( collected, 0x05, ASRTL_MSG_TEST_INFO );
+                assert_u16( 0x00, collected.data.data() + 2 );
+                CHECK_EQ( ASRTL_TEST_INFO_MISSING_TEST_ERR, collected.data[4] );
+                CHECK_EQ( 5u, collected.data.size() );
                 coll.data.pop_back();
         }
 
@@ -286,9 +287,10 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_info" )
 
         {
                 auto& collected = coll.data.back();
-                assert_collected_core_hdr( collected, 0x09, ASRTL_MSG_TEST_INFO );
+                assert_collected_core_hdr( collected, 0x0A, ASRTL_MSG_TEST_INFO );
                 assert_u16( 0x00, collected.data.data() + 2 );
-                assert_data_ll_contain_str( "test1", collected, 4 );
+                CHECK_EQ( ASRTL_TEST_INFO_SUCCESS, collected.data[4] );
+                assert_data_ll_contain_str( "test1", collected, 5 );
                 coll.data.pop_back();
         }
 }
@@ -323,8 +325,13 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_start" )
         CHECK_EQ( 1, data.counter );
         {
                 auto& collected = coll.data.back();
-                assert_collected_core_hdr( collected, 4, ASRTL_MSG_ERROR );
-                assert_u16( ASRTL_ASE_MISSING_TEST, collected.data.data() + 2 );
+                assert_test_result( collected, 0, ASRTL_TEST_ERROR );
+                coll.data.pop_back();
+        }
+
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 42, 0 );
                 coll.data.pop_back();
         }
 }
@@ -358,8 +365,13 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_start_busy" )
 
         {
                 auto& collected = coll.data.back();
-                assert_collected_core_hdr( collected, 0x04, ASRTL_MSG_ERROR );
-                assert_u16( ASRTL_ASE_TEST_ALREADY_RUNNING, collected.data.data() + 2 );
+                assert_test_result( collected, 0, ASRTL_TEST_ERROR );
+                coll.data.pop_back();
+        }
+
+        {
+                auto& collected = coll.data.back();
+                assert_test_start( collected, 0, 0 );
                 coll.data.pop_back();
         }
 }

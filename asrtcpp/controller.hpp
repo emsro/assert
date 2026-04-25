@@ -20,12 +20,11 @@ using result = asrtc_result;
 
 /// XXX: do a sender-based
 inline status init(
-    ref< asrtc_controller >          c,
-    autosender                       s,
-    allocator                        a,
-    callback< asrtc_error_callback > ecb )
+        ref< asrtc_controller > c,
+        autosender              s,
+        allocator               a )
 {
-        return asrtc_cntr_init( c, s, a, { .ptr = ecb.ptr, .cb = ecb.fn } );
+                return asrtc_cntr_init( c, s, a );
 }
 
 /// XXX: do a sender-based

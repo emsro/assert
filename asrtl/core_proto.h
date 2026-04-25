@@ -23,13 +23,12 @@ extern "C" {
 
 enum asrtl_message_id_e
 {
-        ASRTL_MSG_ERROR         = 0x01,  // reactor -> controller
-        ASRTL_MSG_PROTO_VERSION = 0x02,  // reactor <-> controller
-        ASRTL_MSG_DESC          = 0x03,  // reactor <-> controller
-        ASRTL_MSG_TEST_COUNT    = 0x04,  // reactor <-> controller
-        ASRTL_MSG_TEST_INFO     = 0x05,  // reactor <-> controller
-        ASRTL_MSG_TEST_START    = 0x06,  // reactor <-> controller
-        ASRTL_MSG_TEST_RESULT   = 0x07,  // reactor -> controller
+        ASRTL_MSG_PROTO_VERSION = 0x01,  // reactor <-> controller
+        ASRTL_MSG_DESC          = 0x02,  // reactor <-> controller
+        ASRTL_MSG_TEST_COUNT    = 0x03,  // reactor <-> controller
+        ASRTL_MSG_TEST_INFO     = 0x04,  // reactor <-> controller
+        ASRTL_MSG_TEST_START    = 0x05,  // reactor <-> controller
+        ASRTL_MSG_TEST_RESULT   = 0x06,  // reactor -> controller
 };
 
 typedef uint16_t asrtl_message_id;
@@ -40,19 +39,6 @@ static inline enum asrtl_status asrtl_msg_u16( uint16_t val, asrtl_msg_callback 
         uint8_t  id[2];
         uint8_t* p = id;
         asrtl_add_u16( &p, val );
-        struct asrtl_rec_span buff = { .b = id, .e = id + sizeof id, .next = NULL };
-        return cb( cb_ptr, &buff );
-}
-
-static inline enum asrtl_status asrtl_msg_rtoc_error(
-    uint16_t           ecode,
-    asrtl_msg_callback cb,
-    void*              cb_ptr )
-{
-        uint8_t  id[4];
-        uint8_t* p = id;
-        asrtl_add_u16( &p, ASRTL_MSG_ERROR );
-        asrtl_add_u16( &p, ecode );
         struct asrtl_rec_span buff = { .b = id, .e = id + sizeof id, .next = NULL };
         return cb( cb_ptr, &buff );
 }
@@ -117,17 +103,26 @@ static inline enum asrtl_status asrtl_msg_ctor_test_count( asrtl_msg_callback cb
         return asrtl_msg_u16( ASRTL_MSG_TEST_COUNT, cb, cb_ptr );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_test_info(
-    uint16_t           id,
-    char const*        desc,
-    uint32_t           desc_size,
-    asrtl_msg_callback cb,
-    void*              cb_ptr )
+enum asrtl_test_info_result_e
 {
-        uint8_t  prefix[4];
+        ASRTL_TEST_INFO_SUCCESS          = 0x01,
+        ASRTL_TEST_INFO_MISSING_TEST_ERR = 0x02,
+};
+typedef uint8_t asrtl_test_info_result;
+
+static inline enum asrtl_status asrtl_msg_rtoc_test_info(
+    uint16_t               id,
+    asrtl_test_info_result res,
+    char const*            desc,
+    uint32_t               desc_size,
+    asrtl_msg_callback     cb,
+    void*                  cb_ptr )
+{
+        uint8_t  prefix[5];
         uint8_t* p = prefix;
         asrtl_add_u16( &p, ASRTL_MSG_TEST_INFO );
         asrtl_add_u16( &p, id );
+        *p++                              = res;
         struct asrtl_rec_span prefix_buff = {
             .b = prefix, .e = prefix + sizeof prefix, .next = NULL };
         struct asrtl_rec_span desc_buff = {
@@ -180,9 +175,10 @@ static inline enum asrtl_status asrtl_msg_ctor_test_start(
 
 enum asrtl_test_result_e
 {
-        ASRTL_TEST_SUCCESS = 0x01,
-        ASRTL_TEST_ERROR   = 0x02,
-        ASRTL_TEST_FAILURE = 0x03,
+        ASRTL_TEST_SUCCESS = 0x01,  // Test executed successfully
+        ASRTL_TEST_ERROR = 0x02,  // Test execution resulted in an error (e.g. test code crashed, or
+                                  // test start was requested for non-existing test)
+        ASRTL_TEST_FAILURE = 0x03,  // Test executed and did not pass (e.g. assertion failure)
 };
 typedef uint16_t asrtl_test_result;
 

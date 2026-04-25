@@ -46,8 +46,7 @@ struct asrtc_assembly
 enum asrtl_status asrtc_assembly_init(
     struct asrtc_assembly* assembly,
     struct asrtl_sender    sender,
-    struct asrtl_allocator alloc,
-    struct asrtc_error_cb  ecb );
+    struct asrtl_allocator alloc );
 
 void asrtc_assembly_deinit( struct asrtc_assembly* assembly );
 

@@ -66,6 +66,7 @@ struct asrtc_desc_handler
 struct asrtc_ti_handler
 {
         uint16_t                 tid;
+        asrtl_test_info_result   result;
         char*                    desc;
         void*                    ptr;
         asrtc_test_info_callback cb;

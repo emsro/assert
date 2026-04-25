@@ -278,6 +278,7 @@ enum asrtl_status asrtc_cntr_test_info(
 
         c->hndl.ti = ( struct asrtc_ti_handler ){
             .tid     = id,
+            .result  = ASRTL_TEST_INFO_SUCCESS,
             .desc    = NULL,
             .ptr     = ptr,
             .cb      = cb,
@@ -304,7 +305,10 @@ static enum asrtl_status asrtc_cntr_tick_test_info( struct asrtc_controller* c, 
                         return h->cb( h->ptr, ASRTL_TIMEOUT_ERR, h->tid, NULL );
                 break;
         case ASRTC_STAGE_END: {
-                enum asrtl_status res = h->cb( h->ptr, ASRTL_SUCCESS, h->tid, h->desc );
+                enum asrtl_status cb_status = h->result == ASRTL_TEST_INFO_SUCCESS ?
+                                                  ASRTL_SUCCESS :
+                                                  ASRTL_RECV_UNEXPECTED_ERR;
+                enum asrtl_status res       = h->cb( h->ptr, cb_status, h->tid, h->desc );
                 asrtl_free( &c->alloc, (void**) &h->desc );
                 c->state = ASRTC_CNTR_IDLE;
                 return res;
@@ -322,7 +326,7 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
         if ( eid != ASRTL_MSG_TEST_INFO )
                 return ASRTL_RECV_UNEXPECTED_ERR;
 
-        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) ) )
+        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint8_t ) ) )
                 return ASRTL_RECV_ERR;
 
         struct asrtc_ti_handler* h = &c->hndl.ti;
@@ -335,6 +339,13 @@ static enum asrtl_status asrtc_cntr_recv_test_info(
                     "asrtc", "Test info response tid mismatch: got %u, expected %u", tid, h->tid );
                 return ASRTL_RECV_UNEXPECTED_ERR;
         }
+
+        uint8_t res = *buff->b++;
+        if ( res != ASRTL_TEST_INFO_SUCCESS && res != ASRTL_TEST_INFO_MISSING_TEST_ERR ) {
+                ASRTL_ERR_LOG( "asrtc", "Invalid test info result code: %u", res );
+                return ASRTL_RECV_UNEXPECTED_ERR;
+        }
+        h->result = (asrtl_test_info_result) res;
 
         h->desc = asrtl_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
@@ -478,18 +489,6 @@ uint32_t asrtc_cntr_idle( struct asrtc_controller const* c )
         return c->state == ASRTC_CNTR_IDLE;
 }
 
-static enum asrtl_status asrtc_cntr_recv_error( struct asrtc_error_cb* h, struct asrtl_span* buff )
-{
-        if ( asrtl_span_unfit_for( buff, sizeof( uint16_t ) ) )
-                return ASRTL_RECV_ERR;
-        uint16_t ecode;
-        asrtl_cut_u16( &buff->b, &ecode );
-
-        if ( asrtc_raise_error( h, ASRTL_REACTOR, ecode ) != ASRTL_SUCCESS )
-                return ASRTL_RECV_ERR;
-        return ASRTL_SUCCESS;
-}
-
 static enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
 {
         ASRTL_ASSERT( data );
@@ -501,28 +500,25 @@ static enum asrtl_status asrtc_cntr_recv( void* data, struct asrtl_span buff )
 
         enum asrtl_message_id_e eid = (enum asrtl_message_id_e) id;
         enum asrtl_status       st  = ASRTL_SUCCESS;
-        if ( eid == ASRTL_MSG_ERROR )
-                st = asrtc_cntr_recv_error( &c->eh, &buff );
-        else
-                switch ( c->state ) {
-                case ASRTC_CNTR_INIT:
-                        st = asrtc_cntr_recv_init( c, eid, &buff );
-                        break;
-                case ASRTC_CNTR_HNDL_TC:
-                        st = asrtc_cntr_recv_test_count( c, eid, &buff );
-                        break;
-                case ASRTC_CNTR_HNDL_DESC:
-                        st = asrtc_cntr_recv_desc( c, eid, &buff );
-                        break;
-                case ASRTC_CNTR_HNDL_TI:
-                        st = asrtc_cntr_recv_test_info( c, eid, &buff );
-                        break;
-                case ASRTC_CNTR_HNDL_EXEC:
-                        st = asrtc_cntr_recv_test_exec( c, eid, &buff );
-                        break;
-                case ASRTC_CNTR_IDLE:
-                        return ASRTL_RECV_UNEXPECTED_ERR;
-                }
+        switch ( c->state ) {
+        case ASRTC_CNTR_INIT:
+                st = asrtc_cntr_recv_init( c, eid, &buff );
+                break;
+        case ASRTC_CNTR_HNDL_TC:
+                st = asrtc_cntr_recv_test_count( c, eid, &buff );
+                break;
+        case ASRTC_CNTR_HNDL_DESC:
+                st = asrtc_cntr_recv_desc( c, eid, &buff );
+                break;
+        case ASRTC_CNTR_HNDL_TI:
+                st = asrtc_cntr_recv_test_info( c, eid, &buff );
+                break;
+        case ASRTC_CNTR_HNDL_EXEC:
+                st = asrtc_cntr_recv_test_exec( c, eid, &buff );
+                break;
+        case ASRTC_CNTR_IDLE:
+                return ASRTL_RECV_UNEXPECTED_ERR;
+        }
         if ( st != ASRTL_SUCCESS )
                 return st;
         return buff.b == buff.e ? ASRTL_SUCCESS : ASRTL_RECV_TRAILING_ERR;
@@ -544,10 +540,9 @@ static enum asrtl_status asrtc_cntr_event( void* p, enum asrtl_event_e e, void* 
 enum asrtl_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
-    struct asrtl_allocator   alloc,
-    struct asrtc_error_cb    eh )
+    struct asrtl_allocator   alloc )
 {
-        if ( !c || !eh.cb )
+        if ( !c )
                 return ASRTL_INIT_ERR;
         *c = ( struct asrtc_controller ){
             .node =
@@ -559,7 +554,6 @@ enum asrtl_status asrtc_cntr_init(
                 },
             .sendr    = s,
             .alloc    = alloc,
-            .eh       = eh,
             .run_id   = 0,
             .state    = ASRTC_CNTR_IDLE,
             .stage    = ASRTC_STAGE_INIT,

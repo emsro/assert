@@ -20,7 +20,6 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/span.h"
 #include "../asrtl/status.h"
-#include "./callbacks.h"
 #include "./handlers.h"
 
 enum asrtc_cntr_state
@@ -38,7 +37,6 @@ struct asrtc_controller
         struct asrtl_node      node;
         struct asrtl_sender    sendr;
         struct asrtl_allocator alloc;
-        struct asrtc_error_cb  eh;
 
         uint32_t              run_id;
         enum asrtc_cntr_state state;
@@ -57,8 +55,7 @@ struct asrtc_controller
 enum asrtl_status asrtc_cntr_init(
     struct asrtc_controller* c,
     struct asrtl_sender      s,
-    struct asrtl_allocator   alloc,
-    struct asrtc_error_cb    eh );
+    struct asrtl_allocator   alloc );
 
 enum asrtl_status asrtc_cntr_start(
     struct asrtc_controller* c,

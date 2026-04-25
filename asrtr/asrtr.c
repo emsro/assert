@@ -12,7 +12,6 @@
 #include "../asrtl/asrtl_assert.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/diag_proto.h"
-#include "../asrtl/ecode.h"
 #include "../asrtl/log.h"
 #include "../asrtl/proto_version.h"
 #include "../asrtl/status_to_str.h"
@@ -20,6 +19,7 @@
 #include "./reactor.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 void asrtr_fail( struct asrtr_record* rec )
@@ -102,6 +102,17 @@ static inline enum asrtl_status asrtr_send( void* r, struct asrtl_rec_span* sp )
         return asrtl_send( &( (struct asrtr_reactor*) r )->sendr, ASRTL_CORE, sp, NULL, NULL );
 }
 
+static enum asrtl_status asrtr_send_test_error(
+    struct asrtr_reactor* reac,
+    uint16_t              test_id,
+    uint32_t              run_id )
+{
+        enum asrtl_status st = asrtl_msg_rtoc_test_start( test_id, run_id, asrtr_send, reac );
+        if ( st != ASRTL_SUCCESS )
+                return st;
+        return asrtl_msg_rtoc_test_result( run_id, ASRTL_TEST_ERROR, asrtr_send, reac );
+}
+
 
 static enum asrtl_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor* reac )
 {
@@ -110,15 +121,24 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrtl_msg_rtoc_error( ASRTL_ASE_MISSING_TEST, asrtr_send, reac ) !=
-                     ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send MISSING_TEST error" );
+                if ( asrtl_msg_rtoc_test_info(
+                         reac->recv_test_info_id,
+                         ASRTL_TEST_INFO_MISSING_TEST_ERR,
+                         "",
+                         0,
+                         asrtr_send,
+                         reac ) != ASRTL_SUCCESS ) {
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send missing test info" );
                         return ASRTL_SEND_ERR;
                 }
         } else if (
             asrtl_msg_rtoc_test_info(
-                reac->recv_test_info_id, t->desc, strlen( t->desc ), asrtr_send, reac ) !=
-            ASRTL_SUCCESS ) {
+                reac->recv_test_info_id,
+                ASRTL_TEST_INFO_SUCCESS,
+                t->desc,
+                strlen( t->desc ),
+                asrtr_send,
+                reac ) != ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send test info" );
                 return ASRTL_SEND_ERR;
         }
@@ -128,9 +148,10 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_info( struct asrtr_reactor
 static enum asrtl_status asrtr_reactor_tick_flag_test_start( struct asrtr_reactor* reac )
 {
         if ( reac->state != ASRTR_REAC_IDLE ) {
-                if ( asrtl_msg_rtoc_error( ASRTL_ASE_TEST_ALREADY_RUNNING, asrtr_send, reac ) !=
+                if ( asrtr_send_test_error(
+                         reac, reac->recv_test_start_id, reac->recv_test_run_id ) !=
                      ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send TEST_ALREADY_RUNNING error" );
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send busy test error result" );
                         return ASRTL_SEND_ERR;
                 }
                 return ASRTL_SUCCESS;
@@ -140,9 +161,10 @@ static enum asrtl_status asrtr_reactor_tick_flag_test_start( struct asrtr_reacto
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrtl_msg_rtoc_error( ASRTL_ASE_MISSING_TEST, asrtr_send, reac ) !=
+                if ( asrtr_send_test_error(
+                         reac, reac->recv_test_start_id, reac->recv_test_run_id ) !=
                      ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send MISSING_TEST error" );
+                        ASRTL_ERR_LOG( "asrtr_asrtr", "Failed to send missing test error result" );
                         return ASRTL_SEND_ERR;
                 }
         } else {
@@ -365,7 +387,6 @@ static enum asrtl_status asrtr_reactor_recv( void* data, struct asrtl_span buff 
                 r->flags |= ASRTR_FLAG_TSTART;
                 break;
         }
-        case ASRTL_MSG_ERROR:
         case ASRTL_MSG_TEST_RESULT:
         default:
                 ASRTL_ERR_LOG( "asrtr_asrtr", "Unknown message ID: %u", id );

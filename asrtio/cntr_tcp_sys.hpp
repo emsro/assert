@@ -36,17 +36,7 @@ struct cntr_tcp_sys
                 std::ignore = asrtc_assembly_init(
                     &asm_,
                     asrtl_sender{ .ptr = this, .cb = send_cb },
-                    asrtl_default_allocator(),
-                    asrtc_error_cb{ .ptr = this, .cb = ecb } );
-        }
-
-        static asrtl_status ecb( void* ptr, asrt::source src, asrt::ecode ec )
-        {
-                auto* sys = static_cast< cntr_tcp_sys* >( ptr );
-                auto  s   = std::format( "Source: {}, code: {}", src, ec );
-                ASRTL_ERR_LOG( "asrtio_main", "%s", s.c_str() );
-                sys->disconnect();
-                return ASRTL_SUCCESS;
+                    asrtl_default_allocator() );
         }
 
         static asrtl_status send_cb(

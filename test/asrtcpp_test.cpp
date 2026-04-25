@@ -135,11 +135,7 @@ struct paired_ctx
                 if ( asrt::init(
                          c,
                          c_send,
-                         asrtl_default_allocator(),
-                         { []( void*, asrt::source, asrt::ecode ) {
-                                  return ASRTL_SUCCESS;
-                          },
-                           nullptr } ) != ASRTL_SUCCESS )
+                         asrtl_default_allocator() ) != ASRTL_SUCCESS )
                         throw std::runtime_error( "controller init failed" );
 
                 // start init handshake
