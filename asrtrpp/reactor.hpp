@@ -22,18 +22,18 @@
 namespace asrt
 {
 
-using record = asrtr_record;
+using record = asrt_record;
 
 // Test harness that stores test T which should be callable with a record reference and return a
 // status.
 template < typename T >
-struct unit : asrtr_test
+struct unit : asrt_test
 {
         template < typename... Args >
         unit( Args&&... args )
           : test( (Args&&) args... )
         {
-                asrtr_test_init( this, test.name(), static_cast< unit* >( this ), unit::cb );
+                asrt_test_init( this, test.name(), static_cast< unit* >( this ), unit::cb );
         }
 
         unit( unit&& )      = delete;
@@ -44,7 +44,7 @@ struct unit : asrtr_test
                 auto*       self = static_cast< unit* >( rec->inpt->test_ptr );
                 asrt_status st   = self->test( *rec );
                 if ( st != ASRT_SUCCESS )
-                        rec->state = ASRTR_TEST_FAIL;
+                        rec->state = ASRT_TEST_FAIL;
                 return st;
         }
 
@@ -52,19 +52,19 @@ struct unit : asrtr_test
 };
 
 /// XXX: add C++ init to other asrt:: abstractions, inluding deinit
-inline enum asrt_status init( ref< asrtr_reactor > reac, autosender sender, char const* desc )
+inline enum asrt_status init( ref< asrt_reactor > reac, autosender sender, char const* desc )
 {
-        return asrtr_reactor_init( reac, sender, desc );
+        return asrt_reactor_init( reac, sender, desc );
 }
 
-inline enum asrt_status add_test( ref< asrtr_reactor > reac, asrtr_test& test )
+inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )
 {
-        return asrtr_reactor_add_test( reac, &test );
+        return asrt_reactor_add_test( reac, &test );
 }
 
-inline void deinit( ref< asrtr_reactor > reac )
+inline void deinit( ref< asrt_reactor > reac )
 {
-        asrtr_reactor_deinit( reac );
+        asrt_reactor_deinit( reac );
 }
 
 }  // namespace asrt

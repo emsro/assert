@@ -9,8 +9,8 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTR_RECORD_H
-#define ASRTR_RECORD_H
+#ifndef ASRT_RECORD_H
+#define ASRT_RECORD_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,46 +20,46 @@ extern "C" {
 
 #include <stdint.h>
 
-enum asrtr_test_state
+enum asrt_test_state
 {
-        ASRTR_TEST_INIT    = 1,  // Test was not yet run
-        ASRTR_TEST_RUNNING = 2,  // Test is still running
-        ASRTR_TEST_ERROR   = 3,  // Error in test suite
-        ASRTR_TEST_FAIL    = 4,  // Test did not pass
-        ASRTR_TEST_PASS    = 5,  // Test succeeded
+        ASRT_TEST_INIT    = 1,  // Test was not yet run
+        ASRT_TEST_RUNNING = 2,  // Test is still running
+        ASRT_TEST_ERROR   = 3,  // Error in test suite
+        ASRT_TEST_FAIL    = 4,  // Test did not pass
+        ASRT_TEST_PASS    = 5,  // Test succeeded
 };
 
-struct asrtr_record;
-typedef enum asrt_status ( *asrtr_test_callback )( struct asrtr_record* );
+struct asrt_record;
+typedef enum asrt_status ( *asrt_test_callback )( struct asrt_record* );
 
-struct asrtr_test_input
+struct asrt_test_input
 {
-        void*               test_ptr;
-        asrtr_test_callback continue_f;
-        uint32_t            run_id;
+        void*              test_ptr;
+        asrt_test_callback continue_f;
+        uint32_t           run_id;
 };
 
-struct asrtr_record
+struct asrt_record
 {
-        enum asrtr_test_state state;  // Current state of the test
+        enum asrt_test_state state;  // Current state of the test
 
-        struct asrtr_test_input const* inpt;
+        struct asrt_test_input const* inpt;
 };
 
-void asrtr_fail( struct asrtr_record* rec );
+void asrt_fail( struct asrt_record* rec );
 
-#define ASRTR_RECORD_CHECK( rec, x )           \
-        do {                                   \
-                if ( !( x ) )                  \
-                        asrtr_fail( ( rec ) ); \
+#define ASRT_RECORD_CHECK( rec, x )           \
+        do {                                  \
+                if ( !( x ) )                 \
+                        asrt_fail( ( rec ) ); \
         } while ( 0 )
 
-#define ASRTR_RECORD_REQUIRE( rec, x )         \
-        do {                                   \
-                if ( !( x ) ) {                \
-                        asrtr_fail( ( rec ) ); \
-                        return ASRT_SUCCESS;   \
-                }                              \
+#define ASRT_RECORD_REQUIRE( rec, x )         \
+        do {                                  \
+                if ( !( x ) ) {               \
+                        asrt_fail( ( rec ) ); \
+                        return ASRT_SUCCESS;  \
+                }                             \
         } while ( 0 )
 
 #ifdef __cplusplus

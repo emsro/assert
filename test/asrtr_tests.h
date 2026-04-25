@@ -8,55 +8,55 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTR_TESTS_H
-#define ASRTR_TESTS_H
+#ifndef ASRT_TESTS_H
+#define ASRT_TESTS_H
 
 #include "../asrtr/diag.h"
 #include "../asrtr/record.h"
 
 struct astrt_check_ctx
 {
-        struct asrtr_diag_client* diag;
-        uint64_t                  counter;
+        struct asrt_diag_client* diag;
+        uint64_t                 counter;
 };
 
-enum asrt_status require_macro_test( struct asrtr_record* r )
+enum asrt_status require_macro_test( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_REQUIRE( ctx->diag, r, 1 == 1 );
+        ASRT_REQUIRE( ctx->diag, r, 1 == 1 );
         ctx->counter += 1;
-        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
+        ASRT_REQUIRE( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
         return ASRT_SUCCESS;
 }
 
-enum asrt_status check_macro_test( struct asrtr_record* r )
+enum asrt_status check_macro_test( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_CHECK( ctx->diag, r, 1 == 1 );
+        ASRT_CHECK( ctx->diag, r, 1 == 1 );
         ctx->counter += 1;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
         return ASRT_SUCCESS;
 }
 
-enum asrt_status countdown_test( struct asrtr_record* x )
+enum asrt_status countdown_test( struct asrt_record* x )
 {
         uint64_t* p = (uint64_t*) x->inpt->test_ptr;
         *p -= 1;
         if ( *p == 0 )
-                x->state = ASRTR_TEST_PASS;
+                x->state = ASRT_TEST_PASS;
         else
-                x->state = ASRTR_TEST_RUNNING;
+                x->state = ASRT_TEST_RUNNING;
         return ASRT_SUCCESS;
 }
 
 struct insta_test_data
 {
-        enum asrtr_test_state state;
-        uint64_t              counter;
+        enum asrt_test_state state;
+        uint64_t             counter;
 };
-enum asrt_status insta_test_fun( struct asrtr_record* x )
+enum asrt_status insta_test_fun( struct asrt_record* x )
 {
         struct insta_test_data* p = (struct insta_test_data*) x->inpt->test_ptr;
         p->counter += 1;
@@ -64,65 +64,65 @@ enum asrt_status insta_test_fun( struct asrtr_record* x )
         return ASRT_SUCCESS;
 }
 
-// continue_f returns non-SUCCESS → record->state forced to ASRTR_TEST_ERROR
-enum asrt_status error_continue_fun( struct asrtr_record* x )
+// continue_f returns non-SUCCESS → record->state forced to ASRT_TEST_ERROR
+enum asrt_status error_continue_fun( struct asrt_record* x )
 {
         (void) x;
         return ASRT_INTERNAL_ERR;
 }
 
 // two consecutive CHECK failures → two diag messages, counter = 2
-enum asrt_status check_macro_two_fails( struct asrtr_record* r )
+enum asrt_status check_macro_two_fails( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
         return ASRT_SUCCESS;
 }
 
 // one CHECK failure then one pass → one diag message, counter = 2
-enum asrt_status check_macro_fail_pass( struct asrtr_record* r )
+enum asrt_status check_macro_fail_pass( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
-        ASRTR_CHECK( ctx->diag, r, 1 == 1 );
+        ASRT_CHECK( ctx->diag, r, 1 == 1 );
         ctx->counter += 1;
         return ASRT_SUCCESS;
 }
 
 // failing REQUIRE → CHECK and counter after it unreachable
-enum asrt_status require_then_check( struct asrtr_record* r )
+enum asrt_status require_then_check( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );  // unreachable
-        ctx->counter += 1;                    // unreachable
+        ASRT_REQUIRE( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );  // unreachable
+        ctx->counter += 1;                   // unreachable
         return ASRT_SUCCESS;
 }
 
 // CHECK fails, REQUIRE passes, CHECK fails → two diag messages, counter = 3
-enum asrt_status mix_check_require_check( struct asrtr_record* r )
+enum asrt_status mix_check_require_check( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
-        ASRTR_REQUIRE( ctx->diag, r, 1 == 1 );
+        ASRT_REQUIRE( ctx->diag, r, 1 == 1 );
         ctx->counter += 1;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
         return ASRT_SUCCESS;
 }
 
 // CHECK fails, REQUIRE fails → two diag messages, counter = 1
-enum asrt_status mix_check_require_fail( struct asrtr_record* r )
+enum asrt_status mix_check_require_fail( struct asrt_record* r )
 {
         struct astrt_check_ctx* ctx = (struct astrt_check_ctx*) r->inpt->test_ptr;
-        ASRTR_CHECK( ctx->diag, r, 1 == 0 );
+        ASRT_CHECK( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;
-        ASRTR_REQUIRE( ctx->diag, r, 1 == 0 );
+        ASRT_REQUIRE( ctx->diag, r, 1 == 0 );
         ctx->counter += 1;  // unreachable
         return ASRT_SUCCESS;
 }

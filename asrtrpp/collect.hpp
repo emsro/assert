@@ -77,30 +77,30 @@ concept collect_scalar = collect_append_traits< T >::is_scalar;
 template < typename T >
 concept collect_container = !collect_append_traits< T >::is_scalar;
 
-inline status init( ref< asrtr_collect_client > client, asrt_node& prev, autosender s )
+inline status init( ref< asrt_collect_client > client, asrt_node& prev, autosender s )
 {
-        return asrtr_collect_client_init( client, &prev, s );
+        return asrt_collect_client_init( client, &prev, s );
 }
 
-[[nodiscard]] inline flat_id root_id( ref< asrtr_collect_client const > cc )
+[[nodiscard]] inline flat_id root_id( ref< asrt_collect_client const > cc )
 {
-        return asrtr_collect_client_root_id( cc );
+        return asrt_collect_client_root_id( cc );
 }
 
 /// Scalar append with key: append<uint32_t>(parent, "key", 42).
 template < collect_scalar T >
-status_sender append( ref< asrtr_collect_client > cc, flat_id parent, char const* key, T val )
+status_sender append( ref< asrt_collect_client > cc, flat_id parent, char const* key, T val )
 {
         using traits             = collect_append_traits< T >;
         using member_type        = decltype( asrt_flat_scalar{}.*traits::member );
         asrt_flat_value v        = { .type = traits::flat_type };
         v.data.s.*traits::member = static_cast< member_type >( val );
-        return asrtr_collect_client_append( cc, parent, key, &v, nullptr );
+        return asrt_collect_client_append( cc, parent, key, &v, nullptr );
 }
 
 /// Scalar append without key (array child): append<uint32_t>(parent, 42).
 template < collect_scalar T >
-status_sender append( ref< asrtr_collect_client > cc, flat_id parent, T val )
+status_sender append( ref< asrt_collect_client > cc, flat_id parent, T val )
 {
         return append< T >( cc, parent, nullptr, val );
 }
@@ -108,15 +108,11 @@ status_sender append( ref< asrtr_collect_client > cc, flat_id parent, T val )
 /// Container append with key: append<obj>(parent, "key", out_id).
 /// @param out Receives the auto-assigned node ID for the new container.
 template < collect_container T >
-status_sender append(
-    ref< asrtr_collect_client > cc,
-    flat_id                     parent,
-    char const*                 key,
-    flat_id&                    out )
+status_sender append( ref< asrt_collect_client > cc, flat_id parent, char const* key, flat_id& out )
 {
         using traits      = collect_append_traits< T >;
         asrt_flat_value v = { .type = traits::flat_type };
-        return asrtr_collect_client_append( cc, parent, key, &v, &out );
+        return asrt_collect_client_append( cc, parent, key, &v, &out );
 }
 
 /// Sender that appends a single node to the collect client's tree.
@@ -127,9 +123,9 @@ struct collect_append_sender
         using completion_signatures = ecor::
             completion_signatures< ecor::set_value_t( flat_id ), ecor::set_error_t( status ) >;
 
-        asrtr_collect_client* client_;
-        flat_id               parent;
-        char const*           key;
+        asrt_collect_client* client_;
+        flat_id              parent;
+        char const*          key;
 
         template < ecor::receiver R >
         struct op
@@ -157,28 +153,28 @@ struct collect_append_sender
 
 /// co_await append<T>(client, parent, key) — container with key; returns flat_id.
 template < collect_container T >
-ecor::sender auto append( ref< asrtr_collect_client > client, flat_id parent, char const* key )
+ecor::sender auto append( ref< asrt_collect_client > client, flat_id parent, char const* key )
 {
         return collect_append_sender< T >{ client, parent, key };
 }
 
 /// Container append without key (array child): append<obj>(parent, out_id).
 template < collect_container T >
-status_sender append( ref< asrtr_collect_client > cc, flat_id parent, flat_id& out )
+status_sender append( ref< asrt_collect_client > cc, flat_id parent, flat_id& out )
 {
         return append< T >( cc, parent, nullptr, out );
 }
 
 /// co_await append<T>(client, parent) — container without key (array child); returns flat_id.
 template < collect_container T >
-ecor::sender auto append( ref< asrtr_collect_client > client, flat_id parent )
+ecor::sender auto append( ref< asrt_collect_client > client, flat_id parent )
 {
         return collect_append_sender< T >{ client, parent, nullptr };
 }
 
-inline void deinit( ref< asrtr_collect_client > client )
+inline void deinit( ref< asrt_collect_client > client )
 {
-        asrtr_collect_client_deinit( client );
+        asrt_collect_client_deinit( client );
 }
 
 }  // namespace asrt

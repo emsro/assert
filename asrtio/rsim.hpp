@@ -35,12 +35,12 @@ namespace asrtio
 
 struct conn_ctx
 {
-        uv_tcp_t                                     client;
-        bool                                         disconnected = false;
-        std::mt19937                                 rng;
-        asrtr_assembly                               assm;
-        std::list< asrt::unit< demo_test > >         demo_tests;
-        std::vector< std::shared_ptr< asrtr_test > > task_demo_tests;
+        uv_tcp_t                                    client;
+        bool                                        disconnected = false;
+        std::mt19937                                rng;
+        asrt_assembly                               assm;
+        std::list< asrt::unit< demo_test > >        demo_tests;
+        std::vector< std::shared_ptr< asrt_test > > task_demo_tests;
 
         asrt::malloc_free_memory_resource mem;
         asrt::task_ctx                    task_ctx{ mem };
@@ -48,7 +48,7 @@ struct conn_ctx
         conn_ctx( uint32_t seed )
           : rng( seed )
         {
-                if ( asrtr_assembly_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
+                if ( asrt_assembly_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
                      ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
@@ -92,7 +92,7 @@ struct conn_ctx
         {
                 auto s =
                     std::make_shared< asrt::task_unit< T > >( T{ task_ctx, (Args&&) args... } );
-                auto& t = task_demo_tests.emplace_back( s, (asrtr_test*) s.get() );
+                auto& t = task_demo_tests.emplace_back( s, (asrt_test*) s.get() );
                 asrt::add_test( assm.reactor, *t );
         }
 
@@ -112,7 +112,7 @@ struct conn_ctx
         {
                 task_ctx.tick();
                 auto now = uv_now( client.loop );
-                asrtr_assembly_tick( &assm, now );
+                asrt_assembly_tick( &assm, now );
         }
 
         cobs_node rx;

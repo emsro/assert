@@ -9,8 +9,8 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTR_REACTOR_H
-#define ASRTR_REACTOR_H
+#ifndef ASRT_REACTOR_H
+#define ASRT_REACTOR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,67 +23,67 @@ extern "C" {
 
 #include <stdint.h>
 
-struct asrtr_test
+struct asrt_test
 {
-        char const*         desc;
-        void*               ptr;
-        asrtr_test_callback start_f;
-        struct asrtr_test*  next;
+        char const*        desc;
+        void*              ptr;
+        asrt_test_callback start_f;
+        struct asrt_test*  next;
 };
 
-enum asrtr_reactor_state
+enum asrt_reactor_state
 {
-        ASRTR_REAC_IDLE        = 1,
-        ASRTR_REAC_TEST_EXEC   = 2,
-        ASRTR_REAC_TEST_REPORT = 3,
+        ASRT_REAC_IDLE        = 1,
+        ASRT_REAC_TEST_EXEC   = 2,
+        ASRT_REAC_TEST_REPORT = 3,
 };
 
-enum asrtr_reactor_flags
+enum asrt_reactor_flags
 {
-        ASRTR_FLAG_DESC      = 0x01,
-        ASRTR_FLAG_PROTO_VER = 0x02,
-        ASRTR_FLAG_TC        = 0x04,
-        ASRTR_FLAG_TI        = 0x08,
-        ASRTR_FLAG_TSTART    = 0x10,
-        ASRTR_FLAG_LOCKED    = 0x20,
+        ASRT_FLAG_DESC      = 0x01,
+        ASRT_FLAG_PROTO_VER = 0x02,
+        ASRT_FLAG_TC        = 0x04,
+        ASRT_FLAG_TI        = 0x08,
+        ASRT_FLAG_TSTART    = 0x10,
+        ASRT_FLAG_LOCKED    = 0x20,
 };
 
 // Mask of flags that carry persistent state (not pending work).
 // Used to strip passive bits when checking for actionable flags.
-#define ASRTR_PASSIVE_FLAGS ( ASRTR_FLAG_LOCKED )
+#define ASRT_PASSIVE_FLAGS ( ASRT_FLAG_LOCKED )
 
-struct asrtr_reactor
+struct asrt_reactor
 {
         struct asrt_node   node;
         struct asrt_sender sendr;
         char const*        desc;
 
-        struct asrtr_test* first_test;
-        struct asrtr_test* last_test;
+        struct asrt_test* first_test;
+        struct asrt_test* last_test;
 
-        enum asrtr_reactor_state state;
-        struct asrtr_test_input  test_info;
-        struct asrtr_record      record;
+        enum asrt_reactor_state state;
+        struct asrt_test_input  test_info;
+        struct asrt_record      record;
 
-        uint32_t flags;  // values of asrtr_reactor_flags
+        uint32_t flags;  // values of asrt_reactor_flags
 
         uint16_t recv_test_info_id;
         uint16_t recv_test_start_id;
         uint32_t recv_test_run_id;
 };
 
-enum asrt_status asrtr_reactor_init(
-    struct asrtr_reactor* reac,
-    struct asrt_sender    sender,
-    char const*           desc );
+enum asrt_status asrt_reactor_init(
+    struct asrt_reactor* reac,
+    struct asrt_sender   sender,
+    char const*          desc );
 
-enum asrt_status asrtr_test_init(
-    struct asrtr_test*  t,
-    char const*         desc,
-    void*               ptr,
-    asrtr_test_callback start_f );
-enum asrt_status asrtr_reactor_add_test( struct asrtr_reactor* reac, struct asrtr_test* test );
-void             asrtr_reactor_deinit( struct asrtr_reactor* reac );
+enum asrt_status asrt_test_init(
+    struct asrt_test*  t,
+    char const*        desc,
+    void*              ptr,
+    asrt_test_callback start_f );
+enum asrt_status asrt_reactor_add_test( struct asrt_reactor* reac, struct asrt_test* test );
+void             asrt_reactor_deinit( struct asrt_reactor* reac );
 
 #ifdef __cplusplus
 }

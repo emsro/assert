@@ -47,13 +47,13 @@ struct demo_spec
 
 struct demo_test
 {
-        demo_spec           spec;
-        asrtr_diag_client&  diag;
-        asrtr_param_client& param;
-        std::mt19937&       rng;
-        int                 counter = 0;
+        demo_spec          spec;
+        asrt_diag_client&  diag;
+        asrt_param_client& param;
+        std::mt19937&      rng;
+        int                counter = 0;
 
-        demo_test( demo_spec s, asrtr_diag_client& d, asrtr_param_client& p, std::mt19937& r )
+        demo_test( demo_spec s, asrt_diag_client& d, asrt_param_client& p, std::mt19937& r )
           : spec( std::move( s ) )
           , diag( d )
           , param( p )
@@ -73,7 +73,7 @@ struct demo_test
 inline demo_spec make_demo_pass()
 {
         return { .tname = "demo_pass", .body = []( demo_test&, asrt::record& r ) -> asrt_status {
-                        r.state = ASRTR_TEST_PASS;
+                        r.state = ASRT_TEST_PASS;
                         return ASRT_SUCCESS;
                 } };
 }
@@ -83,26 +83,26 @@ inline demo_spec make_demo_fail()
 {
         return {
             .tname = "demo_fail", .body = []( demo_test& self, asrt::record& r ) -> asrt_status {
-                    r.state = ASRTR_TEST_FAIL;
+                    r.state = ASRT_TEST_FAIL;
                     asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "intentional" );
                     return ASRT_SUCCESS;
             } };
 }
 
-/// Uses ASRTR_RECORD_CHECK with a passing condition.
+/// Uses ASRT_RECORD_CHECK with a passing condition.
 /// Shows the soft-assertion macro in the success case.
 inline demo_spec make_demo_check()
 {
         return { .tname = "demo_check", .body = []( demo_test&, asrt::record& r ) -> asrt_status {
                         int sum = 2 + 3;
-                        ASRTR_RECORD_CHECK( &r, sum == 5 );
-                        if ( r.state != ASRTR_TEST_FAIL )
-                                r.state = ASRTR_TEST_PASS;
+                        ASRT_RECORD_CHECK( &r, sum == 5 );
+                        if ( r.state != ASRT_TEST_FAIL )
+                                r.state = ASRT_TEST_PASS;
                         return ASRT_SUCCESS;
                 } };
 }
 
-/// Uses ASRTR_RECORD_CHECK with a failing condition.
+/// Uses ASRT_RECORD_CHECK with a failing condition.
 /// The check fails (soft failure — execution continues), and a diagnostic
 /// is recorded so the controller can report the location.
 inline demo_spec make_demo_check_fail()
@@ -111,25 +111,25 @@ inline demo_spec make_demo_check_fail()
             .tname = "demo_check_fail",
             .body  = []( demo_test& self, asrt::record& r ) -> asrt_status {
                     int sum = 2 + 2;
-                    ASRTR_RECORD_CHECK( &r, sum == 5 );
-                    if ( r.state == ASRTR_TEST_FAIL )
+                    ASRT_RECORD_CHECK( &r, sum == 5 );
+                    if ( r.state == ASRT_TEST_FAIL )
                             asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "sum == 5" );
-                    if ( r.state != ASRTR_TEST_FAIL )
-                            r.state = ASRTR_TEST_PASS;
+                    if ( r.state != ASRT_TEST_FAIL )
+                            r.state = ASRT_TEST_PASS;
                     return ASRT_SUCCESS;
             } };
 }
 
-/// Uses ASRTR_RECORD_REQUIRE with a failing condition.
+/// Uses ASRT_RECORD_REQUIRE with a failing condition.
 /// The require macro fails and returns immediately — the lines after it
 /// are never executed.
 inline demo_spec make_demo_require_fail()
 {
         return {
             .tname = "demo_require_fail", .body = []( demo_test&, asrt::record& r ) -> asrt_status {
-                    ASRTR_RECORD_REQUIRE( &r, 1 == 2 );
+                    ASRT_RECORD_REQUIRE( &r, 1 == 2 );
                     // Never reached — REQUIRE returned early.
-                    r.state = ASRTR_TEST_PASS;
+                    r.state = ASRT_TEST_PASS;
                     return ASRT_SUCCESS;
             } };
 }
@@ -143,9 +143,9 @@ inline demo_spec make_demo_counter()
             .tname = "demo_counter", .body = []( demo_test& self, asrt::record& r ) -> asrt_status {
                     if ( self.counter < 3 ) {
                             ++self.counter;
-                            r.state = ASRTR_TEST_RUNNING;
+                            r.state = ASRT_TEST_RUNNING;
                     } else {
-                            r.state = ASRTR_TEST_PASS;
+                            r.state = ASRT_TEST_PASS;
                     }
                     return ASRT_SUCCESS;
             } };
@@ -159,10 +159,10 @@ inline demo_spec make_demo_random()
         return {
             .tname = "demo_random", .body = []( demo_test& self, asrt::record& r ) -> asrt_status {
                     std::uniform_int_distribution< int > pick( 0, 2 );
-                    static constexpr asrtr_test_state    k_results[] = {
-                        ASRTR_TEST_PASS, ASRTR_TEST_FAIL, ASRTR_TEST_ERROR };
+                    static constexpr asrt_test_state     k_results[] = {
+                        ASRT_TEST_PASS, ASRT_TEST_FAIL, ASRT_TEST_ERROR };
                     r.state = k_results[pick( self.rng )];
-                    if ( r.state != ASRTR_TEST_PASS )
+                    if ( r.state != ASRT_TEST_PASS )
                             asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "random outcome" );
                     return ASRT_SUCCESS;
             } };
@@ -183,9 +183,9 @@ inline demo_spec make_demo_random_counter()
                     }
                     if ( self.counter < 0 ) {
                             ++self.counter;
-                            r.state = ASRTR_TEST_RUNNING;
+                            r.state = ASRT_TEST_RUNNING;
                             if ( self.counter == 0 )
-                                    r.state = ASRTR_TEST_PASS;
+                                    r.state = ASRT_TEST_PASS;
                     }
                     return ASRT_SUCCESS;
             } };
@@ -199,13 +199,13 @@ namespace detail
 
 struct param_qr
 {
-        asrt::flat_id     first_child = 0;
-        uint32_t          u32_val     = 0;
-        asrt::flat_id     next_sib    = 0;
-        asrtr_param_query q           = {};
+        asrt::flat_id    first_child = 0;
+        uint32_t         u32_val     = 0;
+        asrt::flat_id    next_sib    = 0;
+        asrt_param_query q           = {};
 };
 
-inline void param_obj_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrt_flat_child_list val )
+inline void param_obj_qr_cb( asrt_param_client*, asrt_param_query* qq, asrt_flat_child_list val )
 {
         auto& s = *static_cast< param_qr* >( qq->cb_ptr );
         if ( qq->error_code == 0 ) {
@@ -214,7 +214,7 @@ inline void param_obj_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrt_fl
         }
 }
 
-inline void param_u32_qr_cb( asrtr_param_client*, asrtr_param_query* qq, uint32_t val )
+inline void param_u32_qr_cb( asrt_param_client*, asrt_param_query* qq, uint32_t val )
 {
         auto& s = *static_cast< param_qr* >( qq->cb_ptr );
         if ( qq->error_code == 0 ) {
@@ -223,7 +223,7 @@ inline void param_u32_qr_cb( asrtr_param_client*, asrtr_param_query* qq, uint32_
         }
 }
 
-inline void param_any_qr_cb( asrtr_param_client*, asrtr_param_query* qq, asrt_flat_value )
+inline void param_any_qr_cb( asrt_param_client*, asrt_param_query* qq, asrt_flat_value )
 {
         auto& s = *static_cast< param_qr* >( qq->cb_ptr );
         if ( qq->error_code == 0 )
@@ -241,18 +241,18 @@ inline demo_spec make_demo_param_value()
             .tname = "demo_param_value",
             .body  = [pq = detail::param_qr{}](
                         demo_test& self, asrt::record& r ) mutable -> asrt_status {
-                    if ( r.state == ASRTR_TEST_INIT ) {
+                    if ( r.state == ASRT_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
                     }
                     if ( asrt::query_pending( self.param ) ) {
-                            r.state = ASRTR_TEST_RUNNING;
+                            r.state = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
                             if ( !asrt::ready( self.param ) ) {
-                                    r.state = ASRTR_TEST_PASS;
+                                    r.state = ASRT_TEST_PASS;
                                     return ASRT_SUCCESS;
                             }
                             pq = {};
@@ -265,14 +265,14 @@ inline demo_spec make_demo_param_value()
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "fetch failed" );
-                                    r.state = ASRTR_TEST_FAIL;
+                                    r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
                             self.counter = 1;
-                            r.state      = ASRTR_TEST_RUNNING;
+                            r.state      = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     case 1: {
-                            ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
+                            ASRT_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
                             pq         = {};
                             if ( auto s = asrt::fetch< uint32_t >(
@@ -280,25 +280,25 @@ inline demo_spec make_demo_param_value()
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "fetch failed" );
-                                    r.state = ASRTR_TEST_FAIL;
+                                    r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
                             self.counter = 2;
-                            r.state      = ASRTR_TEST_RUNNING;
+                            r.state      = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     }
                     case 2:
-                            ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
-                            if ( r.state == ASRTR_TEST_FAIL ) {
+                            ASRT_RECORD_CHECK( &r, pq.q.error_code == 0 );
+                            if ( r.state == ASRT_TEST_FAIL ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "expected u32" );
                             } else {
-                                    ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
-                                    if ( r.state == ASRTR_TEST_FAIL )
+                                    ASRT_RECORD_CHECK( &r, pq.u32_val > 0 );
+                                    if ( r.state == ASRT_TEST_FAIL )
                                             asrt::rec_diag(
                                                 self.diag, "demo.hpp", __LINE__, "val > 0" );
                                     else
-                                            r.state = ASRTR_TEST_PASS;
+                                            r.state = ASRT_TEST_PASS;
                             }
                             return ASRT_SUCCESS;
                     }
@@ -314,19 +314,19 @@ inline demo_spec make_demo_param_count()
             .tname = "demo_param_count",
             .body  = [pq          = detail::param_qr{},
                      child_count = 0]( demo_test& self, asrt::record& r ) mutable -> asrt_status {
-                    if ( r.state == ASRTR_TEST_INIT ) {
+                    if ( r.state == ASRT_TEST_INIT ) {
                             self.counter = 0;
                             child_count  = 0;
                             pq           = {};
                     }
                     if ( asrt::query_pending( self.param ) ) {
-                            r.state = ASRTR_TEST_RUNNING;
+                            r.state = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
                             if ( !asrt::ready( self.param ) ) {
-                                    r.state = ASRTR_TEST_PASS;
+                                    r.state = ASRT_TEST_PASS;
                                     return ASRT_SUCCESS;
                             }
                             pq = {};
@@ -339,14 +339,14 @@ inline demo_spec make_demo_param_count()
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "fetch failed" );
-                                    r.state = ASRTR_TEST_FAIL;
+                                    r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
                             self.counter = 1;
-                            r.state      = ASRTR_TEST_RUNNING;
+                            r.state      = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     case 1: {
-                            ASRTR_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
+                            ASRT_RECORD_REQUIRE( &r, pq.q.error_code == 0 );
                             auto first = pq.first_child;
                             pq         = {};
                             if ( auto s = asrt::fetch< void >(
@@ -354,11 +354,11 @@ inline demo_spec make_demo_param_count()
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "fetch failed" );
-                                    r.state = ASRTR_TEST_FAIL;
+                                    r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
                             self.counter = 2;
-                            r.state      = ASRTR_TEST_RUNNING;
+                            r.state      = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     }
                     case 2:
@@ -375,18 +375,18 @@ inline demo_spec make_demo_param_count()
                                          s != ASRT_SUCCESS ) {
                                             asrt::rec_diag(
                                                 self.diag, "demo.hpp", __LINE__, "fetch failed" );
-                                            r.state = ASRTR_TEST_FAIL;
+                                            r.state = ASRT_TEST_FAIL;
                                             return ASRT_SUCCESS;
                                     }
-                                    r.state = ASRTR_TEST_RUNNING;
+                                    r.state = ASRT_TEST_RUNNING;
                                     return ASRT_SUCCESS;
                             }
-                            ASRTR_RECORD_CHECK( &r, child_count > 0 );
-                            if ( r.state == ASRTR_TEST_FAIL )
+                            ASRT_RECORD_CHECK( &r, child_count > 0 );
+                            if ( r.state == ASRT_TEST_FAIL )
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "child_count > 0" );
                             else
-                                    r.state = ASRTR_TEST_PASS;
+                                    r.state = ASRT_TEST_PASS;
                             return ASRT_SUCCESS;
                     }
                     return ASRT_SUCCESS;
@@ -401,18 +401,18 @@ inline demo_spec make_demo_param_find()
             .tname = "demo_param_find",
             .body  = [pq = detail::param_qr{}](
                         demo_test& self, asrt::record& r ) mutable -> asrt_status {
-                    if ( r.state == ASRTR_TEST_INIT ) {
+                    if ( r.state == ASRT_TEST_INIT ) {
                             self.counter = 0;
                             pq           = {};
                     }
                     if ( asrt::query_pending( self.param ) ) {
-                            r.state = ASRTR_TEST_RUNNING;
+                            r.state = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     }
                     switch ( self.counter ) {
                     case 0:
                             if ( !asrt::ready( self.param ) ) {
-                                    r.state = ASRTR_TEST_PASS;
+                                    r.state = ASRT_TEST_PASS;
                                     return ASRT_SUCCESS;
                             }
                             pq = {};
@@ -426,24 +426,24 @@ inline demo_spec make_demo_param_find()
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "find failed" );
-                                    r.state = ASRTR_TEST_FAIL;
+                                    r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
                             self.counter = 1;
-                            r.state      = ASRTR_TEST_RUNNING;
+                            r.state      = ASRT_TEST_RUNNING;
                             return ASRT_SUCCESS;
                     case 1:
-                            ASRTR_RECORD_CHECK( &r, pq.q.error_code == 0 );
-                            if ( r.state == ASRTR_TEST_FAIL ) {
+                            ASRT_RECORD_CHECK( &r, pq.q.error_code == 0 );
+                            if ( r.state == ASRT_TEST_FAIL ) {
                                     asrt::rec_diag(
                                         self.diag, "demo.hpp", __LINE__, "find 'count'" );
                             } else {
-                                    ASRTR_RECORD_CHECK( &r, pq.u32_val > 0 );
-                                    if ( r.state == ASRTR_TEST_FAIL )
+                                    ASRT_RECORD_CHECK( &r, pq.u32_val > 0 );
+                                    if ( r.state == ASRT_TEST_FAIL )
                                             asrt::rec_diag(
                                                 self.diag, "demo.hpp", __LINE__, "count > 0" );
                                     else
-                                            r.state = ASRTR_TEST_PASS;
+                                            r.state = ASRT_TEST_PASS;
                             }
                             return ASRT_SUCCESS;
                     }
@@ -530,10 +530,10 @@ struct multi_step_fail_demo_task : asrt::task_test
 /// Parameter integration into coroutine
 struct param_query_demo_task : asrt::task_test
 {
-        char const*         name = "param_query_demo_task";
-        asrtr_param_client& pc;
+        char const*        name = "param_query_demo_task";
+        asrt_param_client& pc;
 
-        param_query_demo_task( task_ctx& ctx, asrtr_param_client& p )
+        param_query_demo_task( task_ctx& ctx, asrt_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
@@ -553,10 +553,10 @@ struct param_query_demo_task : asrt::task_test
 /// Search by name in object - coroutine
 struct param_query_find_demo_task : asrt::task_test
 {
-        char const*         name = "param_query_find_demo_task";
-        asrtr_param_client& pc;
+        char const*        name = "param_query_find_demo_task";
+        asrt_param_client& pc;
 
-        param_query_find_demo_task( task_ctx& ctx, asrtr_param_client& p )
+        param_query_find_demo_task( task_ctx& ctx, asrt_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
@@ -579,10 +579,10 @@ struct param_query_find_demo_task : asrt::task_test
 ///   "bln" (bool), "obj" (object), "arr" (array).
 struct param_type_overview_task : asrt::task_test
 {
-        char const*         name = "param_type_overview_task";
-        asrtr_param_client& pc;
+        char const*        name = "param_type_overview_task";
+        asrt_param_client& pc;
 
-        param_type_overview_task( task_ctx& ctx, asrtr_param_client& p )
+        param_type_overview_task( task_ctx& ctx, asrt_param_client& p )
           : task_test( ctx )
           , pc( p )
         {
@@ -652,10 +652,10 @@ struct param_type_overview_task : asrt::task_test
 /// Produces: root OBJECT → "value" U32=42, "tag" STR="demo"
 struct collect_demo_task : asrt::task_test
 {
-        char const*           name = "collect_demo_task";
-        asrtr_collect_client& cc;
+        char const*          name = "collect_demo_task";
+        asrt_collect_client& cc;
 
-        collect_demo_task( task_ctx& ctx, asrtr_collect_client& c )
+        collect_demo_task( task_ctx& ctx, asrt_collect_client& c )
           : task_test( ctx )
           , cc( c )
         {
@@ -675,10 +675,10 @@ struct collect_demo_task : asrt::task_test
 /// three records.
 struct stream_demo_task : asrt::task_test
 {
-        char const*          name = "stream_demo_task";
-        asrtr_stream_client& sc;
+        char const*         name = "stream_demo_task";
+        asrt_stream_client& sc;
 
-        stream_demo_task( task_ctx& ctx, asrtr_stream_client& s )
+        stream_demo_task( task_ctx& ctx, asrt_stream_client& s )
           : task_test( ctx )
           , sc( s )
         {
@@ -696,10 +696,10 @@ struct stream_demo_task : asrt::task_test
 /// temperature, U8 humidity, U8 status) and streams 100 synthetic records.
 struct stream_sensor_demo_task : asrt::task_test
 {
-        char const*          name = "stream_sensor_demo_task";
-        asrtr_stream_client& sc;
+        char const*         name = "stream_sensor_demo_task";
+        asrt_stream_client& sc;
 
-        stream_sensor_demo_task( task_ctx& ctx, asrtr_stream_client& s )
+        stream_sensor_demo_task( task_ctx& ctx, asrt_stream_client& s )
           : task_test( ctx )
           , sc( s )
         {

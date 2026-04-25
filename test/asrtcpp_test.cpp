@@ -52,7 +52,7 @@ struct passing_test
         char const* name() const { return "passing_test"; }
         asrt_status operator()( asrt::record& rec )
         {
-                rec.state = ASRTR_TEST_PASS;
+                rec.state = ASRT_TEST_PASS;
                 return ASRT_SUCCESS;
         }
 };
@@ -62,7 +62,7 @@ struct failing_test
         char const* name() const { return "failing_test"; }
         asrt_status operator()( asrt::record& rec )
         {
-                rec.state = ASRTR_TEST_FAIL;
+                rec.state = ASRT_TEST_FAIL;
                 return ASRT_SUCCESS;
         }
 };
@@ -108,7 +108,7 @@ struct paired_ctx
             } };
 
         asrtc_controller c;
-        asrtr_reactor    r;
+        asrt_reactor     r;
 
         paired_ctx()
           : r_send( [this](
@@ -282,7 +282,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
 
 TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
 {
-        asrt_test_result res = ASRTC_TEST_UNKNOWN;
+        asrt_test_result res = ASRT_TEST_RESULT_ERROR;
         asrt::status     st  = asrt::exec_test(
             c,
             0,
@@ -296,12 +296,12 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
             1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         spin();
-        CHECK_EQ( ASRTC_TEST_SUCCESS, res );
+        CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res );
 }
 
 TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
 {
-        asrt_test_result res = ASRTC_TEST_UNKNOWN;
+        asrt_test_result res = ASRT_TEST_RESULT_ERROR;
         asrt::status     st  = asrt::exec_test(
             c,
             1,
@@ -315,7 +315,7 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
             1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         spin();
-        CHECK_EQ( ASRTC_TEST_FAILURE, res );
+        CHECK_EQ( ASRT_TEST_RESULT_FAILURE, res );
 }
 
 // ---------------------------------------------------------------------------
@@ -404,7 +404,7 @@ struct diag_paired_ctx : paired_ctx
                     return st;
             } };
 
-        asrtr_diag_client r_diag;
+        asrt_diag_client r_diag;
 
         diag_paired_ctx()
         {

@@ -8,8 +8,8 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#ifndef ASRTR_ASSEMBLY_H
-#define ASRTR_ASSEMBLY_H
+#ifndef ASRT_ASSEMBLY_H
+#define ASRT_ASSEMBLY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,37 +21,37 @@ extern "C" {
 #include "./reactor.h"
 #include "./stream.h"
 
-struct asrtr_assembly
+struct asrt_assembly
 {
-        struct asrtr_reactor        reactor;
-        struct asrtr_diag_client    diag;
-        struct asrtr_collect_client collect;
-        uint8_t                     param_cache_buf[256];
-        struct asrtr_param_client   param;
-        struct asrtr_stream_client  stream;
+        struct asrt_reactor        reactor;
+        struct asrt_diag_client    diag;
+        struct asrt_collect_client collect;
+        uint8_t                    param_cache_buf[256];
+        struct asrt_param_client   param;
+        struct asrt_stream_client  stream;
 };
 
-inline enum asrt_status asrtr_assembly_init(
-    struct asrtr_assembly* assembly,
-    struct asrt_sender     sender,
-    char const*            desc,
-    uint32_t               timeout )
+inline enum asrt_status asrt_assembly_init(
+    struct asrt_assembly* assembly,
+    struct asrt_sender    sender,
+    char const*           desc,
+    uint32_t              timeout )
 {
-        if ( asrtr_reactor_init( &assembly->reactor, sender, desc ) != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_assembly", "reactor init failed" );
+        if ( asrt_reactor_init( &assembly->reactor, sender, desc ) != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrt_assembly", "reactor init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrtr_diag_client_init( &assembly->diag, &assembly->reactor.node, sender ) !=
+        if ( asrt_diag_client_init( &assembly->diag, &assembly->reactor.node, sender ) !=
              ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_assembly", "diag init failed" );
+                ASRT_ERR_LOG( "asrt_assembly", "diag init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrtr_collect_client_init( &assembly->collect, &assembly->diag.node, sender ) !=
+        if ( asrt_collect_client_init( &assembly->collect, &assembly->diag.node, sender ) !=
              ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_assembly", "collect client init failed" );
+                ASRT_ERR_LOG( "asrt_assembly", "collect client init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrtr_param_client_init(
+        if ( asrt_param_client_init(
                  &assembly->param,
                  &assembly->collect.node,
                  sender,
@@ -60,33 +60,33 @@ inline enum asrt_status asrtr_assembly_init(
                      .e = assembly->param_cache_buf + sizeof( assembly->param_cache_buf ),
                  },
                  timeout ) != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_assembly", "param client init failed" );
+                ASRT_ERR_LOG( "asrt_assembly", "param client init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrtr_stream_client_init( &assembly->stream, &assembly->param.node, sender ) !=
+        if ( asrt_stream_client_init( &assembly->stream, &assembly->param.node, sender ) !=
              ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_assembly", "stream client init failed" );
+                ASRT_ERR_LOG( "asrt_assembly", "stream client init failed" );
                 return ASRT_INIT_ERR;
         }
         return ASRT_SUCCESS;
 }
 
-static inline void asrtr_assembly_tick( struct asrtr_assembly* assembly, uint32_t now )
+static inline void asrt_assembly_tick( struct asrt_assembly* assembly, uint32_t now )
 {
         asrt_chann_tick_successors( &assembly->reactor.node, now );
 }
 
-static inline void asrtr_assembly_deinit( struct asrtr_assembly* assembly )
+static inline void asrt_assembly_deinit( struct asrt_assembly* assembly )
 {
-        asrtr_stream_client_deinit( &assembly->stream );
-        asrtr_param_client_deinit( &assembly->param );
-        asrtr_collect_client_deinit( &assembly->collect );
-        asrtr_diag_client_deinit( &assembly->diag );
-        asrtr_reactor_deinit( &assembly->reactor );
+        asrt_stream_client_deinit( &assembly->stream );
+        asrt_param_client_deinit( &assembly->param );
+        asrt_collect_client_deinit( &assembly->collect );
+        asrt_diag_client_deinit( &assembly->diag );
+        asrt_reactor_deinit( &assembly->reactor );
 }
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // ASRTR_ASSEMBLY_H
+#endif  // ASRT_ASSEMBLY_H

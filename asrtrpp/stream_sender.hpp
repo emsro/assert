@@ -27,15 +27,15 @@ struct stream_define_sender
             ecor::set_value_t( stream_schema< Ts... > ),
             ecor::set_error_t( status ) >;
 
-        asrtr_stream_client* client_;
-        uint8_t              schema_id_;
+        asrt_stream_client* client_;
+        uint8_t             schema_id_;
 
         template < ecor::receiver R >
         struct op
         {
-                asrtr_stream_client* client_;
-                uint8_t              schema_id_;
-                R                    recv;
+                asrt_stream_client* client_;
+                uint8_t             schema_id_;
+                R                   recv;
 
                 void start()
                 {
@@ -68,7 +68,7 @@ struct stream_define_sender
 /// Define a stream schema.  Returns a sender that completes with a
 /// stream_schema<Ts...> once the DEFINE message has been acknowledged.
 template < typename... Ts >
-ecor::sender auto define( asrtr_stream_client& client, uint8_t schema_id )
+ecor::sender auto define( asrt_stream_client& client, uint8_t schema_id )
 {
         return stream_define_sender< Ts... >{ &client, schema_id };
 }

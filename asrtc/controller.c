@@ -106,7 +106,7 @@ static enum asrt_status asrtc_cntr_recv_init(
 {
         ASRT_ASSERT( c->state == ASRTC_CNTR_INIT );
 
-        if ( eid != asrt_msg_PROTO_VERSION )
+        if ( eid != ASRT_MSG_PROTO_VERSION )
                 return ASRT_RECV_UNEXPECTED_ERR;
         if ( asrt_span_unfit_for( buff, 3 * sizeof( uint16_t ) ) )
                 return ASRT_RECV_ERR;
@@ -177,7 +177,7 @@ static enum asrt_status asrtc_cntr_recv_test_count(
 {
         ASRT_ASSERT( c->state == ASRTC_CNTR_HNDL_TC );
 
-        if ( eid != asrt_msg_TEST_COUNT )
+        if ( eid != ASRT_MSG_TEST_COUNT )
                 return ASRT_RECV_UNEXPECTED_ERR;
         if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) ) )
                 return ASRT_RECV_ERR;
@@ -247,7 +247,7 @@ static enum asrt_status asrtc_cntr_recv_desc(
     struct asrt_span*        buff )
 {
         ASRT_ASSERT( c->state == ASRTC_CNTR_HNDL_DESC );
-        if ( e != asrt_msg_DESC )
+        if ( e != ASRT_MSG_DESC )
                 return ASRT_RECV_UNEXPECTED_ERR;
 
         struct asrtc_desc_handler* h = &c->hndl.desc;
@@ -322,7 +322,7 @@ static enum asrt_status asrtc_cntr_recv_test_info(
     struct asrt_span*        buff )
 {
         ASRT_ASSERT( c->state == ASRTC_CNTR_HNDL_TI );
-        if ( eid != asrt_msg_TEST_INFO )
+        if ( eid != ASRT_MSG_TEST_INFO )
                 return ASRT_RECV_UNEXPECTED_ERR;
 
         if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint8_t ) ) )
@@ -372,7 +372,7 @@ enum asrt_status asrtc_cntr_test_exec(
                 ( struct asrtc_result ){
                     .test_id = id,
                     .run_id  = c->run_id++,
-                    .res     = ASRTC_TEST_UNKNOWN,
+                    .res     = ASRT_TEST_RESULT_ERROR,
                 },
             .ptr     = ptr,
             .cb      = cb,
@@ -417,7 +417,7 @@ static enum asrt_status asrtc_cntr_recv_test_exec(
         if ( c->stage != ASRTC_STAGE_WAITING )
                 return ASRT_RECV_INTERNAL_ERR;
         switch ( eid ) {
-        case asrt_msg_TEST_START: {
+        case ASRT_MSG_TEST_START: {
                 if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
                         return ASRT_RECV_ERR;
                 // XXX should not be ignored
@@ -428,7 +428,7 @@ static enum asrt_status asrtc_cntr_recv_test_exec(
                 asrt_cut_u32( &buff->b, rid );
                 break;
         }
-        case asrt_msg_TEST_RESULT: {
+        case ASRT_MSG_TEST_RESULT: {
                 if ( asrt_span_unfit_for( buff, sizeof( uint32_t ) + sizeof( asrt_test_result ) ) )
                         return ASRT_RECV_ERR;
                 uint32_t rid;
@@ -444,7 +444,7 @@ static enum asrt_status asrtc_cntr_recv_test_exec(
                             "Received test result for unexpected run: %u (expected %u)",
                             rid,
                             h->res.run_id );
-                        h->res.res = ASRTC_TEST_ERROR;
+                        h->res.res = ASRT_TEST_RESULT_ERROR;
                 } else {
                         ASRT_INF_LOG( "asrtc_main", "Received test result: %u", res );
                         h->res.res = res;

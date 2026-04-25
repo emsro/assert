@@ -31,50 +31,50 @@ struct param_query_traits;
 template <>
 struct param_query_traits< uint32_t > : flat_type_traits< uint32_t >
 {
-        using cb_type                   = asrtr_param_u32_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::u32;
+        using cb_type                   = asrt_param_u32_cb;
+        static constexpr auto cb_member = &asrt_param_cb::u32;
 };
 
 template <>
 struct param_query_traits< int32_t > : flat_type_traits< int32_t >
 {
-        using cb_type                   = asrtr_param_i32_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::i32;
+        using cb_type                   = asrt_param_i32_cb;
+        static constexpr auto cb_member = &asrt_param_cb::i32;
 };
 
 template <>
 struct param_query_traits< float > : flat_type_traits< float >
 {
-        using cb_type                   = asrtr_param_float_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::flt;
+        using cb_type                   = asrt_param_float_cb;
+        static constexpr auto cb_member = &asrt_param_cb::flt;
 };
 
 template <>
 struct param_query_traits< char const* > : flat_type_traits< char const* >
 {
-        using cb_type                   = asrtr_param_str_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::str;
+        using cb_type                   = asrt_param_str_cb;
+        static constexpr auto cb_member = &asrt_param_cb::str;
 };
 
 template <>
 struct param_query_traits< bool > : flat_type_traits< bool >
 {
-        using cb_type                   = asrtr_param_bool_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::bln;
+        using cb_type                   = asrt_param_bool_cb;
+        static constexpr auto cb_member = &asrt_param_cb::bln;
 };
 
 template <>
 struct param_query_traits< obj > : flat_type_traits< obj >
 {
-        using cb_type                   = asrtr_param_obj_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::obj;
+        using cb_type                   = asrt_param_obj_cb;
+        static constexpr auto cb_member = &asrt_param_cb::obj;
 };
 
 template <>
 struct param_query_traits< arr > : flat_type_traits< arr >
 {
-        using cb_type                   = asrtr_param_arr_cb;
-        static constexpr auto cb_member = &asrtr_param_cb::arr;
+        using cb_type                   = asrt_param_arr_cb;
+        static constexpr auto cb_member = &asrt_param_cb::arr;
 };
 
 template <>
@@ -82,9 +82,9 @@ struct param_query_traits< asrt_flat_value >
 {
         using raw_type                  = asrt_flat_value;
         using value_type                = asrt_flat_value;
-        using cb_type                   = asrtr_param_any_cb;
+        using cb_type                   = asrt_param_any_cb;
         static constexpr auto flat_type = ASRT_FLAT_STYPE_NONE;
-        static constexpr auto cb_member = &asrtr_param_cb::any;
+        static constexpr auto cb_member = &asrt_param_cb::any;
 };
 
 // Convenience aliases
@@ -100,60 +100,60 @@ template < typename CB, typename T >
 concept typed_param_query_callable =
     has_param_query_traits< T > && requires(
                                        CB                                           cb,
-                                       asrtr_param_client*                          c,
-                                       asrtr_param_query*                           q,
+                                       asrt_param_client*                           c,
+                                       asrt_param_query*                            q,
                                        typename param_query_traits< T >::value_type v ) {
             { cb( c, q, v ) } -> std::same_as< void >;
     };
 
 inline status init(
-    ref< asrtr_param_client > client,
-    asrt_node&                prev,
-    autosender                s,
-    asrt_span                 msg_buffer,
-    uint32_t                  timeout )
+    ref< asrt_param_client > client,
+    asrt_node&               prev,
+    autosender               s,
+    asrt_span                msg_buffer,
+    uint32_t                 timeout )
 {
-        return asrtr_param_client_init( client, &prev, s, msg_buffer, timeout );
+        return asrt_param_client_init( client, &prev, s, msg_buffer, timeout );
 }
 
-[[nodiscard]] inline bool ready( ref< asrtr_param_client const > client )
+[[nodiscard]] inline bool ready( ref< asrt_param_client const > client )
 {
         return client->ready != 0;
 }
 
-[[nodiscard]] inline bool query_pending( ref< asrtr_param_client const > client )
+[[nodiscard]] inline bool query_pending( ref< asrt_param_client const > client )
 {
-        return asrtr_param_query_pending( client ) != 0;
+        return asrt_param_query_pending( client ) != 0;
 }
 
-[[nodiscard]] inline flat_id root_id( ref< asrtr_param_client const > client )
+[[nodiscard]] inline flat_id root_id( ref< asrt_param_client const > client )
 {
-        return asrtr_param_client_root_id( client );
+        return asrt_param_client_root_id( client );
 }
 
 template < has_param_query_traits T, typed_param_query_callable< T > CB >
 [[nodiscard]] asrt_status query(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   node_id,
-    char const*               key,
-    CB&                       cb )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  node_id,
+    char const*              key,
+    CB&                      cb )
 {
         using traits     = param_query_traits< T >;
         q->expected_type = traits::flat_type;
         q->cb.*traits::cb_member =
-            []( asrtr_param_client* c, asrtr_param_query* qq, typename traits::raw_type raw ) {
+            []( asrt_param_client* c, asrt_param_query* qq, typename traits::raw_type raw ) {
                     ( *reinterpret_cast< CB* >( qq->cb_ptr ) )(
                         c, qq, static_cast< typename traits::value_type >( raw ) );
             };
         q->cb_ptr = &cb;
-        return asrtr_param_client_query( q, cl, node_id, key );
+        return asrt_param_client_query( q, cl, node_id, key );
 }
 
 template < has_param_query_traits T >
 [[nodiscard]] asrt_status query(
-    ref< asrtr_param_client >                 cl,
-    asrtr_param_query*                        q,
+    ref< asrt_param_client >                  cl,
+    asrt_param_query*                         q,
     flat_id                                   node_id,
     char const*                               key,
     typename param_query_traits< T >::cb_type cb,
@@ -163,21 +163,21 @@ template < has_param_query_traits T >
         q->expected_type         = traits::flat_type;
         q->cb.*traits::cb_member = cb;
         q->cb_ptr                = cb_ptr;
-        return asrtr_param_client_query( q, cl, node_id, key );
+        return asrt_param_client_query( q, cl, node_id, key );
 }
 
 [[nodiscard]] inline asrt_status query(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   node_id,
-    char const*               key,
-    asrtr_param_any_cb        cb,
-    void*                     cb_ptr )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  node_id,
+    char const*              key,
+    asrt_param_any_cb        cb,
+    void*                    cb_ptr )
 {
         q->expected_type = ASRT_FLAT_STYPE_NONE;
         q->cb.any        = cb;
         q->cb_ptr        = cb_ptr;
-        return asrtr_param_client_query( q, cl, node_id, key );
+        return asrt_param_client_query( q, cl, node_id, key );
 }
 
 /// Fetch information about node node_id from param client, call cb with the value if
@@ -186,10 +186,10 @@ template < has_param_query_traits T >
 /// value type doesn't match, cb will be called with an error.
 template < has_param_query_traits T, typed_param_query_callable< T > CB >
 [[nodiscard]] asrt_status fetch(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   node_id,
-    CB&                       cb )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  node_id,
+    CB&                      cb )
 {
         return query< T >( cl, q, node_id, nullptr, cb );
 }
@@ -198,8 +198,8 @@ template < has_param_query_traits T, typed_param_query_callable< T > CB >
 /// successful. This overload expects raw function pointer and void* context.
 template < has_param_query_traits T >
 [[nodiscard]] asrt_status fetch(
-    ref< asrtr_param_client >                 cl,
-    asrtr_param_query*                        q,
+    ref< asrt_param_client >                  cl,
+    asrt_param_query*                         q,
     flat_id                                   node_id,
     typename param_query_traits< T >::cb_type cb,
     void*                                     cb_ptr )
@@ -209,11 +209,11 @@ template < has_param_query_traits T >
 
 /// Raw fetch without explicit expected type and C callback + void* context.
 [[nodiscard]] inline asrt_status fetch(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   node_id,
-    asrtr_param_any_cb        cb,
-    void*                     cb_ptr )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  node_id,
+    asrt_param_any_cb        cb,
+    void*                    cb_ptr )
 {
         return query( cl, q, node_id, nullptr, cb, cb_ptr );
 }
@@ -221,11 +221,11 @@ template < has_param_query_traits T >
 /// Find child with key under parent_id, call cb with the value if successful.
 template < has_param_query_traits T, typed_param_query_callable< T > CB >
 [[nodiscard]] asrt_status find(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   parent_id,
-    char const*               key,
-    CB&                       cb )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  parent_id,
+    char const*              key,
+    CB&                      cb )
 {
         return query< T >( cl, q, parent_id, key, cb );
 }
@@ -233,8 +233,8 @@ template < has_param_query_traits T, typed_param_query_callable< T > CB >
 /// Find child with key under parent_id. Raw function pointer + void* context overload.
 template < has_param_query_traits T >
 [[nodiscard]] asrt_status find(
-    ref< asrtr_param_client >                 cl,
-    asrtr_param_query*                        q,
+    ref< asrt_param_client >                  cl,
+    asrt_param_query*                         q,
     flat_id                                   parent_id,
     char const*                               key,
     typename param_query_traits< T >::cb_type cb,
@@ -245,19 +245,19 @@ template < has_param_query_traits T >
 
 /// Raw find without explicit expected type and C callback + void* context.
 [[nodiscard]] inline asrt_status find(
-    ref< asrtr_param_client > cl,
-    asrtr_param_query*        q,
-    flat_id                   parent_id,
-    char const*               key,
-    asrtr_param_any_cb        cb,
-    void*                     cb_ptr )
+    ref< asrt_param_client > cl,
+    asrt_param_query*        q,
+    flat_id                  parent_id,
+    char const*              key,
+    asrt_param_any_cb        cb,
+    void*                    cb_ptr )
 {
         return query( cl, q, parent_id, key, cb, cb_ptr );
 }
 
-inline void deinit( ref< asrtr_param_client > client )
+inline void deinit( ref< asrt_param_client > client )
 {
-        asrtr_param_client_deinit( client );
+        asrt_param_client_deinit( client );
 }
 
 }  // namespace asrt

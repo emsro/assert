@@ -69,7 +69,7 @@ struct pass_test
         char const* name() const { return "pass_test"; }
         asrt_status operator()( asrt::record& rec )
         {
-                rec.state = ASRTR_TEST_PASS;
+                rec.state = ASRT_TEST_PASS;
                 return ASRT_SUCCESS;
         }
 };
@@ -87,7 +87,7 @@ struct fail_test
         char const* name() const { return "fail_test"; }
         asrt_status operator()( asrt::record& rec )
         {
-                rec.state = ASRTR_TEST_FAIL;
+                rec.state = ASRT_TEST_FAIL;
                 return ASRT_SUCCESS;
         }
 };
@@ -99,7 +99,7 @@ struct reactor_ctx
 {
         collector      coll;
         collect_sender send_fn{ &coll };
-        asrtr_reactor  r;
+        asrt_reactor   r;
 
         reactor_ctx()
         {
@@ -115,12 +115,12 @@ struct reactor_ctx
 
 struct diag_ctx
 {
-        collector         coll_r;
-        collector         coll_d;
-        collect_sender    send_fn_r{ &coll_r };
-        collect_sender    send_fn_d{ &coll_d };
-        asrtr_reactor     r;
-        asrtr_diag_client d;
+        collector        coll_r;
+        collector        coll_d;
+        collect_sender   send_fn_r{ &coll_r };
+        collect_sender   send_fn_d{ &coll_d };
+        asrt_reactor     r;
+        asrt_diag_client d;
 
 
         diag_ctx()
@@ -174,16 +174,16 @@ TEST_CASE( "unit_cb_pass" )
 {
         asrt::unit< pass_test > u;
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr = &u;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_RUNNING;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_RUNNING;
         rec.inpt  = &input;
 
         asrt_status st = asrt::unit< pass_test >::cb( &rec );
         CHECK_EQ( ASRT_SUCCESS, st );
-        CHECK_NE( ASRTR_TEST_FAIL, rec.state );
+        CHECK_NE( ASRT_TEST_FAIL, rec.state );
 }
 
 TEST_CASE( "unit_cb_fail" )
@@ -191,16 +191,16 @@ TEST_CASE( "unit_cb_fail" )
         // When T returns a transport error, cb forces rec.state to FAIL.
         asrt::unit< err_cb_test > u;
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr = &u;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_RUNNING;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_RUNNING;
         rec.inpt  = &input;
 
         asrt_status st = asrt::unit< err_cb_test >::cb( &rec );
         CHECK_NE( ASRT_SUCCESS, st );
-        CHECK_EQ( ASRTR_TEST_FAIL, rec.state );
+        CHECK_EQ( ASRT_TEST_FAIL, rec.state );
 }
 
 // ---------------------------------------------------------------------------
@@ -225,14 +225,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_record" )
 
 void assert_test_start_msg( collected_data& cd, uint16_t test_id, uint32_t run_id )
 {
-        assert_collected_core_hdr( cd, 0x08, asrt_msg_TEST_START );
+        assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_START );
         assert_u16( test_id, cd.data.data() + 2 );
         assert_u32( run_id, cd.data.data() + 4 );
 }
 
 void assert_test_result_msg( collected_data& cd, uint32_t run_id, enum asrt_test_result_e result )
 {
-        assert_collected_core_hdr( cd, 0x08, asrt_msg_TEST_RESULT );
+        assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_RESULT );
         assert_u32( run_id, cd.data.data() + 2 );
         assert_u16( result, cd.data.data() + 6 );
 }
@@ -241,7 +241,7 @@ struct e2e_ctx
 {
         collector      coll;
         collect_sender send_fn{ &coll };
-        asrtr_reactor  r;
+        asrt_reactor   r;
 
         asrt::unit< pass_test > t0;
         asrt::unit< fail_test > t1;
@@ -283,7 +283,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
         // test 0: pass_test
         run( 0, 10 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 10, ASRT_TEST_SUCCESS );
+        assert_test_result_msg( coll.data.back(), 10, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 0, 10 );
         coll.data.pop_back();
@@ -291,7 +291,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
         // test 1: fail_test
         run( 1, 20 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 20, ASRT_TEST_FAILURE );
+        assert_test_result_msg( coll.data.back(), 20, ASRT_TEST_RESULT_FAILURE );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 1, 20 );
         coll.data.pop_back();
@@ -299,7 +299,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
         // test 2: pass_test (same callable as t0, different slot)
         run( 2, 30 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 30, ASRT_TEST_SUCCESS );
+        assert_test_result_msg( coll.data.back(), 30, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 2, 30 );
         coll.data.pop_back();
@@ -354,7 +354,7 @@ struct param_loopback_cpp_ctx
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
-        asrtr_param_client        cli;
+        asrt_param_client         cli;
 
         // response state
         struct received_node
@@ -367,9 +367,9 @@ struct param_loopback_cpp_ctx
         std::vector< received_node > received;
         int                          error_called = 0;
         uint32_t                     t            = 1;
-        asrtr_param_query            query        = {};
+        asrt_param_query             query        = {};
 
-        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrt_flat_value val )
+        static void query_cb( asrt_param_client*, asrt_param_query* q, asrt_flat_value val )
         {
                 auto* ctx = (param_loopback_cpp_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -543,10 +543,10 @@ struct typed_loopback_ctx
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
-        asrtr_param_client        cli;
+        asrt_param_client         cli;
 
-        uint32_t          t     = 1;
-        asrtr_param_query query = {};
+        uint32_t         t     = 1;
+        asrt_param_query query = {};
 
         // results
         uint32_t             u32_val = 0;
@@ -612,7 +612,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
         asrt_flat_tree_append_scalar( &tree, 1, 2, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 42 } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, uint32_t v ) {
                 cb_count++;
                 u32_val = v;
         };
@@ -632,7 +632,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_mismatch" )
             &tree, 1, 2, "val", ASRT_FLAT_STYPE_STR, { .str_val = "nope" } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query* q, uint32_t ) {
                 cb_count++;
                 got_null = ( q->error_code != 0 );
         };
@@ -651,7 +651,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_i32_happy" )
         asrt_flat_tree_append_scalar( &tree, 1, 2, "val", ASRT_FLAT_STYPE_I32, { .i32_val = -7 } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, int32_t v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, int32_t v ) {
                 cb_count++;
                 i32_val = v;
         };
@@ -671,7 +671,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_str_happy" )
             &tree, 1, 2, "val", ASRT_FLAT_STYPE_STR, { .str_val = "hello" } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, char const* v ) {
                 cb_count++;
                 if ( v )
                         str_val = v;
@@ -692,7 +692,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_float_happy" )
             &tree, 1, 2, "val", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14f } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, float v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, float v ) {
                 cb_count++;
                 flt_val = v;
         };
@@ -711,7 +711,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
         asrt_flat_tree_append_scalar( &tree, 1, 2, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 99 } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, asrt_flat_value v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, asrt_flat_value v ) {
                 cb_count++;
                 u32_val = v.data.s.u32_val;
         };
@@ -733,7 +733,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
 
         CHECK_FALSE( asrt::query_pending( cli ) );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, uint32_t v ) {
                 cb_count++;
                 u32_val = v;
         };
@@ -751,7 +751,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
 // C++ query timeout tests
 // ============================================================================
 
-static asrt_status send_ready_to_client( asrtr_param_client& cli, asrt::flat_id root_id )
+static asrt_status send_ready_to_client( asrt_param_client& cli, asrt::flat_id root_id )
 {
         uint8_t  buf[8];
         uint8_t* p = buf;
@@ -772,7 +772,7 @@ TEST_CASE( "param_client_cpp_timeout" )
         static constexpr uint32_t BUF_SZ      = 256;
         static constexpr uint32_t TIMEOUT     = 10;
         uint8_t                   buf[BUF_SZ] = {};
-        asrtr_param_client        cli;
+        asrt_param_client         cli;
         REQUIRE_EQ(
             ASRT_SUCCESS,
             asrt::init( cli, head, sendr, asrt_span{ .b = buf, .e = buf + BUF_SZ }, TIMEOUT ) );
@@ -785,11 +785,11 @@ TEST_CASE( "param_client_cpp_timeout" )
 
         int     called = 0;
         uint8_t err    = 0;
-        auto    cb     = [&]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+        auto    cb     = [&]( asrt_param_client*, asrt_param_query* q, uint32_t ) {
                 called++;
                 err = q->error_code;
         };
-        asrtr_param_query query = {};
+        asrt_param_query query = {};
         CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 10u, cb ) );
 
         // DELIVER tick → wire
@@ -852,7 +852,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_u32_happy" )
             &tree, 1, 3, "other", ASRT_FLAT_STYPE_STR, { .str_val = "x" } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, uint32_t v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, uint32_t v ) {
                 cb_count++;
                 u32_val = v;
         };
@@ -872,7 +872,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_str_happy" )
             &tree, 1, 2, "val", ASRT_FLAT_STYPE_STR, { .str_val = "world" } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query*, char const* v ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query*, char const* v ) {
                 cb_count++;
                 if ( v )
                         str_val = v;
@@ -892,7 +892,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_not_found" )
         asrt_flat_tree_append_scalar( &tree, 1, 2, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 7 } );
         setup_tree_and_handshake( &tree );
 
-        auto cb = [this]( asrtr_param_client*, asrtr_param_query* q, uint32_t ) {
+        auto cb = [this]( asrt_param_client*, asrt_param_query* q, uint32_t ) {
                 cb_count++;
                 got_null = ( q->error_code != 0 );
         };
@@ -911,7 +911,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_c_callback" )
         asrt_flat_tree_append_scalar( &tree, 1, 2, "val", ASRT_FLAT_STYPE_U32, { .u32_val = 55 } );
         setup_tree_and_handshake( &tree );
 
-        auto c_cb = []( asrtr_param_client*, asrtr_param_query* q, uint32_t v ) {
+        auto c_cb = []( asrt_param_client*, asrt_param_query* q, uint32_t v ) {
                 auto* ctx = (typed_loopback_ctx*) q->cb_ptr;
                 ctx->cb_count++;
                 ctx->u32_val = v;
@@ -1001,12 +1001,12 @@ struct tu_cb_ctx
         asrt::task_ctx                    ctx{ mem };
 
         template < typename T >
-        void run_to_completion( asrt::task_unit< T >& u, asrtr_record& rec, int max_ticks = 100 )
+        void run_to_completion( asrt::task_unit< T >& u, asrt_record& rec, int max_ticks = 100 )
         {
                 for ( int i = 0; i < max_ticks; ++i ) {
                         asrt::task_unit< T >::cb( &rec );
                         ctx.tick();
-                        if ( rec.state != ASRTR_TEST_RUNNING && rec.state != ASRTR_TEST_INIT )
+                        if ( rec.state != ASRT_TEST_RUNNING && rec.state != ASRT_TEST_INIT )
                                 return;
                 }
         }
@@ -1016,120 +1016,120 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_pass" )
 {
         asrt::task_unit< tu_pass > u{ tu_pass{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_pass >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         run_to_completion( u, rec );
-        CHECK_EQ( ASRTR_TEST_PASS, rec.state );
+        CHECK_EQ( ASRT_TEST_PASS, rec.state );
 }
 
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_fail" )
 {
         asrt::task_unit< tu_fail > u{ tu_fail{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_fail >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         run_to_completion( u, rec );
-        CHECK_EQ( ASRTR_TEST_FAIL, rec.state );
+        CHECK_EQ( ASRT_TEST_FAIL, rec.state );
 }
 
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_error" )
 {
         asrt::task_unit< tu_error > u{ tu_error{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_error >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         run_to_completion( u, rec );
-        CHECK_EQ( ASRTR_TEST_ERROR, rec.state );
+        CHECK_EQ( ASRT_TEST_ERROR, rec.state );
 }
 
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_pass" )
 {
         asrt::task_unit< tu_multi_pass > u{ tu_multi_pass{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_pass >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         // First cb call: sets RUNNING, starts coroutine
         asrt::task_unit< tu_multi_pass >::cb( &rec );
-        CHECK_EQ( ASRTR_TEST_RUNNING, rec.state );
+        CHECK_EQ( ASRT_TEST_RUNNING, rec.state );
 
         // Subsequent cb calls are no-ops (state already RUNNING)
         asrt::task_unit< tu_multi_pass >::cb( &rec );
-        CHECK_EQ( ASRTR_TEST_RUNNING, rec.state );
+        CHECK_EQ( ASRT_TEST_RUNNING, rec.state );
 
         // Tick the task core until the coroutine completes
         for ( int i = 0; i < 20; ++i ) {
                 ctx.tick();
-                if ( rec.state != ASRTR_TEST_RUNNING )
+                if ( rec.state != ASRT_TEST_RUNNING )
                         break;
         }
-        CHECK_EQ( ASRTR_TEST_PASS, rec.state );
+        CHECK_EQ( ASRT_TEST_PASS, rec.state );
 }
 
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_fail" )
 {
         asrt::task_unit< tu_multi_fail > u{ tu_multi_fail{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_fail >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         run_to_completion( u, rec );
-        CHECK_EQ( ASRTR_TEST_FAIL, rec.state );
+        CHECK_EQ( ASRT_TEST_FAIL, rec.state );
 }
 
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_error" )
 {
         asrt::task_unit< tu_multi_error > u{ tu_multi_error{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_error >::cb;
 
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
         rec.inpt  = &input;
 
         run_to_completion( u, rec );
-        CHECK_EQ( ASRTR_TEST_ERROR, rec.state );
+        CHECK_EQ( ASRT_TEST_ERROR, rec.state );
 }
 
 // cb is no-op when state is not INIT (coroutine already started)
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_noop_after_start" )
 {
-        asrtr_record rec{};
-        rec.state = ASRTR_TEST_INIT;
+        asrt_record rec{};
+        rec.state = ASRT_TEST_INIT;
 
         asrt::task_unit< tu_multi_pass > u{ tu_multi_pass{ ctx } };
 
-        asrtr_test_input input{};
+        asrt_test_input input{};
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_pass >::cb;
 
@@ -1138,12 +1138,12 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_noop_after_start" )
         // Start the coroutine
         auto st = asrt::task_unit< tu_multi_pass >::cb( &rec );
         CHECK_EQ( ASRT_SUCCESS, st );
-        CHECK_EQ( ASRTR_TEST_RUNNING, rec.state );
+        CHECK_EQ( ASRT_TEST_RUNNING, rec.state );
 
         // Calling cb again should not restart — still RUNNING
         st = asrt::task_unit< tu_multi_pass >::cb( &rec );
         CHECK_EQ( ASRT_SUCCESS, st );
-        CHECK_EQ( ASRTR_TEST_RUNNING, rec.state );
+        CHECK_EQ( ASRT_TEST_RUNNING, rec.state );
 }
 
 // --- task_unit: reactor integration ---
@@ -1154,7 +1154,7 @@ struct tu_e2e_ctx
         asrt::task_ctx                    ctx{ mem };
         collector                         coll;
         collect_sender                    send_fn{ &coll };
-        asrtr_reactor                     r;
+        asrt_reactor                      r;
 
         std::shared_ptr< asrt::task_unit< tu_pass > >       t0;
         std::shared_ptr< asrt::task_unit< tu_fail > >       t1;
@@ -1201,7 +1201,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_pass" )
 {
         run( 0, 100 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 100, ASRT_TEST_SUCCESS );
+        assert_test_result_msg( coll.data.back(), 100, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 0, 100 );
         coll.data.pop_back();
@@ -1211,7 +1211,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_fail" )
 {
         run( 1, 200 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 200, ASRT_TEST_FAILURE );
+        assert_test_result_msg( coll.data.back(), 200, ASRT_TEST_RESULT_FAILURE );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 1, 200 );
         coll.data.pop_back();
@@ -1221,7 +1221,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_error" )
 {
         run( 2, 300 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 300, ASRT_TEST_ERROR );
+        assert_test_result_msg( coll.data.back(), 300, ASRT_TEST_RESULT_ERROR );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 2, 300 );
         coll.data.pop_back();
@@ -1231,7 +1231,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_multi_step" )
 {
         run( 3, 400 );
         REQUIRE_EQ( 2u, coll.data.size() );
-        assert_test_result_msg( coll.data.back(), 400, ASRT_TEST_SUCCESS );
+        assert_test_result_msg( coll.data.back(), 400, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 3, 400 );
         coll.data.pop_back();
@@ -1283,7 +1283,7 @@ struct param_sender_ctx
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
-        asrtr_param_client        cli;
+        asrt_param_client         cli;
 
         asrt::malloc_free_memory_resource mem;
         asrt::task_ctx                    tctx{ mem };
@@ -1337,23 +1337,23 @@ struct param_sender_ctx
         // Run a task<void> to completion, return the final test state.
         // F should be a callable that takes (task_ctx&) and returns task<void>.
         template < typename F >
-        asrtr_test_state run_task( F&& make_task )
+        asrt_test_state run_task( F&& make_task )
         {
                 struct test_recv
                 {
                         using receiver_concept = ecor::receiver_t;
-                        asrtr_test_state* out;
+                        asrt_test_state* out;
 
-                        void set_value() { *out = ASRTR_TEST_PASS; }
-                        void set_error( ecor::task_error ) { *out = ASRTR_TEST_FAIL; }
-                        void set_error( asrt::status ) { *out = ASRTR_TEST_ERROR; }
-                        void set_error( asrt::test_fail_t ) { *out = ASRTR_TEST_FAIL; }
-                        void set_stopped() { *out = ASRTR_TEST_FAIL; }
+                        void set_value() { *out = ASRT_TEST_PASS; }
+                        void set_error( ecor::task_error ) { *out = ASRT_TEST_FAIL; }
+                        void set_error( asrt::status ) { *out = ASRT_TEST_ERROR; }
+                        void set_error( asrt::test_fail_t ) { *out = ASRT_TEST_FAIL; }
+                        void set_stopped() { *out = ASRT_TEST_FAIL; }
                 };
-                asrtr_test_state result = ASRTR_TEST_INIT;
-                auto             op     = make_task( tctx ).connect( test_recv{ &result } );
+                asrt_test_state result = ASRT_TEST_INIT;
+                auto            op     = make_task( tctx ).connect( test_recv{ &result } );
                 op.start();
-                for ( int i = 0; i < 200 && result == ASRTR_TEST_INIT; i++ ) {
+                for ( int i = 0; i < 200 && result == ASRT_TEST_INIT; i++ ) {
                         asrt::tick( asrt::node( srv ), t++ );
                         asrt::tick( asrt::node( cli ), t++ );
                         tctx.tick();
@@ -1365,7 +1365,7 @@ struct param_sender_ctx
 // Free-function coroutines (ecor requires task_ctx& as first arg, no lambda coroutines).
 
 template < typename T >
-asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrtr_param_client& c, uint16_t id )
+asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
 {
         asrt::param_result res = co_await asrt::fetch< T >( c, id );
         std::ignore            = res;  // XXX: fix
@@ -1374,29 +1374,29 @@ asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrtr_param_client& c, uint16_t
 template < typename T >
 asrt::task< void > ps_do_find(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key )
 {
         co_await asrt::find< T >( c, parent, key );
 }
 
 asrt::task< void > ps_capture_find_u32(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key,
-    uint32_t*           out )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key,
+    uint32_t*          out )
 {
         *out = co_await asrt::find< uint32_t >( c, parent, key );
 }
 
 asrt::task< void > ps_capture_find_str(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key,
-    std::string*        out )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key,
+    std::string*       out )
 {
         auto v = co_await asrt::find< char const* >( c, parent, key );
         *out   = v;
@@ -1404,10 +1404,10 @@ asrt::task< void > ps_capture_find_str(
 
 asrt::task< void > ps_find_u32_then_check(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key,
-    bool*               reached )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key,
+    bool*              reached )
 {
         auto v = co_await asrt::find< uint32_t >( c, parent, key );
         (void) v;
@@ -1416,11 +1416,11 @@ asrt::task< void > ps_find_u32_then_check(
 
 asrt::task< void > ps_sequential_finds(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key_a,
-    char const*         key_b,
-    uint32_t*           sum )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key_a,
+    char const*        key_b,
+    uint32_t*          sum )
 {
         auto a = co_await asrt::find< uint32_t >( c, parent, key_a );
         auto b = co_await asrt::find< uint32_t >( c, parent, key_b );
@@ -1429,12 +1429,12 @@ asrt::task< void > ps_sequential_finds(
 
 asrt::task< void > ps_second_fails(
     asrt::task_ctx&,
-    asrtr_param_client& c,
-    uint16_t            parent,
-    char const*         key_a,
-    char const*         key_b,
-    uint32_t*           first_val,
-    bool*               reached )
+    asrt_param_client& c,
+    uint16_t           parent,
+    char const*        key_a,
+    char const*        key_b,
+    uint32_t*          first_val,
+    bool*              reached )
 {
         *first_val = co_await asrt::find< uint32_t >( c, parent, key_a );
         auto b     = co_await asrt::find< uint32_t >( c, parent, key_b );
@@ -1455,7 +1455,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_u32_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1470,7 +1470,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_i32_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_fetch< int32_t >( ctx, cli, 1 );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1487,7 +1487,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_u32_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< uint32_t >( ctx, cli, 1, "count" );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1503,7 +1503,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_str_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< char const* >( ctx, cli, 1, "msg" );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1519,7 +1519,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_float_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< float >( ctx, cli, 1, "pi" );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1534,7 +1534,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_obj_happy" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< asrt::obj >( ctx, cli, 1, "sub" );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1552,7 +1552,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_type_mismatch" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1569,7 +1569,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_type_mismatch" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< uint32_t >( ctx, cli, 1, "val" );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1586,7 +1586,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_key_not_found" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< uint32_t >( ctx, cli, 1, "missing" );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1598,7 +1598,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_not_ready" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_fetch< uint32_t >( ctx, cli, 1 );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
 }
 
 TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_not_ready" )
@@ -1606,7 +1606,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_not_ready" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_find< uint32_t >( ctx, cli, 1, "x" );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
 }
 
 // --- error: query already pending (second sender fails immediately) ---
@@ -1621,8 +1621,8 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_query_pending" )
         setup_tree_and_handshake( &tree );
 
         // Start a raw query to occupy the pending slot
-        asrtr_param_query q  = {};
-        auto              cb = []( asrtr_param_client*, asrtr_param_query*, uint32_t ) {};
+        asrt_param_query q  = {};
+        auto             cb = []( asrt_param_client*, asrt_param_query*, uint32_t ) {};
         CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &q, 2u, cb, nullptr ) );
         CHECK( asrt::query_pending( cli ) );
 
@@ -1630,7 +1630,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_query_pending" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_do_fetch< uint32_t >( ctx, cli, 3 );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
 
         // Drain the pending query
         spin();
@@ -1652,7 +1652,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_value_in_coroutine" )
         auto     state    = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_capture_find_u32( ctx, cli, 1, "count", &captured );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         CHECK_EQ( 42u, captured );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1670,7 +1670,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_value_in_coroutine" )
         auto        state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_capture_find_str( ctx, cli, 1, "msg", &captured );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         CHECK_EQ( "hi", captured );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1690,7 +1690,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_error_propagates_in_coroutine" )
         auto state   = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_find_u32_then_check( ctx, cli, 1, "val", &reached );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
         CHECK_FALSE( reached );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1710,7 +1710,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_sequential_queries_in_coroutine" )
         auto     state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_sequential_finds( ctx, cli, 1, "a", "b", &sum );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         CHECK_EQ( 30u, sum );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1730,7 +1730,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
         auto     state     = run_task( [&]( asrt::task_ctx& ctx ) {
                 return ps_second_fails( ctx, cli, 1, "a", "missing", &first_val, &reached );
         } );
-        CHECK_EQ( ASRTR_TEST_ERROR, state );
+        CHECK_EQ( ASRT_TEST_ERROR, state );
         CHECK_EQ( 10u, first_val );
         CHECK_FALSE( reached );
         asrt_flat_tree_deinit( &tree );
@@ -1761,10 +1761,10 @@ static inline uint8_t* make_coll_ready(
 
 struct collect_cpp_ctx
 {
-        collector            coll;
-        collect_sender       send_fn{ &coll };
-        asrt_node            head{};
-        asrtr_collect_client cc;
+        collector           coll;
+        collect_sender      send_fn{ &coll };
+        asrt_node           head{};
+        asrt_collect_client cc;
 
         collect_cpp_ctx()
         {
@@ -1832,8 +1832,8 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
 
 asrt::task< void > cs_do_append_scalar(
     asrt::task_ctx&,
-    asrtr_collect_client& cc,
-    asrt::flat_id         parent )
+    asrt_collect_client& cc,
+    asrt::flat_id        parent )
 {
         co_await asrt::append( cc, parent, "count", 42 );
         co_await asrt::append( cc, parent, "offset", -7 );
@@ -1842,7 +1842,7 @@ asrt::task< void > cs_do_append_scalar(
         co_await asrt::append( cc, parent, "ratio", 3.14f );
 }
 
-asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrtr_collect_client& cc )
+asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
 {
         auto root = co_await asrt::append< asrt::obj >( cc, 0, "root" );
         auto arr  = co_await asrt::append< asrt::arr >( cc, root, "items" );
@@ -1857,23 +1857,23 @@ struct collect_sender_ctx : collect_cpp_ctx
         asrt::task_ctx                    tctx{ mem };
 
         template < typename F >
-        asrtr_test_state run_task( F&& make_task )
+        asrt_test_state run_task( F&& make_task )
         {
                 struct test_recv
                 {
                         using receiver_concept = ecor::receiver_t;
-                        asrtr_test_state* out;
+                        asrt_test_state* out;
 
-                        void set_value() { *out = ASRTR_TEST_PASS; }
-                        void set_error( ecor::task_error ) { *out = ASRTR_TEST_FAIL; }
-                        void set_error( asrt::status ) { *out = ASRTR_TEST_FAIL; }
-                        void set_error( asrt::test_fail_t ) { *out = ASRTR_TEST_FAIL; }
-                        void set_stopped() { *out = ASRTR_TEST_FAIL; }
+                        void set_value() { *out = ASRT_TEST_PASS; }
+                        void set_error( ecor::task_error ) { *out = ASRT_TEST_FAIL; }
+                        void set_error( asrt::status ) { *out = ASRT_TEST_FAIL; }
+                        void set_error( asrt::test_fail_t ) { *out = ASRT_TEST_FAIL; }
+                        void set_stopped() { *out = ASRT_TEST_FAIL; }
                 };
-                asrtr_test_state result = ASRTR_TEST_INIT;
-                auto             op     = make_task( tctx ).connect( test_recv{ &result } );
+                asrt_test_state result = ASRT_TEST_INIT;
+                auto            op     = make_task( tctx ).connect( test_recv{ &result } );
                 op.start();
-                for ( int i = 0; i < 100 && result == ASRTR_TEST_INIT; i++ )
+                for ( int i = 0; i < 100 && result == ASRT_TEST_INIT; i++ )
                         tctx.tick();
                 return result;
         }
@@ -1885,7 +1885,7 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_scalars" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return cs_do_append_scalar( ctx, cc, 0 );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         CHECK_EQ( 5u, coll.data.size() );
 }
 
@@ -1895,7 +1895,7 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
                 return cs_do_append_tree( ctx, cc );
         } );
-        CHECK_EQ( ASRTR_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_PASS, state );
         // 1 obj + 1 arr + 2 u32 + 1 str = 5 messages
         CHECK_EQ( 5u, coll.data.size() );
 }
@@ -1950,7 +1950,7 @@ struct strm_cpp_ctx
         strm_cpp_loopback send_r;
         strm_cpp_loopback send_c;
 
-        asrtr_stream_client client;
+        asrt_stream_client  client;
         asrtc_stream_server server;
 
 

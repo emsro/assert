@@ -41,7 +41,7 @@ using ecor::with_error;
 
 // XXX: do some form of type erasure to reduce code ize.
 template < typename T >
-struct task_unit : asrtr_test
+struct task_unit : asrt_test
 {
 
         struct recv
@@ -50,25 +50,25 @@ struct task_unit : asrtr_test
 
                 record* rec;
 
-                void set_value() { rec->state = ASRTR_TEST_PASS; }
-                void set_error( ecor::task_error ) { rec->state = ASRTR_TEST_FAIL; }
-                void set_error( test_fail_t ) { rec->state = ASRTR_TEST_FAIL; }
-                void set_error( asrt::status ) { rec->state = ASRTR_TEST_ERROR; }
-                void set_stopped() { rec->state = ASRTR_TEST_FAIL; }
+                void set_value() { rec->state = ASRT_TEST_PASS; }
+                void set_error( ecor::task_error ) { rec->state = ASRT_TEST_FAIL; }
+                void set_error( test_fail_t ) { rec->state = ASRT_TEST_FAIL; }
+                void set_error( asrt::status ) { rec->state = ASRT_TEST_ERROR; }
+                void set_stopped() { rec->state = ASRT_TEST_FAIL; }
         };
 
         task_unit( T def )
           : def( std::move( def ) )
         {
-                asrtr_test_init( this, def.name, static_cast< task_unit* >( this ), task_unit::cb );
+                asrt_test_init( this, def.name, static_cast< task_unit* >( this ), task_unit::cb );
         }
 
         static asrt_status cb( record* rec )
         {
                 auto& self = *static_cast< task_unit* >( rec->inpt->test_ptr );
 
-                if ( rec->state == ASRTR_TEST_INIT ) {
-                        rec->state = ASRTR_TEST_RUNNING;
+                if ( rec->state == ASRT_TEST_INIT ) {
+                        rec->state = ASRT_TEST_RUNNING;
                         self.op    = self.def.exec().connect( recv{ rec } );
                         self.op.start();
                 }

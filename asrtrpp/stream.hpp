@@ -99,40 +99,40 @@ struct strm_field_traits< bool >
         static void           encode( uint8_t*& p, bool v ) { *p++ = v ? 1 : 0; }
 };
 
-inline status init( ref< asrtr_stream_client > client, asrt_node& prev, autosender s )
+inline status init( ref< asrt_stream_client > client, asrt_node& prev, autosender s )
 {
-        return asrtr_stream_client_init( client, &prev, s );
+        return asrt_stream_client_init( client, &prev, s );
 }
 
 inline status define(
-    ref< asrtr_stream_client >         client,
+    ref< asrt_stream_client >          client,
     uint8_t                            schema_id,
     enum asrt_strm_field_type_e const* fields,
     uint8_t                            field_count,
-    callback< asrtr_stream_done_cb >   done_cb )
+    callback< asrt_stream_done_cb >    done_cb )
 {
-        return asrtr_stream_client_define(
+        return asrt_stream_client_define(
             client, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
 }
 inline status emit(
-    ref< asrtr_stream_client >       client,
-    uint8_t                          schema_id,
-    uint8_t const*                   data,
-    uint16_t                         data_size,
-    callback< asrtr_stream_done_cb > done_cb )
+    ref< asrt_stream_client >       client,
+    uint8_t                         schema_id,
+    uint8_t const*                  data,
+    uint16_t                        data_size,
+    callback< asrt_stream_done_cb > done_cb )
 {
-        return asrtr_stream_client_emit(
+        return asrt_stream_client_emit(
             client, schema_id, data, data_size, done_cb.fn, done_cb.ptr );
 }
 
-inline status reset( ref< asrtr_stream_client > client )
+inline status reset( ref< asrt_stream_client > client )
 {
-        return asrtr_stream_client_reset( client );
+        return asrt_stream_client_reset( client );
 }
 
-inline void deinit( ref< asrtr_stream_client > client )
+inline void deinit( ref< asrt_stream_client > client )
 {
-        asrtr_stream_client_deinit( client );
+        asrt_stream_client_deinit( client );
 }
 
 /// Compile-time typed stream schema.
@@ -147,20 +147,20 @@ struct stream_schema
 
         /// XXX: error handling in constructor is bad
         stream_schema(
-            ref< asrtr_stream_client >       client,
-            uint8_t                          schema_id,
-            callback< asrtr_stream_done_cb > done_cb )
+            ref< asrt_stream_client >       client,
+            uint8_t                         schema_id,
+            callback< asrt_stream_done_cb > done_cb )
           : client_( client )
           , schema_id_( schema_id )
         {
                 auto s = define( client_, schema_id_, fields_, sizeof...( Ts ), done_cb );
                 if ( s != ASRT_SUCCESS ) {
-                        ASRT_ERR_LOG( "asrtr_stream_schema", "define failed" );
+                        ASRT_ERR_LOG( "asrt_stream_schema", "define failed" );
                         ASRT_ASSERT( false );
                 }
         }
 
-        stream_schema( ref< asrtr_stream_client > c, uint8_t id )
+        stream_schema( ref< asrt_stream_client > c, uint8_t id )
           : client_( c )
           , schema_id_( id )
         {
@@ -185,7 +185,7 @@ struct stream_schema
                 return *this;
         }
 
-        status emit( Ts... args, callback< asrtr_stream_done_cb > done_cb )
+        status emit( Ts... args, callback< asrt_stream_done_cb > done_cb )
         {
                 uint8_t  buf[emit_size];
                 uint8_t* p = buf;
@@ -193,7 +193,7 @@ struct stream_schema
                 return asrt::emit( client_, schema_id_, buf, emit_size, done_cb );
         }
 
-        status emit_raw( uint8_t const* buf, callback< asrtr_stream_done_cb > done_cb )
+        status emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
         {
                 return asrt::emit( client_, schema_id_, buf, emit_size, done_cb );
         }
@@ -204,8 +204,8 @@ struct stream_schema
             strm_field_traits< Ts >::tag... };
 
 private:
-        asrtr_stream_client* client_;
-        uint8_t              schema_id_;
+        asrt_stream_client* client_;
+        uint8_t             schema_id_;
 };
 
 }  // namespace asrt

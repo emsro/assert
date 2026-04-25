@@ -20,14 +20,6 @@ extern "C" {
 
 #include <stdint.h>
 
-enum
-{
-        ASRTC_TEST_SUCCESS = ASRT_TEST_SUCCESS,
-        ASRTC_TEST_ERROR   = ASRT_TEST_ERROR,
-        ASRTC_TEST_FAILURE = ASRT_TEST_FAILURE,
-        ASRTC_TEST_UNKNOWN = 0x04,
-};
-
 struct asrtc_result
 {
         uint16_t         test_id;

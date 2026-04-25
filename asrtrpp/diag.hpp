@@ -22,22 +22,22 @@ namespace asrt
 {
 
 void rec_diag(
-    ref< asrtr_diag_client > d,
-    char const*              file,
-    uint32_t                 line,
-    char const*              extra = nullptr )
+    ref< asrt_diag_client > d,
+    char const*             file,
+    uint32_t                line,
+    char const*             extra = nullptr )
 {
-        asrtr_diag_client_record( d, file, line, extra );
+        asrt_diag_client_record( d, file, line, extra );
 }
 
-inline status init( ref< asrtr_diag_client > d, asrt_node& prev, autosender sender )
+inline status init( ref< asrt_diag_client > d, asrt_node& prev, autosender sender )
 {
-        return asrtr_diag_client_init( d, &prev, sender );
+        return asrt_diag_client_init( d, &prev, sender );
 }
 
-inline void deinit( ref< asrtr_diag_client > d )
+inline void deinit( ref< asrt_diag_client > d )
 {
-        asrtr_diag_client_deinit( d );
+        asrt_diag_client_deinit( d );
 }
 
 }  // namespace asrt

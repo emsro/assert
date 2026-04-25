@@ -414,9 +414,9 @@ struct param_e2e_state
         asrt::flat_id                      root_id     = 0;
         std::vector< param_received_node > received;
         int                                errors = 0;
-        asrtr_param_query                  query  = {};
+        asrt_param_query                   query  = {};
 
-        static void query_cb( asrtr_param_client*, asrtr_param_query* q, asrt_flat_value val )
+        static void query_cb( asrt_param_client*, asrt_param_query* q, asrt_flat_value val )
         {
                 auto* s = static_cast< param_e2e_state* >( q->cb_ptr );
                 if ( q->error_code != 0 ) {

@@ -38,20 +38,20 @@ struct param_query_sender
             ecor::set_value_t( param_result< T > ),
             ecor::set_error_t( status ) >;
 
-        asrtr_param_client* client_;
-        char const*         key;
-        flat_id             node_id;
+        asrt_param_client* client_;
+        char const*        key;
+        flat_id            node_id;
 
         template < ecor::receiver R >
         struct op
         {
-                asrtr_param_query   q;
-                asrtr_param_client* c;
-                char const*         key;
-                flat_id             node_id;
-                R                   recv;
+                asrt_param_query   q;
+                asrt_param_client* c;
+                char const*        key;
+                flat_id            node_id;
+                R                  recv;
 
-                op( R&& r, asrtr_param_client* client, char const* k, flat_id id )
+                op( R&& r, asrt_param_client* client, char const* k, flat_id id )
                   : c( client )
                   , key( k )
                   , node_id( id )
@@ -62,8 +62,8 @@ struct param_query_sender
                 void start()
                 {
                         using traits = param_query_traits< T >;
-                        auto cb      = +[]( asrtr_param_client*,
-                                       asrtr_param_query*        q,
+                        auto cb      = +[]( asrt_param_client*,
+                                       asrt_param_query*         q,
                                        typename traits::raw_type raw ) {
                                 auto& self = *reinterpret_cast< op* >( q->cb_ptr );
                                 if ( q->error_code != ASRT_PARAM_ERR_NONE )
@@ -89,13 +89,13 @@ struct param_query_sender
 };
 
 template < typename T >
-ecor::sender auto fetch( ref< asrtr_param_client > client, flat_id node_id )
+ecor::sender auto fetch( ref< asrt_param_client > client, flat_id node_id )
 {
         return param_query_sender< T >{ client, nullptr, node_id };
 }
 
 template < typename T >
-ecor::sender auto find( ref< asrtr_param_client > client, flat_id parent_id, char const* key )
+ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char const* key )
 {
         return param_query_sender< T >{ client, key, parent_id };
 }

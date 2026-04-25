@@ -88,7 +88,7 @@ void check_cntr_full_init( controller_ctx* ctx )
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &ctx->cntr, ctx->t++ );
 
-        assert_collected_core_hdr( ctx->coll.data.back(), 0x02, asrt_msg_PROTO_VERSION );
+        assert_collected_core_hdr( ctx->coll.data.back(), 0x02, ASRT_MSG_PROTO_VERSION );
         ctx->coll.data.pop_back();
 
         uint8_t          buffer[64];
@@ -124,7 +124,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
 
         check_tick( &cntr, t++ );
 
-        assert_collected_core_hdr( coll.data.back(), 0x02, asrt_msg_PROTO_VERSION );
+        assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_PROTO_VERSION );
         coll.data.pop_back();
 
         asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
@@ -183,7 +183,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
 
-        assert_collected_core_hdr( coll.data.back(), 0x02, asrt_msg_DESC );
+        assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_DESC );
         coll.data.pop_back();
 
         char const* msg = "wololo1";
@@ -212,7 +212,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
 
-        assert_collected_core_hdr( coll.data.back(), 0x02, asrt_msg_TEST_COUNT );
+        assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_TEST_COUNT );
         coll.data.pop_back();
 
         asrt_msg_rtoc_test_count( 42, asrt_rec_span_to_span_cb, &sp );
@@ -231,7 +231,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info" )
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
 
-        assert_collected_core_hdr( coll.data.back(), 0x04, asrt_msg_TEST_INFO );
+        assert_collected_core_hdr( coll.data.back(), 0x04, ASRT_MSG_TEST_INFO );
         assert_u16( 42, coll.data.back().data.data() + 2 );
         coll.data.pop_back();
 
@@ -359,7 +359,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
 
-        assert_collected_core_hdr( coll.data.back(), 0x08, asrt_msg_TEST_START );
+        assert_collected_core_hdr( coll.data.back(), 0x08, ASRT_MSG_TEST_START );
         assert_u16( 42, coll.data.back().data.data() + 2 );
         assert_u32( 0, coll.data.back().data.data() + 4 );
         coll.data.pop_back();
@@ -375,12 +375,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         CHECK_EQ( coll.data.empty(), true );
 
         uint8_t* b = sp.b;
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_SUCCESS, asrt_rec_span_to_span_cb, &sp );
+        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, b, sp.b, &t );
 
         CHECK_EQ( res.test_id, 42 );
         CHECK_EQ( res.run_id, 0 );
-        CHECK_EQ( res.res, ASRTC_TEST_SUCCESS );
+        CHECK_EQ( res.res, ASRT_TEST_RESULT_SUCCESS );
         CHECK_EQ( coll.data.empty(), true );
 }
 
@@ -600,12 +600,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_test_error_result" )
         // A direct TEST_RESULT(ERROR) reply should complete the exec as an error.
         uint8_t          buf[16];
         struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_ERROR, asrt_rec_span_to_span_cb, &sp );
+        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_ERROR, asrt_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
-        CHECK_EQ( ASRTC_TEST_ERROR, res.res );
+        CHECK_EQ( ASRT_TEST_RESULT_ERROR, res.res );
 }
 
-// wrong run_id in TEST_RESULT → ASRTC_TEST_ERROR in callback
+// wrong run_id in TEST_RESULT → ASRT_TEST_RESULT_ERROR in callback
 TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
 {
         check_cntr_full_init( this );
@@ -619,10 +619,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         // Send TEST_RESULT with wrong run_id (controller expects 0, send 99)
         uint8_t          buf[16];
         struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 99, ASRT_TEST_SUCCESS, asrt_rec_span_to_span_cb, &sp );
+        asrt_msg_rtoc_test_result( 99, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
 
-        CHECK_EQ( ASRTC_TEST_ERROR, res.res );
+        CHECK_EQ( ASRT_TEST_RESULT_ERROR, res.res );
         CHECK_EQ( coll.data.empty(), true );
 }
 
@@ -675,7 +675,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         // ID + only major(2) — missing minor(2) + patch(2) = too short
         uint8_t          buf[16];
         struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_add_u16( &sp.b, asrt_msg_PROTO_VERSION );
+        asrt_add_u16( &sp.b, ASRT_MSG_PROTO_VERSION );
         asrt_add_u16( &sp.b, 0 );  // major only, 4 bytes total
         enum asrt_status rst =
             asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
@@ -701,7 +701,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         // Just the message ID, no u16 count
         uint8_t          buf[16];
         struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_add_u16( &sp.b, asrt_msg_TEST_COUNT );
+        asrt_add_u16( &sp.b, ASRT_MSG_TEST_COUNT );
         enum asrt_status rst =
             asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRT_RECV_ERR, rst );
@@ -726,7 +726,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         // Just the message ID, no u16 tid
         uint8_t          buf[16];
         struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_add_u16( &sp.b, asrt_msg_TEST_INFO );
+        asrt_add_u16( &sp.b, ASRT_MSG_TEST_INFO );
         enum asrt_status rst =
             asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
         CHECK_EQ( ASRT_RECV_ERR, rst );
@@ -1140,7 +1140,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
 
         // Truncated TEST_RESULT: ID + run_id(4) only — missing res(2)
         sp = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_add_u16( &sp.b, asrt_msg_TEST_RESULT );
+        asrt_add_u16( &sp.b, ASRT_MSG_TEST_RESULT );
         asrt_add_u32( &sp.b, 0 );  // run_id, but no res u16
         enum asrt_status rst =
             asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
@@ -1148,9 +1148,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
 
         // Satisfy properly to clean up
         sp = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_SUCCESS, asrt_rec_span_to_span_cb, &sp );
+        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
         check_recv_and_spin( &cntr, buf, sp.b, &t );
-        CHECK_EQ( ASRTC_TEST_SUCCESS, res.res );
+        CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res.res );
         CHECK_EQ( coll.data.empty(), true );
 }
 
@@ -1539,7 +1539,7 @@ struct server_client_base
                 }
         }
 };
-using param_base = server_client_base< asrtc_param_server, asrtr_param_client >;
+using param_base = server_client_base< asrtc_param_server, asrt_param_client >;
 
 struct param_loopback_ctx : param_base
 {
@@ -1565,12 +1565,12 @@ struct param_loopback_ctx : param_base
         };
         std::vector< received_node > received;
         int                          error_called = 0;
-        struct asrtr_param_query     query        = {};
+        struct asrt_param_query      query        = {};
 
         static void query_cb(
-            struct asrtr_param_client*,
-            struct asrtr_param_query* q,
-            struct asrt_flat_value    val )
+            struct asrt_param_client*,
+            struct asrt_param_query* q,
+            struct asrt_flat_value   val )
         {
                 auto* ctx = (param_loopback_ctx*) q->cb_ptr;
                 if ( q->error_code != 0 ) {
@@ -1593,13 +1593,12 @@ struct param_loopback_ctx : param_base
                     ASRT_SUCCESS, asrtc_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
                 struct asrt_span mb = { .b = cli_buf, .e = cli_buf + CLI_BUF_SZ };
                 REQUIRE_EQ(
-                    ASRT_SUCCESS,
-                    asrtr_param_client_init( &client, &cli_head, cli_sendr, mb, 10 ) );
+                    ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, cli_sendr, mb, 10 ) );
         }
 
         ~param_loopback_ctx()
         {
-                asrtr_param_client_deinit( &client );
+                asrt_param_client_deinit( &client );
                 asrtc_param_server_deinit( &server );
         }
 };
@@ -1628,12 +1627,12 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Spin: READY → client gets root_id, sends READY_ACK → server allocates
         spin();
         CHECK_EQ( 1, client.ready );
-        CHECK_EQ( 1u, asrtr_param_client_root_id( &client ) );
+        CHECK_EQ( 1u, asrt_param_client_root_id( &client ) );
 
         // Recursive traversal: collect all nodes
         // Query root
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 1u, query_cb, this ) );
+            ASRT_SUCCESS, asrt_param_client_fetch_any( &query, &client, 1u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 1u, received[0].id );
@@ -1644,7 +1643,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query first child of root ("sub", id=2)
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_fetch_any( &query, &client, first_child, query_cb, this ) );
+            asrt_param_client_fetch_any( &query, &client, first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 2u, received[1].id );
@@ -1658,7 +1657,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query next sibling of "sub" → "b" (id=3)
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_fetch_any( &query, &client, sub_next_sib, query_cb, this ) );
+            asrt_param_client_fetch_any( &query, &client, sub_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 3u, received.size() );
         CHECK_EQ( 3u, received[2].id );
@@ -1670,7 +1669,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query children of "sub": "x" (id=4)
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_fetch_any( &query, &client, sub_first_child, query_cb, this ) );
+            asrt_param_client_fetch_any( &query, &client, sub_first_child, query_cb, this ) );
         spin();
         REQUIRE_EQ( 4u, received.size() );
         CHECK_EQ( 4u, received[3].id );
@@ -1683,7 +1682,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
         // Query "y" (id=5)
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_fetch_any( &query, &client, x_next_sib, query_cb, this ) );
+            asrt_param_client_fetch_any( &query, &client, x_next_sib, query_cb, this ) );
         spin();
         REQUIRE_EQ( 5u, received.size() );
         CHECK_EQ( 5u, received[4].id );
@@ -1721,7 +1720,7 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
 
         REQUIRE_EQ( ASRT_SUCCESS, asrtc_param_server_init( &server, &srv_head, ssend, alloc ) );
         struct asrt_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
-        REQUIRE_EQ( ASRT_SUCCESS, asrtr_param_client_init( &client, &cli_head, csend, mb, 100 ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, csend, mb, 100 ) );
 
         // Tree: root(OBJECT,1) → 4 children (U32, ids 2..5)
         struct asrt_flat_tree tree;
@@ -1743,26 +1742,25 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
                 uint32_t      val;
                 asrt::flat_id next_sib;
         };
-        std::vector< rn >        results;
-        struct asrtr_param_query q = {};
+        std::vector< rn >       results;
+        struct asrt_param_query q = {};
 
-        auto resp_cb = []( struct asrtr_param_client*,
-                           struct asrtr_param_query* qq,
-                           struct asrt_flat_value    val ) {
+        auto resp_cb = []( struct asrt_param_client*,
+                           struct asrt_param_query* qq,
+                           struct asrt_flat_value   val ) {
                 auto* r = (std::vector< rn >*) qq->cb_ptr;
                 r->push_back( { qq->node_id, val.data.s.u32_val, qq->next_sibling } );
         };
 
         // Query root to get first_child
         asrt::flat_id first_child = 0;
-        auto          root_resp   = []( struct asrtr_param_client*,
-                             struct asrtr_param_query* qq,
-                             struct asrt_flat_value    val ) {
+        auto          root_resp   = []( struct asrt_param_client*,
+                             struct asrt_param_query* qq,
+                             struct asrt_flat_value   val ) {
                 *(asrt::flat_id*) qq->cb_ptr = val.data.cont.first_child;
         };
         CHECK_EQ(
-            ASRT_SUCCESS,
-            asrtr_param_client_fetch_any( &q, &client, 1u, root_resp, &first_child ) );
+            ASRT_SUCCESS, asrt_param_client_fetch_any( &q, &client, 1u, root_resp, &first_child ) );
         spin();
         REQUIRE_NE( 0u, first_child );
 
@@ -1771,7 +1769,7 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         while ( query_id != 0u ) {
                 CHECK_EQ(
                     ASRT_SUCCESS,
-                    asrtr_param_client_fetch_any( &q, &client, query_id, resp_cb, &results ) );
+                    asrt_param_client_fetch_any( &q, &client, query_id, resp_cb, &results ) );
                 spin();
                 REQUIRE_FALSE( results.empty() );
                 query_id = results.back().next_sib;
@@ -1789,7 +1787,7 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         CHECK_EQ( 40u, results[3].val );
         CHECK_EQ( 0u, results[3].next_sib );
 
-        asrtr_param_client_deinit( &client );
+        asrt_param_client_deinit( &client );
         asrtc_param_server_deinit( &server );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1818,7 +1816,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_u32" )
         // Find "alpha" by key in root object
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
+            asrt_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 2u, received[0].id );
@@ -1846,7 +1844,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_not_found" )
         // Find a key that doesn't exist → error callback
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_find_any( &query, &client, 1u, "missing", query_cb, this ) );
+            asrt_param_client_find_any( &query, &client, 1u, "missing", query_cb, this ) );
         spin();
         CHECK_EQ( 0u, received.size() );
         CHECK_EQ( 1, error_called );
@@ -1878,7 +1876,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_nested" )
         // Find "sub" in root, then find "y" inside "sub"
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_find_any( &query, &client, 1u, "sub", query_cb, this ) );
+            asrt_param_client_find_any( &query, &client, 1u, "sub", query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 2u, received[0].id );
@@ -1889,7 +1887,7 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_by_key_nested" )
         // Now find "y" inside the sub object
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_find_any( &query, &client, sub_id, "y", query_cb, this ) );
+            asrt_param_client_find_any( &query, &client, sub_id, "y", query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 5u, received[1].id );
@@ -1918,14 +1916,14 @@ TEST_CASE_FIXTURE( param_loopback_ctx, "param_find_then_query" )
         // Find by key
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrtr_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
+            asrt_param_client_find_any( &query, &client, 1u, "alpha", query_cb, this ) );
         spin();
         REQUIRE_EQ( 1u, received.size() );
         CHECK_EQ( 2u, received[0].id );
 
         // Then a normal query by id works correctly
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_param_client_fetch_any( &query, &client, 3u, query_cb, this ) );
+            ASRT_SUCCESS, asrt_param_client_fetch_any( &query, &client, 3u, query_cb, this ) );
         spin();
         REQUIRE_EQ( 2u, received.size() );
         CHECK_EQ( 3u, received[1].id );
@@ -2362,7 +2360,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrtc_collect_server_append_alloc_failure_sends
         CHECK_EQ( ASRTC_COLLECT_SERVER_IDLE, server.state );
 }
 
-using collect_base = server_client_base< asrtc_collect_server, asrtr_collect_client >;
+using collect_base = server_client_base< asrtc_collect_server, asrt_collect_client >;
 
 struct collect_loopback_ctx : collect_base
 {
@@ -2385,7 +2383,7 @@ struct collect_loopback_ctx : collect_base
                     ASRT_SUCCESS,
                     asrtc_collect_server_init( &server, &srv_head, srv_sendr, alloc, 4, 16 ) );
                 REQUIRE_EQ(
-                    ASRT_SUCCESS, asrtr_collect_client_init( &client, &cli_head, cli_sendr ) );
+                    ASRT_SUCCESS, asrt_collect_client_init( &client, &cli_head, cli_sendr ) );
         }
 
         ~collect_loopback_ctx() { asrtc_collect_server_deinit( &server ); }
@@ -2397,14 +2395,14 @@ struct collect_loopback_ctx : collect_base
                     asrtc_collect_server_send_ready( &server, root_id, 1000, NULL, NULL ) );
                 spin();
                 REQUIRE_EQ( ASRTC_COLLECT_SERVER_ACTIVE, server.state );
-                REQUIRE_EQ( ASRTR_COLLECT_CLIENT_ACTIVE, client.state );
+                REQUIRE_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
         }
 };
 
 TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_handshake" )
 {
         handshake();
-        CHECK_EQ( 1u, asrtr_collect_client_root_id( &client ) );
+        CHECK_EQ( 1u, asrt_collect_client_root_id( &client ) );
 }
 
 TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_multi_level_tree" )
@@ -2421,22 +2419,22 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_multi_level_tree" )
         // parent_id=0 = virtual root for top-level nodes.
         // Server must tick between appends to process each pending APPEND.
         asrt::flat_id root, nums;
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, &root ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, &root ) );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_array( &client, root, "nums", &nums ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_array( &client, root, "nums", &nums ) );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_u32( &client, nums, NULL, 10 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 10 ) );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_u32( &client, nums, NULL, 20 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 20 ) );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_str( &client, root, "name", "hello" ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_str( &client, root, "name", "hello" ) );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_bool( &client, root, "flag", 1 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_bool( &client, root, "flag", 1 ) );
         check_tick( &server, t++ );
 
         // Verify the tree built on the controller side
@@ -2479,7 +2477,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
         handshake();
 
         // Append first node (parent=0 = virtual root)
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, NULL ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL ) );
         check_tick( &server, t++ );
 
         // The client auto-assigns node_ids starting at 1.  The second append
@@ -2502,7 +2500,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
 
         // Client should have received the ERROR and be in error state
         // (the cli_to_srv / srv_to_cli wiring delivers it synchronously)
-        CHECK_EQ( ASRTR_COLLECT_CLIENT_ERROR, client.state );
+        CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 }
 
 TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_rejected" )
@@ -2510,7 +2508,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         handshake();
 
         // Append one valid node (parent=0 = virtual root)
-        CHECK_EQ( ASRT_SUCCESS, asrtr_collect_client_append_object( &client, 0, NULL, NULL ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL ) );
         check_tick( &server, t++ );
 
         // Force duplicate via raw message
@@ -2525,10 +2523,10 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         check_recv( &server, msg );
         check_tick( &server, t++ );
 
-        CHECK_EQ( ASRTR_COLLECT_CLIENT_ERROR, client.state );
+        CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 
         // Further appends from the client should fail
-        CHECK_EQ( ASRT_ARG_ERR, asrtr_collect_client_append_u32( &client, 0, "y", 99 ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, "y", 99 ) );
 }
 
 // =====================================================================
@@ -2909,7 +2907,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_clear: frees all schemas and re
 
 // --- loopback: reactor client → controller server ---
 
-struct strm_loopback_ctx : server_client_base< asrtc_stream_server, asrtr_stream_client >
+struct strm_loopback_ctx : server_client_base< asrtc_stream_server, asrt_stream_client >
 {
         collector coll;
         asrt_node root_r = {};
@@ -2925,7 +2923,7 @@ struct strm_loopback_ctx : server_client_base< asrtc_stream_server, asrtr_stream
                 sender_r.ptr = this;
                 sender_c.ptr = this;
                 auto alloc   = asrt_stub_allocator( &alloc_ctx );
-                CHECK_EQ( ASRT_SUCCESS, asrtr_stream_client_init( &client, &root_r, sender_r ) );
+                CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_init( &client, &root_r, sender_r ) );
                 CHECK_EQ(
                     ASRT_SUCCESS, asrtc_stream_server_init( &server, &root_c, sender_c, alloc ) );
         }
@@ -2944,11 +2942,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema r
                 *static_cast< asrt_status* >( p ) = s;
         };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 1, fields, 2, done_cb, &done_st ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 1, fields, 2, done_cb, &done_st ) );
         check_tick( &client, 1 );
-        CHECK_EQ( ASRTR_STRM_DONE, client.state );
+        CHECK_EQ( ASRT_STRM_DONE, client.state );
         check_tick( &client, 2 );
-        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRT_STRM_IDLE, client.state );
         CHECK_EQ( ASRT_SUCCESS, done_st );
 
         // Verify server received the schema
@@ -2963,14 +2961,14 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define + record + take" )
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
 
         // Send 3 records
         for ( uint8_t i = 10; i < 13; i++ ) {
                 CHECK_EQ(
-                    ASRT_SUCCESS, asrtr_stream_client_emit( &client, 0, &i, 1, nullptr, nullptr ) );
+                    ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, &i, 1, nullptr, nullptr ) );
                 check_tick( &client, 3 + i - 10 );
         }
 
@@ -2994,16 +2992,16 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: duplicate define → error
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         // First define succeeds
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
-        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         // Second define with same ID → controller sends ERROR → client enters ERROR
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
-        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+        CHECK_EQ( ASRT_STRM_ERROR, client.state );
         CHECK_EQ( ASRT_STRM_ERR_DUPLICATE_SCHEMA, client.err_code );
 }
 
@@ -3011,15 +3009,15 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: data size mismatch → err
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };  // expects 4 bytes
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
 
         // Send 1 byte instead of 4 → server sends error → client enters ERROR
         uint8_t bad_data[] = { 0x01 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_emit( &client, 0, bad_data, 1, nullptr, nullptr ) );
-        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+            ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, bad_data, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRT_STRM_ERROR, client.state );
         CHECK_EQ( ASRT_STRM_ERR_SIZE_MISMATCH, client.err_code );
 }
 
@@ -3027,49 +3025,49 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejecte
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
-        asrtr_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
-        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+        asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
+        CHECK_EQ( ASRT_STRM_ERROR, client.state );
 
         // Further records should fail
         uint8_t good[] = { 1, 2, 3, 4 };
         CHECK_EQ(
-            ASRT_INTERNAL_ERR, asrtr_stream_client_emit( &client, 0, good, 4, nullptr, nullptr ) );
+            ASRT_INTERNAL_ERR, asrt_stream_client_emit( &client, 0, good, 4, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefine" )
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
-        asrtr_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
-        CHECK_EQ( ASRTR_STRM_ERROR, client.state );
+        asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
+        CHECK_EQ( ASRT_STRM_ERROR, client.state );
 
         // Reset client
-        CHECK_EQ( ASRT_SUCCESS, asrtr_stream_client_reset( &client ) );
-        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_reset( &client ) );
+        CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         // Clear server and redefine
         asrtc_stream_server_clear( &server );
         enum asrt_strm_field_type_e fields2[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrtr_stream_client_define( &client, 0, fields2, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields2, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
         check_tick( &client, 2 );
-        CHECK_EQ( ASRTR_STRM_IDLE, client.state );
+        CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         uint8_t good[] = { 42 };
-        CHECK_EQ( ASRT_SUCCESS, asrtr_stream_client_emit( &client, 0, good, 1, nullptr, nullptr ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, good, 1, nullptr, nullptr ) );
         check_tick( &client, 1 );
 
         auto result = asrtc_stream_server_take( &server );

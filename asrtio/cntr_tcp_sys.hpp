@@ -411,7 +411,7 @@ inline task< void > run_test_suite(
                         handle_stream( sys, reporter, name, fs, run_dir, do_output );
 
                         double ms     = static_cast< double >( ( sys.clk().now() - t0 ).count() );
-                        bool   passed = ( res.res == ASRTC_TEST_SUCCESS );
+                        bool   passed = ( res.res == ASRT_TEST_RESULT_SUCCESS );
                         reporter.on_test_done( name, passed, ms, ri + 1, run_total );
                 }
         }

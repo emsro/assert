@@ -17,14 +17,12 @@
 inline char const* asrtc_test_result_to_str( asrt_test_result res )
 {
         switch ( res ) {
-        case ASRTC_TEST_SUCCESS:
+        case ASRT_TEST_RESULT_SUCCESS:
                 return "success";
-        case ASRTC_TEST_ERROR:
+        case ASRT_TEST_RESULT_ERROR:
                 return "error";
-        case ASRTC_TEST_FAILURE:
+        case ASRT_TEST_RESULT_FAILURE:
                 return "failure";
-        case ASRTC_TEST_UNKNOWN:
-                return "unknown";
         default:
                 break;
         }
