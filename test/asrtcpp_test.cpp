@@ -387,7 +387,7 @@ struct diag_paired_ctx : paired_ctx
                     return st;
             } };
 
-        asrtc_diag c_diag;
+        asrtc_diag_server c_diag;
 
         // r_diag sends → c_diag (reactor-to-controller direction)
         std::function< asrtl_status( asrtl_chann_id, asrtl_rec_span*, asrtl_send_done_cb, void* ) >
@@ -404,7 +404,7 @@ struct diag_paired_ctx : paired_ctx
                     return st;
             } };
 
-        asrtr_diag r_diag;
+        asrtr_diag_client r_diag;
 
         diag_paired_ctx()
         {

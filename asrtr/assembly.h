@@ -24,7 +24,7 @@ extern "C" {
 struct asrtr_assembly
 {
         struct asrtr_reactor        reactor;
-        struct asrtr_diag           diag;
+        struct asrtr_diag_client    diag;
         struct asrtr_collect_client collect;
         uint8_t                     param_cache_buf[256];
         struct asrtr_param_client   param;
@@ -41,7 +41,7 @@ inline enum asrtl_status asrtr_assembly_init(
                 ASRTL_ERR_LOG( "asrtr_assembly", "reactor init failed" );
                 return ASRTL_INIT_ERR;
         }
-        if ( asrtr_diag_init( &assembly->diag, &assembly->reactor.node, sender ) !=
+        if ( asrtr_diag_client_init( &assembly->diag, &assembly->reactor.node, sender ) !=
              ASRTL_SUCCESS ) {
                 ASRTL_ERR_LOG( "asrtr_assembly", "diag init failed" );
                 return ASRTL_INIT_ERR;
@@ -81,7 +81,7 @@ static inline void asrtr_assembly_deinit( struct asrtr_assembly* assembly )
         asrtr_stream_client_deinit( &assembly->stream );
         asrtr_param_client_deinit( &assembly->param );
         asrtr_collect_client_deinit( &assembly->collect );
-        asrtr_diag_deinit( &assembly->diag );
+        asrtr_diag_client_deinit( &assembly->diag );
         asrtr_reactor_deinit( &assembly->reactor );
 }
 

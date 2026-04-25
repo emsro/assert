@@ -35,7 +35,7 @@ struct asrtc_assembly_exec_handler
 struct asrtc_assembly
 {
         struct asrtc_controller     cntr;
-        struct asrtc_diag           diag;
+        struct asrtc_diag_server    diag;
         struct asrtc_collect_server collect;
         struct asrtc_param_server   param;
         struct asrtc_stream_server  stream;

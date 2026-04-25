@@ -115,12 +115,12 @@ struct reactor_ctx
 
 struct diag_ctx
 {
-        collector      coll_r;
-        collector      coll_d;
-        collect_sender send_fn_r{ &coll_r };
-        collect_sender send_fn_d{ &coll_d };
-        asrtr_reactor  r;
-        asrtr_diag     d;
+        collector         coll_r;
+        collector         coll_d;
+        collect_sender    send_fn_r{ &coll_r };
+        collect_sender    send_fn_d{ &coll_d };
+        asrtr_reactor     r;
+        asrtr_diag_client d;
 
 
         diag_ctx()

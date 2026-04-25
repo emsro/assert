@@ -16,8 +16,8 @@
 
 struct astrt_check_ctx
 {
-        struct asrtr_diag* diag;
-        uint64_t           counter;
+        struct asrtr_diag_client* diag;
+        uint64_t                  counter;
 };
 
 enum asrtl_status require_macro_test( struct asrtr_record* r )

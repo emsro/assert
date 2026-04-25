@@ -42,16 +42,16 @@ static enum asrtl_status asrtr_diag_event( void* p, enum asrtl_event_e e, void* 
         return ASRTL_SUCCESS;
 }
 
-enum asrtl_status asrtr_diag_init(
-    struct asrtr_diag*  diag,
-    struct asrtl_node*  prev,
-    struct asrtl_sender sender )
+enum asrtl_status asrtr_diag_client_init(
+    struct asrtr_diag_client* diag,
+    struct asrtl_node*        prev,
+    struct asrtl_sender       sender )
 {
         if ( !diag || !prev ) {
                 ASRTL_ERR_LOG( "asrtr_diag", "Invalid arguments to diag init" );
                 return ASRTL_INIT_ERR;
         }
-        *diag = ( struct asrtr_diag ){
+        *diag = ( struct asrtr_diag_client ){
             .node =
                 ( struct asrtl_node ){
                     .chid     = ASRTL_DIAG,
@@ -65,7 +65,7 @@ enum asrtl_status asrtr_diag_init(
         return ASRTL_SUCCESS;
 }
 
-void asrtr_diag_deinit( struct asrtr_diag* diag )
+void asrtr_diag_client_deinit( struct asrtr_diag_client* diag )
 {
         if ( !diag )
                 return;
@@ -74,15 +74,15 @@ void asrtr_diag_deinit( struct asrtr_diag* diag )
 
 static inline enum asrtl_status asrtr_diag_send_cb( void* ptr, struct asrtl_rec_span* sp )
 {
-        struct asrtr_diag* diag = (struct asrtr_diag*) ptr;
+        struct asrtr_diag_client* diag = (struct asrtr_diag_client*) ptr;
         return asrtl_send( &diag->sendr, ASRTL_DIAG, sp, NULL, NULL );
 }
 
-void asrtr_diag_record(
-    struct asrtr_diag* diag,
-    char const*        file,
-    uint32_t           line,
-    char const*        extra )
+void asrtr_diag_client_record(
+    struct asrtr_diag_client* diag,
+    char const*               file,
+    uint32_t                  line,
+    char const*               extra )
 {
         ASRTL_ASSERT( diag );
         ASRTL_ASSERT( file );

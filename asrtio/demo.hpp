@@ -48,12 +48,12 @@ struct demo_spec
 struct demo_test
 {
         demo_spec           spec;
-        asrtr_diag&         diag;
+        asrtr_diag_client&  diag;
         asrtr_param_client& param;
         std::mt19937&       rng;
         int                 counter = 0;
 
-        demo_test( demo_spec s, asrtr_diag& d, asrtr_param_client& p, std::mt19937& r )
+        demo_test( demo_spec s, asrtr_diag_client& d, asrtr_param_client& p, std::mt19937& r )
           : spec( std::move( s ) )
           , diag( d )
           , param( p )

@@ -50,9 +50,12 @@ void check_reactor_init( struct asrtr_reactor* reac, struct asrtl_sender sender,
         CHECK_EQ( ASRTL_SUCCESS, st );
 }
 
-void check_diag_init( struct asrtr_diag* diag, struct asrtl_node* prev, struct asrtl_sender sender )
+void check_diag_init(
+    struct asrtr_diag_client* diag,
+    struct asrtl_node*        prev,
+    struct asrtl_sender       sender )
 {
-        enum asrtl_status st = asrtr_diag_init( diag, prev, sender );
+        enum asrtl_status st = asrtr_diag_client_init( diag, prev, sender );
         CHECK_EQ( ASRTL_SUCCESS, st );
 }
 
@@ -379,8 +382,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_start_busy" )
 TEST_CASE_FIXTURE( reactor_ctx, "check_macro" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = {
             .diag    = &diag,
@@ -414,8 +417,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro" )
 TEST_CASE_FIXTURE( reactor_ctx, "require_macro" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = {
             .diag    = &diag,
@@ -615,17 +618,17 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
 
 TEST_CASE_FIXTURE( reactor_ctx, "diag_init" )
 {
-        struct asrtr_diag diag = {};
+        struct asrtr_diag_client diag = {};
 
         // NULL diag
-        CHECK_EQ( ASRTL_INIT_ERR, asrtr_diag_init( NULL, &reac.node, send ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtr_diag_client_init( NULL, &reac.node, send ) );
 
         // NULL prev
-        CHECK_EQ( ASRTL_INIT_ERR, asrtr_diag_init( &diag, NULL, send ) );
+        CHECK_EQ( ASRTL_INIT_ERR, asrtr_diag_client_init( &diag, NULL, send ) );
 
         // valid init
         check_reactor_init( &reac, send, "rec1" );
-        CHECK_EQ( ASRTL_SUCCESS, asrtr_diag_init( &diag, &reac.node, send ) );
+        CHECK_EQ( ASRTL_SUCCESS, asrtr_diag_client_init( &diag, &reac.node, send ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
         CHECK_EQ( &diag.node, reac.node.next );  // node appended after prev
         CHECK_EQ( nullptr, diag.node.next );     // chain-terminal
@@ -634,11 +637,11 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_init" )
 TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_diag diag = {};
+        struct asrtr_diag_client diag = {};
         check_diag_init( &diag, &reac.node, send );
 
         // normal call — verify full byte content
-        asrtr_diag_record( &diag, "test.c", 42, nullptr );
+        asrtr_diag_client_record( &diag, "test.c", 42, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, 42 );
@@ -648,7 +651,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         }
 
         // line = 0
-        asrtr_diag_record( &diag, "f.c", 0, nullptr );
+        asrtr_diag_client_record( &diag, "f.c", 0, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, 0 );
@@ -656,7 +659,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         }
 
         // line = UINT32_MAX
-        asrtr_diag_record( &diag, "f.c", UINT32_MAX, nullptr );
+        asrtr_diag_client_record( &diag, "f.c", UINT32_MAX, nullptr );
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, UINT32_MAX );
@@ -668,8 +671,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
 TEST_CASE_FIXTURE( reactor_ctx, "check_macro_two_fails" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_two_fails );
@@ -703,8 +706,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro_two_fails" )
 TEST_CASE_FIXTURE( reactor_ctx, "check_macro_fail_pass" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &check_macro_fail_pass );
@@ -733,8 +736,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "check_macro_fail_pass" )
 TEST_CASE_FIXTURE( reactor_ctx, "require_fail_then_check" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &require_then_check );
@@ -763,8 +766,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "require_fail_then_check" )
 TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_check" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_check );
@@ -798,8 +801,8 @@ TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_check" )
 TEST_CASE_FIXTURE( reactor_ctx, "mix_check_require_fail" )
 {
         check_reactor_init( &reac, send, "rec1" );
-        struct asrtr_test t1;
-        struct asrtr_diag diag;
+        struct asrtr_test        t1;
+        struct asrtr_diag_client diag;
         check_diag_init( &diag, &reac.node, send );
         struct astrt_check_ctx check_ctx = { .diag = &diag, .counter = 0 };
         setup_test( &reac, &t1, "test1", &check_ctx, &mix_check_require_fail );

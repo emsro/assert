@@ -756,14 +756,15 @@ struct diag_ctx
         struct asrtl_node  head      = {};
         stub_allocator_ctx alloc_ctx = {};
         asrtl_allocator    alloc     = {};
-        asrtc_diag         diag      = {};
+        asrtc_diag_server  diag      = {};
         asrtl_sender       null_send = {};
 
         diag_ctx()
         {
                 head.chid = ASRTL_CORE;
                 alloc     = asrtl_stub_allocator( &alloc_ctx );
-                REQUIRE_EQ( ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
+                REQUIRE_EQ(
+                    ASRTL_SUCCESS, asrtc_diag_server_init( &diag, &head, null_send, alloc ) );
         }
 };
 
@@ -775,23 +776,26 @@ TEST_CASE( "diag_init" )
 
         // diag = NULL
         CHECK_EQ(
-            ASRTL_INIT_ERR, asrtc_diag_init( NULL, &head, null_send, asrtc_default_allocator() ) );
+            ASRTL_INIT_ERR,
+            asrtc_diag_server_init( NULL, &head, null_send, asrtc_default_allocator() ) );
 
         // prev = NULL
-        struct asrtc_diag diag = {};
+        struct asrtc_diag_server diag = {};
         CHECK_EQ(
-            ASRTL_INIT_ERR, asrtc_diag_init( &diag, NULL, null_send, asrtc_default_allocator() ) );
+            ASRTL_INIT_ERR,
+            asrtc_diag_server_init( &diag, NULL, null_send, asrtc_default_allocator() ) );
 
         // valid
         CHECK_EQ(
-            ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, asrtc_default_allocator() ) );
+            ASRTL_SUCCESS,
+            asrtc_diag_server_init( &diag, &head, null_send, asrtc_default_allocator() ) );
         CHECK_EQ( ASRTL_DIAG, diag.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) diag.node.e_cb_ptr );
         CHECK_EQ( nullptr, diag.first_rec );
         CHECK_EQ( nullptr, diag.last_rec );
         CHECK_EQ( &diag.node, head.next );
         CHECK_EQ( nullptr, diag.node.next );
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
@@ -814,7 +818,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = 'o';
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
-                auto* rec = asrtc_diag_take_record( &diag );
+                auto* rec = asrtc_diag_server_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
                 CHECK_EQ( 7u, rec->line );
                 REQUIRE_NE( nullptr, rec->file );
@@ -829,7 +833,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = 0;  // file_len
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
-                auto* rec = asrtc_diag_take_record( &diag );
+                auto* rec = asrtc_diag_server_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
                 CHECK_EQ( 42u, rec->line );
                 REQUIRE_NE( nullptr, rec->file );
@@ -851,8 +855,8 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
         *p++ = 'b';
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
         {
-                auto* r1 = asrtc_diag_take_record( &diag );
-                auto* r2 = asrtc_diag_take_record( &diag );
+                auto* r1 = asrtc_diag_server_take_record( &diag );
+                auto* r2 = asrtc_diag_server_take_record( &diag );
                 REQUIRE_NE( nullptr, r1 );
                 REQUIRE_NE( nullptr, r2 );
                 CHECK_EQ( 1u, r1->line );
@@ -861,7 +865,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv" )
                 asrtc_diag_free_record( &diag.alloc, r2 );
         }
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
@@ -893,7 +897,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
             asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
@@ -930,7 +934,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_alloc_failure" )
         CHECK_EQ( 1u, alloc_ctx.free_calls );
 
         alloc_ctx.fail_at_call = 0;
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
@@ -939,10 +943,10 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         uint8_t* p;
 
         // NULL diag
-        CHECK_EQ( nullptr, asrtc_diag_take_record( NULL ) );
+        CHECK_EQ( nullptr, asrtc_diag_server_take_record( NULL ) );
 
         // empty queue
-        CHECK_EQ( nullptr, asrtc_diag_take_record( &diag ) );
+        CHECK_EQ( nullptr, asrtc_diag_server_take_record( &diag ) );
 
         // one record → returned, queue empty after
         p    = buf;
@@ -954,7 +958,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
             ASRTL_SUCCESS,
             asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         {
-                auto* rec = asrtc_diag_take_record( &diag );
+                auto* rec = asrtc_diag_server_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
                 CHECK_EQ( 99u, rec->line );
                 CHECK_EQ( nullptr, diag.first_rec );
@@ -974,14 +978,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
                     asrtl_chann_recv( &diag.node, ( struct asrtl_span ){ .b = buf, .e = p } ) );
         }
         for ( uint32_t i = 1; i <= 3; i++ ) {
-                auto* rec = asrtc_diag_take_record( &diag );
+                auto* rec = asrtc_diag_server_take_record( &diag );
                 REQUIRE_NE( nullptr, rec );
                 CHECK_EQ( i, rec->line );
                 asrtc_diag_free_record( &diag.alloc, rec );
         }
 
         // queue empty; take returns NULL
-        CHECK_EQ( nullptr, asrtc_diag_take_record( &diag ) );
+        CHECK_EQ( nullptr, asrtc_diag_server_take_record( &diag ) );
 
         // take, insert, take → last_rec stays consistent
         p    = buf;
@@ -990,7 +994,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         *p++ = 1;  // file_len
         *p++ = 'x';
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
-        auto* rec_a = asrtc_diag_take_record( &diag );
+        auto* rec_a = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec_a );
         p    = buf;
         *p++ = ASRTL_DIAG_MSG_RECORD;
@@ -998,7 +1002,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         *p++ = 1;  // file_len
         *p++ = 'y';
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
-        auto* rec_b = asrtc_diag_take_record( &diag );
+        auto* rec_b = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec_b );
         CHECK_EQ( 20u, rec_b->line );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -1006,19 +1010,19 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
         asrtc_diag_free_record( &diag.alloc, rec_a );
         asrtc_diag_free_record( &diag.alloc, rec_b );
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 // C-FREE-1,2
 TEST_CASE( "diag_free_record" )
 {
-        struct asrtl_node head       = {};
-        head.chid                    = ASRTL_CORE;
-        stub_allocator_ctx sctx      = {};
-        asrtl_allocator    alloc     = asrtl_stub_allocator( &sctx );
-        asrtl_sender       null_send = {};
-        struct asrtc_diag  diag      = {};
-        REQUIRE_EQ( ASRTL_SUCCESS, asrtc_diag_init( &diag, &head, null_send, alloc ) );
+        struct asrtl_node head             = {};
+        head.chid                          = ASRTL_CORE;
+        stub_allocator_ctx       sctx      = {};
+        asrtl_allocator          alloc     = asrtl_stub_allocator( &sctx );
+        asrtl_sender             null_send = {};
+        struct asrtc_diag_server diag      = {};
+        REQUIRE_EQ( ASRTL_SUCCESS, asrtc_diag_server_init( &diag, &head, null_send, alloc ) );
 
         uint8_t  buf[16];
         uint8_t* p = buf;
@@ -1030,7 +1034,7 @@ TEST_CASE( "diag_free_record" )
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
 
         // record with non-NULL file → two free calls
-        auto* rec = asrtc_diag_take_record( &diag );
+        auto* rec = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
         REQUIRE_NE( nullptr, rec->file );
         sctx.free_calls = 0;
@@ -1046,7 +1050,7 @@ TEST_CASE( "diag_free_record" )
         asrtc_diag_free_record( &alloc, rec2 );
         CHECK_EQ( 1u, sctx.free_calls );
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 // C-DEINIT-1..5
@@ -1058,43 +1062,43 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
 
         // empty queue → success
         {
-                struct asrtl_node head2      = {};
-                head2.chid                   = ASRTL_CORE;
-                asrtl_sender      null_send2 = {};
-                struct asrtc_diag d2         = {};
-                asrtc_diag_init( &d2, &head2, null_send2, asrtc_default_allocator() );
-                asrtc_diag_deinit( &d2 );
+                struct asrtl_node head2             = {};
+                head2.chid                          = ASRTL_CORE;
+                asrtl_sender             null_send2 = {};
+                struct asrtc_diag_server d2         = {};
+                asrtc_diag_server_init( &d2, &head2, null_send2, asrtc_default_allocator() );
+                asrtc_diag_server_deinit( &d2 );
         }
 
         // one record → freed
         {
-                struct asrtl_node head3       = {};
-                head3.chid                    = ASRTL_CORE;
-                stub_allocator_ctx sctx3      = {};
-                asrtl_allocator    a3         = asrtl_stub_allocator( &sctx3 );
-                asrtl_sender       null_send3 = {};
-                struct asrtc_diag  d3         = {};
-                asrtc_diag_init( &d3, &head3, null_send3, a3 );
+                struct asrtl_node head3             = {};
+                head3.chid                          = ASRTL_CORE;
+                stub_allocator_ctx       sctx3      = {};
+                asrtl_allocator          a3         = asrtl_stub_allocator( &sctx3 );
+                asrtl_sender             null_send3 = {};
+                struct asrtc_diag_server d3         = {};
+                asrtc_diag_server_init( &d3, &head3, null_send3, a3 );
                 p    = buf;
                 *p++ = ASRTL_DIAG_MSG_RECORD;
                 asrtl_add_u32( &p, 1 );
                 *p++ = 1;  // file_len
                 *p++ = 'a';
                 check_recv( &d3, ( struct asrtl_span ){ .b = buf, .e = p } );
-                asrtc_diag_deinit( &d3 );
+                asrtc_diag_server_deinit( &d3 );
                 CHECK_EQ( nullptr, d3.first_rec );
                 CHECK_EQ( 2u, sctx3.free_calls );  // file + rec
         }
 
         // three records → all freed
         {
-                struct asrtl_node head4       = {};
-                head4.chid                    = ASRTL_CORE;
-                stub_allocator_ctx sctx4      = {};
-                asrtl_allocator    a4         = asrtl_stub_allocator( &sctx4 );
-                asrtl_sender       null_send4 = {};
-                struct asrtc_diag  d4         = {};
-                asrtc_diag_init( &d4, &head4, null_send4, a4 );
+                struct asrtl_node head4             = {};
+                head4.chid                          = ASRTL_CORE;
+                stub_allocator_ctx       sctx4      = {};
+                asrtl_allocator          a4         = asrtl_stub_allocator( &sctx4 );
+                asrtl_sender             null_send4 = {};
+                struct asrtc_diag_server d4         = {};
+                asrtc_diag_server_init( &d4, &head4, null_send4, a4 );
                 for ( uint32_t i = 0; i < 3; i++ ) {
                         p    = buf;
                         *p++ = ASRTL_DIAG_MSG_RECORD;
@@ -1103,7 +1107,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
                         *p++ = 'x';
                         check_recv( &d4, ( struct asrtl_span ){ .b = buf, .e = p } );
                 }
-                asrtc_diag_deinit( &d4 );
+                asrtc_diag_server_deinit( &d4 );
                 CHECK_EQ( nullptr, d4.first_rec );
                 CHECK_EQ( 6u, sctx4.free_calls );  // 3 × (file + rec)
         }
@@ -1122,10 +1126,10 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
         *p++ = 1;  // file_len
         *p++ = 'b';
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = p } );
-        auto* taken = asrtc_diag_take_record( &diag );
+        auto* taken = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, taken );
         asrtc_diag_free_record( &diag.alloc, taken );
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
         CHECK_EQ( nullptr, diag.first_rec );
 }
 
@@ -1171,14 +1175,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
 
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
-        auto* rec = asrtc_diag_take_record( &diag );
+        auto* rec = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
         CHECK_EQ( 7u, rec->line );
         REQUIRE_NE( nullptr, rec->file );
         CHECK_EQ( std::string( "foo.c" ), std::string( rec->file ) );
         asrtc_diag_free_record( &diag.alloc, rec );
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
@@ -1190,7 +1194,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
 
         check_recv( &diag, ( struct asrtl_span ){ .b = buf, .e = sp.b } );
 
-        auto* rec = asrtc_diag_take_record( &diag );
+        auto* rec = asrtc_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
         CHECK_EQ( 42u, rec->line );
         REQUIRE_NE( nullptr, rec->file );
@@ -1198,7 +1202,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
         CHECK_EQ( std::string( "test.c" ), std::string( rec->file ) );
         asrtc_diag_free_record( &diag.alloc, rec );
 
-        asrtc_diag_deinit( &diag );
+        asrtc_diag_server_deinit( &diag );
 }
 
 // ============================================================================

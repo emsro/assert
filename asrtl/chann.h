@@ -105,19 +105,7 @@ static inline enum asrtl_status asrtl_chann_tick( struct asrtl_node* node, uint3
         return node->e_cb( node->e_cb_ptr, ASRTL_EVENT_TICK, &now );
 }
 
-static inline void asrtl_chann_tick_successors( struct asrtl_node* node, uint32_t now )
-{
-        for ( struct asrtl_node* p = node; p != NULL; p = p->next ) {
-                enum asrtl_status const s = asrtl_chann_tick( p, now );
-                if ( s != ASRTL_SUCCESS ) {
-                        ASRTL_ERR_LOG(
-                            "asrtl_chann",
-                            "Tick failed for channel %u: %s",
-                            p->chid,
-                            asrtl_status_to_str( s ) );
-                }
-        }
-}
+void asrtl_chann_tick_successors( struct asrtl_node* node, uint32_t now );
 
 /// Finds channel node with given id in linked list starting at head.
 struct asrtl_node* asrtl_chann_find( struct asrtl_node* head, asrtl_chann_id id );

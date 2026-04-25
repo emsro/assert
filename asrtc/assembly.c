@@ -19,7 +19,7 @@ enum asrtl_status asrtc_assembly_init(
         st = asrtc_cntr_init( &a->cntr, sender, alloc );
         if ( st != ASRTL_SUCCESS )
                 return st;
-        st = asrtc_diag_init( &a->diag, &a->cntr.node, sender, alloc );
+        st = asrtc_diag_server_init( &a->diag, &a->cntr.node, sender, alloc );
         if ( st != ASRTL_SUCCESS )
                 goto fail_cntr;
         st = asrtc_collect_server_init( &a->collect, &a->diag.node, sender, alloc, 64, 256 );
@@ -38,7 +38,7 @@ fail_param:
 fail_collect:
         asrtc_collect_server_deinit( &a->collect );
 fail_diag:
-        asrtc_diag_deinit( &a->diag );
+        asrtc_diag_server_deinit( &a->diag );
 fail_cntr:
         asrtc_cntr_deinit( &a->cntr );
         return st;
@@ -51,7 +51,7 @@ void asrtc_assembly_deinit( struct asrtc_assembly* a )
         asrtc_stream_server_deinit( &a->stream );
         asrtc_param_server_deinit( &a->param );
         asrtc_collect_server_deinit( &a->collect );
-        asrtc_diag_deinit( &a->diag );
+        asrtc_diag_server_deinit( &a->diag );
         asrtc_cntr_deinit( &a->cntr );
 }
 

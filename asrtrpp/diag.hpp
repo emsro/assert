@@ -21,19 +21,23 @@
 namespace asrt
 {
 
-void rec_diag( ref< asrtr_diag > d, char const* file, uint32_t line, char const* extra = nullptr )
+void rec_diag(
+    ref< asrtr_diag_client > d,
+    char const*              file,
+    uint32_t                 line,
+    char const*              extra = nullptr )
 {
-        asrtr_diag_record( d, file, line, extra );
+        asrtr_diag_client_record( d, file, line, extra );
 }
 
-inline status init( ref< asrtr_diag > d, asrtl_node& prev, autosender sender )
+inline status init( ref< asrtr_diag_client > d, asrtl_node& prev, autosender sender )
 {
-        return asrtr_diag_init( d, &prev, sender );
+        return asrtr_diag_client_init( d, &prev, sender );
 }
 
-inline void deinit( ref< asrtr_diag > d )
+inline void deinit( ref< asrtr_diag_client > d )
 {
-        asrtr_diag_deinit( d );
+        asrtr_diag_client_deinit( d );
 }
 
 }  // namespace asrt

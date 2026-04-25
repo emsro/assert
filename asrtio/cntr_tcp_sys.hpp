@@ -66,7 +66,7 @@ struct cntr_tcp_sys
                 return st;
         }
 
-        auto take_diag_record() { return asrtc_diag_take_record( &asm_.diag ); }
+        auto take_diag_record() { return asrtc_diag_server_take_record( &asm_.diag ); }
 
         clock const& clk() const { return clk_; }
 

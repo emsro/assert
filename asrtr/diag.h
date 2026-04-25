@@ -21,23 +21,23 @@ extern "C" {
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 
-struct asrtr_diag
+struct asrtr_diag_client
 {
         struct asrtl_node   node;
         struct asrtl_sender sendr;
 };
 
-enum asrtl_status asrtr_diag_init(
-    struct asrtr_diag*  diag,
-    struct asrtl_node*  prev,
-    struct asrtl_sender sender );
+enum asrtl_status asrtr_diag_client_init(
+    struct asrtr_diag_client* diag,
+    struct asrtl_node*        prev,
+    struct asrtl_sender       sender );
 
-void asrtr_diag_record(
-    struct asrtr_diag* diag,
-    char const*        file,
-    uint32_t           line,
-    char const*        extra );
-void asrtr_diag_deinit( struct asrtr_diag* diag );
+void asrtr_diag_client_record(
+    struct asrtr_diag_client* diag,
+    char const*               file,
+    uint32_t                  line,
+    char const*               extra );
+void asrtr_diag_client_deinit( struct asrtr_diag_client* diag );
 
 // Helper macro to record filename, if the method in question does not work, alternatives are:
 // - -DASRTR_FILENAME=__FILE__ directly (but it is long and includes path)
@@ -51,21 +51,21 @@ void asrtr_diag_deinit( struct asrtr_diag* diag );
                                       __FILE__ )
 #endif
 
-#define ASRTR_CHECK( diag, rec, x )                                                  \
-        do {                                                                         \
-                if ( !( x ) ) {                                                      \
-                        asrtr_fail( ( rec ) );                                       \
-                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
-                }                                                                    \
+#define ASRTR_CHECK( diag, rec, x )                                                         \
+        do {                                                                                \
+                if ( !( x ) ) {                                                             \
+                        asrtr_fail( ( rec ) );                                              \
+                        asrtr_diag_client_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
+                }                                                                           \
         } while ( 0 )
 
-#define ASRTR_REQUIRE( diag, rec, x )                                                \
-        do {                                                                         \
-                if ( !( x ) ) {                                                      \
-                        asrtr_fail( ( rec ) );                                       \
-                        asrtr_diag_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
-                        return ASRTL_SUCCESS;                                        \
-                }                                                                    \
+#define ASRTR_REQUIRE( diag, rec, x )                                                       \
+        do {                                                                                \
+                if ( !( x ) ) {                                                             \
+                        asrtr_fail( ( rec ) );                                              \
+                        asrtr_diag_client_record( ( diag ), ASRTR_FILENAME, __LINE__, #x ); \
+                        return ASRTL_SUCCESS;                                               \
+                }                                                                           \
         } while ( 0 )
 
 #ifdef __cplusplus

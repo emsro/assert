@@ -31,7 +31,7 @@ struct asrtc_diag_record
 
 void asrtc_diag_free_record( struct asrtl_allocator* alloc, struct asrtc_diag_record* rec );
 
-struct asrtc_diag
+struct asrtc_diag_server
 {
         struct asrtl_node      node;
         struct asrtl_sender    sendr;
@@ -41,15 +41,15 @@ struct asrtc_diag
         struct asrtc_diag_record* last_rec;
 };
 
-enum asrtl_status asrtc_diag_init(
-    struct asrtc_diag*     diag,
-    struct asrtl_node*     prev,
-    struct asrtl_sender    sender,
-    struct asrtl_allocator alloc );
+enum asrtl_status asrtc_diag_server_init(
+    struct asrtc_diag_server* diag,
+    struct asrtl_node*        prev,
+    struct asrtl_sender       sender,
+    struct asrtl_allocator    alloc );
 
-struct asrtc_diag_record* asrtc_diag_take_record( struct asrtc_diag* diag );
+struct asrtc_diag_record* asrtc_diag_server_take_record( struct asrtc_diag_server* diag );
 
-void asrtc_diag_deinit( struct asrtc_diag* diag );
+void asrtc_diag_server_deinit( struct asrtc_diag_server* diag );
 
 #ifdef __cplusplus
 }

@@ -123,7 +123,7 @@ static enum asrtl_status asrtc_collect_server_handle_append(
                 ASRTL_ERR_LOG(
                     "asrtc_collect_server", "append: tree append failed for node %u", node_id );
                 server->state = ASRTC_COLLECT_SERVER_IDLE;
-                return asrtl_msg_rtoc_collect_error(
+                return asrtl_msg_ctor_collect_error(
                     ASRTL_COLLECT_ERR_NONE, asrtc_collect_server_send, server );
         }
 

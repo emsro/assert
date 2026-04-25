@@ -31,22 +31,22 @@ struct diag_record_deleter
 };
 
 inline status init(
-    ref< asrtc_diag > d,
-    asrtl_node&       prev,
-    autosender        sender,
-    asrtl_allocator   alloc )
+    ref< asrtc_diag_server > d,
+    asrtl_node&              prev,
+    autosender               sender,
+    asrtl_allocator          alloc )
 {
-        return asrtc_diag_init( d, &prev, sender, alloc );
+        return asrtc_diag_server_init( d, &prev, sender, alloc );
 }
 
-inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrtc_diag > d )
+inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrtc_diag_server > d )
 {
-        return { asrtc_diag_take_record( d ), diag_record_deleter{ &d->alloc } };
+        return { asrtc_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
 }
 
-inline void deinit( ref< asrtc_diag > d )
+inline void deinit( ref< asrtc_diag_server > d )
 {
-        asrtc_diag_deinit( d );
+        asrtc_diag_server_deinit( d );
 }
 
 

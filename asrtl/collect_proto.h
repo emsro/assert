@@ -115,7 +115,7 @@ static inline enum asrtl_status asrtl_msg_rtoc_collect_append(
         return cb( cb_ptr, &head );
 }
 
-static inline enum asrtl_status asrtl_msg_rtoc_collect_error(
+static inline enum asrtl_status asrtl_msg_ctor_collect_error(
     enum asrtl_collect_err_e   error_code,
     asrtl_collect_msg_callback cb,
     void*                      cb_ptr )
