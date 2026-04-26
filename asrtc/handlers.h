@@ -24,7 +24,7 @@ typedef enum asrt_status ( *asrt_desc_callback )( void* ptr, enum asrt_status s,
 typedef enum asrt_status (
     *asrt_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char* desc );
 typedef enum asrt_status (
-    *asrt_test_result_callback )( void* ptr, enum asrt_status s, struct asrtc_result* res );
+    *asrt_test_result_callback )( void* ptr, enum asrt_status s, struct asrt_result* res );
 
 enum asrt_stage_e
 {
@@ -75,7 +75,7 @@ struct asrt_ti_handler
 
 struct asrt_exec_handler
 {
-        struct asrtc_result       res;
+        struct asrt_result        res;
         void*                     ptr;
         asrt_test_result_callback cb;
         uint32_t                  timeout;

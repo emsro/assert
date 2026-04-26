@@ -107,8 +107,8 @@ struct paired_ctx
                     return st;
             } };
 
-        asrtc_controller c;
-        asrt_reactor     r;
+        asrt_controller c;
+        asrt_reactor    r;
 
         paired_ctx()
           : r_send( [this](
@@ -286,7 +286,7 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_pass" )
         asrt::status     st  = asrt::exec_test(
             c,
             0,
-            { []( void* p, asrt::status s, asrtc_result* r ) -> asrt::status {
+            { []( void* p, asrt::status s, asrt_result* r ) -> asrt::status {
                      auto* out = static_cast< asrt_test_result* >( p );
                      CHECK_EQ( ASRT_SUCCESS, s );
                      *out = r->res;
@@ -305,7 +305,7 @@ TEST_CASE_FIXTURE( paired_ctx, "exec_test_fail" )
         asrt::status     st  = asrt::exec_test(
             c,
             1,
-            { []( void* p, asrt::status s, asrtc_result* r ) -> asrt::status {
+            { []( void* p, asrt::status s, asrt_result* r ) -> asrt::status {
                      auto* out = static_cast< asrt_test_result* >( p );
                      CHECK_EQ( ASRT_SUCCESS, s );
                      *out = r->res;

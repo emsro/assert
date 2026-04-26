@@ -20,7 +20,7 @@ extern "C" {
 
 #include <stdint.h>
 
-struct asrtc_result
+struct asrt_result
 {
         uint16_t         test_id;
         uint32_t         run_id;

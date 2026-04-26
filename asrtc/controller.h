@@ -32,7 +32,7 @@ enum asrt_cntr_state
         ASRT_CNTR_HNDL_EXEC = 0x13,
 };
 
-struct asrtc_controller
+struct asrt_controller
 {
         struct asrt_node      node;
         struct asrt_sender    sendr;
@@ -53,43 +53,43 @@ struct asrtc_controller
 };
 
 enum asrt_status asrt_cntr_init(
-    struct asrtc_controller* c,
-    struct asrt_sender       s,
-    struct asrt_allocator    alloc );
+    struct asrt_controller* c,
+    struct asrt_sender      s,
+    struct asrt_allocator   alloc );
 
 enum asrt_status asrt_cntr_start(
-    struct asrtc_controller* c,
-    asrt_init_callback       cb,
-    void*                    ptr,
-    uint32_t                 timeout );
+    struct asrt_controller* c,
+    asrt_init_callback      cb,
+    void*                   ptr,
+    uint32_t                timeout );
 
-uint32_t asrt_cntr_idle( struct asrtc_controller const* c );
+uint32_t asrt_cntr_idle( struct asrt_controller const* c );
 
 enum asrt_status asrt_cntr_desc(
-    struct asrtc_controller* c,
-    asrt_desc_callback       cb,
-    void*                    ptr,
-    uint32_t                 timeout );
+    struct asrt_controller* c,
+    asrt_desc_callback      cb,
+    void*                   ptr,
+    uint32_t                timeout );
 enum asrt_status asrt_cntr_test_count(
-    struct asrtc_controller* c,
+    struct asrt_controller*  c,
     asrt_test_count_callback cb,
     void*                    ptr,
     uint32_t                 timeout );
 enum asrt_status asrt_cntr_test_info(
-    struct asrtc_controller* c,
-    uint16_t                 id,
-    asrt_test_info_callback  cb,
-    void*                    ptr,
-    uint32_t                 timeout );
+    struct asrt_controller* c,
+    uint16_t                id,
+    asrt_test_info_callback cb,
+    void*                   ptr,
+    uint32_t                timeout );
 
 enum asrt_status asrt_cntr_test_exec(
-    struct asrtc_controller*  c,
+    struct asrt_controller*   c,
     uint16_t                  id,
     asrt_test_result_callback cb,
     void*                     ptr,
     uint32_t                  timeout );
 
-void asrt_cntr_deinit( struct asrtc_controller* c );
+void asrt_cntr_deinit( struct asrt_controller* c );
 
 #ifdef __cplusplus
 }

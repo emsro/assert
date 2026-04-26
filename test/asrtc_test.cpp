@@ -44,7 +44,7 @@ void check_tick( auto* c, uint32_t now )
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
+void check_recv_and_spin( struct asrt_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
 {
         check_recv( c, ( struct asrt_span ){ .b = beg, .e = end } );
         int       i = 0;
@@ -56,13 +56,13 @@ void check_recv_and_spin( struct asrtc_controller* c, uint8_t* beg, uint8_t* end
 
 struct controller_ctx
 {
-        struct asrtc_controller cntr = {};
-        collector               coll;
-        struct asrt_sender      send        = {};
-        uint8_t                 buffer[128] = {};
-        struct asrt_span        sp          = {};
-        enum asrt_status        init_status = {};
-        uint32_t                t           = 1;
+        struct asrt_controller cntr = {};
+        collector              coll;
+        struct asrt_sender     send        = {};
+        uint8_t                buffer[128] = {};
+        struct asrt_span       sp          = {};
+        enum asrt_status       init_status = {};
+        uint32_t               t           = 1;
 
         controller_ctx()
         {
@@ -288,11 +288,11 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_missing_status" )
         CHECK( capture.desc.empty() );
 }
 
-enum asrt_status result_cb( void* ptr, enum asrt_status s, struct asrtc_result* res )
+enum asrt_status result_cb( void* ptr, enum asrt_status s, struct asrt_result* res )
 {
         (void) s;
-        struct asrtc_result* r1 = (struct asrtc_result*) ptr;
-        *r1                     = *res;
+        struct asrt_result* r1 = (struct asrt_result*) ptr;
+        *r1                    = *res;
         return ASRT_SUCCESS;
 }
 
@@ -352,7 +352,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         enum asrt_status st;
         check_cntr_full_init( this );
 
-        struct asrtc_result res;
+        struct asrt_result res;
         st = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
@@ -452,7 +452,7 @@ static enum asrt_status record_test_info_cb(
         return record_status_cb( ptr, s );
 }
 
-static enum asrt_status record_result_cb( void* ptr, enum asrt_status s, struct asrtc_result* res )
+static enum asrt_status record_result_cb( void* ptr, enum asrt_status s, struct asrt_result* res )
 {
         (void) res;
         return record_status_cb( ptr, s );
@@ -589,8 +589,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_test_error_result" )
 {
         check_cntr_full_init( this );
 
-        struct asrtc_result res = { 0 };
-        enum asrt_status    st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
+        struct asrt_result res = { 0 };
+        enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();
@@ -608,8 +608,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
 {
         check_cntr_full_init( this );
 
-        struct asrtc_result res = { 0 };
-        enum asrt_status    st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
+        struct asrt_result res = { 0 };
+        enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );  // sends TEST_START request
         coll.data.pop_back();
@@ -1126,8 +1126,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
 {
         check_cntr_full_init( this );
 
-        struct asrtc_result res = { 0 };
-        enum asrt_status    st  = asrt_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
+        struct asrt_result res = { 0 };
+        enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
         coll.data.pop_back();

@@ -14,7 +14,7 @@
 #include "../asrtl/cobs.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtr/assembly.h"
+#include "../asrtr/reac_assm.h"
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
@@ -38,7 +38,7 @@ struct conn_ctx
         uv_tcp_t                                    client;
         bool                                        disconnected = false;
         std::mt19937                                rng;
-        asrt_assembly                               assm;
+        asrt_reac_assm                              assm;
         std::list< asrt::unit< demo_test > >        demo_tests;
         std::vector< std::shared_ptr< asrt_test > > task_demo_tests;
 
@@ -48,7 +48,7 @@ struct conn_ctx
         conn_ctx( uint32_t seed )
           : rng( seed )
         {
-                if ( asrt_assembly_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
+                if ( asrt_reac_assm_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
                      ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
@@ -112,7 +112,7 @@ struct conn_ctx
         {
                 task_ctx.tick();
                 auto now = uv_now( client.loop );
-                asrt_assembly_tick( &assm, now );
+                asrt_reac_assm_tick( &assm, now );
         }
 
         cobs_node rx;

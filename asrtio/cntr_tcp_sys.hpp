@@ -43,7 +43,7 @@ struct cntr_tcp_sys
           : client( client )
           , clk_( clk )
         {
-                std::ignore = asrtc_assembly_init(
+                std::ignore = asrt_cntr_assm_init(
                     &asm_, asrt_sender{ .ptr = this, .cb = send_cb }, asrt_default_allocator() );
         }
 
@@ -73,7 +73,7 @@ struct cntr_tcp_sys
         void tick()
         {
                 auto now = static_cast< uint32_t >( clk_.now().count() );
-                asrtc_assembly_tick( &asm_, now );
+                asrt_cntr_assm_tick( &asm_, now );
         }
 
 
@@ -111,7 +111,7 @@ struct cntr_tcp_sys
                 uv_close( (uv_handle_t*) client.get(), nullptr );
         }
 
-        asrtc_controller& cntr() { return asm_.cntr; }
+        asrt_controller& cntr() { return asm_.cntr; }
 
         asrt::stream_schemas stream_take()
         {
@@ -120,7 +120,7 @@ struct cntr_tcp_sys
 
         asrt_flat_tree const* collect_tree() { return asrt_collect_server_tree( &asm_.collect ); }
 
-        asrtc_assembly& assembly() { return asm_; }
+        asrt_cntr_assm& assembly() { return asm_; }
 
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
@@ -129,7 +129,7 @@ private:
         uv_idle_t                   idle_handle;
         std::shared_ptr< uv_tcp_t > client;
         clock const&                clk_;
-        asrtc_assembly              asm_;
+        asrt_cntr_assm              asm_;
 
         cobs_node rx;
 };
@@ -137,7 +137,7 @@ private:
 inline task< void > async_destroy( task_ctx&, cntr_tcp_sys& sys )
 {
         uv_idle_stop( &sys.idle_handle );
-        asrtc_assembly_deinit( &sys.asm_ );
+        asrt_cntr_assm_deinit( &sys.asm_ );
         co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
         if ( !sys.disconnected_ )
                 co_await uv_close_handle{ (uv_handle_t*) sys.client.get() };
@@ -195,13 +195,13 @@ struct _cntr_assembly_exec_test
         template < typename OP >
         void start( OP& op )
         {
-                auto s = asrtc_assembly_exec_test(
+                auto s = asrt_cntr_assm_exec_test(
                     &sys.assembly(),
                     tree,
                     root_id,
                     tid,
                     static_cast< uint32_t >( timeout.count() ),
-                    +[]( void* p, asrt_status s, asrtc_result* res ) -> asrt_status {
+                    +[]( void* p, asrt_status s, asrt_result* res ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
                             if ( s != ASRT_SUCCESS ) {
                                     ASRT_ERR_LOG(

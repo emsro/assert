@@ -22,7 +22,7 @@ extern "C" {
 #include "../asrtc/stream.h"
 
 typedef enum asrt_status (
-    *asrt_assembly_exec_cb )( void* ptr, enum asrt_status s, struct asrtc_result* res );
+    *asrt_assembly_exec_cb )( void* ptr, enum asrt_status s, struct asrt_result* res );
 
 struct asrt_assembly_exec_handler
 {
@@ -32,9 +32,9 @@ struct asrt_assembly_exec_handler
         void*                 cb_ptr;
 };
 
-struct asrtc_assembly
+struct asrt_cntr_assm
 {
-        struct asrtc_controller    cntr;
+        struct asrt_controller     cntr;
         struct asrt_diag_server    diag;
         struct asrt_collect_server collect;
         struct asrt_param_server   param;
@@ -43,14 +43,14 @@ struct asrtc_assembly
         struct asrt_assembly_exec_handler exec_hndl;
 };
 
-enum asrt_status asrtc_assembly_init(
-    struct asrtc_assembly* assembly,
+enum asrt_status asrt_cntr_assm_init(
+    struct asrt_cntr_assm* assembly,
     struct asrt_sender     sender,
     struct asrt_allocator  alloc );
 
-void asrtc_assembly_deinit( struct asrtc_assembly* assembly );
+void asrt_cntr_assm_deinit( struct asrt_cntr_assm* assembly );
 
-static inline void asrtc_assembly_tick( struct asrtc_assembly* assembly, uint32_t now )
+static inline void asrt_cntr_assm_tick( struct asrt_cntr_assm* assembly, uint32_t now )
 {
         asrt_chann_tick_successors( &assembly->cntr.node, now );
 }
@@ -58,8 +58,8 @@ static inline void asrtc_assembly_tick( struct asrtc_assembly* assembly, uint32_
 /// Execute a test: optionally upload param tree, clear+ready collect, then
 /// exec the test.  \p tree may be NULL to skip the param upload step.
 /// \p cb is called exactly once with the test result (or first error status).
-enum asrt_status asrtc_assembly_exec_test(
-    struct asrtc_assembly*       assembly,
+enum asrt_status asrt_cntr_assm_exec_test(
+    struct asrt_cntr_assm*       assembly,
     struct asrt_flat_tree const* tree,
     asrt_flat_id                 root_id,
     uint16_t                     tid,

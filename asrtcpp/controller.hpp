@@ -22,34 +22,31 @@
 namespace asrt
 {
 using status = asrt_status;
-using result = asrtc_result;
+using result = asrt_result;
 
 /// XXX: revise nodiscard in C++ code
 /// XXX: revise status usage in C++ API - prefer sender
 /// XXX: revisit inline usage and move stuff to .cpp
 
 /// XXX: do a sender-based
-inline status init( ref< asrtc_controller > c, autosender s, allocator a )
+inline status init( ref< asrt_controller > c, autosender s, allocator a )
 {
         return asrt_cntr_init( c, s, a );
 }
 
 /// XXX: do a sender-based
-inline status start(
-    ref< asrtc_controller >        c,
-    callback< asrt_init_callback > cb,
-    uint32_t                       timeout )
+inline status start( ref< asrt_controller > c, callback< asrt_init_callback > cb, uint32_t timeout )
 {
         return asrt_cntr_start( c, cb.fn, cb.ptr, timeout );
 }
 
-inline bool is_idle( ref< asrtc_controller > c )
+inline bool is_idle( ref< asrt_controller > c )
 {
         return asrt_cntr_idle( c ) > 0;
 }
 
 inline status query_desc(
-    ref< asrtc_controller >        c,
+    ref< asrt_controller >         c,
     callback< asrt_desc_callback > cb,
     uint32_t                       timeout )
 {
@@ -57,7 +54,7 @@ inline status query_desc(
 }
 
 inline status query_test_count(
-    ref< asrtc_controller >              c,
+    ref< asrt_controller >               c,
     callback< asrt_test_count_callback > cb,
     uint32_t                             timeout )
 {
@@ -65,7 +62,7 @@ inline status query_test_count(
 }
 
 inline status query_test_info(
-    ref< asrtc_controller >             c,
+    ref< asrt_controller >              c,
     uint16_t                            id,
     callback< asrt_test_info_callback > cb,
     uint32_t                            timeout )
@@ -74,7 +71,7 @@ inline status query_test_info(
 }
 
 inline status exec_test(
-    ref< asrtc_controller >               c,
+    ref< asrt_controller >                c,
     uint16_t                              id,
     callback< asrt_test_result_callback > cb,
     uint32_t                              timeout )
@@ -82,7 +79,7 @@ inline status exec_test(
         return asrt_cntr_test_exec( c, id, cb.fn, cb.ptr, timeout );
 }
 
-inline void deinit( ref< asrtc_controller > c )
+inline void deinit( ref< asrt_controller > c )
 {
         asrt_cntr_deinit( c );
 }

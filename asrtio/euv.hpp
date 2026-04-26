@@ -79,10 +79,10 @@ struct _cntr_start
 {
         using value_sig = ecor::set_value_t();
 
-        asrtc_controller&         cntr;
+        asrt_controller&          cntr;
         std::chrono::milliseconds timeout;
 
-        _cntr_start( asrtc_controller& c, std::chrono::milliseconds timeout )
+        _cntr_start( asrt_controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
           , timeout( timeout )
         {
@@ -121,10 +121,10 @@ struct _cntr_query_test_count
 {
         using value_sig = ecor::set_value_t( uint32_t );
 
-        asrtc_controller&         cntr;
+        asrt_controller&          cntr;
         std::chrono::milliseconds timeout;
 
-        _cntr_query_test_count( asrtc_controller& c, std::chrono::milliseconds timeout )
+        _cntr_query_test_count( asrt_controller& c, std::chrono::milliseconds timeout )
           : cntr( c )
           , timeout( timeout )
         {
@@ -163,11 +163,11 @@ struct _cntr_query_test_info
 {
         using value_sig = ecor::set_value_t( uint16_t, std::string );
 
-        asrtc_controller&         cntr;
+        asrt_controller&          cntr;
         uint32_t                  id;
         std::chrono::milliseconds timeout;
 
-        _cntr_query_test_info( asrtc_controller& c, uint32_t id, std::chrono::milliseconds timeout )
+        _cntr_query_test_info( asrt_controller& c, uint32_t id, std::chrono::milliseconds timeout )
           : cntr( c )
           , id( id )
           , timeout( timeout )
@@ -208,11 +208,11 @@ struct _cntr_exec_test
 {
         using value_sig = ecor::set_value_t( asrt::result );
 
-        asrtc_controller&         cntr;
+        asrt_controller&          cntr;
         uint32_t                  id;
         std::chrono::milliseconds timeout;
 
-        _cntr_exec_test( asrtc_controller& c, uint32_t id, std::chrono::milliseconds timeout )
+        _cntr_exec_test( asrt_controller& c, uint32_t id, std::chrono::milliseconds timeout )
           : cntr( c )
           , id( id )
           , timeout( timeout )
@@ -225,7 +225,7 @@ struct _cntr_exec_test
                 auto s = asrt_cntr_test_exec(
                     &cntr,
                     static_cast< uint16_t >( id ),
-                    +[]( void* p, asrt_status s, asrtc_result* res ) -> asrt_status {
+                    +[]( void* p, asrt_status s, asrt_result* res ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
                             if ( s != ASRT_SUCCESS ) {
                                     ASRT_ERR_LOG(

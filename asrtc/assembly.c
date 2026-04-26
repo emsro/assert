@@ -10,8 +10,8 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./assembly.h"
 
-enum asrt_status asrtc_assembly_init(
-    struct asrtc_assembly* a,
+enum asrt_status asrt_cntr_assm_init(
+    struct asrt_cntr_assm* a,
     struct asrt_sender     sender,
     struct asrt_allocator  alloc )
 {
@@ -44,7 +44,7 @@ fail_cntr:
         return st;
 }
 
-void asrtc_assembly_deinit( struct asrtc_assembly* a )
+void asrt_cntr_assm_deinit( struct asrt_cntr_assm* a )
 {
         if ( !a )
                 return;
@@ -58,17 +58,17 @@ void asrtc_assembly_deinit( struct asrtc_assembly* a )
 // --- internal callback chain -------------------------------------------------
 
 static enum asrt_status asrt_on_test_result(
-    void*                ptr,
-    enum asrt_status     s,
-    struct asrtc_result* res )
+    void*               ptr,
+    enum asrt_status    s,
+    struct asrt_result* res )
 {
-        struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
+        struct asrt_cntr_assm* a = (struct asrt_cntr_assm*) ptr;
         return a->exec_hndl.cb( a->exec_hndl.cb_ptr, s, res );
 }
 
 static void asrt_on_collect_ack( void* ptr, enum asrt_status s )
 {
-        struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
+        struct asrt_cntr_assm* a = (struct asrt_cntr_assm*) ptr;
         if ( s != ASRT_SUCCESS ) {
                 a->exec_hndl.cb( a->exec_hndl.cb_ptr, s, NULL );
                 return;
@@ -81,7 +81,7 @@ static void asrt_on_collect_ack( void* ptr, enum asrt_status s )
 
 static void asrt_on_param_ack( void* ptr, enum asrt_status s )
 {
-        struct asrtc_assembly* a = (struct asrtc_assembly*) ptr;
+        struct asrt_cntr_assm* a = (struct asrt_cntr_assm*) ptr;
         if ( s != ASRT_SUCCESS ) {
                 a->exec_hndl.cb( a->exec_hndl.cb_ptr, s, NULL );
                 return;
@@ -95,8 +95,8 @@ static void asrt_on_param_ack( void* ptr, enum asrt_status s )
 
 // -----------------------------------------------------------------------------
 
-enum asrt_status asrtc_assembly_exec_test(
-    struct asrtc_assembly*       a,
+enum asrt_status asrt_cntr_assm_exec_test(
+    struct asrt_cntr_assm*       a,
     struct asrt_flat_tree const* tree,
     asrt_flat_id                 root_id,
     uint16_t                     tid,

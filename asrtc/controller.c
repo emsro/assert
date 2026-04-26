@@ -17,14 +17,14 @@
 
 #include <string.h>
 
-static inline enum asrt_status asrtc_send( void* p, struct asrt_rec_span* buff )
+static inline enum asrt_status asrt_cntr_send( void* p, struct asrt_rec_span* buff )
 {
-        struct asrtc_controller* c = (struct asrtc_controller*) p;
+        struct asrt_controller* c = (struct asrt_controller*) p;
         ASRT_ASSERT( c && buff && buff->b && buff->e );
         return asrt_send( &c->sendr, ASRT_CORE, buff, NULL, NULL );
 }
 
-static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t now )
+static uint32_t asrt_cntr_check_timeout( struct asrt_controller* c, uint32_t now )
 {
         if ( now >= c->deadline ) {
                 c->state = ASRT_CNTR_IDLE;
@@ -37,10 +37,10 @@ static uint32_t asrtc_check_timeout( struct asrtc_controller* c, uint32_t now )
 // init
 
 enum asrt_status asrt_cntr_start(
-    struct asrtc_controller* c,
-    asrt_init_callback       cb,
-    void*                    ptr,
-    uint32_t                 timeout )
+    struct asrt_controller* c,
+    asrt_init_callback      cb,
+    void*                   ptr,
+    uint32_t                timeout )
 {
         if ( !c || !cb )
                 return ASRT_INIT_ERR;
@@ -52,7 +52,7 @@ enum asrt_status asrt_cntr_start(
         return ASRT_SUCCESS;
 }
 
-void asrt_cntr_deinit( struct asrtc_controller* c )
+void asrt_cntr_deinit( struct asrt_controller* c )
 {
         ASRT_ASSERT( c );
         asrt_node_unlink( &c->node );
@@ -62,19 +62,19 @@ void asrt_cntr_deinit( struct asrtc_controller* c )
                 asrt_free( &c->alloc, (void**) &c->hndl.ti.desc );
 }
 
-static enum asrt_status asrt_cntr_tick_init( struct asrtc_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick_init( struct asrt_controller* c, uint32_t now )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_INIT );
         struct asrt_init_handler* h = &c->hndl.init;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_proto_version( asrtc_send, c ) != ASRT_SUCCESS )
+                if ( asrt_msg_ctor_proto_version( asrt_cntr_send, c ) != ASRT_SUCCESS )
                         return ASRT_SEND_ERR;
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
         case ASRT_STAGE_WAITING:
-                if ( asrtc_check_timeout( c, now ) )
+                if ( asrt_cntr_check_timeout( c, now ) )
                         return h->cb( h->ptr, ASRT_TIMEOUT_ERR );
                 break;
         case ASRT_STAGE_END: {
@@ -100,9 +100,9 @@ static enum asrt_status asrt_cntr_tick_init( struct asrtc_controller* c, uint32_
 }
 
 static enum asrt_status asrt_cntr_recv_init(
-    struct asrtc_controller* c,
-    enum asrt_message_id_e   eid,
-    struct asrt_span*        buff )
+    struct asrt_controller* c,
+    enum asrt_message_id_e  eid,
+    struct asrt_span*       buff )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_INIT );
 
@@ -127,7 +127,7 @@ static enum asrt_status asrt_cntr_recv_init(
 // test count
 
 enum asrt_status asrt_cntr_test_count(
-    struct asrtc_controller* c,
+    struct asrt_controller*  c,
     asrt_test_count_callback cb,
     void*                    ptr,
     uint32_t                 timeout )
@@ -147,19 +147,19 @@ enum asrt_status asrt_cntr_test_count(
         return ASRT_SUCCESS;
 }
 
-static enum asrt_status asrt_cntr_tick_test_count( struct asrtc_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick_test_count( struct asrt_controller* c, uint32_t now )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TC );
         struct asrt_tc_handler* h = &c->hndl.tc;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_count( asrtc_send, c ) != ASRT_SUCCESS )
+                if ( asrt_msg_ctor_test_count( asrt_cntr_send, c ) != ASRT_SUCCESS )
                         return ASRT_SEND_ERR;
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
         case ASRT_STAGE_WAITING:
-                if ( asrtc_check_timeout( c, now ) )
+                if ( asrt_cntr_check_timeout( c, now ) )
                         return h->cb( h->ptr, ASRT_TIMEOUT_ERR, 0 );
                 break;
         case ASRT_STAGE_END:
@@ -171,9 +171,9 @@ static enum asrt_status asrt_cntr_tick_test_count( struct asrtc_controller* c, u
 }
 
 static enum asrt_status asrt_cntr_recv_test_count(
-    struct asrtc_controller* c,
-    enum asrt_message_id_e   eid,
-    struct asrt_span*        buff )
+    struct asrt_controller* c,
+    enum asrt_message_id_e  eid,
+    struct asrt_span*       buff )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TC );
 
@@ -195,10 +195,10 @@ static enum asrt_status asrt_cntr_recv_test_count(
 // desc
 
 enum asrt_status asrt_cntr_desc(
-    struct asrtc_controller* c,
-    asrt_desc_callback       cb,
-    void*                    ptr,
-    uint32_t                 timeout )
+    struct asrt_controller* c,
+    asrt_desc_callback      cb,
+    void*                   ptr,
+    uint32_t                timeout )
 {
         ASRT_ASSERT( c && cb );
 
@@ -216,19 +216,19 @@ enum asrt_status asrt_cntr_desc(
         return ASRT_SUCCESS;
 }
 
-static enum asrt_status asrt_cntr_tick_desc( struct asrtc_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick_desc( struct asrt_controller* c, uint32_t now )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_DESC );
         struct asrt_desc_handler* h = &c->hndl.desc;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_desc( asrtc_send, c ) != ASRT_SUCCESS )
+                if ( asrt_msg_ctor_desc( asrt_cntr_send, c ) != ASRT_SUCCESS )
                         return ASRT_SEND_ERR;
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
         case ASRT_STAGE_WAITING:
-                if ( asrtc_check_timeout( c, now ) )
+                if ( asrt_cntr_check_timeout( c, now ) )
                         return h->cb( h->ptr, ASRT_TIMEOUT_ERR, NULL );
                 break;
         case ASRT_STAGE_END: {
@@ -242,9 +242,9 @@ static enum asrt_status asrt_cntr_tick_desc( struct asrtc_controller* c, uint32_
 }
 
 static enum asrt_status asrt_cntr_recv_desc(
-    struct asrtc_controller* c,
-    enum asrt_message_id_e   e,
-    struct asrt_span*        buff )
+    struct asrt_controller* c,
+    enum asrt_message_id_e  e,
+    struct asrt_span*       buff )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_DESC );
         if ( e != ASRT_MSG_DESC )
@@ -266,11 +266,11 @@ static enum asrt_status asrt_cntr_recv_desc(
 // test info
 
 enum asrt_status asrt_cntr_test_info(
-    struct asrtc_controller* c,
-    uint16_t                 id,
-    asrt_test_info_callback  cb,
-    void*                    ptr,
-    uint32_t                 timeout )
+    struct asrt_controller* c,
+    uint16_t                id,
+    asrt_test_info_callback cb,
+    void*                   ptr,
+    uint32_t                timeout )
 {
         ASRT_ASSERT( c && cb );
         if ( !asrt_cntr_idle( c ) )
@@ -289,19 +289,19 @@ enum asrt_status asrt_cntr_test_info(
         return ASRT_SUCCESS;
 }
 
-static enum asrt_status asrt_cntr_tick_test_info( struct asrtc_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick_test_info( struct asrt_controller* c, uint32_t now )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TI );
         struct asrt_ti_handler* h = &c->hndl.ti;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_info( h->tid, asrtc_send, c ) != ASRT_SUCCESS )
+                if ( asrt_msg_ctor_test_info( h->tid, asrt_cntr_send, c ) != ASRT_SUCCESS )
                         return ASRT_SEND_ERR;
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
         case ASRT_STAGE_WAITING:
-                if ( asrtc_check_timeout( c, now ) )
+                if ( asrt_cntr_check_timeout( c, now ) )
                         return h->cb( h->ptr, ASRT_TIMEOUT_ERR, h->tid, NULL );
                 break;
         case ASRT_STAGE_END: {
@@ -317,9 +317,9 @@ static enum asrt_status asrt_cntr_tick_test_info( struct asrtc_controller* c, ui
 }
 
 static enum asrt_status asrt_cntr_recv_test_info(
-    struct asrtc_controller* c,
-    enum asrt_message_id_e   eid,
-    struct asrt_span*        buff )
+    struct asrt_controller* c,
+    enum asrt_message_id_e  eid,
+    struct asrt_span*       buff )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TI );
         if ( eid != ASRT_MSG_TEST_INFO )
@@ -358,7 +358,7 @@ static enum asrt_status asrt_cntr_recv_test_info(
 // test info
 
 enum asrt_status asrt_cntr_test_exec(
-    struct asrtc_controller*  c,
+    struct asrt_controller*   c,
     uint16_t                  id,
     asrt_test_result_callback cb,
     void*                     ptr,
@@ -369,7 +369,7 @@ enum asrt_status asrt_cntr_test_exec(
                 return ASRT_BUSY_ERR;
         c->hndl.exec = ( struct asrt_exec_handler ){
             .res =
-                ( struct asrtc_result ){
+                ( struct asrt_result ){
                     .test_id = id,
                     .run_id  = c->run_id++,
                     .res     = ASRT_TEST_RESULT_ERROR,
@@ -383,19 +383,19 @@ enum asrt_status asrt_cntr_test_exec(
         return ASRT_SUCCESS;
 }
 
-static enum asrt_status asrt_cntr_tick_test_exec( struct asrtc_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick_test_exec( struct asrt_controller* c, uint32_t now )
 {
         struct asrt_exec_handler* h = &c->hndl.exec;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_start( h->res.test_id, h->res.run_id, asrtc_send, c ) !=
+                if ( asrt_msg_ctor_test_start( h->res.test_id, h->res.run_id, asrt_cntr_send, c ) !=
                      ASRT_SUCCESS )
                         return ASRT_SEND_ERR;
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
         case ASRT_STAGE_WAITING:
-                if ( asrtc_check_timeout( c, now ) )
+                if ( asrt_cntr_check_timeout( c, now ) )
                         return h->cb( h->ptr, ASRT_TIMEOUT_ERR, &h->res );
                 break;
         case ASRT_STAGE_END: {
@@ -408,9 +408,9 @@ static enum asrt_status asrt_cntr_tick_test_exec( struct asrtc_controller* c, ui
 }
 
 static enum asrt_status asrt_cntr_recv_test_exec(
-    struct asrtc_controller* c,
-    enum asrt_message_id_e   eid,
-    struct asrt_span*        buff )
+    struct asrt_controller* c,
+    enum asrt_message_id_e  eid,
+    struct asrt_span*       buff )
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_EXEC );
         struct asrt_exec_handler* h = &c->hndl.exec;
@@ -463,7 +463,7 @@ static enum asrt_status asrt_cntr_recv_test_exec(
 //---------------------------------------------------------------------
 // tick
 
-enum asrt_status asrt_cntr_tick( struct asrtc_controller* c, uint32_t now )
+enum asrt_status asrt_cntr_tick( struct asrt_controller* c, uint32_t now )
 {
         switch ( c->state ) {
         case ASRT_CNTR_INIT:
@@ -482,7 +482,7 @@ enum asrt_status asrt_cntr_tick( struct asrtc_controller* c, uint32_t now )
         return ASRT_SUCCESS;
 }
 
-uint32_t asrt_cntr_idle( struct asrtc_controller const* c )
+uint32_t asrt_cntr_idle( struct asrt_controller const* c )
 {
         return c->state == ASRT_CNTR_IDLE;
 }
@@ -490,8 +490,8 @@ uint32_t asrt_cntr_idle( struct asrtc_controller const* c )
 static enum asrt_status asrt_cntr_recv( void* data, struct asrt_span buff )
 {
         ASRT_ASSERT( data );
-        struct asrtc_controller* c = (struct asrtc_controller*) data;
-        asrt_message_id          id;
+        struct asrt_controller* c = (struct asrt_controller*) data;
+        asrt_message_id         id;
         if ( asrt_span_unfit_for( &buff, sizeof( asrt_message_id ) ) )
                 return ASRT_RECV_ERR;
         asrt_cut_u16( &buff.b, &id );
@@ -524,7 +524,7 @@ static enum asrt_status asrt_cntr_recv( void* data, struct asrt_span buff )
 
 static enum asrt_status asrt_cntr_event( void* p, enum asrt_event_e e, void* arg )
 {
-        struct asrtc_controller* c = (struct asrtc_controller*) p;
+        struct asrt_controller* c = (struct asrt_controller*) p;
         switch ( e ) {
         case ASRT_EVENT_TICK:
                 return asrt_cntr_tick( c, *(uint32_t*) arg );
@@ -536,13 +536,13 @@ static enum asrt_status asrt_cntr_event( void* p, enum asrt_event_e e, void* arg
 }
 
 enum asrt_status asrt_cntr_init(
-    struct asrtc_controller* c,
-    struct asrt_sender       s,
-    struct asrt_allocator    alloc )
+    struct asrt_controller* c,
+    struct asrt_sender      s,
+    struct asrt_allocator   alloc )
 {
         if ( !c )
                 return ASRT_INIT_ERR;
-        *c = ( struct asrtc_controller ){
+        *c = ( struct asrt_controller ){
             .node =
                 ( struct asrt_node ){
                     .chid     = ASRT_CORE,
