@@ -21,23 +21,23 @@ extern "C" {
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/status.h"
 
-typedef void ( *asrtc_collect_ready_ack_cb )( void* ptr, enum asrt_status status );
+typedef void ( *asrt_collect_ready_ack_cb )( void* ptr, enum asrt_status status );
 
-enum asrtc_collect_server_state
+enum asrt_collect_server_state
 {
-        ASRTC_COLLECT_SERVER_IDLE = 0,
-        ASRTC_COLLECT_SERVER_READY_SENT,
-        ASRTC_COLLECT_SERVER_READY_ACK_RECV,
-        ASRTC_COLLECT_SERVER_ACTIVE,
+        ASRT_COLLECT_SERVER_IDLE = 0,
+        ASRT_COLLECT_SERVER_READY_SENT,
+        ASRT_COLLECT_SERVER_READY_ACK_RECV,
+        ASRT_COLLECT_SERVER_ACTIVE,
 };
 
-struct asrtc_collect_ready_data
+struct asrt_collect_ready_data
 {
-        asrt_flat_id               root_id;
-        asrtc_collect_ready_ack_cb ack_cb;
-        void*                      ack_cb_ptr;
-        uint32_t                   timeout;
-        uint32_t                   deadline;
+        asrt_flat_id              root_id;
+        asrt_collect_ready_ack_cb ack_cb;
+        void*                     ack_cb_ptr;
+        uint32_t                  timeout;
+        uint32_t                  deadline;
 };
 
 /// Controller-side collect server (ASRT_COLL channel).
@@ -51,7 +51,7 @@ struct asrtc_collect_ready_data
 ///   2. Reactor replies with READY_ACK → tick fires ack_cb.
 ///   3. Reactor sends APPEND messages (fire-and-forget, no per-append ACK).
 ///   4. After test ends, controller reads the tree via tree().
-struct asrtc_collect_server
+struct asrt_collect_server
 {
         struct asrt_node      node;
         struct asrt_sender    sendr;
@@ -60,21 +60,21 @@ struct asrtc_collect_server
         uint32_t              tree_block_cap;
         uint32_t              tree_node_cap;
 
-        enum asrtc_collect_server_state state;
-        asrt_flat_id                    next_node_id;
+        enum asrt_collect_server_state state;
+        asrt_flat_id                   next_node_id;
 
-        struct asrtc_collect_ready_data cmd;
+        struct asrt_collect_ready_data cmd;
 };
 
 /// Initialise a collect server and link it into the node chain.
 ///
-enum asrt_status asrtc_collect_server_init(
-    struct asrtc_collect_server* server,
-    struct asrt_node*            prev,
-    struct asrt_sender           sender,
-    struct asrt_allocator        alloc,
-    uint32_t                     tree_block_cap,
-    uint32_t                     tree_node_cap );
+enum asrt_status asrt_collect_server_init(
+    struct asrt_collect_server* server,
+    struct asrt_node*           prev,
+    struct asrt_sender          sender,
+    struct asrt_allocator       alloc,
+    uint32_t                    tree_block_cap,
+    uint32_t                    tree_node_cap );
 
 /// Send a READY message to the reactor, starting a new collection session.
 ///
@@ -84,21 +84,21 @@ enum asrt_status asrtc_collect_server_init(
 ///
 /// May be called from IDLE or ACTIVE state (to start a new session).
 ///
-enum asrt_status asrtc_collect_server_send_ready(
-    struct asrtc_collect_server* server,
-    asrt_flat_id                 root_id,
-    uint32_t                     timeout,
-    asrtc_collect_ready_ack_cb   ack_cb,
-    void*                        ack_cb_ptr );
+enum asrt_status asrt_collect_server_send_ready(
+    struct asrt_collect_server* server,
+    asrt_flat_id                root_id,
+    uint32_t                    timeout,
+    asrt_collect_ready_ack_cb   ack_cb,
+    void*                       ack_cb_ptr );
 
 /// Access the built flat_tree.
-struct asrt_flat_tree const* asrtc_collect_server_tree( struct asrtc_collect_server const* server );
+struct asrt_flat_tree const* asrt_collect_server_tree( struct asrt_collect_server const* server );
 
 /// Free internal resources (flat_tree storage, any buffered append data).
-void asrtc_collect_server_deinit( struct asrtc_collect_server* server );
+void asrt_collect_server_deinit( struct asrt_collect_server* server );
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // ASRTC_COLLECT_SERVER_H
+#endif  // ASRT_COLLECT_SERVER_H

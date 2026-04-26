@@ -17,27 +17,27 @@ extern "C" {
 
 #include "./result.h"
 
-typedef enum asrt_status ( *asrtc_init_callback )( void* ptr, enum asrt_status s );
+typedef enum asrt_status ( *asrt_init_callback )( void* ptr, enum asrt_status s );
 typedef enum asrt_status (
-    *asrtc_test_count_callback )( void* ptr, enum asrt_status s, uint16_t test_count );
-typedef enum asrt_status ( *asrtc_desc_callback )( void* ptr, enum asrt_status s, char* desc );
+    *asrt_test_count_callback )( void* ptr, enum asrt_status s, uint16_t test_count );
+typedef enum asrt_status ( *asrt_desc_callback )( void* ptr, enum asrt_status s, char* desc );
 typedef enum asrt_status (
-    *asrtc_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char* desc );
+    *asrt_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char* desc );
 typedef enum asrt_status (
-    *asrtc_test_result_callback )( void* ptr, enum asrt_status s, struct asrtc_result* res );
+    *asrt_test_result_callback )( void* ptr, enum asrt_status s, struct asrtc_result* res );
 
-enum asrtc_stage_e
+enum asrt_stage_e
 {
-        ASRTC_STAGE_INIT    = 0x01,
-        ASRTC_STAGE_WAITING = 0x02,
-        ASRTC_STAGE_END     = 0x03,
+        ASRT_STAGE_INIT    = 0x01,
+        ASRT_STAGE_WAITING = 0x02,
+        ASRT_STAGE_END     = 0x03,
 };
 
-struct asrtc_init_handler
+struct asrt_init_handler
 {
-        asrtc_init_callback cb;
-        void*               ptr;
-        uint32_t            timeout;
+        asrt_init_callback cb;
+        void*              ptr;
+        uint32_t           timeout;
         struct
         {
                 uint16_t major;
@@ -47,38 +47,38 @@ struct asrtc_init_handler
 };
 
 
-struct asrtc_tc_handler
+struct asrt_tc_handler
 {
-        uint16_t                  count;
-        void*                     ptr;
-        asrtc_test_count_callback cb;
-        uint32_t                  timeout;
-};
-
-struct asrtc_desc_handler
-{
-        char*               desc;
-        void*               ptr;
-        asrtc_desc_callback cb;
-        uint32_t            timeout;
-};
-
-struct asrtc_ti_handler
-{
-        uint16_t                 tid;
-        asrt_test_info_result    result;
-        char*                    desc;
+        uint16_t                 count;
         void*                    ptr;
-        asrtc_test_info_callback cb;
+        asrt_test_count_callback cb;
         uint32_t                 timeout;
 };
 
-struct asrtc_exec_handler
+struct asrt_desc_handler
 {
-        struct asrtc_result        res;
-        void*                      ptr;
-        asrtc_test_result_callback cb;
-        uint32_t                   timeout;
+        char*              desc;
+        void*              ptr;
+        asrt_desc_callback cb;
+        uint32_t           timeout;
+};
+
+struct asrt_ti_handler
+{
+        uint16_t                tid;
+        asrt_test_info_result   result;
+        char*                   desc;
+        void*                   ptr;
+        asrt_test_info_callback cb;
+        uint32_t                timeout;
+};
+
+struct asrt_exec_handler
+{
+        struct asrtc_result       res;
+        void*                     ptr;
+        asrt_test_result_callback cb;
+        uint32_t                  timeout;
 };
 
 #ifdef __cplusplus

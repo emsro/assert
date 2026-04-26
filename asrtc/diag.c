@@ -12,7 +12,7 @@
 
 #include "../asrtl/log.h"
 
-void asrtc_diag_free_record( struct asrt_allocator* alloc, struct asrtc_diag_record* rec )
+void asrt_diag_free_record( struct asrt_allocator* alloc, struct asrt_diag_record* rec )
 {
         if ( rec->extra )
                 asrt_free( alloc, (void**) &rec->extra );
@@ -21,9 +21,7 @@ void asrtc_diag_free_record( struct asrt_allocator* alloc, struct asrtc_diag_rec
         asrt_free( alloc, (void**) &rec );
 }
 
-static enum asrt_status asrtc_diag_recv_record(
-    struct asrtc_diag_server* d,
-    struct asrt_span*         buff )
+static enum asrt_status asrt_diag_recv_record( struct asrt_diag_server* d, struct asrt_span* buff )
 {
         if ( asrt_span_unfit_for( buff, sizeof( uint32_t ) + sizeof( uint8_t ) ) )
                 return ASRT_RECV_ERR;
@@ -36,10 +34,10 @@ static enum asrt_status asrtc_diag_recv_record(
         if ( asrt_span_unfit_for( buff, file_len ) )
                 return ASRT_RECV_ERR;
 
-        struct asrtc_diag_record* rec = asrt_alloc( &d->alloc, sizeof( *rec ) );
+        struct asrt_diag_record* rec = asrt_alloc( &d->alloc, sizeof( *rec ) );
         if ( !rec )
                 return ASRT_ALLOC_ERR;
-        *rec = ( struct asrtc_diag_record ){
+        *rec = ( struct asrt_diag_record ){
             .file  = NULL,
             .extra = NULL,
             .line  = line,
@@ -81,9 +79,9 @@ static enum asrt_status asrtc_diag_recv_record(
         return ASRT_SUCCESS;
 }
 
-static enum asrt_status asrtc_diag_recv( void* data, struct asrt_span buff )
+static enum asrt_status asrt_diag_recv( void* data, struct asrt_span buff )
 {
-        struct asrtc_diag_server* diag = (struct asrtc_diag_server*) data;
+        struct asrt_diag_server* diag = (struct asrt_diag_server*) data;
 
         asrt_diag_message_id id;
         if ( asrt_span_unfit_for( &buff, sizeof( id ) ) )
@@ -93,43 +91,43 @@ static enum asrt_status asrtc_diag_recv( void* data, struct asrt_span buff )
         enum asrt_status st = ASRT_SUCCESS;
         switch ( id ) {
         case ASRT_DIAG_MSG_RECORD:
-                st = asrtc_diag_recv_record( diag, &buff );
+                st = asrt_diag_recv_record( diag, &buff );
                 break;
         default:
-                ASRT_ERR_LOG( "asrtc_diag", "Received unknown diag message id: %u", id );
+                ASRT_ERR_LOG( "asrt_diag", "Received unknown diag message id: %u", id );
                 return ASRT_RECV_UNEXPECTED_ERR;
         }
 
         return st;
 }
 
-static enum asrt_status asrtc_diag_event( void* p, enum asrt_event_e e, void* arg )
+static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg )
 {
-        struct asrtc_diag_server* diag = (struct asrtc_diag_server*) p;
+        struct asrt_diag_server* diag = (struct asrt_diag_server*) p;
         switch ( e ) {
         case ASRT_EVENT_RECV:
-                return asrtc_diag_recv( diag, *(struct asrt_span*) arg );
+                return asrt_diag_recv( diag, *(struct asrt_span*) arg );
         case ASRT_EVENT_TICK:
                 return ASRT_SUCCESS;
         }
-        ASRT_ERR_LOG( "asrtc_diag", "unexpected event: %s", asrt_event_to_str( e ) );
+        ASRT_ERR_LOG( "asrt_diag", "unexpected event: %s", asrt_event_to_str( e ) );
         return ASRT_INVALID_EVENT_ERR;
 }
 
-enum asrt_status asrtc_diag_server_init(
-    struct asrtc_diag_server* diag,
-    struct asrt_node*         prev,
-    struct asrt_sender        sender,
-    struct asrt_allocator     alloc )
+enum asrt_status asrt_diag_server_init(
+    struct asrt_diag_server* diag,
+    struct asrt_node*        prev,
+    struct asrt_sender       sender,
+    struct asrt_allocator    alloc )
 {
         if ( !diag || !prev )
                 return ASRT_INIT_ERR;
-        *diag = ( struct asrtc_diag_server ){
+        *diag = ( struct asrt_diag_server ){
             .node =
                 ( struct asrt_node ){
                     .chid     = ASRT_DIAG,
                     .e_cb_ptr = diag,
-                    .e_cb     = asrtc_diag_event,
+                    .e_cb     = asrt_diag_event,
                     .next     = NULL,
                 },
             .sendr     = sender,
@@ -141,27 +139,27 @@ enum asrt_status asrtc_diag_server_init(
         return ASRT_SUCCESS;
 }
 
-struct asrtc_diag_record* asrtc_diag_server_take_record( struct asrtc_diag_server* diag )
+struct asrt_diag_record* asrt_diag_server_take_record( struct asrt_diag_server* diag )
 {
         if ( !diag || !diag->first_rec )
                 return NULL;
-        struct asrtc_diag_record* rec = diag->first_rec;
-        diag->first_rec               = rec->next;
+        struct asrt_diag_record* rec = diag->first_rec;
+        diag->first_rec              = rec->next;
         if ( !diag->first_rec )
                 diag->last_rec = NULL;
         return rec;
 }
 
-void asrtc_diag_server_deinit( struct asrtc_diag_server* diag )
+void asrt_diag_server_deinit( struct asrt_diag_server* diag )
 {
         if ( !diag )
                 return;
 
         asrt_node_unlink( &diag->node );
-        struct asrtc_diag_record* rec = diag->first_rec;
+        struct asrt_diag_record* rec = diag->first_rec;
         while ( rec ) {
-                struct asrtc_diag_record* next = rec->next;
-                asrtc_diag_free_record( &diag->alloc, rec );
+                struct asrt_diag_record* next = rec->next;
+                asrt_diag_free_record( &diag->alloc, rec );
                 rec = next;
         }
         diag->first_rec = NULL;

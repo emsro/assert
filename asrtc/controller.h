@@ -22,14 +22,14 @@ extern "C" {
 #include "../asrtl/status.h"
 #include "./handlers.h"
 
-enum asrtc_cntr_state
+enum asrt_cntr_state
 {
-        ASRTC_CNTR_INIT      = 0x01,
-        ASRTC_CNTR_IDLE      = 0x02,
-        ASRTC_CNTR_HNDL_TC   = 0x10,
-        ASRTC_CNTR_HNDL_DESC = 0x11,
-        ASRTC_CNTR_HNDL_TI   = 0x12,
-        ASRTC_CNTR_HNDL_EXEC = 0x13,
+        ASRT_CNTR_INIT      = 0x01,
+        ASRT_CNTR_IDLE      = 0x02,
+        ASRT_CNTR_HNDL_TC   = 0x10,
+        ASRT_CNTR_HNDL_DESC = 0x11,
+        ASRT_CNTR_HNDL_TI   = 0x12,
+        ASRT_CNTR_HNDL_EXEC = 0x13,
 };
 
 struct asrtc_controller
@@ -38,58 +38,58 @@ struct asrtc_controller
         struct asrt_sender    sendr;
         struct asrt_allocator alloc;
 
-        uint32_t              run_id;
-        enum asrtc_cntr_state state;
-        enum asrtc_stage_e    stage;
-        uint32_t              deadline;
+        uint32_t             run_id;
+        enum asrt_cntr_state state;
+        enum asrt_stage_e    stage;
+        uint32_t             deadline;
         union
         {
-                struct asrtc_init_handler init;
-                struct asrtc_tc_handler   tc;
-                struct asrtc_desc_handler desc;
-                struct asrtc_ti_handler   ti;
-                struct asrtc_exec_handler exec;
+                struct asrt_init_handler init;
+                struct asrt_tc_handler   tc;
+                struct asrt_desc_handler desc;
+                struct asrt_ti_handler   ti;
+                struct asrt_exec_handler exec;
         } hndl;
 };
 
-enum asrt_status asrtc_cntr_init(
+enum asrt_status asrt_cntr_init(
     struct asrtc_controller* c,
     struct asrt_sender       s,
     struct asrt_allocator    alloc );
 
-enum asrt_status asrtc_cntr_start(
+enum asrt_status asrt_cntr_start(
     struct asrtc_controller* c,
-    asrtc_init_callback      cb,
+    asrt_init_callback       cb,
     void*                    ptr,
     uint32_t                 timeout );
 
-uint32_t asrtc_cntr_idle( struct asrtc_controller const* c );
+uint32_t asrt_cntr_idle( struct asrtc_controller const* c );
 
-enum asrt_status asrtc_cntr_desc(
+enum asrt_status asrt_cntr_desc(
     struct asrtc_controller* c,
-    asrtc_desc_callback      cb,
+    asrt_desc_callback       cb,
     void*                    ptr,
     uint32_t                 timeout );
-enum asrt_status asrtc_cntr_test_count(
-    struct asrtc_controller*  c,
-    asrtc_test_count_callback cb,
-    void*                     ptr,
-    uint32_t                  timeout );
-enum asrt_status asrtc_cntr_test_info(
+enum asrt_status asrt_cntr_test_count(
+    struct asrtc_controller* c,
+    asrt_test_count_callback cb,
+    void*                    ptr,
+    uint32_t                 timeout );
+enum asrt_status asrt_cntr_test_info(
     struct asrtc_controller* c,
     uint16_t                 id,
-    asrtc_test_info_callback cb,
+    asrt_test_info_callback  cb,
     void*                    ptr,
     uint32_t                 timeout );
 
-enum asrt_status asrtc_cntr_test_exec(
-    struct asrtc_controller*   c,
-    uint16_t                   id,
-    asrtc_test_result_callback cb,
-    void*                      ptr,
-    uint32_t                   timeout );
+enum asrt_status asrt_cntr_test_exec(
+    struct asrtc_controller*  c,
+    uint16_t                  id,
+    asrt_test_result_callback cb,
+    void*                     ptr,
+    uint32_t                  timeout );
 
-void asrtc_cntr_deinit( struct asrtc_controller* c );
+void asrt_cntr_deinit( struct asrtc_controller* c );
 
 #ifdef __cplusplus
 }

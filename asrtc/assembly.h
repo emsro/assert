@@ -22,25 +22,25 @@ extern "C" {
 #include "../asrtc/stream.h"
 
 typedef enum asrt_status (
-    *asrtc_assembly_exec_cb )( void* ptr, enum asrt_status s, struct asrtc_result* res );
+    *asrt_assembly_exec_cb )( void* ptr, enum asrt_status s, struct asrtc_result* res );
 
-struct asrtc_assembly_exec_handler
+struct asrt_assembly_exec_handler
 {
-        uint16_t               tid;
-        uint32_t               timeout;
-        asrtc_assembly_exec_cb cb;
-        void*                  cb_ptr;
+        uint16_t              tid;
+        uint32_t              timeout;
+        asrt_assembly_exec_cb cb;
+        void*                 cb_ptr;
 };
 
 struct asrtc_assembly
 {
-        struct asrtc_controller     cntr;
-        struct asrtc_diag_server    diag;
-        struct asrtc_collect_server collect;
-        struct asrtc_param_server   param;
-        struct asrtc_stream_server  stream;
+        struct asrtc_controller    cntr;
+        struct asrt_diag_server    diag;
+        struct asrt_collect_server collect;
+        struct asrt_param_server   param;
+        struct asrt_stream_server  stream;
         //
-        struct asrtc_assembly_exec_handler exec_hndl;
+        struct asrt_assembly_exec_handler exec_hndl;
 };
 
 enum asrt_status asrtc_assembly_init(
@@ -64,7 +64,7 @@ enum asrt_status asrtc_assembly_exec_test(
     asrt_flat_id                 root_id,
     uint16_t                     tid,
     uint32_t                     timeout,
-    asrtc_assembly_exec_cb       cb,
+    asrt_assembly_exec_cb        cb,
     void*                        cb_ptr );
 
 #ifdef __cplusplus

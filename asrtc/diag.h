@@ -20,36 +20,36 @@ extern "C" {
 #include "../asrtl/chann.h"
 #include "../asrtl/diag_proto.h"
 
-struct asrtc_diag_record
+struct asrt_diag_record
 {
         char const* file;
         char const* extra;
         uint32_t    line;
 
-        struct asrtc_diag_record* next;
+        struct asrt_diag_record* next;
 };
 
-void asrtc_diag_free_record( struct asrt_allocator* alloc, struct asrtc_diag_record* rec );
+void asrt_diag_free_record( struct asrt_allocator* alloc, struct asrt_diag_record* rec );
 
-struct asrtc_diag_server
+struct asrt_diag_server
 {
         struct asrt_node      node;
         struct asrt_sender    sendr;
         struct asrt_allocator alloc;
 
-        struct asrtc_diag_record* first_rec;
-        struct asrtc_diag_record* last_rec;
+        struct asrt_diag_record* first_rec;
+        struct asrt_diag_record* last_rec;
 };
 
-enum asrt_status asrtc_diag_server_init(
-    struct asrtc_diag_server* diag,
-    struct asrt_node*         prev,
-    struct asrt_sender        sender,
-    struct asrt_allocator     alloc );
+enum asrt_status asrt_diag_server_init(
+    struct asrt_diag_server* diag,
+    struct asrt_node*        prev,
+    struct asrt_sender       sender,
+    struct asrt_allocator    alloc );
 
-struct asrtc_diag_record* asrtc_diag_server_take_record( struct asrtc_diag_server* diag );
+struct asrt_diag_record* asrt_diag_server_take_record( struct asrt_diag_server* diag );
 
-void asrtc_diag_server_deinit( struct asrtc_diag_server* diag );
+void asrt_diag_server_deinit( struct asrt_diag_server* diag );
 
 #ifdef __cplusplus
 }

@@ -10,8 +10,8 @@
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
 
-#ifndef ASRT_DIAG_H
-#define ASRT_DIAG_H
+#ifndef ASRTR_DIAG_H
+#define ASRTR_DIAG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,4 +72,4 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag );
 }
 #endif
 
-#endif  // ASRT_DIAG_H
+#endif  // ASRTR_DIAG_H

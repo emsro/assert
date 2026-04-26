@@ -91,7 +91,7 @@ struct _cntr_start
         template < typename OP >
         void start( OP& op )
         {
-                auto s = asrtc_cntr_start(
+                auto s = asrt_cntr_start(
                     &cntr,
                     +[]( void* p, asrt_status s ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
@@ -133,7 +133,7 @@ struct _cntr_query_test_count
         template < typename OP >
         void start( OP& op )
         {
-                auto s = asrtc_cntr_test_count(
+                auto s = asrt_cntr_test_count(
                     &cntr,
                     +[]( void* p, asrt_status s, uint16_t count ) -> asrt_status {
                             auto* op_ = static_cast< OP* >( p );
@@ -177,7 +177,7 @@ struct _cntr_query_test_info
         template < typename OP >
         void start( OP& op )
         {
-                auto s = asrtc_cntr_test_info(
+                auto s = asrt_cntr_test_info(
                     &cntr,
                     static_cast< uint16_t >( id ),
                     +[]( void* p, asrt_status s, uint16_t tid, char* desc ) -> asrt_status {
@@ -222,7 +222,7 @@ struct _cntr_exec_test
         template < typename OP >
         void start( OP& op )
         {
-                auto s = asrtc_cntr_test_exec(
+                auto s = asrt_cntr_test_exec(
                     &cntr,
                     static_cast< uint16_t >( id ),
                     +[]( void* p, asrt_status s, asrtc_result* res ) -> asrt_status {

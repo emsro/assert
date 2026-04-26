@@ -27,7 +27,7 @@ struct stream_schemas
 {
         stream_schemas() = default;
 
-        explicit stream_schemas( asrtc_stream_schemas s )
+        explicit stream_schemas( asrt_stream_schemas s )
           : s_( s )
         {
         }
@@ -44,45 +44,45 @@ struct stream_schemas
         stream_schemas& operator=( stream_schemas&& o ) noexcept
         {
                 if ( this != &o ) {
-                        asrtc_stream_schemas_free( &s_ );
+                        asrt_stream_schemas_free( &s_ );
                         s_   = o.s_;
                         o.s_ = {};
                 }
                 return *this;
         }
 
-        ~stream_schemas() { asrtc_stream_schemas_free( &s_ ); }
+        ~stream_schemas() { asrt_stream_schemas_free( &s_ ); }
 
-        asrtc_stream_schemas const* operator->() const { return &s_; }
+        asrt_stream_schemas const* operator->() const { return &s_; }
 
-        asrtc_stream_schemas const& operator*() const { return s_; }
+        asrt_stream_schemas const& operator*() const { return s_; }
 
 private:
-        asrtc_stream_schemas s_{};
+        asrt_stream_schemas s_{};
 };
 
 inline status init(
-    ref< asrtc_stream_server > srv,
-    asrt_node&                 prev,
-    autosender                 send_cb,
-    asrt_allocator             alloc )
+    ref< asrt_stream_server > srv,
+    asrt_node&                prev,
+    autosender                send_cb,
+    asrt_allocator            alloc )
 {
-        return asrtc_stream_server_init( srv, &prev, send_cb, alloc );
+        return asrt_stream_server_init( srv, &prev, send_cb, alloc );
 }
 
-inline stream_schemas take( ref< asrtc_stream_server > srv )
+inline stream_schemas take( ref< asrt_stream_server > srv )
 {
-        return stream_schemas{ asrtc_stream_server_take( srv ) };
+        return stream_schemas{ asrt_stream_server_take( srv ) };
 }
 
-inline void clear( ref< asrtc_stream_server > srv )
+inline void clear( ref< asrt_stream_server > srv )
 {
-        asrtc_stream_server_clear( srv );
+        asrt_stream_server_clear( srv );
 }
 
-inline void deinit( ref< asrtc_stream_server > srv )
+inline void deinit( ref< asrt_stream_server > srv )
 {
-        asrtc_stream_server_deinit( srv );
+        asrt_stream_server_deinit( srv );
 }
 
 }  // namespace asrt

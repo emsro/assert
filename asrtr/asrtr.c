@@ -110,7 +110,7 @@ static enum asrt_status asrt_send_test_error(
         enum asrt_status st = asrt_msg_rtoc_test_start( test_id, run_id, asrt_reac_send, reac );
         if ( st != ASRT_SUCCESS )
                 return st;
-        return asrt_msg_rtoc_test_result( run_id, ASRT_TEST_ERROR, asrt_reac_send, reac );
+        return asrt_msg_rtoc_test_result( run_id, ASRT_TEST_RESULT_ERROR, asrt_reac_send, reac );
 }
 
 

@@ -66,7 +66,7 @@ struct cntr_tcp_sys
                 return st;
         }
 
-        auto take_diag_record() { return asrtc_diag_server_take_record( &asm_.diag ); }
+        auto take_diag_record() { return asrt_diag_server_take_record( &asm_.diag ); }
 
         clock const& clk() const { return clk_; }
 
@@ -115,10 +115,10 @@ struct cntr_tcp_sys
 
         asrt::stream_schemas stream_take()
         {
-                return asrt::stream_schemas{ asrtc_stream_server_take( &asm_.stream ) };
+                return asrt::stream_schemas{ asrt_stream_server_take( &asm_.stream ) };
         }
 
-        asrt_flat_tree const* collect_tree() { return asrtc_collect_server_tree( &asm_.collect ); }
+        asrt_flat_tree const* collect_tree() { return asrt_collect_server_tree( &asm_.collect ); }
 
         asrtc_assembly& assembly() { return asm_; }
 
@@ -278,7 +278,7 @@ inline void write_strm_field( std::ostream& os, enum asrt_strm_field_type_e ft, 
 inline void write_stream_csv(
     output_fs&                   fs,
     std::filesystem::path const& path,
-    asrtc_stream_schema const&   sc )
+    asrt_stream_schema const&    sc )
 {
         auto  w  = fs.open_write( path );
         auto& os = w.stream();
@@ -359,7 +359,7 @@ inline void handle_diag(
                 reporter.on_diagnostic( rec->file, rec->line, extra );
                 if ( w )
                         w->stream() << rec->file << "," << rec->line << "," << extra << "\n";
-                asrtc_diag_free_record( &sys.assembly().diag.alloc, rec );
+                asrt_diag_free_record( &sys.assembly().diag.alloc, rec );
         }
 }
 

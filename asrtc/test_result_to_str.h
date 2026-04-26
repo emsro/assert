@@ -14,7 +14,7 @@
 
 #include "./result.h"
 
-inline char const* asrtc_test_result_to_str( asrt_test_result res )
+inline char const* asrt_test_result_to_str( asrt_test_result res )
 {
         switch ( res ) {
         case ASRT_TEST_RESULT_SUCCESS:

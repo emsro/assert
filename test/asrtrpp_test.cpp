@@ -350,7 +350,7 @@ struct param_loopback_cpp_ctx
                     return st;
             } };
 
-        asrtc_param_server srv;
+        asrt_param_server srv;
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
@@ -539,7 +539,7 @@ struct typed_loopback_ctx
                     return st;
             } };
 
-        asrtc_param_server srv;
+        asrt_param_server srv;
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
@@ -1279,7 +1279,7 @@ struct param_sender_ctx
                     return st;
             } };
 
-        asrtc_param_server srv;
+        asrt_param_server srv;
 
         static constexpr uint32_t BUF_SZ          = 256;
         uint8_t                   cli_buf[BUF_SZ] = {};
@@ -1950,8 +1950,8 @@ struct strm_cpp_ctx
         strm_cpp_loopback send_r;
         strm_cpp_loopback send_c;
 
-        asrt_stream_client  client;
-        asrtc_stream_server server;
+        asrt_stream_client client;
+        asrt_stream_server server;
 
 
         strm_cpp_ctx()

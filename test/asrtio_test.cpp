@@ -1754,15 +1754,15 @@ TEST_CASE( "write_stream_csv: single u8 field" )
 
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         uint8_t                     data[]   = { 42 };
-        asrtc_stream_record         rec      = { .next = nullptr, .data = data };
-        asrtc_stream_schema         sc       = {
-                          .schema_id   = 0,
-                          .field_count = 1,
-                          .record_size = 1,
-                          .fields      = fields,
-                          .first       = &rec,
-                          .last        = &rec,
-                          .count       = 1,
+        asrt_stream_record          rec      = { .next = nullptr, .data = data };
+        asrt_stream_schema          sc       = {
+                           .schema_id   = 0,
+                           .field_count = 1,
+                           .record_size = 1,
+                           .fields      = fields,
+                           .first       = &rec,
+                           .last        = &rec,
+                           .count       = 1,
         };
 
         asrtio::write_stream_csv( fs, "out/stream.0.csv", sc );
@@ -1781,8 +1781,8 @@ TEST_CASE( "write_stream_csv: multi-field u32,i8" )
         asrt_add_u32( &p, 1000 );
         *p++ = static_cast< uint8_t >( static_cast< int8_t >( -3 ) );
 
-        asrtc_stream_record rec = { .next = nullptr, .data = data };
-        asrtc_stream_schema sc  = {
+        asrt_stream_record rec = { .next = nullptr, .data = data };
+        asrt_stream_schema sc  = {
              .schema_id   = 5,
              .field_count = 2,
              .record_size = 5,
@@ -1810,9 +1810,9 @@ TEST_CASE( "write_stream_csv: multiple records" )
         asrt_add_u16( &p1, 100 );
         asrt_add_u16( &p2, 200 );
 
-        asrtc_stream_record rec2 = { .next = nullptr, .data = data2 };
-        asrtc_stream_record rec1 = { .next = &rec2, .data = data1 };
-        asrtc_stream_schema sc   = {
+        asrt_stream_record rec2 = { .next = nullptr, .data = data2 };
+        asrt_stream_record rec1 = { .next = &rec2, .data = data1 };
+        asrt_stream_schema sc   = {
               .schema_id   = 0,
               .field_count = 1,
               .record_size = 2,
@@ -1833,14 +1833,14 @@ TEST_CASE( "write_stream_csv: empty schema (no records)" )
         stub_fs fs;
 
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_BOOL };
-        asrtc_stream_schema         sc       = {
-                          .schema_id   = 0,
-                          .field_count = 1,
-                          .record_size = 1,
-                          .fields      = fields,
-                          .first       = nullptr,
-                          .last        = nullptr,
-                          .count       = 0,
+        asrt_stream_schema          sc       = {
+                           .schema_id   = 0,
+                           .field_count = 1,
+                           .record_size = 1,
+                           .fields      = fields,
+                           .first       = nullptr,
+                           .last        = nullptr,
+                           .count       = 0,
         };
 
         asrtio::write_stream_csv( fs, "empty.csv", sc );
@@ -1861,8 +1861,8 @@ TEST_CASE( "write_stream_csv: float field" )
         std::memcpy( &bits, &val, 4 );
         asrt_add_u32( &p, bits );
 
-        asrtc_stream_record rec = { .next = nullptr, .data = data };
-        asrtc_stream_schema sc  = {
+        asrt_stream_record rec = { .next = nullptr, .data = data };
+        asrt_stream_schema sc  = {
              .schema_id   = 0,
              .field_count = 1,
              .record_size = 4,

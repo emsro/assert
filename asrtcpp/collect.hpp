@@ -23,39 +23,39 @@ namespace asrt
 {
 
 inline status init(
-    ref< asrtc_collect_server > srv,
-    asrt_node&                  prev,
-    autosender                  send_cb,
-    asrt_allocator              alloc,
-    uint32_t                    tree_block_cap,
-    uint32_t                    tree_node_cap )
+    ref< asrt_collect_server > srv,
+    asrt_node&                 prev,
+    autosender                 send_cb,
+    asrt_allocator             alloc,
+    uint32_t                   tree_block_cap,
+    uint32_t                   tree_node_cap )
 {
-        return asrtc_collect_server_init(
+        return asrt_collect_server_init(
             srv, &prev, send_cb, alloc, tree_block_cap, tree_node_cap );
 }
 
 inline status send_ready(
-    ref< asrtc_collect_server >            srv,
-    flat_id                                root_id,
-    callback< asrtc_collect_ready_ack_cb > ack_cb,
-    uint32_t                               timeout )
+    ref< asrt_collect_server >            srv,
+    flat_id                               root_id,
+    callback< asrt_collect_ready_ack_cb > ack_cb,
+    uint32_t                              timeout )
 {
-        return asrtc_collect_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
+        return asrt_collect_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
 }
 
-inline asrt_flat_tree const& tree( ref< asrtc_collect_server > srv )
+inline asrt_flat_tree const& tree( ref< asrt_collect_server > srv )
 {
-        return *asrtc_collect_server_tree( srv );
+        return *asrt_collect_server_tree( srv );
 }
 
-inline flat_id next_node_id( ref< asrtc_collect_server > srv )
+inline flat_id next_node_id( ref< asrt_collect_server > srv )
 {
         return srv->next_node_id;
 }
 
-inline void deinit( ref< asrtc_collect_server > srv )
+inline void deinit( ref< asrt_collect_server > srv )
 {
-        asrtc_collect_server_deinit( srv );
+        asrt_collect_server_deinit( srv );
 }
 
 }  // namespace asrt

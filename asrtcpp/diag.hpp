@@ -22,31 +22,31 @@
 namespace asrt
 {
 
-using diag_record = asrtc_diag_record;
+using diag_record = asrt_diag_record;
 
 struct diag_record_deleter
 {
         struct asrt_allocator* alloc;
-        void operator()( asrtc_diag_record* rec ) const { asrtc_diag_free_record( alloc, rec ); }
+        void operator()( asrt_diag_record* rec ) const { asrt_diag_free_record( alloc, rec ); }
 };
 
 inline status init(
-    ref< asrtc_diag_server > d,
-    asrt_node&               prev,
-    autosender               sender,
-    asrt_allocator           alloc )
+    ref< asrt_diag_server > d,
+    asrt_node&              prev,
+    autosender              sender,
+    asrt_allocator          alloc )
 {
-        return asrtc_diag_server_init( d, &prev, sender, alloc );
+        return asrt_diag_server_init( d, &prev, sender, alloc );
 }
 
-inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrtc_diag_server > d )
+inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrt_diag_server > d )
 {
-        return { asrtc_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
+        return { asrt_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
 }
 
-inline void deinit( ref< asrtc_diag_server > d )
+inline void deinit( ref< asrt_diag_server > d )
 {
-        asrtc_diag_server_deinit( d );
+        asrt_diag_server_deinit( d );
 }
 
 

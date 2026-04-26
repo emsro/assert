@@ -22,31 +22,31 @@ namespace asrt
 {
 
 inline status init(
-    ref< asrtc_param_server > srv,
-    asrt_node&                prev,
-    autosender                sender,
-    asrt_allocator            alloc )
+    ref< asrt_param_server > srv,
+    asrt_node&               prev,
+    autosender               sender,
+    asrt_allocator           alloc )
 {
-        return asrtc_param_server_init( srv, &prev, sender, alloc );
+        return asrt_param_server_init( srv, &prev, sender, alloc );
 }
 
-inline void set_tree( ref< asrtc_param_server > srv, asrt_flat_tree const& tree )
+inline void set_tree( ref< asrt_param_server > srv, asrt_flat_tree const& tree )
 {
-        asrtc_param_server_set_tree( srv, &tree );
+        asrt_param_server_set_tree( srv, &tree );
 }
 
 inline status send_ready(
-    ref< asrtc_param_server >            srv,
-    flat_id                              root_id,
-    callback< asrtc_param_ready_ack_cb > ack_cb,
-    uint32_t                             timeout )
+    ref< asrt_param_server >            srv,
+    flat_id                             root_id,
+    callback< asrt_param_ready_ack_cb > ack_cb,
+    uint32_t                            timeout )
 {
-        return asrtc_param_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
+        return asrt_param_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
 }
 
-inline void deinit( ref< asrtc_param_server > srv )
+inline void deinit( ref< asrt_param_server > srv )
 {
-        asrtc_param_server_deinit( srv );
+        asrt_param_server_deinit( srv );
 }
 
 }  // namespace asrt
