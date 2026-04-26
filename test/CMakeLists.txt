@@ -1,4 +1,4 @@
-cpmaddpackage("gh:doctest/doctest@2.4.12")
+cpmaddpackage("gh:doctest/doctest@2.5.0")
 
 add_executable(asrtc_test asrtc_test.cpp)
 target_link_libraries(asrtc_test PRIVATE doctest::doctest asrtc asrtr)

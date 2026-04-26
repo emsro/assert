@@ -89,10 +89,12 @@ struct pbar_reporter : suite_reporter
         void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
+namespace
+{
 std::shared_ptr< pbar::terminal_progress > g_bar;
 asrt_log_level                             g_log_level = ASRT_LOG_ERROR;
 std::ostream*                              g_log_file  = nullptr;
-
+}  // namespace
 static std::string plain_log_line(
     enum asrt_log_level level,
     char const*         module,
@@ -176,12 +178,12 @@ void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, .
 }
 }
 
-task< void > run_tcp(
+static task< void > run_tcp(
     task_ctx&                       ctx,
     arena&                          arena,
     steady_clock&                   clk,
     uv_loop_t*                      loop,
-    std::string_view                host,
+    char const*                     host,
     uint16_t                        port,
     std::chrono::milliseconds       timeout,
     std::unique_ptr< param_config > params,
@@ -203,7 +205,7 @@ task< void > run_tcp(
         g_bar.reset();
 };
 
-task< void > run_rsim(
+static task< void > run_rsim(
     task_ctx&                       ctx,
     arena&                          arena,
     steady_clock&                   clk,
@@ -306,7 +308,7 @@ int main( int argc, char* argv[] )
         sub->add_option( "-p,--port", opt->port, "Port to connect to" )->required();
         sub->add_option( "--host", opt->host, "Host to connect to" )->required();
 
-        uint32_t    timeout_ms = 5000u;
+        uint32_t    timeout_ms = 5000U;
         std::string params_file;
         std::string output_dir;
         app.add_option( "--timeout", timeout_ms, "Timeout in milliseconds" );
@@ -338,7 +340,7 @@ int main( int argc, char* argv[] )
                             ar,
                             clk,
                             loop,
-                            opt->host,
+                            opt->host.data(),
                             opt->port,
                             timeout,
                             std::move( params ),
@@ -348,7 +350,7 @@ int main( int argc, char* argv[] )
         } );
 
         auto* rsim      = app.add_subcommand( "rsim", "Run the test RSIM system" );
-        auto  rsim_seed = std::make_shared< uint32_t >( 42u );
+        auto  rsim_seed = std::make_shared< uint32_t >( 42U );
         rsim->add_option( "--seed", *rsim_seed, "Seed for pseudo-random test simulation" );
         rsim->fallthrough();
         rsim->callback( [&, rsim_seed] {
@@ -398,7 +400,8 @@ int main( int argc, char* argv[] )
                 ctx.tick();
         } );
 
-        t->start();
+        if ( t )
+                t->start();
 
         uv_run( loop, UV_RUN_DEFAULT );
         uv_loop_close( loop );

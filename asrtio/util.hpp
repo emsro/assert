@@ -52,7 +52,7 @@ struct cobs_node
         char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
-        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt::rec_span& buff )
+        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt::rec_span& buff ) const
         {
                 uint8_t  buffer[1024];
                 uint8_t* p  = buffer + 8;  // offset for COBS encoding
@@ -151,27 +151,10 @@ struct cobs_node
 };
 
 
-bool _flat_tree_from_json_impl(
-    asrt_flat_tree&       tree,
-    nlohmann::json const& j,
-    asrt::flat_id         parent,
-    char const*           key,
-    asrt::flat_id&        next_id );
+bool flat_tree_from_json( asrt_flat_tree& tree, nlohmann::json const& j, asrt::flat_id& next_id );
 
-inline bool flat_tree_from_json(
-    asrt_flat_tree&       tree,
-    nlohmann::json const& j,
-    asrt::flat_id&        next_id )
-{
-        return _flat_tree_from_json_impl( tree, j, 0, nullptr, next_id );
-}
+bool flat_tree_to_json( asrt_flat_tree& tree, nlohmann::json& out );
 
-
-bool _flat_tree_to_json_impl( asrt_flat_tree& tree, asrt::flat_id node_id, nlohmann::json& out );
-
-inline bool flat_tree_to_json( asrt_flat_tree& tree, nlohmann::json& out )
-{
-        return _flat_tree_to_json_impl( tree, 1, out );
-}
+bool flat_tree_to_json( asrt_flat_tree& tree, asrt::flat_id node_id, nlohmann::json& out );
 
 }  // namespace asrtio

@@ -1990,7 +1990,7 @@ TEST_CASE( "flat_tree_find_by_key_happy" )
         CHECK_EQ( (asrt::flat_id) 2, r.id );
         CHECK( strcmp( r.key, "alpha" ) == 0 );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
-        CHECK_EQ( 10u, r.value.data.s.u32_val );
+        CHECK_EQ( 10U, r.value.data.s.u32_val );
         CHECK_EQ( (asrt::flat_id) 3, r.next_sibling );
 
         // Find middle child
@@ -2005,7 +2005,7 @@ TEST_CASE( "flat_tree_find_by_key_happy" )
         CHECK_EQ( (asrt::flat_id) 4, r.id );
         CHECK( strcmp( r.key, "gamma" ) == 0 );
         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
-        CHECK_EQ( 1u, r.value.data.s.bool_val );
+        CHECK_EQ( 1U, r.value.data.s.bool_val );
         CHECK_EQ( (asrt::flat_id) 0, r.next_sibling );
 
         asrt_flat_tree_deinit( &tree );
@@ -2151,7 +2151,7 @@ TEST_CASE( "strm_proto: define serializes header and fields" )
 
         CHECK_EQ( asrt_msg_rtoc_strm_define( 7, fields, 3, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
-        REQUIRE_EQ( cap.len, 6u );
+        REQUIRE_EQ( cap.len, 6U );
         CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DEFINE );
         CHECK_EQ( cap.buf[1], 7 );
         CHECK_EQ( cap.buf[2], 3 );
@@ -2167,7 +2167,7 @@ TEST_CASE( "strm_proto: define single field" )
 
         CHECK_EQ( asrt_msg_rtoc_strm_define( 0, fields, 1, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
-        REQUIRE_EQ( cap.len, 4u );
+        REQUIRE_EQ( cap.len, 4U );
         CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DEFINE );
         CHECK_EQ( cap.buf[1], 0 );
         CHECK_EQ( cap.buf[2], 1 );
@@ -2181,7 +2181,7 @@ TEST_CASE( "strm_proto: define rejects field_count > 255" )
 
         CHECK_EQ(
             asrt_msg_rtoc_strm_define( 0, fields, 256, strm_capture::cb, &cap ), ASRT_ARG_ERR );
-        CHECK_EQ( cap.len, 0u );
+        CHECK_EQ( cap.len, 0U );
 }
 
 TEST_CASE( "strm_proto: data serializes header and payload" )
@@ -2191,7 +2191,7 @@ TEST_CASE( "strm_proto: data serializes header and payload" )
 
         CHECK_EQ( asrt_msg_rtoc_strm_data( 12, payload, 4, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
-        REQUIRE_EQ( cap.len, 6u );
+        REQUIRE_EQ( cap.len, 6U );
         CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DATA );
         CHECK_EQ( cap.buf[1], 12 );
         CHECK_EQ( cap.buf[2], 0xAA );
@@ -2206,7 +2206,7 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 
         CHECK_EQ( asrt_msg_rtoc_strm_data( 0, nullptr, 0, strm_capture::cb, &cap ), ASRT_SUCCESS );
 
-        REQUIRE_EQ( cap.len, 2u );
+        REQUIRE_EQ( cap.len, 2U );
         CHECK_EQ( cap.buf[0], ASRT_STRM_MSG_DATA );
         CHECK_EQ( cap.buf[1], 0 );
 }

@@ -243,7 +243,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_count" )
             1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         spin();
-        CHECK_EQ( 2u, count );
+        CHECK_EQ( 2U, count );
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +273,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
             1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         spin();
-        CHECK_EQ( 0u, tid );
+        CHECK_EQ( 0U, tid );
         CHECK_EQ( "passing_test", name );
 }
 
@@ -429,7 +429,7 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_record_received_by_controller" )
 
         auto rec = asrt::take_record( c_diag );
         REQUIRE( rec != nullptr );
-        CHECK_EQ( 42u, rec->line );
+        CHECK_EQ( 42U, rec->line );
         CHECK( std::string_view{ rec->file }.ends_with( "test_file.c" ) );
 
         // no more records
@@ -449,9 +449,9 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_multiple_records_queued_in_order" )
         REQUIRE( r2 );
         REQUIRE( r3 );
 
-        CHECK_EQ( 1u, r1->line );
-        CHECK_EQ( 2u, r2->line );
-        CHECK_EQ( 3u, r3->line );
+        CHECK_EQ( 1U, r1->line );
+        CHECK_EQ( 2U, r2->line );
+        CHECK_EQ( 3U, r3->line );
 
         CHECK( asrt::take_record( c_diag ) == nullptr );
 }
@@ -475,7 +475,7 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
 
         auto rec = asrt::take_record( c_diag );
         REQUIRE( rec != nullptr );
-        CHECK_EQ( 99u, rec->line );
+        CHECK_EQ( 99U, rec->line );
 }
 
 // ---------------------------------------------------------------------------
@@ -520,9 +520,9 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
 
         asrt::set_tree( srv, tree );
         auto noop = []( asrt_status ) {};
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, noop, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, noop, 1000 ) );
 
-        REQUIRE_EQ( 1u, param_coll.data.size() );
+        REQUIRE_EQ( 1U, param_coll.data.size() );
         CHECK_EQ( ASRT_PARA, param_coll.data.front().id );
         CHECK_EQ( ASRT_PARAM_MSG_READY, param_coll.data.front().data[0] );
         param_coll.data.pop_front();
@@ -542,7 +542,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
         auto on_ack    = [&]( asrt_status ) {
                 ++ack_count;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, on_ack, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, on_ack, 1000 ) );
         param_coll.data.clear();
 
         // Build a READY_ACK message: [ASRT_PARAM_MSG_READY_ACK, max_msg_size(256) LE]
@@ -640,23 +640,23 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_node_chained" )
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_next_node_id_starts_at_1" )
 {
-        CHECK_EQ( 1u, asrt::next_node_id( srv ) );
+        CHECK_EQ( 1U, asrt::next_node_id( srv ) );
 }
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 {
         auto noop = []( asrt_status ) {};
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 5u, noop, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 5U, noop, 1000 ) );
 
-        REQUIRE_EQ( 1u, coll.data.size() );
+        REQUIRE_EQ( 1U, coll.data.size() );
         auto& msg = coll.data.front();
         CHECK_EQ( ASRT_COLL, msg.id );
         CHECK_EQ( ASRT_COLLECT_MSG_READY, msg.data[0] );
         // root_id = 5 at offset 1..4 (LE)
-        assert_u32( 5u, msg.data.data() + 1 );
+        assert_u32( 5U, msg.data.data() + 1 );
         // next_node_id = 1 at offset 5..8 (LE)
-        assert_u32( 1u, msg.data.data() + 5 );
-        CHECK_EQ( 9u, msg.data.size() );
+        assert_u32( 1U, msg.data.data() + 5 );
+        CHECK_EQ( 9U, msg.data.size() );
 }
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_ready_ack_fires_cb" )
@@ -665,7 +665,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_ready_ack_fires_cb" )
         auto on_ack    = [&]( asrt_status ) {
                 ++ack_count;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, on_ack, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, on_ack, 1000 ) );
         coll.data.clear();
 
         uint8_t buf[16];
@@ -714,7 +714,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_append_builds_tree" )
 
         CHECK_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &res ) );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, res.value.type );
-        CHECK_EQ( 42u, res.value.data.s.u32_val );
+        CHECK_EQ( 42U, res.value.data.s.u32_val );
         REQUIRE_NE( nullptr, res.key );
         CHECK_EQ( std::string_view{ "val" }, std::string_view{ res.key } );
 }
@@ -762,7 +762,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_duplicate_append_sends_er
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &asrt::node( srv ), t++ ) );
 
         // server should send an ERROR back
-        REQUIRE_GE( coll.data.size(), 1u );
+        REQUIRE_GE( coll.data.size(), 1U );
         CHECK_EQ( ASRT_COLL, coll.data.back().id );
         CHECK_EQ( ASRT_COLLECT_MSG_ERROR, coll.data.back().data[0] );
 }

@@ -38,14 +38,14 @@ struct param_query_sender
             ecor::set_value_t( param_result< T > ),
             ecor::set_error_t( status ) >;
 
-        asrt_param_client* client_;
+        asrt_param_client* client;
         char const*        key;
         flat_id            node_id;
 
         template < ecor::receiver R >
         struct op
         {
-                asrt_param_query   q;
+                asrt_param_query   q = {};
                 asrt_param_client* c;
                 char const*        key;
                 flat_id            node_id;
@@ -84,7 +84,7 @@ struct param_query_sender
         template < ecor::receiver R >
         auto connect( R&& r ) && noexcept
         {
-                return op< R >{ (R&&) r, client_, key, node_id };
+                return op< R >{ (R&&) r, client, key, node_id };
         }
 };
 

@@ -123,7 +123,7 @@ struct collect_append_sender
         using completion_signatures = ecor::
             completion_signatures< ecor::set_value_t( flat_id ), ecor::set_error_t( status ) >;
 
-        asrt_collect_client* client_;
+        asrt_collect_client* client;
         flat_id              parent;
         char const*          key;
 
@@ -136,7 +136,7 @@ struct collect_append_sender
                 void start()
                 {
                         flat_id out = 0;
-                        auto    st  = append< T >( s.client_, s.parent, s.key, out );
+                        auto    st  = append< T >( s.client, s.parent, s.key, out );
                         if ( st == ASRT_SUCCESS )
                                 recv.set_value( out );
                         else

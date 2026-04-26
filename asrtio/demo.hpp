@@ -26,6 +26,7 @@
 #include "../asrtrpp/stream.hpp"
 #include "../asrtrpp/stream_sender.hpp"
 #include "../asrtrpp/task_unit.hpp"
+#include "./task.hpp"
 
 #include <functional>
 #include <random>
@@ -61,7 +62,7 @@ struct demo_test
         {
         }
 
-        char const* name() { return spec.tname.c_str(); }
+        char const* name() const { return spec.tname.c_str(); }
 
         asrt_status operator()( asrt::record& r ) { return spec.body( *this, r ); }
 };
@@ -301,6 +302,8 @@ inline demo_spec make_demo_param_value()
                                             r.state = ASRT_TEST_PASS;
                             }
                             return ASRT_SUCCESS;
+                    default:
+                            break;
                     }
                     return ASRT_SUCCESS;
             } };
@@ -388,6 +391,8 @@ inline demo_spec make_demo_param_count()
                             else
                                     r.state = ASRT_TEST_PASS;
                             return ASRT_SUCCESS;
+                    default:
+                            break;
                     }
                     return ASRT_SUCCESS;
             } };
@@ -446,6 +451,8 @@ inline demo_spec make_demo_param_find()
                                             r.state = ASRT_TEST_PASS;
                             }
                             return ASRT_SUCCESS;
+                    default:
+                            break;
                     }
                     return ASRT_SUCCESS;
             } };
@@ -601,7 +608,7 @@ struct param_type_overview_task : asrt::task_test
                         co_yield asrt::with_error{ asrt::test_fail };
 
                 auto f = co_await asrt::find< float >( pc, root, "flt" );
-                if ( f < 3.13f || f > 3.15f )
+                if ( f < 3.13F || f > 3.15F )
                         co_yield asrt::with_error{ asrt::test_fail };
 
                 auto s = co_await asrt::find< char const* >( pc, root, "str" );
@@ -665,7 +672,7 @@ struct collect_demo_task : asrt::task_test
         {
                 auto root = asrt::root_id( cc );
                 auto obj  = co_await asrt::append< asrt::obj >( cc, root );
-                co_await asrt::append( cc, obj, "value", 42u );
+                co_await asrt::append( cc, obj, "value", 42U );
                 co_await asrt::append( cc, obj, "tag", "demo" );
         }
 };
@@ -688,7 +695,7 @@ struct stream_demo_task : asrt::task_test
         {
                 auto schema = co_await asrt::define< uint32_t, float >( sc, 0 );
                 for ( uint32_t i = 0; i < 3; ++i )
-                        co_await asrt::emit( schema, i * 100, 1.5F * i );
+                        co_await asrt::emit( schema, i * 100, 1.5F * (float) i );
         }
 };
 
@@ -712,9 +719,9 @@ struct stream_sensor_demo_task : asrt::task_test
                         co_await asrt::emit(
                             schema,
                             i * 10,
-                            20.0F + 0.1F * i,
-                            static_cast< uint8_t >( 50 + i % 50 ),
-                            static_cast< uint8_t >( i % 4 ) );
+                            20.0F + 0.1F * (float) i,
+                            (uint8_t) ( 50 + i % 50 ),
+                            (uint8_t) ( i % 4 ) );
         }
 };
 

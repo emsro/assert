@@ -49,13 +49,6 @@ namespace pbar
 struct color
 {
         uint8_t r{}, g{}, b{};
-        constexpr color() = default;
-        constexpr color( uint8_t r_, uint8_t g_, uint8_t b_ )
-          : r( r_ )
-          , g( g_ )
-          , b( b_ )
-        {
-        }
 };
 
 namespace colors
@@ -128,15 +121,15 @@ private:
         std::string render_status_line() const;
         std::string render_progress_line() const;
 
-        bar_config                            m_cfg;
-        std::string                           m_status;
-        int                                   m_done          = 0;
-        int                                   m_failed        = 0;
-        int                                   m_spinner_frame = 0;
-        bool                                  m_started       = false;
-        bool                                  m_finished      = false;
-        std::chrono::steady_clock::time_point m_start;
-        std::chrono::steady_clock::time_point m_test_start;  // reset each set_status()
+        bar_config                            _cfg;
+        std::string                           _status;
+        int                                   _done          = 0;
+        int                                   _failed        = 0;
+        int                                   _spinner_frame = 0;
+        bool                                  _started       = false;
+        bool                                  _finished      = false;
+        std::chrono::steady_clock::time_point _start;
+        std::chrono::steady_clock::time_point _test_start;  // reset each set_status()
 };
 
 }  // namespace pbar
@@ -307,19 +300,17 @@ inline std::string terminal_progress::render_status_line() const
 {
         int w = terminal_width();
         // 6-char colored elapsed for the current running test + 2-space gap = 8 visible
-        std::string timer     = colored_elapsed( m_test_start ) + "  ";
-        int         content_w = w - 8;
-        if ( content_w < 4 )
-                content_w = 4;
+        std::string timer     = colored_elapsed( _test_start ) + "  ";
+        int         content_w = std::max( w - 8, 4 );
 
         std::string content;
-        if ( m_status.empty() ) {
+        if ( _status.empty() ) {
                 content = dim( std::string( content_w, '-' ) );
         } else {
-                std::string leader = dim( "── " );
-                int dash_count     = std::max( 0, content_w - (int) visible_len( m_status ) - 6 );
-                std::string trail  = dim( " " + std::string( dash_count, '-' ) );
-                content            = leader + std::string( m_status ) + trail;
+                std::string leader     = dim( "── " );
+                int         dash_count = std::max( 0, content_w - visible_len( _status ) - 6 );
+                std::string trail      = dim( " " + std::string( dash_count, '-' ) );
+                content                = leader + std::string( _status ) + trail;
         }
         return timer + fit_to_width( content, content_w );
 }
@@ -327,51 +318,49 @@ inline std::string terminal_progress::render_status_line() const
 inline std::string terminal_progress::render_progress_line() const
 {
         int w     = terminal_width();
-        int total = m_cfg.total;
+        int total = _cfg.total;
 
         // ── Left prefix: colored total elapsed + gap (8 visible) ─────────────
-        std::string left         = colored_elapsed( m_start ) + "  ";
+        std::string left         = colored_elapsed( _start ) + "  ";
         int         left_visible = 8;
 
         // ── Right section: "42/100  │  suite" ────────────────────────────────
         std::string right;
         if ( total > 0 )
-                if ( m_failed > 0 )
+                if ( _failed > 0 )
                         right = std::format(
-                            "{}/{} ({} {})", m_done, total, m_failed, fg( "✗", m_cfg.fail_color ) );
+                            "{}/{} ({} {})", _done, total, _failed, fg( "✗", _cfg.fail_color ) );
                 else
-                        right = std::format( "{}/{}", m_done, total );
+                        right = std::format( "{}/{}", _done, total );
         else
-                right = std::format( "{} done", m_done );
-        if ( !m_cfg.suite_label.empty() )
-                right += "  │  " + m_cfg.suite_label;
+                right = std::format( "{} done", _done );
+        if ( !_cfg.suite_label.empty() )
+                right += "  │  " + _cfg.suite_label;
 
         // ── Bar section: [=====>   ] ──────────────────────────────────────────
         // Layout: left(8) + "[" + bar_inner + "] " + right
         int right_visible = visible_len( right );
-        int bar_inner     = w - left_visible - right_visible - 3;
-        if ( bar_inner < 4 )
-                bar_inner = 4;
+        int bar_inner     = std::max( w - left_visible - right_visible - 3, 4 );
 
         std::string bar_content;
         if ( total > 0 ) {
-                int filled  = (int) ( (double) m_done / total * bar_inner );
+                int filled  = (int) ( (double) _done / total * bar_inner );
                 filled      = std::clamp( filled, 0, bar_inner );
-                bool at_end = ( m_done >= total );
+                bool at_end = ( _done >= total );
                 int  head   = ( !at_end && filled < bar_inner ) ? 1 : 0;
                 int  empty  = bar_inner - filled - head;
 
                 // filled and head rendered in plain terminal default; empty is dimmed
-                bar_content = std::string( filled, m_cfg.fill_char );
+                bar_content = std::string( filled, _cfg.fill_char );
                 if ( head )
-                        bar_content += m_cfg.head_char;
-                bar_content += dim( std::string( empty, m_cfg.empty_char ) );
+                        bar_content += _cfg.head_char;
+                bar_content += dim( std::string( empty, _cfg.empty_char ) );
         } else {
                 // Indeterminate spinner — plain character
                 static constexpr char const* frames[] = {
                     "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
-                bar_content = std::string( frames[m_spinner_frame % 10] ) +
-                              dim( std::string( bar_inner - 1, m_cfg.empty_char ) );
+                bar_content = std::string( frames[_spinner_frame % 10] ) +
+                              dim( std::string( bar_inner - 1, _cfg.empty_char ) );
         }
 
         std::string line = left + "[" + bar_content + "] " + right;
@@ -381,9 +370,9 @@ inline std::string terminal_progress::render_progress_line() const
 // ── Public API ────────────────────────────────────────────────────────────────
 
 inline terminal_progress::terminal_progress( bar_config cfg )
-  : m_cfg( std::move( cfg ) )
-  , m_start( std::chrono::steady_clock::now() )
-  , m_test_start( m_start )
+  : _cfg( std::move( cfg ) )
+  , _start( std::chrono::steady_clock::now() )
+  , _test_start( _start )
 {
 #ifdef _WIN32
         HANDLE h    = GetStdHandle( STD_OUTPUT_HANDLE );
@@ -405,7 +394,7 @@ inline void terminal_progress::initial_draw()
         // two real terminal rows.  Cursor ends just after the progress line.
         std::printf( "%s\n%s\n", render_status_line().c_str(), render_progress_line().c_str() );
         std::fflush( stdout );
-        m_started = true;
+        _started = true;
 }
 
 inline void terminal_progress::redraw_bar()
@@ -418,7 +407,7 @@ inline void terminal_progress::redraw_bar()
 
 inline void terminal_progress::log( std::string_view line )
 {
-        if ( !m_started || m_finished ) {
+        if ( !_started || _finished ) {
                 std::printf( "%.*s\n", (int) line.size(), line.data() );
                 std::fflush( stdout );
                 return;
@@ -449,9 +438,7 @@ inline void terminal_progress::log_result( std::string_view name, bool passed, d
         // Fixed visible: 6(time) + 2 + 4(status) + 2 + name_w + 2 + 7(dur) = w
         // => name_w = w - 23
         int w      = terminal_width();
-        int name_w = w - 23;
-        if ( name_w < 12 )
-                name_w = 12;
+        int name_w = std::max( w - 23, 12 );
 
         std::string line = time_str + "  " + status_tag + "  " + fit_to_width( name, name_w ) +
                            "  " + dim( rfit_to_width( dur_str, 7 ) );
@@ -460,34 +447,34 @@ inline void terminal_progress::log_result( std::string_view name, bool passed, d
 
 inline void terminal_progress::set_status( std::string_view line )
 {
-        m_status     = std::string( line );
-        m_test_start = std::chrono::steady_clock::now();
-        if ( m_started && !m_finished )
+        _status     = std::string( line );
+        _test_start = std::chrono::steady_clock::now();
+        if ( _started && !_finished )
                 redraw_bar();
 }
 
 inline void terminal_progress::set_progress( int done, int failed )
 {
-        m_done   = done;
-        m_failed = failed;
-        ++m_spinner_frame;
-        if ( m_started && !m_finished )
+        _done   = done;
+        _failed = failed;
+        ++_spinner_frame;
+        if ( _started && !_finished )
                 redraw_bar();
 }
 
 inline void terminal_progress::finish()
 {
-        if ( m_finished )
+        if ( _finished )
                 return;
-        m_finished = true;
-        if ( m_started )
+        _finished = true;
+        if ( _started )
                 redraw_bar();
 }
 
 inline void terminal_progress::set_total( int n )
 {
-        m_cfg.total = n;
-        if ( m_started && !m_finished )
+        _cfg.total = n;
+        if ( _started && !_finished )
                 redraw_bar();
 }
 

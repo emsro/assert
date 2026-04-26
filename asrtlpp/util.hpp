@@ -81,24 +81,24 @@ inline status recv( asrt_node& n, asrt_span buff )
 template < typename T >
 struct ref
 {
-        T& operator*() { return *p; }
-        T* operator->() { return p; }
+        T& operator*() { return *_p; }
+        T* operator->() { return _p; }
 
-        operator T&() { return *p; }
-        operator T*() { return p; }
+        operator T&() { return *_p; }
+        operator T*() { return _p; }
 
         ref( T& t )
-          : p( &t )
+          : _p( &t )
         {
         }
         ref( T* t )
-          : p( t )
+          : _p( t )
         {
                 ASRT_ASSERT( t != nullptr );
         }
 
 private:
-        T* p;
+        T* _p;
 };
 
 }  // namespace asrt

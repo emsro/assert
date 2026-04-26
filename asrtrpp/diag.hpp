@@ -21,7 +21,7 @@
 namespace asrt
 {
 
-void rec_diag(
+inline void rec_diag(
     ref< asrt_diag_client > d,
     char const*             file,
     uint32_t                line,

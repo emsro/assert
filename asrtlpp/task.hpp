@@ -27,21 +27,21 @@ struct malloc_free_memory_resource
 struct task_ctx
 {
         task_ctx( auto& mem_res )
-          : memory_resource( mem_res )
+          : _memory_resource( mem_res )
         {
         }
 
-        void tick() { core.run_once(); }
+        void tick() { _core.run_once(); }
 
-        auto& query( ecor::get_memory_resource_t ) { return memory_resource; }
+        auto& query( ecor::get_memory_resource_t ) { return _memory_resource; }
 
-        auto& query( ecor::get_task_core_t ) { return core; }
+        auto& query( ecor::get_task_core_t ) { return _core; }
 
-        void reschedule( ecor::schedulable& s ) { core.reschedule( s ); }
+        void reschedule( ecor::schedulable& s ) { _core.reschedule( s ); }
 
 private:
-        ecor::task_memory_resource memory_resource;
-        ecor::task_core            core;
+        ecor::task_memory_resource _memory_resource;
+        ecor::task_core            _core;
 };
 
 using status = asrt_status;
@@ -80,7 +80,6 @@ struct gen_sender
         using completion_signatures =
             ecor::completion_signatures< value_sig, ecor::set_error_t( asrt::status ) >;
 
-
         template < typename R >
         struct _op
         {
@@ -93,7 +92,7 @@ struct gen_sender
         template < typename R >
         _op< R > connect( R&& receiver ) && noexcept
         {
-                return { std::move( receiver ), std::move( ctx ) };
+                return { (R&&) receiver, std::move( ctx ) };
         }
 };
 

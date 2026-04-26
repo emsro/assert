@@ -22,18 +22,18 @@ namespace asrt
 struct task_test
 {
         task_test( task_ctx& ctx )
-          : ctx( ctx )
+          : _ctx( ctx )
         {
         }
 
         template < typename T >
         auto& query( T&& q )
         {
-                return ctx.query( (T&&) q );
+                return _ctx.query( (T&&) q );
         }
 
 private:
-        task_ctx& ctx;
+        task_ctx& _ctx;
 };
 
 using ecor::suspend;
@@ -58,9 +58,9 @@ struct task_unit : asrt_test
         };
 
         task_unit( T def )
-          : def( std::move( def ) )
+          : _def( std::move( def ) )
         {
-                asrt_test_init( this, def.name, static_cast< task_unit* >( this ), task_unit::cb );
+                asrt_test_init( this, _def.name, static_cast< task_unit* >( this ), task_unit::cb );
         }
 
         static asrt_status cb( record* rec )
@@ -69,17 +69,17 @@ struct task_unit : asrt_test
 
                 if ( rec->state == ASRT_TEST_INIT ) {
                         rec->state = ASRT_TEST_RUNNING;
-                        self.op    = self.def.exec().connect( recv{ rec } );
-                        self.op.start();
+                        self._op   = self._def.exec().connect( recv{ rec } );
+                        self._op.start();
                 }
 
                 return ASRT_SUCCESS;
         }
 
 private:
-        T def;
+        T _def;
         // XXX: note that this being here is waste of memory - it is needed only per active test
-        ecor::connect_type< task< void >, recv > op;
+        ecor::connect_type< task< void >, recv > _op;
 };
 
 }  // namespace asrt

@@ -215,7 +215,7 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_init" )
 TEST_CASE_FIXTURE( diag_ctx, "diag_record" )
 {
         asrt::rec_diag( d, "diag_test.cpp", 42 );
-        REQUIRE_EQ( 1u, coll_d.data.size() );
+        REQUIRE_EQ( 1U, coll_d.data.size() );
         assert_diag_record( coll_d.data.front(), 42 );
         coll_d.data.pop_front();
 }
@@ -282,7 +282,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
 {
         // test 0: pass_test
         run( 0, 10 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 10, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 0, 10 );
@@ -290,7 +290,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
 
         // test 1: fail_test
         run( 1, 20 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 20, ASRT_TEST_RESULT_FAILURE );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 1, 20 );
@@ -298,7 +298,7 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
 
         // test 2: pass_test (same callable as t0, different slot)
         run( 2, 30 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 30, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 2, 30 );
@@ -430,10 +430,10 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
         asrt::set_tree( srv, tree );
 
         CHECK_FALSE( asrt::ready( cli ) );
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
         spin();
         CHECK( asrt::ready( cli ) );
-        CHECK_EQ( 1u, asrt::root_id( cli ) );
+        CHECK_EQ( 1U, asrt::root_id( cli ) );
 
         asrt_flat_tree_deinit( &tree );
 }
@@ -447,33 +447,33 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_traversal" )
         asrt_flat_tree_append_scalar( &tree, 1, 3, "b", ASRT_FLAT_STYPE_STR, { .str_val = "hi" } );
         asrt::set_tree( srv, tree );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
         spin();
         REQUIRE( asrt::ready( cli ) );
 
         // Query root
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, 1u, query_cb, this ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, 1U, query_cb, this ) );
         spin_query();
-        REQUIRE_EQ( 1u, received.size() );
-        CHECK_EQ( 1u, received[0].id );
+        REQUIRE_EQ( 1U, received.size() );
+        CHECK_EQ( 1U, received[0].id );
         CHECK_EQ( (uint8_t) ASRT_FLAT_CTYPE_OBJECT, (uint8_t) received[0].value.type );
         asrt::flat_id first_child = received[0].value.data.cont.first_child;
 
         // Query first child "a"
         CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, first_child, query_cb, this ) );
         spin_query();
-        REQUIRE_EQ( 2u, received.size() );
+        REQUIRE_EQ( 2U, received.size() );
         CHECK_EQ( "a", received[1].key );
-        CHECK_EQ( 10u, received[1].value.data.s.u32_val );
+        CHECK_EQ( 10U, received[1].value.data.s.u32_val );
         asrt::flat_id next_sib = received[1].next_sibling;
 
         // Query next sibling "b"
         CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, next_sib, query_cb, this ) );
         spin_query();
-        REQUIRE_EQ( 3u, received.size() );
+        REQUIRE_EQ( 3U, received.size() );
         CHECK_EQ( "b", received[2].key );
         CHECK_EQ( (uint8_t) ASRT_FLAT_STYPE_STR, (uint8_t) received[2].value.type );
-        CHECK_EQ( 0u, received[2].next_sibling );
+        CHECK_EQ( 0U, received[2].next_sibling );
 
         CHECK_EQ( 0, error_called );
         asrt_flat_tree_deinit( &tree );
@@ -486,19 +486,19 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
         asrt_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRT_FLAT_CTYPE_OBJECT );
         asrt::set_tree( srv, tree );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
         spin();
         REQUIRE( asrt::ready( cli ) );
 
         // Query non-existent node — server sends ERROR
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, 999u, query_cb, this ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch( cli, &query, 999U, query_cb, this ) );
         spin_query();
 
         // The node doesn't exist, so server sends a response with NONE type
         // (not an error — the server encodes whatever the tree returns).
         // The callback fires with the queried id.
-        REQUIRE_EQ( 1u, received.size() );
-        CHECK_EQ( 999u, received[0].id );
+        REQUIRE_EQ( 1U, received.size() );
+        CHECK_EQ( 999U, received[0].id );
 
         asrt_flat_tree_deinit( &tree );
 }
@@ -551,7 +551,7 @@ struct typed_loopback_ctx
         // results
         uint32_t             u32_val = 0;
         int32_t              i32_val = 0;
-        float                flt_val = 0.0f;
+        float                flt_val = 0.0F;
         std::string          str_val;
         asrt_flat_child_list obj_val  = {};
         asrt_flat_child_list arr_val  = {};
@@ -585,7 +585,7 @@ struct typed_loopback_ctx
         {
                 asrt::set_tree( srv, *tree );
                 CHECK_EQ(
-                    ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+                    ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         asrt::tick( asrt::node( srv ), t++ );
                         asrt::tick( asrt::node( cli ), t++ );
@@ -616,10 +616,10 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
                 cb_count++;
                 u32_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( 42u, u32_val );
+        CHECK_EQ( 42U, u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -636,7 +636,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_mismatch" )
                 cb_count++;
                 got_null = ( q->error_code != 0 );
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK( got_null );
@@ -655,7 +655,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_i32_happy" )
                 cb_count++;
                 i32_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< int32_t >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< int32_t >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( -7, i32_val );
@@ -676,7 +676,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_str_happy" )
                 if ( v )
                         str_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< char const* >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< char const* >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( "hello", str_val );
@@ -689,17 +689,17 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_float_happy" )
         asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 16 );
         asrt_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRT_FLAT_CTYPE_OBJECT );
         asrt_flat_tree_append_scalar(
-            &tree, 1, 2, "val", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14f } );
+            &tree, 1, 2, "val", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14F } );
         setup_tree_and_handshake( &tree );
 
         auto cb = [this]( asrt_param_client*, asrt_param_query*, float v ) {
                 cb_count++;
                 flt_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< float >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< float >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( doctest::Approx( 3.14f ), flt_val );
+        CHECK_EQ( doctest::Approx( 3.14F ), flt_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -716,10 +716,10 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_any_happy" )
                 u32_val = v.data.s.u32_val;
         };
         // untyped query — explicit asrt_flat_value
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< asrt_flat_value >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< asrt_flat_value >( cli, &query, 2U, cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( 99u, u32_val );
+        CHECK_EQ( 99U, u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -737,13 +737,13 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "query_pending_cpp" )
                 cb_count++;
                 u32_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 2U, cb ) );
         CHECK( asrt::query_pending( cli ) );
 
         spin_query();
         CHECK_FALSE( asrt::query_pending( cli ) );
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( 7u, u32_val );
+        CHECK_EQ( 7U, u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -778,7 +778,7 @@ TEST_CASE( "param_client_cpp_timeout" )
             asrt::init( cli, head, sendr, asrt_span{ .b = buf, .e = buf + BUF_SZ }, TIMEOUT ) );
 
         // make ready
-        REQUIRE_EQ( ASRT_SUCCESS, send_ready_to_client( cli, 1u ) );
+        REQUIRE_EQ( ASRT_SUCCESS, send_ready_to_client( cli, 1U ) );
         REQUIRE_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( cli ), 0 ) );
         coll.data.clear();
         REQUIRE( asrt::ready( cli ) );
@@ -790,7 +790,7 @@ TEST_CASE( "param_client_cpp_timeout" )
                 err = q->error_code;
         };
         asrt_param_query query = {};
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 10u, cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &query, 10U, cb ) );
 
         // DELIVER tick → wire
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( cli ), 100 ) );
@@ -826,15 +826,15 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_find_by_key_raw" )
         asrt_flat_tree_append_scalar( &tree, 1, 3, "b", ASRT_FLAT_STYPE_STR, { .str_val = "hi" } );
         asrt::set_tree( srv, tree );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
         spin();
         REQUIRE( asrt::ready( cli ) );
 
         // Find "b" by key using raw callback
-        CHECK_EQ( ASRT_SUCCESS, asrt::find( cli, &query, 1u, "b", query_cb, this ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::find( cli, &query, 1U, "b", query_cb, this ) );
         spin_query();
-        REQUIRE_EQ( 1u, received.size() );
-        CHECK_EQ( 3u, received[0].id );
+        REQUIRE_EQ( 1U, received.size() );
+        CHECK_EQ( 3U, received[0].id );
         CHECK_EQ( "b", received[0].key );
         CHECK_EQ( (uint8_t) ASRT_FLAT_STYPE_STR, (uint8_t) received[0].value.type );
         CHECK_EQ( 0, error_called );
@@ -856,10 +856,10 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_u32_happy" )
                 cb_count++;
                 u32_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1u, "val", cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1U, "val", cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( 42u, u32_val );
+        CHECK_EQ( 42U, u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -877,7 +877,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_str_happy" )
                 if ( v )
                         str_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::find< char const* >( cli, &query, 1u, "val", cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::find< char const* >( cli, &query, 1U, "val", cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK_EQ( "world", str_val );
@@ -896,7 +896,7 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_not_found" )
                 cb_count++;
                 got_null = ( q->error_code != 0 );
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1u, "missing", cb ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1U, "missing", cb ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
         CHECK( got_null );
@@ -916,10 +916,10 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_c_callback" )
                 ctx->cb_count++;
                 ctx->u32_val = v;
         };
-        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1u, "val", c_cb, this ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::find< uint32_t >( cli, &query, 1U, "val", c_cb, this ) );
         spin_query();
         CHECK_EQ( 1, cb_count );
-        CHECK_EQ( 55u, u32_val );
+        CHECK_EQ( 55U, u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1200,7 +1200,7 @@ struct tu_e2e_ctx
 TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_pass" )
 {
         run( 0, 100 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 100, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 0, 100 );
@@ -1210,7 +1210,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_pass" )
 TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_fail" )
 {
         run( 1, 200 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 200, ASRT_TEST_RESULT_FAILURE );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 1, 200 );
@@ -1220,7 +1220,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_fail" )
 TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_error" )
 {
         run( 2, 300 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 300, ASRT_TEST_RESULT_ERROR );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 2, 300 );
@@ -1230,7 +1230,7 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_error" )
 TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_multi_step" )
 {
         run( 3, 400 );
-        REQUIRE_EQ( 2u, coll.data.size() );
+        REQUIRE_EQ( 2U, coll.data.size() );
         assert_test_result_msg( coll.data.back(), 400, ASRT_TEST_RESULT_SUCCESS );
         coll.data.pop_back();
         assert_test_start_msg( coll.data.back(), 3, 400 );
@@ -1315,7 +1315,7 @@ struct param_sender_ctx
         {
                 asrt::set_tree( srv, *tree );
                 CHECK_EQ(
-                    ASRT_SUCCESS, asrt::send_ready( srv, 1u, { ready_ack_noop, nullptr }, 1000 ) );
+                    ASRT_SUCCESS, asrt::send_ready( srv, 1U, { ready_ack_noop, nullptr }, 1000 ) );
                 for ( int i = 0; i < 100; i++ ) {
                         asrt::tick( asrt::node( srv ), t++ );
                         asrt::tick( asrt::node( cli ), t++ );
@@ -1513,7 +1513,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_float_happy" )
         asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 16 );
         asrt_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRT_FLAT_CTYPE_OBJECT );
         asrt_flat_tree_append_scalar(
-            &tree, 1, 2, "pi", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14f } );
+            &tree, 1, 2, "pi", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14F } );
         setup_tree_and_handshake( &tree );
 
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
@@ -1623,7 +1623,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_query_pending" )
         // Start a raw query to occupy the pending slot
         asrt_param_query q  = {};
         auto             cb = []( asrt_param_client*, asrt_param_query*, uint32_t ) {};
-        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &q, 2u, cb, nullptr ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::fetch< uint32_t >( cli, &q, 2U, cb, nullptr ) );
         CHECK( asrt::query_pending( cli ) );
 
         // Now a param sender should fail because a query is already pending
@@ -1653,7 +1653,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_value_in_coroutine" )
                 return ps_capture_find_u32( ctx, cli, 1, "count", &captured );
         } );
         CHECK_EQ( ASRT_TEST_PASS, state );
-        CHECK_EQ( 42u, captured );
+        CHECK_EQ( 42U, captured );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1711,7 +1711,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_sequential_queries_in_coroutine" )
                 return ps_sequential_finds( ctx, cli, 1, "a", "b", &sum );
         } );
         CHECK_EQ( ASRT_TEST_PASS, state );
-        CHECK_EQ( 30u, sum );
+        CHECK_EQ( 30U, sum );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1731,7 +1731,7 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
                 return ps_second_fails( ctx, cli, 1, "a", "missing", &first_val, &reached );
         } );
         CHECK_EQ( ASRT_TEST_ERROR, state );
-        CHECK_EQ( 10u, first_val );
+        CHECK_EQ( 10U, first_val );
         CHECK_FALSE( reached );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1778,7 +1778,7 @@ struct collect_cpp_ctx
                 asrt::deinit( cc );
         }
 
-        void make_active( asrt::flat_id root_id = 1u )
+        void make_active( asrt::flat_id root_id = 1U )
         {
                 uint8_t buf[16];
                 REQUIRE_EQ(
@@ -1794,12 +1794,12 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_handshake" )
         uint8_t buf[16];
         CHECK_EQ(
             ASRT_SUCCESS,
-            inject_collect_msg( &asrt::node( cc ), buf, make_coll_ready( buf, 42u ) ) );
+            inject_collect_msg( &asrt::node( cc ), buf, make_coll_ready( buf, 42U ) ) );
 
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( cc ), 0 ) );
-        CHECK_EQ( 42u, asrt::root_id( cc ) );
+        CHECK_EQ( 42U, asrt::root_id( cc ) );
 
-        REQUIRE_EQ( 1u, coll.data.size() );
+        REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_COLL, coll.data.front().id );
         CHECK_EQ( ASRT_COLLECT_MSG_READY_ACK, coll.data.front().data[0] );
 }
@@ -1810,20 +1810,20 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
 
         asrt::flat_id obj = 0;
         CHECK_EQ( ASRT_SUCCESS, asrt::append< asrt::obj >( cc, 0, "root", obj ) );
-        CHECK_NE( 0u, obj );
+        CHECK_NE( 0U, obj );
 
         asrt::flat_id arr = 0;
         CHECK_EQ( ASRT_SUCCESS, asrt::append< asrt::arr >( cc, obj, "items", arr ) );
-        CHECK_NE( 0u, arr );
+        CHECK_NE( 0U, arr );
 
         CHECK_EQ( ASRT_SUCCESS, asrt::append< uint32_t >( cc, obj, "count", 42 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::append< int32_t >( cc, obj, "offset", -7 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::append< char const* >( cc, obj, "name", "hello" ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::append< bool >( cc, obj, "flag", true ) );
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< float >( cc, obj, "ratio", 3.14f ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::append< float >( cc, obj, "ratio", 3.14F ) );
 
         // 1 object + 1 array + 5 scalars = 7 messages
-        CHECK_EQ( 7u, coll.data.size() );
+        CHECK_EQ( 7U, coll.data.size() );
 }
 
 // ---------------------------------------------------------------------------
@@ -1839,7 +1839,7 @@ asrt::task< void > cs_do_append_scalar(
         co_await asrt::append( cc, parent, "offset", -7 );
         co_await asrt::append( cc, parent, "name", "hello" );
         co_await asrt::append( cc, parent, "flag", true );
-        co_await asrt::append( cc, parent, "ratio", 3.14f );
+        co_await asrt::append( cc, parent, "ratio", 3.14F );
 }
 
 asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
@@ -1886,7 +1886,7 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_scalars" )
                 return cs_do_append_scalar( ctx, cc, 0 );
         } );
         CHECK_EQ( ASRT_TEST_PASS, state );
-        CHECK_EQ( 5u, coll.data.size() );
+        CHECK_EQ( 5U, coll.data.size() );
 }
 
 TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
@@ -1897,7 +1897,7 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
         } );
         CHECK_EQ( ASRT_TEST_PASS, state );
         // 1 obj + 1 arr + 2 u32 + 1 str = 5 messages
-        CHECK_EQ( 5u, coll.data.size() );
+        CHECK_EQ( 5U, coll.data.size() );
 }
 
 // =====================================================================
@@ -1999,8 +1999,8 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: record via wrapper" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
-        CHECK_EQ( 1u, result->schemas[0].count );
+        REQUIRE_EQ( 1U, result->schema_count );
+        CHECK_EQ( 1U, result->schemas[0].count );
         CHECK_EQ( 99, result->schemas[0].first->data[0] );
 }
 
@@ -2026,8 +2026,8 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u8 define + emit" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
-        CHECK_EQ( 1u, result->schemas[0].count );
+        REQUIRE_EQ( 1U, result->schema_count );
+        CHECK_EQ( 1U, result->schemas[0].count );
         CHECK_EQ( 42, result->schemas[0].first->data[0] );
 }
 
@@ -2036,13 +2036,13 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u16 encoding" )
         asrt::stream_schema< uint16_t > schema( client, 0, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
-        CHECK_EQ( 2u, decltype( schema )::emit_size );
+        CHECK_EQ( 2U, decltype( schema )::emit_size );
 
         schema.emit( 0x1234, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         auto* rec = result->schemas[0].first;
         REQUIRE_NE( nullptr, rec );
         uint16_t val;
@@ -2055,13 +2055,13 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u32 encoding" )
         asrt::stream_schema< uint32_t > schema( client, 0, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
-        CHECK_EQ( 4u, decltype( schema )::emit_size );
+        CHECK_EQ( 4U, decltype( schema )::emit_size );
 
         schema.emit( 0xDEADBEEF, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         uint32_t val;
         asrt_u8d4_to_u32( result->schemas[0].first->data, &val );
         CHECK_EQ( 0xDEADBEEF, val );
@@ -2077,7 +2077,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i8 encoding" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         CHECK_EQ( static_cast< uint8_t >( -42 ), result->schemas[0].first->data[0] );
 }
 
@@ -2091,7 +2091,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i16 encoding" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         uint16_t raw;
         asrt_u8d2_to_u16( result->schemas[0].first->data, &raw );
         CHECK_EQ( static_cast< uint16_t >( static_cast< int16_t >( -1000 ) ), raw );
@@ -2107,7 +2107,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: i32 encoding" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         // raw bytes match the two's complement representation
         uint32_t raw;
         asrt_u8d4_to_u32( result->schemas[0].first->data, &raw );
@@ -2119,18 +2119,18 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: float encoding" )
         asrt::stream_schema< float > schema( client, 0, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
-        CHECK_EQ( 4u, decltype( schema )::emit_size );
+        CHECK_EQ( 4U, decltype( schema )::emit_size );
 
-        schema.emit( 3.14f, {} );
+        schema.emit( 3.14F, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         uint32_t raw;
         asrt_u8d4_to_u32( result->schemas[0].first->data, &raw );
         float restored;
         memcpy( &restored, &raw, 4 );
-        CHECK_EQ( doctest::Approx( 3.14f ), restored );
+        CHECK_EQ( doctest::Approx( 3.14F ), restored );
 }
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: bool encoding" )
@@ -2138,7 +2138,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: bool encoding" )
         asrt::stream_schema< bool > schema( client, 0, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
-        CHECK_EQ( 1u, decltype( schema )::emit_size );
+        CHECK_EQ( 1U, decltype( schema )::emit_size );
 
         schema.emit( true, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
@@ -2146,8 +2146,8 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: bool encoding" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
-        CHECK_EQ( 2u, result->schemas[0].count );
+        REQUIRE_EQ( 1U, result->schema_count );
+        CHECK_EQ( 2U, result->schemas[0].count );
         CHECK_EQ( 1, result->schemas[0].first->data[0] );
         CHECK_EQ( 0, result->schemas[0].first->next->data[0] );
 }
@@ -2157,13 +2157,13 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit" )
         asrt::stream_schema< uint8_t, uint32_t, bool > schema( client, 5, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
-        CHECK_EQ( 6u, decltype( schema )::emit_size );  // 1+4+1
+        CHECK_EQ( 6U, decltype( schema )::emit_size );  // 1+4+1
 
         schema.emit( 0xAB, 0x12345678, true, {} );
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         auto* rec = result->schemas[0].first;
         REQUIRE_NE( nullptr, rec );
         CHECK_EQ( 0xAB, rec->data[0] );
@@ -2185,8 +2185,8 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple emits streamed" )
         }
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
-        CHECK_EQ( 10u, result->schemas[0].count );
+        REQUIRE_EQ( 1U, result->schema_count );
+        CHECK_EQ( 10U, result->schemas[0].count );
 
         auto* rec = result->schemas[0].first;
         for ( uint8_t i = 0; i < 10; i++ ) {
@@ -2212,7 +2212,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multiple schemas on same client" 
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 2u, result->schema_count );
+        REQUIRE_EQ( 2U, result->schema_count );
         CHECK_EQ( 0, result->schemas[0].schema_id );
         CHECK_EQ( 1, result->schemas[1].schema_id );
         CHECK_EQ( 0xAA, result->schemas[0].first->data[0] );
@@ -2236,7 +2236,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp_server: clear" )
         asrt::clear( server );
 
         auto result = asrt::take( server );
-        CHECK_EQ( 0u, result->schema_count );
+        CHECK_EQ( 0U, result->schema_count );
 }
 
 // --- record done_cb tests ---
@@ -2258,7 +2258,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit done_cb fires via tick" )
         CHECK_EQ( ASRT_SUCCESS, cb_status );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         CHECK_EQ( 42, result->schemas[0].first->data[0] );
 }
 
@@ -2274,7 +2274,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit with null done_cb succeeds" )
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( client ), 0 ) );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         CHECK_EQ( 7, result->schemas[0].first->data[0] );
 }
 
@@ -2297,7 +2297,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: emit done_cb fires via tick" )
         CHECK_EQ( ASRT_SUCCESS, rec_st );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         CHECK_EQ( 55, result->schemas[0].first->data[0] );
 }
 
@@ -2316,7 +2316,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit done_cb" )
         CHECK_EQ( ASRT_SUCCESS, rec_st );
 
         auto result = asrt::take( server );
-        REQUIRE_EQ( 1u, result->schema_count );
+        REQUIRE_EQ( 1U, result->schema_count );
         auto* rec = result->schemas[0].first;
         CHECK_EQ( 0xAB, rec->data[0] );
         uint16_t val;

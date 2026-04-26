@@ -28,7 +28,7 @@ struct stream_schemas
         stream_schemas() = default;
 
         explicit stream_schemas( asrt_stream_schemas s )
-          : s_( s )
+          : _s( s )
         {
         }
 
@@ -36,29 +36,29 @@ struct stream_schemas
         stream_schemas& operator=( stream_schemas const& ) = delete;
 
         stream_schemas( stream_schemas&& o ) noexcept
-          : s_( o.s_ )
+          : _s( o._s )
         {
-                o.s_ = {};
+                o._s = {};
         }
 
         stream_schemas& operator=( stream_schemas&& o ) noexcept
         {
                 if ( this != &o ) {
-                        asrt_stream_schemas_free( &s_ );
-                        s_   = o.s_;
-                        o.s_ = {};
+                        asrt_stream_schemas_free( &_s );
+                        _s   = o._s;
+                        o._s = {};
                 }
                 return *this;
         }
 
-        ~stream_schemas() { asrt_stream_schemas_free( &s_ ); }
+        ~stream_schemas() { asrt_stream_schemas_free( &_s ); }
 
-        asrt_stream_schemas const* operator->() const { return &s_; }
+        asrt_stream_schemas const* operator->() const { return &_s; }
 
-        asrt_stream_schemas const& operator*() const { return s_; }
+        asrt_stream_schemas const& operator*() const { return _s; }
 
 private:
-        asrt_stream_schemas s_{};
+        asrt_stream_schemas _s{};
 };
 
 inline status init(

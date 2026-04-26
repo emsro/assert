@@ -29,24 +29,24 @@ struct real_fs : output_fs
 
         file_writer open_write( std::filesystem::path const& path ) override
         {
-                auto& f = streams_.emplace_back();
+                auto& f = _streams.emplace_back();
                 f.open( path, std::ios::out | std::ios::trunc );
                 return file_writer{ f, *this };
         }
 
         void close_write( std::ostream& os ) override
         {
-                for ( auto it = streams_.begin(); it != streams_.end(); ++it ) {
+                for ( auto it = _streams.begin(); it != _streams.end(); ++it ) {
                         if ( &*it == &os ) {
                                 it->close();
-                                streams_.erase( it );
+                                _streams.erase( it );
                                 return;
                         }
                 }
         }
 
 private:
-        std::list< std::ofstream > streams_;
+        std::list< std::ofstream > _streams;
 };
 
 }  // namespace asrtio

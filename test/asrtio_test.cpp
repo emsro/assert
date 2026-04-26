@@ -533,17 +533,17 @@ TEST_CASE( "param_tcp_e2e" )
 
         CHECK( done );
         CHECK( state.param_ready );
-        CHECK_EQ( 1u, state.root_id );
+        CHECK_EQ( 1U, state.root_id );
 
-        REQUIRE_GE( state.received.size(), 3u );
+        REQUIRE_GE( state.received.size(), 3U );
 
         // Root node: OBJECT
-        CHECK_EQ( 1u, state.received[0].id );
+        CHECK_EQ( 1U, state.received[0].id );
         CHECK_EQ( (uint8_t) ASRT_FLAT_CTYPE_OBJECT, (uint8_t) state.received[0].value.type );
 
         // First child "x": U32 = 42
         CHECK_EQ( "x", state.received[1].key );
-        CHECK_EQ( 42u, state.received[1].value.data.s.u32_val );
+        CHECK_EQ( 42U, state.received[1].value.data.s.u32_val );
 
         // Second child "y": STR = "hello"
         CHECK_EQ( "y", state.received[2].key );
@@ -587,7 +587,7 @@ TEST_CASE( "ftfj_bool_true" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( true ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
-        CHECK_EQ( 1u, r.value.data.s.bool_val );
+        CHECK_EQ( 1U, r.value.data.s.bool_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -600,7 +600,7 @@ TEST_CASE( "ftfj_bool_false" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( false ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
-        CHECK_EQ( 0u, r.value.data.s.bool_val );
+        CHECK_EQ( 0U, r.value.data.s.bool_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -613,7 +613,7 @@ TEST_CASE( "ftfj_positive_integer" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 42 ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
-        CHECK_EQ( 42u, r.value.data.s.u32_val );
+        CHECK_EQ( 42U, r.value.data.s.u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -636,10 +636,10 @@ TEST_CASE( "ftfj_unsigned_integer" )
         asrt_flat_tree tree;
         REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
         asrt::flat_id next_id = 1;
-        CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 0u ), next_id ) );
+        CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 0U ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
-        CHECK_EQ( 0u, r.value.data.s.u32_val );
+        CHECK_EQ( 0U, r.value.data.s.u32_val );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -678,8 +678,8 @@ TEST_CASE( "ftfj_empty_object" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json::object(), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_CTYPE_OBJECT, r.value.type );
-        CHECK_EQ( 0u, r.value.data.cont.first_child );
-        CHECK_EQ( 0u, r.value.data.cont.last_child );
+        CHECK_EQ( 0U, r.value.data.cont.first_child );
+        CHECK_EQ( 0U, r.value.data.cont.last_child );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -692,8 +692,8 @@ TEST_CASE( "ftfj_empty_array" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json::array(), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_CTYPE_ARRAY, r.value.type );
-        CHECK_EQ( 0u, r.value.data.cont.first_child );
-        CHECK_EQ( 0u, r.value.data.cont.last_child );
+        CHECK_EQ( 0U, r.value.data.cont.first_child );
+        CHECK_EQ( 0U, r.value.data.cont.last_child );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -711,8 +711,8 @@ TEST_CASE( "ftfj_simple_object" )
         // node 1 = root object
         auto root = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_CTYPE_OBJECT, root.value.type );
-        CHECK_EQ( 2u, root.value.data.cont.first_child );
-        CHECK_EQ( 3u, root.value.data.cont.last_child );
+        CHECK_EQ( 2U, root.value.data.cont.first_child );
+        CHECK_EQ( 3U, root.value.data.cont.last_child );
 
         // Walk children and verify keys + values
         auto                                            id = root.value.data.cont.first_child;
@@ -723,10 +723,10 @@ TEST_CASE( "ftfj_simple_object" )
                 children[r.key] = r;
                 id              = r.next_sibling;
         }
-        REQUIRE_EQ( 2u, children.size() );
+        REQUIRE_EQ( 2U, children.size() );
 
         CHECK_EQ( ASRT_FLAT_STYPE_U32, children["x"].value.type );
-        CHECK_EQ( 42u, children["x"].value.data.s.u32_val );
+        CHECK_EQ( 42U, children["x"].value.data.s.u32_val );
 
         CHECK_EQ( ASRT_FLAT_STYPE_STR, children["y"].value.type );
         CHECK( strcmp( children["y"].value.data.s.str_val, "hi" ) == 0 );
@@ -762,9 +762,9 @@ TEST_CASE( "ftfj_simple_array" )
                 count++;
         }
         REQUIRE_EQ( 3, count );
-        CHECK_EQ( 10u, vals[0] );
-        CHECK_EQ( 20u, vals[1] );
-        CHECK_EQ( 30u, vals[2] );
+        CHECK_EQ( 10U, vals[0] );
+        CHECK_EQ( 20U, vals[1] );
+        CHECK_EQ( 30U, vals[2] );
 
         asrt_flat_tree_deinit( &tree );
 }
@@ -794,7 +794,7 @@ TEST_CASE( "ftfj_nested_object" )
         auto b = query( tree, 3 );
         CHECK( strcmp( b.key, "b" ) == 0 );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, b.value.type );
-        CHECK_EQ( 1u, b.value.data.s.u32_val );
+        CHECK_EQ( 1U, b.value.data.s.u32_val );
 
         // "c" is array at ID 4
         auto c = query( tree, 4 );
@@ -804,10 +804,10 @@ TEST_CASE( "ftfj_nested_object" )
         // array elements: true at 5, false at 6
         auto t_node = query( tree, 5 );
         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, t_node.value.type );
-        CHECK_EQ( 1u, t_node.value.data.s.bool_val );
+        CHECK_EQ( 1U, t_node.value.data.s.bool_val );
         auto f_node = query( tree, 6 );
         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, f_node.value.type );
-        CHECK_EQ( 0u, f_node.value.data.s.bool_val );
+        CHECK_EQ( 0U, f_node.value.data.s.bool_val );
 
         asrt_flat_tree_deinit( &tree );
 }
@@ -836,13 +836,13 @@ TEST_CASE( "ftfj_mixed_types" )
                         CHECK_EQ( ASRT_FLAT_STYPE_NULL, r.value.type );
                 else if ( strcmp( r.key, "b" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
-                        CHECK_EQ( 1u, r.value.data.s.bool_val );
+                        CHECK_EQ( 1U, r.value.data.s.bool_val );
                 } else if ( strcmp( r.key, "i" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_I32, r.value.type );
                         CHECK_EQ( -3, r.value.data.s.i32_val );
                 } else if ( strcmp( r.key, "u" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_U32, r.value.type );
-                        CHECK_EQ( 100u, r.value.data.s.u32_val );
+                        CHECK_EQ( 100U, r.value.data.s.u32_val );
                 } else if ( strcmp( r.key, "f" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_FLOAT, r.value.type );
                         CHECK( r.value.data.s.float_val == doctest::Approx( 1.5f ) );
@@ -884,7 +884,7 @@ TEST_CASE( "ftfj_deeply_nested" )
         auto c = query( tree, 4 );
         CHECK( strcmp( c.key, "c" ) == 0 );
         CHECK_EQ( ASRT_FLAT_STYPE_U32, c.value.type );
-        CHECK_EQ( 42u, c.value.data.s.u32_val );
+        CHECK_EQ( 42U, c.value.data.s.u32_val );
 
         asrt_flat_tree_deinit( &tree );
 }
@@ -1076,7 +1076,7 @@ TEST_CASE( "fttj_positive_integer" )
 
         nlohmann::json out;
         CHECK( asrtio::flat_tree_to_json( tree, out ) );
-        CHECK_EQ( 42u, out.get< uint32_t >() );
+        CHECK_EQ( 42U, out.get< uint32_t >() );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1170,8 +1170,8 @@ TEST_CASE( "fttj_simple_object" )
         nlohmann::json out;
         CHECK( asrtio::flat_tree_to_json( tree, out ) );
         CHECK( out.is_object() );
-        CHECK_EQ( 2u, out.size() );
-        CHECK_EQ( 42u, out["x"].get< uint32_t >() );
+        CHECK_EQ( 2U, out.size() );
+        CHECK_EQ( 42U, out["x"].get< uint32_t >() );
         CHECK_EQ( "hi", out["y"].get< std::string >() );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1189,10 +1189,10 @@ TEST_CASE( "fttj_simple_array" )
         nlohmann::json out;
         CHECK( asrtio::flat_tree_to_json( tree, out ) );
         CHECK( out.is_array() );
-        REQUIRE_EQ( 3u, out.size() );
-        CHECK_EQ( 10u, out[0].get< uint32_t >() );
-        CHECK_EQ( 20u, out[1].get< uint32_t >() );
-        CHECK_EQ( 30u, out[2].get< uint32_t >() );
+        REQUIRE_EQ( 3U, out.size() );
+        CHECK_EQ( 10U, out[0].get< uint32_t >() );
+        CHECK_EQ( 20U, out[1].get< uint32_t >() );
+        CHECK_EQ( 30U, out[2].get< uint32_t >() );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1228,7 +1228,7 @@ TEST_CASE( "fttj_mixed_types" )
         CHECK( out["n"].is_null() );
         CHECK_EQ( true, out["b"].get< bool >() );
         CHECK_EQ( -5, out["i"].get< int32_t >() );
-        CHECK_EQ( 100u, out["u"].get< uint32_t >() );
+        CHECK_EQ( 100U, out["u"].get< uint32_t >() );
         CHECK_EQ( doctest::Approx( 1.5f ), out["f"].get< float >() );
         CHECK_EQ( "abc", out["s"].get< std::string >() );
         asrt_flat_tree_deinit( &tree );
@@ -1273,9 +1273,9 @@ TEST_CASE( "pc_runs_for_listed_test" )
 
         auto rv = cfg.runs_for( "test_a" );
         CHECK_FALSE( rv.skip );
-        REQUIRE_EQ( 2u, rv.roots.size() );
-        CHECK_EQ( 1u, rv.roots[0] );
-        CHECK_EQ( 3u, rv.roots[1] );
+        REQUIRE_EQ( 2U, rv.roots.size() );
+        CHECK_EQ( 1U, rv.roots[0] );
+        CHECK_EQ( 3U, rv.roots[1] );
 }
 
 TEST_CASE( "pc_runs_for_empty_array_skips" )
@@ -1295,9 +1295,9 @@ TEST_CASE( "pc_runs_for_unlisted_with_wildcard" )
 
         auto rv = cfg.runs_for( "unknown_test" );
         CHECK_FALSE( rv.skip );
-        REQUIRE_EQ( 2u, rv.roots.size() );
-        CHECK_EQ( 5u, rv.roots[0] );
-        CHECK_EQ( 7u, rv.roots[1] );
+        REQUIRE_EQ( 2U, rv.roots.size() );
+        CHECK_EQ( 5U, rv.roots[0] );
+        CHECK_EQ( 7U, rv.roots[1] );
 }
 
 TEST_CASE( "pc_runs_for_unlisted_no_wildcard" )
@@ -1306,8 +1306,8 @@ TEST_CASE( "pc_runs_for_unlisted_no_wildcard" )
 
         auto rv = cfg.runs_for( "unknown_test" );
         CHECK_FALSE( rv.skip );
-        REQUIRE_EQ( 1u, rv.roots.size() );
-        CHECK_EQ( 0u, rv.roots[0] );
+        REQUIRE_EQ( 1U, rv.roots.size() );
+        CHECK_EQ( 0U, rv.roots[0] );
 }
 
 TEST_CASE( "pc_runs_for_listed_overrides_wildcard" )
@@ -1318,8 +1318,8 @@ TEST_CASE( "pc_runs_for_listed_overrides_wildcard" )
 
         auto rv = cfg.runs_for( "test_a" );
         CHECK_FALSE( rv.skip );
-        REQUIRE_EQ( 1u, rv.roots.size() );
-        CHECK_EQ( 10u, rv.roots[0] );
+        REQUIRE_EQ( 1U, rv.roots.size() );
+        CHECK_EQ( 10U, rv.roots[0] );
 }
 
 // --- param_config_from_json() tests ---
@@ -1338,24 +1338,24 @@ TEST_CASE( "pcfj_multi_test_round_trip" )
         auto& cfg = *opt;
 
         // test_a has 2 runs
-        REQUIRE_EQ( 2u, cfg.tests.at( "test_a" ).size() );
+        REQUIRE_EQ( 2U, cfg.tests.at( "test_a" ).size() );
 
         // test_b has 1 run
-        REQUIRE_EQ( 1u, cfg.tests.at( "test_b" ).size() );
+        REQUIRE_EQ( 1U, cfg.tests.at( "test_b" ).size() );
 
         // round-trip test_a first run
         nlohmann::json out;
-        CHECK( asrtio::_flat_tree_to_json_impl( cfg.tree, cfg.tests.at( "test_a" )[0], out ) );
+        CHECK( asrtio::flat_tree_to_json( cfg.tree, cfg.tests.at( "test_a" )[0], out ) );
         CHECK_EQ( 1, out["x"].get< int >() );
 
         // round-trip test_a second run
         nlohmann::json out2;
-        CHECK( asrtio::_flat_tree_to_json_impl( cfg.tree, cfg.tests.at( "test_a" )[1], out2 ) );
+        CHECK( asrtio::flat_tree_to_json( cfg.tree, cfg.tests.at( "test_a" )[1], out2 ) );
         CHECK_EQ( 2, out2["x"].get< int >() );
 
         // round-trip test_b
         nlohmann::json out3;
-        CHECK( asrtio::_flat_tree_to_json_impl( cfg.tree, cfg.tests.at( "test_b" )[0], out3 ) );
+        CHECK( asrtio::flat_tree_to_json( cfg.tree, cfg.tests.at( "test_b" )[0], out3 ) );
         CHECK_EQ( true, out3["y"].get< bool >() );
 }
 
@@ -1369,10 +1369,10 @@ TEST_CASE( "pcfj_bare_object_shorthand" )
         REQUIRE( opt );
         auto& cfg = *opt;
 
-        REQUIRE_EQ( 1u, cfg.tests.at( "test_a" ).size() );
+        REQUIRE_EQ( 1U, cfg.tests.at( "test_a" ).size() );
 
         nlohmann::json out;
-        CHECK( asrtio::_flat_tree_to_json_impl( cfg.tree, cfg.tests.at( "test_a" )[0], out ) );
+        CHECK( asrtio::flat_tree_to_json( cfg.tree, cfg.tests.at( "test_a" )[0], out ) );
         CHECK_EQ( 42, out["val"].get< int >() );
 }
 
@@ -1387,10 +1387,10 @@ TEST_CASE( "pcfj_wildcard" )
         auto& cfg = *opt;
 
         CHECK( cfg.tests.empty() );
-        REQUIRE_EQ( 1u, cfg.wildcard.size() );
+        REQUIRE_EQ( 1U, cfg.wildcard.size() );
 
         nlohmann::json out;
-        CHECK( asrtio::_flat_tree_to_json_impl( cfg.tree, cfg.wildcard[0], out ) );
+        CHECK( asrtio::flat_tree_to_json( cfg.tree, cfg.wildcard[0], out ) );
         CHECK_EQ( 10, out["p"].get< int >() );
 }
 
@@ -1438,7 +1438,7 @@ TEST_CASE( "pcfs_load_valid" )
         REQUIRE( opt );
         auto rv = opt->runs_for( "test_a" );
         CHECK_FALSE( rv.skip );
-        REQUIRE_EQ( 1u, rv.roots.size() );
+        REQUIRE_EQ( 1U, rv.roots.size() );
 }
 
 TEST_CASE( "pcfs_invalid_json" )
@@ -1528,14 +1528,14 @@ TEST_CASE( "suite_param_multi_run" )
         for ( size_t i = 0; i < r.reporter.done_names.size(); ++i )
                 if ( r.reporter.done_names[i] == "demo_pass" )
                         ip_indices.push_back( i );
-        REQUIRE_EQ( 2u, ip_indices.size() );
+        REQUIRE_EQ( 2U, ip_indices.size() );
         // They should be consecutive
         CHECK_EQ( ip_indices[0] + 1, ip_indices[1] );
         // run_idx should be 1 and 2, run_total should be 2
-        CHECK_EQ( 1u, r.reporter.done_run_idx[ip_indices[0]] );
-        CHECK_EQ( 2u, r.reporter.done_run_total[ip_indices[0]] );
-        CHECK_EQ( 2u, r.reporter.done_run_idx[ip_indices[1]] );
-        CHECK_EQ( 2u, r.reporter.done_run_total[ip_indices[1]] );
+        CHECK_EQ( 1U, r.reporter.done_run_idx[ip_indices[0]] );
+        CHECK_EQ( 2U, r.reporter.done_run_total[ip_indices[0]] );
+        CHECK_EQ( 2U, r.reporter.done_run_idx[ip_indices[1]] );
+        CHECK_EQ( 2U, r.reporter.done_run_total[ip_indices[1]] );
 }
 
 TEST_CASE( "suite_param_skip" )
@@ -1581,13 +1581,13 @@ TEST_CASE( "suite_param_wildcard" )
         for ( auto const& name : r.reporter.done_names )
                 if ( name == "demo_pass" )
                         ++ip_count;
-        CHECK_EQ( 2u, ip_count );
+        CHECK_EQ( 2U, ip_count );
 
         // Each wildcard test gets [1/1]
         for ( size_t i = 0; i < r.reporter.done_names.size(); ++i ) {
                 if ( r.reporter.done_names[i] != "demo_pass" ) {
-                        CHECK_EQ( 1u, r.reporter.done_run_idx[i] );
-                        CHECK_EQ( 1u, r.reporter.done_run_total[i] );
+                        CHECK_EQ( 1U, r.reporter.done_run_idx[i] );
+                        CHECK_EQ( 1U, r.reporter.done_run_total[i] );
                 }
         }
 }
@@ -1653,7 +1653,7 @@ static asrtio::task< void > suite_output_coro(
     stub_fs&                    sfs,
     std::shared_ptr< uv_tcp_t > client )
 {
-        auto rs = arena.make< asrtio::rsim_ctx >( loop, 42u );
+        auto rs = arena.make< asrtio::rsim_ctx >( loop, 42U );
         REQUIRE( rs->start() == ASRT_SUCCESS );
         co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );

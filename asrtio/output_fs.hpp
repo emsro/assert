@@ -23,27 +23,27 @@ struct output_fs;
 struct file_writer
 {
         file_writer( std::ostream& os, output_fs& fs )
-          : os_( &os )
-          , fs_( &fs )
+          : _os( &os )
+          , _fs( &fs )
         {
         }
 
         file_writer( file_writer&& o ) noexcept
-          : os_( std::exchange( o.os_, nullptr ) )
-          , fs_( std::exchange( o.fs_, nullptr ) )
+          : _os( std::exchange( o._os, nullptr ) )
+          , _fs( std::exchange( o._fs, nullptr ) )
         {
         }
 
         file_writer& operator=( file_writer&& ) = delete;
         file_writer( file_writer const& )       = delete;
 
-        std::ostream& stream() { return *os_; }
+        std::ostream& stream() { return *_os; }
 
         ~file_writer();
 
 private:
-        std::ostream* os_;
-        output_fs*    fs_;
+        std::ostream* _os;
+        output_fs*    _fs;
 };
 
 struct output_fs
@@ -65,8 +65,8 @@ struct output_fs
 
 inline file_writer::~file_writer()
 {
-        if ( fs_ )
-                fs_->close_write( *os_ );
+        if ( _fs )
+                _fs->close_write( *_os );
 }
 
 /// No-op output_fs — all operations succeed but produce no output.
@@ -76,7 +76,7 @@ struct null_fs : output_fs
 
         file_writer open_write( std::filesystem::path const& ) override
         {
-                return file_writer{ sink_, *this };
+                return file_writer{ _sink, *this };
         }
 
         void close_write( std::ostream& ) override {}
@@ -87,8 +87,8 @@ private:
                 int_type overflow( int_type c ) override { return c; }
         };
 
-        null_buf     buf_;
-        std::ostream sink_{ &buf_ };
+        null_buf     _buf;
+        std::ostream _sink{ &_buf };
 };
 
 }  // namespace asrtio

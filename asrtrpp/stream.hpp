@@ -150,10 +150,10 @@ struct stream_schema
             ref< asrt_stream_client >       client,
             uint8_t                         schema_id,
             callback< asrt_stream_done_cb > done_cb )
-          : client_( client )
-          , schema_id_( schema_id )
+          : _client( client )
+          , _schema_id( schema_id )
         {
-                auto s = define( client_, schema_id_, fields_, sizeof...( Ts ), done_cb );
+                auto s = define( _client, _schema_id, fields, sizeof...( Ts ), done_cb );
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrt_stream_schema", "define failed" );
                         ASRT_ASSERT( false );
@@ -161,8 +161,8 @@ struct stream_schema
         }
 
         stream_schema( ref< asrt_stream_client > c, uint8_t id )
-          : client_( c )
-          , schema_id_( id )
+          : _client( c )
+          , _schema_id( id )
         {
         }
 
@@ -171,17 +171,17 @@ struct stream_schema
         stream_schema& operator=( stream_schema const& ) = delete;
 
         stream_schema( stream_schema&& o ) noexcept
-          : client_( o.client_ )
-          , schema_id_( o.schema_id_ )
+          : _client( o._client )
+          , _schema_id( o._schema_id )
         {
-                o.client_ = nullptr;
+                o._client = nullptr;
         }
 
         stream_schema& operator=( stream_schema&& o ) noexcept
         {
-                client_    = o.client_;
-                schema_id_ = o.schema_id_;
-                o.client_  = nullptr;
+                _client    = o._client;
+                _schema_id = o._schema_id;
+                o._client  = nullptr;
                 return *this;
         }
 
@@ -190,22 +190,21 @@ struct stream_schema
                 uint8_t  buf[emit_size];
                 uint8_t* p = buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
-                return asrt::emit( client_, schema_id_, buf, emit_size, done_cb );
+                return asrt::emit( _client, _schema_id, buf, emit_size, done_cb );
         }
 
         status emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
         {
-                return asrt::emit( client_, schema_id_, buf, emit_size, done_cb );
+                return asrt::emit( _client, _schema_id, buf, emit_size, done_cb );
         }
 
         ~stream_schema() = default;
 
-        static constexpr enum asrt_strm_field_type_e fields_[] = {
-            strm_field_traits< Ts >::tag... };
+        static constexpr enum asrt_strm_field_type_e fields[] = { strm_field_traits< Ts >::tag... };
 
 private:
-        asrt_stream_client* client_;
-        uint8_t             schema_id_;
+        asrt_stream_client* _client;
+        uint8_t             _schema_id;
 };
 
 }  // namespace asrt

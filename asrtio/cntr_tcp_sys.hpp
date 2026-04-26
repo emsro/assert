@@ -40,11 +40,11 @@ struct cntr_tcp_sys
 {
 
         cntr_tcp_sys( std::shared_ptr< uv_tcp_t > client, clock const& clk )
-          : client( client )
-          , clk_( clk )
+          : _client( client )
+          , _clk( clk )
         {
                 std::ignore = asrt_cntr_assm_init(
-                    &asm_, asrt_sender{ .ptr = this, .cb = send_cb }, asrt_default_allocator() );
+                    &_asm, asrt_sender{ .ptr = this, .cb = send_cb }, asrt_default_allocator() );
         }
 
         static asrt_status send_cb(
@@ -55,38 +55,38 @@ struct cntr_tcp_sys
             void*             done_ptr )
         {
                 auto* sys = static_cast< cntr_tcp_sys* >( ptr );
-                if ( sys->disconnected_ ) {
+                if ( sys->_disconnected ) {
                         if ( done_cb )
                                 done_cb( done_ptr, ASRT_SEND_ERR );
                         return ASRT_SEND_ERR;
                 }
-                auto st = sys->rx.write( (uv_stream_t*) sys->client.get(), id, *buff );
+                auto st = sys->_rx.write( (uv_stream_t*) sys->_client.get(), id, *buff );
                 if ( done_cb )
                         done_cb( done_ptr, st );
                 return st;
         }
 
-        auto take_diag_record() { return asrt_diag_server_take_record( &asm_.diag ); }
+        auto take_diag_record() { return asrt_diag_server_take_record( &_asm.diag ); }
 
-        clock const& clk() const { return clk_; }
+        clock const& clk() const { return _clk; }
 
         void tick()
         {
-                auto now = static_cast< uint32_t >( clk_.now().count() );
-                asrt_cntr_assm_tick( &asm_, now );
+                auto now = static_cast< uint32_t >( _clk.now().count() );
+                asrt_cntr_assm_tick( &_asm, now );
         }
 
 
         void start()
         {
-                uv_idle_init( client->loop, &idle_handle );
-                idle_handle.data = this;
-                uv_idle_start( &idle_handle, []( uv_idle_t* h ) {
+                uv_idle_init( _client->loop, &_idle_handle );
+                _idle_handle.data = this;
+                uv_idle_start( &_idle_handle, []( uv_idle_t* h ) {
                         static_cast< cntr_tcp_sys* >( h->data )->tick();
                 } );
-                rx.start(
-                    (uv_stream_t*) client.get(),
-                    &asm_.cntr.node,
+                _rx.start(
+                    (uv_stream_t*) _client.get(),
+                    &_asm.cntr.node,
                     "asrtio_cntr",
                     [this]( ssize_t nread ) {
                             if ( nread == UV_EOF )
@@ -105,42 +105,42 @@ struct cntr_tcp_sys
 
         void disconnect()
         {
-                if ( disconnected_ )
+                if ( _disconnected )
                         return;
-                disconnected_ = true;
-                uv_close( (uv_handle_t*) client.get(), nullptr );
+                _disconnected = true;
+                uv_close( (uv_handle_t*) _client.get(), nullptr );
         }
 
-        asrt_controller& cntr() { return asm_.cntr; }
+        asrt_controller& cntr() { return _asm.cntr; }
 
         asrt::stream_schemas stream_take()
         {
-                return asrt::stream_schemas{ asrt_stream_server_take( &asm_.stream ) };
+                return asrt::stream_schemas{ asrt_stream_server_take( &_asm.stream ) };
         }
 
-        asrt_flat_tree const* collect_tree() { return asrt_collect_server_tree( &asm_.collect ); }
+        asrt_flat_tree const* collect_tree() { return asrt_collect_server_tree( &_asm.collect ); }
 
-        asrt_cntr_assm& assembly() { return asm_; }
+        asrt_cntr_assm& assembly() { return _asm; }
 
         friend task< void > async_destroy( task_ctx&, cntr_tcp_sys& );
 
 private:
-        bool                        disconnected_ = false;
-        uv_idle_t                   idle_handle;
-        std::shared_ptr< uv_tcp_t > client;
-        clock const&                clk_;
-        asrt_cntr_assm              asm_;
+        bool                        _disconnected = false;
+        uv_idle_t                   _idle_handle;
+        std::shared_ptr< uv_tcp_t > _client;
+        clock const&                _clk;
+        asrt_cntr_assm _asm;
 
-        cobs_node rx;
+        cobs_node _rx;
 };
 
 inline task< void > async_destroy( task_ctx&, cntr_tcp_sys& sys )
 {
-        uv_idle_stop( &sys.idle_handle );
-        asrt_cntr_assm_deinit( &sys.asm_ );
-        co_await uv_close_handle{ (uv_handle_t*) &sys.idle_handle };
-        if ( !sys.disconnected_ )
-                co_await uv_close_handle{ (uv_handle_t*) sys.client.get() };
+        uv_idle_stop( &sys._idle_handle );
+        asrt_cntr_assm_deinit( &sys._asm );
+        co_await uv_close_handle{ (uv_handle_t*) &sys._idle_handle };
+        if ( !sys._disconnected )
+                co_await uv_close_handle{ (uv_handle_t*) sys._client.get() };
 }
 
 
@@ -180,12 +180,12 @@ struct _cntr_assembly_exec_test
 
         _cntr_assembly_exec_test(
             cntr_tcp_sys&             s,
-            uint16_t                  tid_,
+            uint16_t                  tid,
             asrt_flat_tree const*     t,
             asrt_flat_id              rid,
             std::chrono::milliseconds to )
           : sys( s )
-          , tid( tid_ )
+          , tid( tid )
           , tree( t )
           , root_id( rid )
           , timeout( to )
@@ -202,16 +202,16 @@ struct _cntr_assembly_exec_test
                     tid,
                     static_cast< uint32_t >( timeout.count() ),
                     +[]( void* p, asrt_status s, asrt_result* res ) -> asrt_status {
-                            auto* op_ = static_cast< OP* >( p );
+                            auto* op = static_cast< OP* >( p );
                             if ( s != ASRT_SUCCESS ) {
                                     ASRT_ERR_LOG(
                                         "asrtio_main",
                                         "Assembly exec_test failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op_->recv.set_error( s );
+                                    op->recv.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op_->recv.set_value( *res );
+                            op->recv.set_value( *res );
                             return ASRT_SUCCESS;
                     },
                     &op );
@@ -354,7 +354,7 @@ inline void handle_diag(
                 w.emplace( fs.open_write( path ) );
                 w->stream() << "file,line,extra\n";
         }
-        while ( auto rec = sys.take_diag_record() ) {
+        while ( auto* rec = sys.take_diag_record() ) {
                 char const* extra = rec->extra ? rec->extra : "";
                 reporter.on_diagnostic( rec->file, rec->line, extra );
                 if ( w )

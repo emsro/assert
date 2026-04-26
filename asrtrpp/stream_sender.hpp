@@ -27,14 +27,14 @@ struct stream_define_sender
             ecor::set_value_t( stream_schema< Ts... > ),
             ecor::set_error_t( status ) >;
 
-        asrt_stream_client* client_;
-        uint8_t             schema_id_;
+        asrt_stream_client* client;
+        uint8_t             schema_id;
 
         template < ecor::receiver R >
         struct op
         {
-                asrt_stream_client* client_;
-                uint8_t             schema_id_;
+                asrt_stream_client* client;
+                uint8_t             schema_id;
                 R                   recv;
 
                 void start()
@@ -42,15 +42,15 @@ struct stream_define_sender
                         auto cb = +[]( void* ptr, enum asrt_status status ) {
                                 auto& self = *static_cast< op* >( ptr );
                                 if ( status == ASRT_SUCCESS )
-                                        self.recv.set_value( stream_schema< Ts... >{
-                                            self.client_, self.schema_id_ } );
+                                        self.recv.set_value(
+                                            stream_schema< Ts... >{ self.client, self.schema_id } );
                                 else
                                         self.recv.set_error( status );
                         };
                         auto s = define(
-                            *client_,
-                            schema_id_,
-                            stream_schema< Ts... >::fields_,
+                            *client,
+                            schema_id,
+                            stream_schema< Ts... >::fields,
                             sizeof...( Ts ),
                             { cb, this } );
                         if ( s != ASRT_SUCCESS )
@@ -61,7 +61,7 @@ struct stream_define_sender
         template < ecor::receiver R >
         auto connect( R&& r ) && noexcept
         {
-                return op< R >{ client_, schema_id_, (R&&) r };
+                return op< R >{ client, schema_id, (R&&) r };
         }
 };
 
@@ -83,14 +83,14 @@ struct stream_emit_sender
         using completion_signatures =
             ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
 
-        stream_schema< Ts... >* schema_;
-        uint8_t                 buf_[stream_schema< Ts... >::emit_size];
+        stream_schema< Ts... >* schema;
+        uint8_t                 buf[stream_schema< Ts... >::emit_size];
 
         template < ecor::receiver R >
         struct op
         {
-                stream_schema< Ts... >* schema_;
-                uint8_t                 buf_[stream_schema< Ts... >::emit_size];
+                stream_schema< Ts... >* schema;
+                uint8_t                 buf[stream_schema< Ts... >::emit_size];
                 R                       recv;
 
                 void start()
@@ -102,7 +102,7 @@ struct stream_emit_sender
                                 else
                                         self.recv.set_error( status );
                         };
-                        auto st = schema_->emit_raw( buf_, { cb, this } );
+                        auto st = schema->emit_raw( buf, { cb, this } );
                         if ( st != ASRT_SUCCESS )
                                 recv.set_error( st );
                 }
@@ -111,8 +111,8 @@ struct stream_emit_sender
         template < ecor::receiver R >
         auto connect( R&& r ) && noexcept
         {
-                op< R > o{ schema_, {}, (R&&) r };
-                std::memcpy( o.buf_, buf_, sizeof( buf_ ) );
+                op< R > o{ schema, {}, (R&&) r };
+                std::memcpy( o.buf, buf, sizeof( buf ) );
                 return o;
         }
 };
@@ -123,7 +123,7 @@ template < typename... Ts >
 ecor::sender auto emit( stream_schema< Ts... >& schema, Ts... args )
 {
         stream_emit_sender< Ts... > s{ &schema, {} };
-        uint8_t*                    p = s.buf_;
+        uint8_t*                    p = s.buf;
         ( strm_field_traits< Ts >::encode( p, args ), ... );
         return s;
 }
