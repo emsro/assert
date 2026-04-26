@@ -20,9 +20,9 @@ extern "C" {
 typedef enum asrt_status ( *asrt_init_callback )( void* ptr, enum asrt_status s );
 typedef enum asrt_status (
     *asrt_test_count_callback )( void* ptr, enum asrt_status s, uint16_t test_count );
-typedef enum asrt_status ( *asrt_desc_callback )( void* ptr, enum asrt_status s, char* desc );
+typedef enum asrt_status ( *asrt_desc_callback )( void* ptr, enum asrt_status s, char const* desc );
 typedef enum asrt_status (
-    *asrt_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char* desc );
+    *asrt_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char const* desc );
 typedef enum asrt_status (
     *asrt_test_result_callback )( void* ptr, enum asrt_status s, struct asrt_result* res );
 

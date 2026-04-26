@@ -1,11 +1,12 @@
 ---
 Checks: >
-  bugprone*,-bugprone-easily-swappable-parameters,-bugprone-tagged-union-member-count,
+  bugprone*,-bugprone-easily-swappable-parameters,-bugprone-tagged-union-member-count,-bugprone-exception-escape,
   linuxkernel*,
-  misc*,-misc-include-cleaner,-misc-non-private-member-variables-in-classes,-misc-const-correctness,
-  portability*,
-  readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements,-readability-avoid-nested-conditional-operator,-readability-math-missing-parentheses,
-  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+  misc*,-misc-include-cleaner,-misc-non-private-member-variables-in-classes,-misc-const-correctness,-misc-use-anonymous-namespace,-misc-no-recursion,
+  portability*,-portability-avoid-pragma-once,
+  readability*,-readability-identifier-length,-readability-isolate-declaration,-readability-magic-numbers,-readability-braces-around-statements,-readability-avoid-nested-conditional-operator,-readability-math-missing-parentheses,-readability-named-parameter,-readability-implicit-bool-conversion,-readability-convert-member-functions-to-static,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-core.uninitialized.Branch
 WarningsAsErrors: ""
 HeaderFileExtensions:
   - h
@@ -19,16 +20,16 @@ CheckOptions:
   readability-identifier-naming.GetConfigPerFile: true
   readability-identifier-naming.EnumCase: lower_case
   readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.StructIgnoredRegexp: "^_.*$"
   readability-identifier-naming.VariableCase: lower_case
   readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberPrefix: ""
+  readability-identifier-naming.PrivateMemberPrefix: _
   readability-identifier-naming.ParameterCase: lower_case
   readability-identifier-naming.FunctionCase: lower_case
   readability-identifier-naming.LocalConstantCase: lower_case
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
-  readability-identifier-naming.EnumPrefix: asrt_
-  readability-identifier-naming.TypedefPrefix: asrt_
-  readability-identifier-naming.StructPrefix: asrt_
-  readability-identifier-naming.FunctionPrefix: asrt_
-  readability-identifier-naming.MacroPrefix: ASRT_
+  readability-function-cognitive-complexity.IgnoreMacros: true
+  readability-function-cognitive-complexity.Threshold: 30
 SystemHeaders: false
 ...

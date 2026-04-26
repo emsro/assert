@@ -32,22 +32,22 @@ struct collector
         std::deque< collected_data > data;
 };
 
-static void assert_data_ll_contain_str(
+static inline void assert_data_ll_contain_str(
     char const*            expected,
     struct collected_data& node,
     uint32_t               offset )
 {
         CHECK( expected );
-        int32_t node_n = node.data.size() - offset;
-        int32_t n      = strlen( expected );
+        uint32_t node_n = node.data.size() - offset;
+        uint32_t n      = strlen( expected );
         CHECK_EQ( node_n, n );
 
-        for ( int i = 0; i < n; i++ )
+        for ( uint32_t i = 0; i < n; i++ )
                 CHECK_EQ( expected[i], node.data[i + offset] );
 }
 
 
-static enum asrt_status sender_collect(
+static inline enum asrt_status sender_collect(
     void*                 data,
     asrt_chann_id         id,
     struct asrt_rec_span* buff,
@@ -77,7 +77,7 @@ static enum asrt_status sender_collect(
         return ASRT_SUCCESS;
 }
 
-static void setup_sender_collector( struct asrt_sender* s, collector* ptr )
+static inline void setup_sender_collector( struct asrt_sender* s, collector* ptr )
 {
         *s = ( struct asrt_sender ){
             .ptr = (void*) ptr,
@@ -86,7 +86,7 @@ static void setup_sender_collector( struct asrt_sender* s, collector* ptr )
 }
 
 
-void assert_collected_core_hdr(
+inline void assert_collected_core_hdr(
     struct collected_data& collected,
     uint32_t               size,
     enum asrt_message_id_e mid )
@@ -97,7 +97,9 @@ void assert_collected_core_hdr(
         CHECK_EQ( size, collected.data.size() );
 }
 
-void assert_collected_diag_hdr( struct collected_data& collected, enum asrt_diag_message_id_e type )
+inline void assert_collected_diag_hdr(
+    struct collected_data&      collected,
+    enum asrt_diag_message_id_e type )
 {
         REQUIRE_NE( &collected, nullptr );
         CHECK_EQ( ASRT_DIAG, collected.id );

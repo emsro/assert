@@ -24,9 +24,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
 
-TEST_CASE( "reactor_init" )
+
+    TEST_CASE( "reactor_init" )
 {
         uint8_t       data[3] = { 0x33, 0x66, 0x99 };
         uint8_t*      p       = data;
@@ -136,7 +137,7 @@ struct cobs_record
         std::unique_ptr< cobs_record > next;
 };
 
-void cobs_record_append(
+static void cobs_record_append(
     std::unique_ptr< cobs_record >& head,
     uint8_t const*                  raw,
     uint32_t                        raw_size,
@@ -174,7 +175,7 @@ void cobs_record_append(
             0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD,   \
             0xFE
 
-std::unique_ptr< cobs_record > create_dataset( void )
+static std::unique_ptr< cobs_record > create_dataset( void )
 {
         std::unique_ptr< cobs_record > head = nullptr;
         {
@@ -605,9 +606,7 @@ static enum asrt_status test_channel_recv_cb( void* ptr, enum asrt_event_e event
                 return ASRT_RECV_INTERNAL_ERR;
 
         struct test_msg_record* rec = &ctx->messages[ctx->msg_count++];
-        rec->size                   = buff.e - buff.b;
-        if ( rec->size > sizeof( rec->data ) )
-                rec->size = sizeof( rec->data );
+        rec->size                   = std::min( buff.e - buff.b, (long) sizeof( rec->data ) );
         memcpy( rec->data, buff.b, rec->size );
 
         return ctx->return_status;
@@ -1523,11 +1522,11 @@ TEST_CASE( "flat_tree_query_float_value" )
         REQUIRE_EQ(
             ASRT_SUCCESS,
             asrt_flat_tree_append_scalar(
-                &tree, 1, 2, "pi", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14f } ) );
+                &tree, 1, 2, "pi", ASRT_FLAT_STYPE_FLOAT, { .float_val = 3.14F } ) );
         struct asrt_flat_query_result r;
         REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_query( &tree, 2, &r ) );
         CHECK_EQ( ASRT_FLAT_STYPE_FLOAT, r.value.type );
-        CHECK( r.value.data.s.float_val == doctest::Approx( 3.14f ) );
+        CHECK( r.value.data.s.float_val == doctest::Approx( 3.14F ) );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -2105,14 +2104,14 @@ TEST_CASE( "flat_tree_find_by_key_leaf_parent" )
 // ============================================================================
 
 // Captures a single asrt_rec_span chain into a flat byte vector.
-struct ParamCapture
+struct param_capture
 {
         uint8_t  buf[512];
         uint32_t len = 0;
 
         static enum asrt_status cb( void* ptr, struct asrt_rec_span* sp )
         {
-                auto* self = static_cast< ParamCapture* >( ptr );
+                auto* self = static_cast< param_capture* >( ptr );
                 for ( ; sp; sp = sp->next ) {
                         size_t n = (size_t) ( sp->e - sp->b );
                         memcpy( self->buf + self->len, sp->b, n );

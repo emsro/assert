@@ -29,7 +29,7 @@ ASRT_DEFINE_GPOS_LOG()
 //---------------------------------------------------------------------
 // lib
 
-void setup_test(
+static void setup_test(
     struct asrt_reactor* r,
     struct asrt_test*    t,
     char const*          name,
@@ -44,13 +44,16 @@ void setup_test(
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_reactor_init( struct asrt_reactor* reac, struct asrt_sender sender, char const* desc )
+static void check_reactor_init(
+    struct asrt_reactor* reac,
+    struct asrt_sender   sender,
+    char const*          desc )
 {
         enum asrt_status st = asrt_reactor_init( reac, sender, desc );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_diag_init(
+static void check_diag_init(
     struct asrt_diag_client* diag,
     struct asrt_node*        prev,
     struct asrt_sender       sender )
@@ -59,26 +62,29 @@ void check_diag_init(
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_reactor_recv( struct asrt_reactor* reac, struct asrt_span msg )
+static void check_reactor_recv( struct asrt_reactor* reac, struct asrt_span msg )
 {
         enum asrt_status st = asrt_chann_recv( &reac->node, msg );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_reactor_recv_flags( struct asrt_reactor* reac, struct asrt_span msg, uint32_t flags )
+static void check_reactor_recv_flags(
+    struct asrt_reactor* reac,
+    struct asrt_span     msg,
+    uint32_t             flags )
 {
         check_reactor_recv( reac, msg );
         CHECK_EQ( flags, reac->flags & ~ASRT_PASSIVE_FLAGS );
 }
 
-void check_reactor_tick( struct asrt_reactor* reac )
+static void check_reactor_tick( struct asrt_reactor* reac )
 {
         enum asrt_status st = asrt_chann_tick( &reac->node, 0 );
         CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( 0x00, reac->flags & ~ASRT_PASSIVE_FLAGS );
 }
 
-void check_recv_and_spin(
+static void check_recv_and_spin(
     struct asrt_reactor*    reac,
     uint8_t*                beg,
     uint8_t*                end,
@@ -95,7 +101,7 @@ void check_recv_and_spin(
         CHECK_NE( i, n );
 }
 
-void check_run_test( struct asrt_reactor* reac, uint32_t test_id, uint32_t run_id )
+static void check_run_test( struct asrt_reactor* reac, uint32_t test_id, uint32_t run_id )
 {
         uint8_t          buffer[64];
         struct asrt_span sp = { .b = buffer, .e = buffer + sizeof buffer };
@@ -105,7 +111,7 @@ void check_run_test( struct asrt_reactor* reac, uint32_t test_id, uint32_t run_i
         check_recv_and_spin( reac, buffer, sp.b, ASRT_FLAG_TSTART );
 }
 
-void assert_diag_record_any_line( struct collected_data& collected )
+static void assert_diag_record_any_line( struct collected_data& collected )
 {
         assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
         uint32_t line = 0;
@@ -119,7 +125,7 @@ void assert_diag_record_any_line( struct collected_data& collected )
         } ) );
 }
 
-void assert_diag_record( struct collected_data& collected, uint32_t line )
+static void assert_diag_record( struct collected_data& collected, uint32_t line )
 {
         assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
         assert_u32( line, collected.data.data() + 1 );
@@ -131,7 +137,7 @@ void assert_diag_record( struct collected_data& collected, uint32_t line )
         } ) );
 }
 
-void assert_test_result(
+static void assert_test_result(
     struct collected_data&  collected,
     uint32_t                id,
     enum asrt_test_result_e result )
@@ -141,7 +147,7 @@ void assert_test_result(
         assert_u16( result, collected.data.data() + 6 );
 }
 
-void assert_test_start( struct collected_data& collected, uint16_t test_id, uint32_t run_id )
+static void assert_test_start( struct collected_data& collected, uint16_t test_id, uint32_t run_id )
 {
         assert_collected_core_hdr( collected, 0x08, ASRT_MSG_TEST_START );
         assert_u16( test_id, collected.data.data() + 2 );
@@ -167,7 +173,7 @@ struct reactor_ctx
 //---------------------------------------------------------------------
 // tests
 
-enum asrt_status dataless_test_fun( struct asrt_record* x )
+static enum asrt_status dataless_test_fun( struct asrt_record* x )
 {
         (void) x;
         return ASRT_SUCCESS;
@@ -643,7 +649,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "diag_record" )
         {
                 auto& collected = coll.data.back();
                 assert_diag_record( collected, 42 );
-                CHECK_EQ( 1U + 4u + 1u + 6u, collected.data.size() );
+                CHECK_EQ( 1U + 4U + 1U + 6U, collected.data.size() );
                 assert_data_ll_contain_str( "test.c", collected, 6 );
                 coll.data.pop_back();
         }
@@ -1014,11 +1020,11 @@ static uint8_t* build_param_response_arr(
 
 struct param_client_ctx
 {
-        static constexpr uint32_t BUF_SZ = 256;
+        static constexpr uint32_t buff_size = 256;
 
-        struct asrt_node         head            = {};
-        struct asrt_param_client client          = {};
-        uint8_t                  msg_buf[BUF_SZ] = {};
+        struct asrt_node         head               = {};
+        struct asrt_param_client client             = {};
+        uint8_t                  msg_buf[buff_size] = {};
         collector                coll;
         asrt_sender              sendr = {};
         struct asrt_param_query  query = {};
@@ -1070,7 +1076,7 @@ struct param_client_ctx
         {
                 head.chid = ASRT_CORE;
                 setup_sender_collector( &sendr, &coll );
-                struct asrt_span mb = { .b = msg_buf, .e = msg_buf + BUF_SZ };
+                struct asrt_span mb = { .b = msg_buf, .e = msg_buf + buff_size };
                 REQUIRE_EQ(
                     ASRT_SUCCESS, asrt_param_client_init( &client, &head, sendr, mb, 100 ) );
         }
@@ -1165,7 +1171,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrt_param_client_response_delivers_one_no
 
         // Inject a RESPONSE with one node: id=10, key="abc", type=U32, value=42, next_sib=0
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "abc", 42u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "abc", 42U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
 
         CHECK_EQ( 0, resp_called );  // pending
@@ -1192,7 +1198,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrt_param_client_cache_hit_delivers_witho
         coll.data.clear();
 
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "abc", 42u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "abc", 42U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );  // delivers
         resp_called = 0;
@@ -1247,7 +1253,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "asrt_param_client_cache_next_sibling_store
 
         // RESPONSE with next_sibling_id = 99
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "x", 7u, 99u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "x", 7U, 99U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( 99U, client.cache_next_sibling );
 
@@ -1280,7 +1286,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_u32( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );  // wire
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1303,7 +1309,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_u32_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_u32( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "hello", 0u );
+        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "hello", 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1330,7 +1336,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_i32( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_i32( rbuf, 10U, "k", -7, 0u );
+        uint8_t* re = build_param_response_i32( rbuf, 10U, "k", -7, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1353,7 +1359,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_i32_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_i32( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 99u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 99U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1381,7 +1387,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_str( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "hello", 0u );
+        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "hello", 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1404,7 +1410,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_str_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_str( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1417,7 +1423,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_happy" )
 {
         make_ready( 1U );
         int   called = 0;
-        float got    = 0.0f;
+        float got    = 0.0F;
         struct
         {
                 int*   called;
@@ -1431,11 +1437,11 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_float( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_float( rbuf, 10U, "k", 3.14f, 0u );
+        uint8_t* re = build_param_response_float( rbuf, 10U, "k", 3.14F, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
-        CHECK_EQ( 3.14f, got );
+        CHECK_EQ( 3.14F, got );
         CHECK_EQ( 0U, query.error_code );
 }
 
@@ -1454,7 +1460,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_float_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_float( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1481,7 +1487,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_bool( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_bool( rbuf, 10U, "k", 1u, 0u );
+        uint8_t* re = build_param_response_bool( rbuf, 10U, "k", 1U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1504,7 +1510,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_bool_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_bool( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "nope", 0u );
+        uint8_t* re = build_param_response_str( rbuf, 10U, "k", "nope", 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1531,7 +1537,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_obj( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_obj( rbuf, 10U, "k", 2u, 5u, 0u );
+        uint8_t* re = build_param_response_obj( rbuf, 10U, "k", 2U, 5U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1555,7 +1561,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_obj_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_obj( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1582,7 +1588,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_happy" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_arr( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_arr( rbuf, 10U, "k", 3u, 6u, 0u );
+        uint8_t* re = build_param_response_arr( rbuf, 10U, "k", 3U, 6U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1606,7 +1612,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_arr_type_mismatch" )
         CHECK_EQ( ASRT_SUCCESS, asrt_param_client_fetch_arr( &query, &client, 10U, cb, &ctx ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 1U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         CHECK_EQ( 1, called );
@@ -1667,7 +1673,7 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
         coll.data.clear();
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, t++ ) );
 
@@ -1681,12 +1687,12 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
 
 struct param_timeout_ctx
 {
-        static constexpr uint32_t BUF_SZ  = 256;
-        static constexpr uint32_t TIMEOUT = 10;
+        static constexpr uint32_t bugg_size = 256;
+        static constexpr uint32_t timeout   = 10;
 
-        struct asrt_node         head            = {};
-        struct asrt_param_client client          = {};
-        uint8_t                  msg_buf[BUF_SZ] = {};
+        struct asrt_node         head               = {};
+        struct asrt_param_client client             = {};
+        uint8_t                  msg_buf[bugg_size] = {};
         collector                coll;
         asrt_sender              sendr = {};
         struct asrt_param_query  query = {};
@@ -1723,9 +1729,9 @@ struct param_timeout_ctx
         {
                 head.chid = ASRT_CORE;
                 setup_sender_collector( &sendr, &coll );
-                struct asrt_span mb = { .b = msg_buf, .e = msg_buf + BUF_SZ };
+                struct asrt_span mb = { .b = msg_buf, .e = msg_buf + bugg_size };
                 REQUIRE_EQ(
-                    ASRT_SUCCESS, asrt_param_client_init( &client, &head, sendr, mb, TIMEOUT ) );
+                    ASRT_SUCCESS, asrt_param_client_init( &client, &head, sendr, mb, timeout ) );
         }
         ~param_timeout_ctx() { asrt_param_client_deinit( &client ); }
 };
@@ -1769,7 +1775,7 @@ TEST_CASE_FIXTURE( param_timeout_ctx, "query_no_timeout_when_response_arrives" )
 
         // response arrives before timeout
         uint8_t  rbuf[64];
-        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42u, 0u );
+        uint8_t* re = build_param_response_u32( rbuf, 10U, "k", 42U, 0U );
         CHECK_EQ( ASRT_SUCCESS, call_rtr_param_client_recv( &client, rbuf, re ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 105 ) );
 

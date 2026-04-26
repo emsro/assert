@@ -211,7 +211,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_desc" )
         std::string  received;
         asrt::status st = asrt::query_desc(
             c,
-            { []( void* self, asrt::status s, char* desc ) -> asrt::status {
+            { []( void* self, asrt::status s, char const* desc ) -> asrt::status {
                      auto* p = static_cast< std::string* >( self );
                      CHECK_EQ( ASRT_SUCCESS, s );
                      *p = std::string{ desc };
@@ -262,7 +262,7 @@ TEST_CASE_FIXTURE( paired_ctx, "query_test_info" )
         asrt::status st = asrt::query_test_info(
             c,
             0,
-            { []( void* p, asrt::status s, uint16_t t, char* desc ) -> asrt::status {
+            { []( void* p, asrt::status s, uint16_t t, char const* desc ) -> asrt::status {
                      auto* ctx = static_cast< struct ctx* >( p );
                      CHECK_EQ( ASRT_SUCCESS, s );
                      *ctx->tid  = t;
@@ -331,7 +331,7 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
             ASRT_SUCCESS,
             asrt::query_desc(
                 c,
-                { []( void* p, asrt::status, char* ) -> asrt::status {
+                { []( void* p, asrt::status, char const* ) -> asrt::status {
                          auto* called = static_cast< bool* >( p );
                          *called      = true;
                          return ASRT_SUCCESS;
@@ -460,7 +460,7 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
 {
         // both a controller query and a diag record in flight at the same time
         std::string desc;
-        auto        on_desc = [&]( asrt::status s, char* sv ) -> asrt::status {
+        auto        on_desc = [&]( asrt::status s, char const* sv ) -> asrt::status {
                 CHECK_EQ( ASRT_SUCCESS, s );
                 desc = std::string{ sv };
                 return ASRT_SUCCESS;

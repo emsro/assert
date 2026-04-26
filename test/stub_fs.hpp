@@ -33,7 +33,7 @@ struct stub_fs : asrtio::output_fs
 
         asrtio::file_writer open_write( std::filesystem::path const& path ) override
         {
-                auto& entry  = entries_.emplace_back();
+                auto& entry  = _entries.emplace_back();
                 entry.path   = path.string();
                 entry.stream = std::ostringstream{};
                 return asrtio::file_writer{ entry.stream, *this };
@@ -41,10 +41,10 @@ struct stub_fs : asrtio::output_fs
 
         void close_write( std::ostream& os ) override
         {
-                for ( auto it = entries_.begin(); it != entries_.end(); ++it ) {
+                for ( auto it = _entries.begin(); it != _entries.end(); ++it ) {
                         if ( &it->stream == &os ) {
                                 files[it->path] = it->stream.str();
-                                entries_.erase( it );
+                                _entries.erase( it );
                                 return;
                         }
                 }
@@ -57,5 +57,5 @@ private:
                 std::ostringstream stream;
         };
 
-        std::list< entry > entries_;
+        std::list< entry > _entries;
 };

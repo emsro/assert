@@ -180,7 +180,7 @@ struct _cntr_query_test_info
                 auto s = asrt_cntr_test_info(
                     &cntr,
                     static_cast< uint16_t >( id ),
-                    +[]( void* p, asrt_status s, uint16_t tid, char* desc ) -> asrt_status {
+                    +[]( void* p, asrt_status s, uint16_t tid, char const* desc ) -> asrt_status {
                             auto* op = static_cast< OP* >( p );
                             if ( s != ASRT_SUCCESS ) {
                                     ASRT_ERR_LOG(

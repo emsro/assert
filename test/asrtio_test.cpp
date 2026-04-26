@@ -228,26 +228,26 @@ struct test_receiver
         bool*      flag;
         uv_idle_t* idle;
 
-        void set_value() noexcept
+        void set_value() const noexcept
         {
                 *flag = true;
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
                 ASRT_INF_LOG( "asrtio_test", "Test receiver: Task completed successfully" );
         }
-        void set_error( asrt::status ) noexcept
+        void set_error( asrt::status ) const noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
                 ASRT_ERR_LOG( "asrtio_test", "Test receiver: Task completed with error" );
         }
-        void set_error( ecor::task_error ) noexcept
+        void set_error( ecor::task_error ) const noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
                 ASRT_ERR_LOG( "asrtio_test", "Test receiver: Task completed with task_error" );
         }
-        void set_stopped() noexcept
+        void set_stopped() const noexcept
         {
                 uv_idle_stop( idle );
                 uv_close( (uv_handle_t*) idle, nullptr );
@@ -461,7 +461,7 @@ static asrtio::task< void > param_e2e_coro(
             asrt::fetch(
                 conn.assm.param, &state.query, state.root_id, param_e2e_state::query_cb, &state ) );
 
-        while ( state.received.size() < 1 )
+        while ( state.received.empty() )
                 co_await ecor::suspend;
 
         if ( state.received[0].value.type == ASRT_FLAT_CTYPE_OBJECT ) {
@@ -652,7 +652,7 @@ TEST_CASE( "ftfj_float" )
         CHECK( asrtio::flat_tree_from_json( tree, nlohmann::json( 3.14 ), next_id ) );
         auto r = query( tree, 1 );
         CHECK_EQ( ASRT_FLAT_STYPE_FLOAT, r.value.type );
-        CHECK( r.value.data.s.float_val == doctest::Approx( 3.14f ) );
+        CHECK( r.value.data.s.float_val == doctest::Approx( 3.14F ) );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -845,7 +845,7 @@ TEST_CASE( "ftfj_mixed_types" )
                         CHECK_EQ( 100U, r.value.data.s.u32_val );
                 } else if ( strcmp( r.key, "f" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_FLOAT, r.value.type );
-                        CHECK( r.value.data.s.float_val == doctest::Approx( 1.5f ) );
+                        CHECK( r.value.data.s.float_val == doctest::Approx( 1.5F ) );
                 } else if ( strcmp( r.key, "s" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_STR, r.value.type );
                         CHECK( strcmp( r.value.data.s.str_val, "abc" ) == 0 );
@@ -1097,7 +1097,7 @@ TEST_CASE( "fttj_negative_integer" )
 
 TEST_CASE( "fttj_float" )
 {
-        auto           j     = nlohmann::json( 3.14f );
+        auto           j     = nlohmann::json( 3.14F );
         asrt_allocator alloc = asrt_default_allocator();
         asrt_flat_tree tree;
         REQUIRE_EQ( ASRT_SUCCESS, asrt_flat_tree_init( &tree, alloc, 4, 8 ) );
@@ -1106,7 +1106,7 @@ TEST_CASE( "fttj_float" )
 
         nlohmann::json out;
         CHECK( asrtio::flat_tree_to_json( tree, out ) );
-        CHECK_EQ( doctest::Approx( 3.14f ), out.get< float >() );
+        CHECK_EQ( doctest::Approx( 3.14F ), out.get< float >() );
         asrt_flat_tree_deinit( &tree );
 }
 
@@ -1229,7 +1229,7 @@ TEST_CASE( "fttj_mixed_types" )
         CHECK_EQ( true, out["b"].get< bool >() );
         CHECK_EQ( -5, out["i"].get< int32_t >() );
         CHECK_EQ( 100U, out["u"].get< uint32_t >() );
-        CHECK_EQ( doctest::Approx( 1.5f ), out["f"].get< float >() );
+        CHECK_EQ( doctest::Approx( 1.5F ), out["f"].get< float >() );
         CHECK_EQ( "abc", out["s"].get< std::string >() );
         asrt_flat_tree_deinit( &tree );
 }
@@ -1856,7 +1856,7 @@ TEST_CASE( "write_stream_csv: float field" )
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_FLOAT };
         uint8_t                     data[4];
         uint8_t*                    p   = data;
-        float                       val = 3.14f;
+        float                       val = 3.14F;
         uint32_t                    bits;
         std::memcpy( &bits, &val, 4 );
         asrt_add_u32( &p, bits );

@@ -28,12 +28,12 @@
 #include <span>
 #include <vector>
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
 
-// ---------------------------------------------------------------------------
-// helpers
+    // ---------------------------------------------------------------------------
+    // helpers
 
-struct collect_sender
+    struct collect_sender
 {
         collector* coll;
 
@@ -47,7 +47,7 @@ struct collect_sender
         }
 };
 
-void assert_diag_record( collected_data& cd, uint32_t line )
+static void assert_diag_record( collected_data& cd, uint32_t line )
 {
         assert_collected_diag_hdr( cd, ASRT_DIAG_MSG_RECORD );
         assert_u32( line, cd.data.data() + 1 );
@@ -223,14 +223,17 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_record" )
 // ---------------------------------------------------------------------------
 // reactor end-to-end
 
-void assert_test_start_msg( collected_data& cd, uint16_t test_id, uint32_t run_id )
+static void assert_test_start_msg( collected_data& cd, uint16_t test_id, uint32_t run_id )
 {
         assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_START );
         assert_u16( test_id, cd.data.data() + 2 );
         assert_u32( run_id, cd.data.data() + 4 );
 }
 
-void assert_test_result_msg( collected_data& cd, uint32_t run_id, enum asrt_test_result_e result )
+static void assert_test_result_msg(
+    collected_data&         cd,
+    uint32_t                run_id,
+    enum asrt_test_result_e result )
 {
         assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_RESULT );
         assert_u32( run_id, cd.data.data() + 2 );
@@ -352,8 +355,8 @@ struct param_loopback_cpp_ctx
 
         asrt_param_server srv;
 
-        static constexpr uint32_t BUF_SZ          = 256;
-        uint8_t                   cli_buf[BUF_SZ] = {};
+        static constexpr uint32_t buff_size          = 256;
+        uint8_t                   cli_buf[buff_size] = {};
         asrt_param_client         cli;
 
         // response state
@@ -407,7 +410,7 @@ struct param_loopback_cpp_ctx
                          cli,
                          cli_head,
                          cli_send,
-                         asrt_span{ .b = cli_buf, .e = cli_buf + BUF_SZ },
+                         asrt_span{ .b = cli_buf, .e = cli_buf + buff_size },
                          100 ) != ASRT_SUCCESS )
                         throw std::runtime_error( "client init failed" );
                 srv_head.chid = ASRT_CORE;
@@ -508,6 +511,11 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
 
 struct typed_loopback_ctx
 {
+        typed_loopback_ctx( typed_loopback_ctx const& )            = delete;
+        typed_loopback_ctx& operator=( typed_loopback_ctx const& ) = delete;
+        typed_loopback_ctx( typed_loopback_ctx&& )                 = delete;
+        typed_loopback_ctx& operator=( typed_loopback_ctx&& )      = delete;
+
         asrt_node srv_head = {};
         asrt_node cli_head = {};
 
@@ -541,8 +549,8 @@ struct typed_loopback_ctx
 
         asrt_param_server srv;
 
-        static constexpr uint32_t BUF_SZ          = 256;
-        uint8_t                   cli_buf[BUF_SZ] = {};
+        static constexpr uint32_t buff_size          = 256;
+        uint8_t                   cli_buf[buff_size] = {};
         asrt_param_client         cli;
 
         uint32_t         t     = 1;
@@ -568,7 +576,7 @@ struct typed_loopback_ctx
                          cli,
                          cli_head,
                          cli_send,
-                         asrt_span{ .b = cli_buf, .e = cli_buf + BUF_SZ },
+                         asrt_span{ .b = cli_buf, .e = cli_buf + buff_size },
                          100 ) != ASRT_SUCCESS )
                         throw std::runtime_error( "client init failed" );
                 srv_head.chid = ASRT_CORE;
@@ -769,13 +777,13 @@ TEST_CASE( "param_client_cpp_timeout" )
         asrt_sender sendr = {};
         setup_sender_collector( &sendr, &coll );
 
-        static constexpr uint32_t BUF_SZ      = 256;
-        static constexpr uint32_t TIMEOUT     = 10;
-        uint8_t                   buf[BUF_SZ] = {};
+        static constexpr uint32_t buff_size      = 256;
+        static constexpr uint32_t timeout        = 10;
+        uint8_t                   buf[buff_size] = {};
         asrt_param_client         cli;
         REQUIRE_EQ(
             ASRT_SUCCESS,
-            asrt::init( cli, head, sendr, asrt_span{ .b = buf, .e = buf + BUF_SZ }, TIMEOUT ) );
+            asrt::init( cli, head, sendr, asrt_span{ .b = buf, .e = buf + buff_size }, timeout ) );
 
         // make ready
         REQUIRE_EQ( ASRT_SUCCESS, send_ready_to_client( cli, 1U ) );
@@ -1001,7 +1009,7 @@ struct tu_cb_ctx
         asrt::task_ctx                    ctx{ mem };
 
         template < typename T >
-        void run_to_completion( asrt::task_unit< T >& u, asrt_record& rec, int max_ticks = 100 )
+        void run_to_completion( asrt::task_unit< T >&, asrt_record& rec, int max_ticks = 100 )
         {
                 for ( int i = 0; i < max_ticks; ++i ) {
                         asrt::task_unit< T >::cb( &rec );
@@ -1281,8 +1289,8 @@ struct param_sender_ctx
 
         asrt_param_server srv;
 
-        static constexpr uint32_t BUF_SZ          = 256;
-        uint8_t                   cli_buf[BUF_SZ] = {};
+        static constexpr uint32_t buff_size          = 256;
+        uint8_t                   cli_buf[buff_size] = {};
         asrt_param_client         cli;
 
         asrt::malloc_free_memory_resource mem;
@@ -1298,7 +1306,7 @@ struct param_sender_ctx
                          cli,
                          cli_head,
                          cli_send,
-                         asrt_span{ .b = cli_buf, .e = cli_buf + BUF_SZ },
+                         asrt_span{ .b = cli_buf, .e = cli_buf + buff_size },
                          100 ) != ASRT_SUCCESS )
                         throw std::runtime_error( "client init failed" );
                 srv_head.chid = ASRT_CORE;
@@ -1365,14 +1373,14 @@ struct param_sender_ctx
 // Free-function coroutines (ecor requires task_ctx& as first arg, no lambda coroutines).
 
 template < typename T >
-asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
+static asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
 {
         asrt::param_result res = co_await asrt::fetch< T >( c, id );
         std::ignore            = res;  // XXX: fix
 }
 
 template < typename T >
-asrt::task< void > ps_do_find(
+static asrt::task< void > ps_do_find(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1381,7 +1389,7 @@ asrt::task< void > ps_do_find(
         co_await asrt::find< T >( c, parent, key );
 }
 
-asrt::task< void > ps_capture_find_u32(
+static asrt::task< void > ps_capture_find_u32(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1391,7 +1399,7 @@ asrt::task< void > ps_capture_find_u32(
         *out = co_await asrt::find< uint32_t >( c, parent, key );
 }
 
-asrt::task< void > ps_capture_find_str(
+static asrt::task< void > ps_capture_find_str(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1402,7 +1410,7 @@ asrt::task< void > ps_capture_find_str(
         *out   = v;
 }
 
-asrt::task< void > ps_find_u32_then_check(
+static asrt::task< void > ps_find_u32_then_check(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1414,7 +1422,7 @@ asrt::task< void > ps_find_u32_then_check(
         *reached = true;
 }
 
-asrt::task< void > ps_sequential_finds(
+static asrt::task< void > ps_sequential_finds(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1427,7 +1435,7 @@ asrt::task< void > ps_sequential_finds(
         *sum   = a.value + b.value;
 }
 
-asrt::task< void > ps_second_fails(
+static asrt::task< void > ps_second_fails(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1830,7 +1838,7 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
 // collect_sender (coroutine support)
 // ---------------------------------------------------------------------------
 
-asrt::task< void > cs_do_append_scalar(
+static asrt::task< void > cs_do_append_scalar(
     asrt::task_ctx&,
     asrt_collect_client& cc,
     asrt::flat_id        parent )
@@ -1842,7 +1850,7 @@ asrt::task< void > cs_do_append_scalar(
         co_await asrt::append( cc, parent, "ratio", 3.14F );
 }
 
-asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
+static asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
 {
         auto root = co_await asrt::append< asrt::obj >( cc, 0, "root" );
         auto arr  = co_await asrt::append< asrt::arr >( cc, root, "items" );
@@ -1906,7 +1914,6 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
 
 #include "../asrtcpp/stream.hpp"
 #include "../asrtrpp/stream.hpp"
-#include "./stub_allocator.hpp"
 
 #include <cstring>
 

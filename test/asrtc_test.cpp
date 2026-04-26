@@ -32,19 +32,23 @@ ASRT_DEFINE_GPOS_LOG()
 //---------------------------------------------------------------------
 // lib
 
-void check_recv( auto* c, struct asrt_span msg )
+static void check_recv( auto* c, struct asrt_span msg )
 {
         enum asrt_status st = asrt_chann_recv( &c->node, msg );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_tick( auto* c, uint32_t now )
+static void check_tick( auto* c, uint32_t now )
 {
         enum asrt_status st = asrt_chann_tick( &c->node, now );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-void check_recv_and_spin( struct asrt_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
+static void check_recv_and_spin(
+    struct asrt_controller* c,
+    uint8_t*                beg,
+    uint8_t*                end,
+    uint32_t*               now )
 {
         check_recv( c, ( struct asrt_span ){ .b = beg, .e = end } );
         int       i = 0;
@@ -72,14 +76,14 @@ struct controller_ctx
         ~controller_ctx() { CHECK_EQ( coll.data.size(), 0 ); }
 };
 
-enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
+static enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
 {
         enum asrt_status* p = (enum asrt_status*) ptr;
         *p                  = s;
-        return s ? ASRT_SUCCESS : ASRT_SEND_ERR;  // TODO: incorrect error type
+        return ASRT_SUCCESS;
 }
 
-void check_cntr_full_init( controller_ctx* ctx )
+static void check_cntr_full_init( controller_ctx* ctx )
 {
         enum asrt_status st = asrt_cntr_init( &ctx->cntr, ctx->send, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
@@ -133,7 +137,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         CHECK_EQ( ASRT_SUCCESS, init_status );
 }
 
-enum asrt_status cpy_desc_cb( void* ptr, enum asrt_status s, char* desc )
+static enum asrt_status cpy_desc_cb( void* ptr, enum asrt_status s, char const* desc )
 {
         (void) s;
         std::string* p = (std::string*) ptr;
@@ -147,7 +151,11 @@ struct test_info_result
         std::string desc;
 };
 
-enum asrt_status cpy_test_info_cb( void* ptr, enum asrt_status s, uint16_t tid, char* desc )
+static enum asrt_status cpy_test_info_cb(
+    void*            ptr,
+    enum asrt_status s,
+    uint16_t         tid,
+    char const*      desc )
 {
         (void) s;
         struct test_info_result* r = (struct test_info_result*) ptr;
@@ -163,7 +171,11 @@ struct test_info_cb_capture
         std::string      desc;
 };
 
-enum asrt_status cpy_test_info_capture_cb( void* ptr, enum asrt_status s, uint16_t tid, char* desc )
+static enum asrt_status cpy_test_info_capture_cb(
+    void*            ptr,
+    enum asrt_status s,
+    uint16_t         tid,
+    char const*      desc )
 {
         auto* c   = (test_info_cb_capture*) ptr;
         c->status = s;
@@ -193,7 +205,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         CHECK( msg == desc );
 }
 
-enum asrt_status cpy_u32_cb( void* ptr, enum asrt_status s, uint16_t x )
+static enum asrt_status cpy_u32_cb( void* ptr, enum asrt_status s, uint16_t x )
 {
         (void) s;
         uint32_t* p = (uint32_t*) ptr;
@@ -288,7 +300,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_missing_status" )
         CHECK( capture.desc.empty() );
 }
 
-enum asrt_status result_cb( void* ptr, enum asrt_status s, struct asrt_result* res )
+static enum asrt_status result_cb( void* ptr, enum asrt_status s, struct asrt_result* res )
 {
         (void) s;
         struct asrt_result* r1 = (struct asrt_result*) ptr;
@@ -435,7 +447,7 @@ static enum asrt_status record_tc_cb( void* ptr, enum asrt_status s, uint16_t co
         return record_status_cb( ptr, s );
 }
 
-static enum asrt_status record_desc_cb( void* ptr, enum asrt_status s, char* desc )
+static enum asrt_status record_desc_cb( void* ptr, enum asrt_status s, char const* desc )
 {
         (void) desc;
         return record_status_cb( ptr, s );
@@ -445,7 +457,7 @@ static enum asrt_status record_test_info_cb(
     void*            ptr,
     enum asrt_status s,
     uint16_t         tid,
-    char*            desc )
+    char const*      desc )
 {
         (void) tid;
         (void) desc;
@@ -1541,12 +1553,12 @@ using param_base = server_client_base< asrt_param_server, asrt_param_client >;
 struct param_loopback_ctx : param_base
 {
         // Both sides share one head each (CORE placeholder + PARAM node)
-        struct asrt_node          srv_head            = {};
-        struct asrt_node          cli_head            = {};
-        stub_allocator_ctx        alloc_ctx           = {};
-        asrt_allocator            alloc               = {};
-        static constexpr uint32_t CLI_BUF_SZ          = 256;
-        uint8_t                   cli_buf[CLI_BUF_SZ] = {};
+        struct asrt_node          srv_head               = {};
+        struct asrt_node          cli_head               = {};
+        stub_allocator_ctx        alloc_ctx              = {};
+        asrt_allocator            alloc                  = {};
+        static constexpr uint32_t cli_buff_size          = 256;
+        uint8_t                   cli_buf[cli_buff_size] = {};
 
         // Cross-wired senders: server sends → client recv, client sends → server recv
         asrt_sender srv_sendr = {};
@@ -1588,7 +1600,7 @@ struct param_loopback_ctx : param_base
                 cli_sendr     = asrt_sender{ .ptr = this, .cb = cli_to_srv };
                 REQUIRE_EQ(
                     ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
-                struct asrt_span mb = { .b = cli_buf, .e = cli_buf + CLI_BUF_SZ };
+                struct asrt_span mb = { .b = cli_buf, .e = cli_buf + cli_buff_size };
                 REQUIRE_EQ(
                     ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, cli_sendr, mb, 10 ) );
         }
@@ -1700,13 +1712,13 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         // max_msg_size=25: msg_id(1) + 20 node space + 4 trailer → fits 1 node (12<20).
         // Actually 2×12=24>20 so only 1 fits per batch.  4 children → 4 batches.
         // Use 30 to fit 2: 30-1-4=25, 2×12=24<25 → 2 per batch, 4 children → 2 batches.
-        static constexpr uint32_t SMALL_BUF = 30;
+        static constexpr uint32_t small_buff_size = 30;
 
-        struct asrt_node   srv_head           = {};
-        struct asrt_node   cli_head           = {};
-        stub_allocator_ctx alloc_ctx          = {};
-        asrt_allocator     alloc              = {};
-        uint8_t            cli_buf[SMALL_BUF] = {};
+        struct asrt_node   srv_head                 = {};
+        struct asrt_node   cli_head                 = {};
+        stub_allocator_ctx alloc_ctx                = {};
+        asrt_allocator     alloc                    = {};
+        uint8_t            cli_buf[small_buff_size] = {};
 
         srv_head.chid = ASRT_CORE;
         cli_head.chid = ASRT_CORE;
@@ -1716,7 +1728,7 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         asrt_sender csend = { .ptr = this, .cb = cli_to_srv };
 
         REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, ssend, alloc ) );
-        struct asrt_span mb = { .b = cli_buf, .e = cli_buf + SMALL_BUF };
+        struct asrt_span mb = { .b = cli_buf, .e = cli_buf + small_buff_size };
         REQUIRE_EQ( ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, csend, mb, 100 ) );
 
         // Tree: root(OBJECT,1) → 4 children (U32, ids 2..5)
@@ -2531,7 +2543,6 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 
 #include "../asrtc/stream.h"
 #include "../asrtr/stream.h"
-#include "./stub_allocator.hpp"
 
 /// Fixture for isolated controller-side stream server tests.
 struct strm_server_ctx
