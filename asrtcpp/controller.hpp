@@ -23,10 +23,6 @@ namespace asrt
 using status = asrt_status;
 using result = asrt_result;
 
-/// XXX: revise nodiscard in C++ code
-/// XXX: revise status usage in C++ API - prefer sender
-/// XXX: revisit inline usage and move stuff to .cpp
-
 inline status init( ref< asrt_controller > c, asrt_send_req_list* s, allocator a )
 {
         return asrt_cntr_init( c, s, a );
