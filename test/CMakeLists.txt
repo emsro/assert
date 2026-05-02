@@ -48,7 +48,11 @@ target_link_libraries(pbar_demo PRIVATE CLI11::CLI11)
 if(ASSERT_ENABLE_COVERAGE)
   add_test(
     NAME coverage
-    COMMAND gcovr --cobertura-pretty --cobertura cobertura.xml -r
-            ${CMAKE_SOURCE_DIR}/
+    COMMAND
+      gcovr --cobertura-pretty --cobertura cobertura.xml -r ${CMAKE_SOURCE_DIR}/
+      --filter ${CMAKE_SOURCE_DIR}/asrtl/ --filter ${CMAKE_SOURCE_DIR}/asrtc/
+      --filter ${CMAKE_SOURCE_DIR}/asrtr/ --filter ${CMAKE_SOURCE_DIR}/asrtlpp/
+      --filter ${CMAKE_SOURCE_DIR}/asrtcpp/ --filter
+      ${CMAKE_SOURCE_DIR}/asrtrpp/ --filter ${CMAKE_SOURCE_DIR}/asrtio/
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
