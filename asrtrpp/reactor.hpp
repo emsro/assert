@@ -52,12 +52,15 @@ struct unit : asrt_test
 };
 
 /// XXX: add C++ init to other asrt:: abstractions, inluding deinit
-inline enum asrt_status init( ref< asrt_reactor > reac, send_req_list& req_l, char const* desc )
+ASRT_NODISCARD inline enum asrt_status init(
+    ref< asrt_reactor > reac,
+    send_req_list&      req_l,
+    char const*         desc )
 {
         return asrt_reactor_init( reac, &req_l, desc );
 }
 
-inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )
+ASRT_NODISCARD inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )
 {
         return asrt_reactor_add_test( reac, &test );
 }

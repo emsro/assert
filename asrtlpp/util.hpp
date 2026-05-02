@@ -10,6 +10,12 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #pragma once
 
+#ifdef ASRT_NODISCARD_ENABLED
+#define ASRT_NODISCARD [[nodiscard]]
+#else
+#define ASRT_NODISCARD
+#endif
+
 #include "../asrtl/allocator.h"
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/chann.h"
@@ -46,13 +52,13 @@ inline std::span< uint8_t > cnv( asrt_span buff )
         return { buff.b, buff.e };
 }
 
-inline enum asrt_status dispatch( struct asrt_node& head, std::span< uint8_t > buff )
+ASRT_NODISCARD inline enum asrt_status dispatch( struct asrt_node& head, std::span< uint8_t > buff )
 {
         return asrt_chann_dispatch(
             &head, asrt_span{ .b = buff.data(), .e = buff.data() + buff.size() } );
 }
 
-inline enum asrt_status tick( struct asrt_node& head, uint32_t now )
+ASRT_NODISCARD inline enum asrt_status tick( struct asrt_node& head, uint32_t now )
 {
         return asrt_chann_tick( &head, now );
 }
@@ -67,12 +73,12 @@ inline asrt_node& node( auto& comp )
         return comp.node;
 }
 
-inline status recv( asrt_node& n, std::span< uint8_t > buff )
+ASRT_NODISCARD inline status recv( asrt_node& n, std::span< uint8_t > buff )
 {
         return asrt_chann_recv( &n, cnv( buff ) );
 }
 
-inline status recv( asrt_node& n, asrt_span buff )
+ASRT_NODISCARD inline status recv( asrt_node& n, asrt_span buff )
 {
         return asrt_chann_recv( &n, buff );
 }

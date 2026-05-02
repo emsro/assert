@@ -29,12 +29,16 @@ struct diag_record_deleter
         void operator()( asrt_diag_record* rec ) const { asrt_diag_free_record( alloc, rec ); }
 };
 
-inline status init( ref< asrt_diag_server > d, asrt_node& prev, asrt_allocator alloc )
+ASRT_NODISCARD inline status init(
+    ref< asrt_diag_server > d,
+    asrt_node&              prev,
+    asrt_allocator          alloc )
 {
         return asrt_diag_server_init( d, &prev, alloc );
 }
 
-inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrt_diag_server > d )
+ASRT_NODISCARD inline std::unique_ptr< diag_record, diag_record_deleter > take_record(
+    ref< asrt_diag_server > d )
 {
         return { asrt_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
 }

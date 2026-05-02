@@ -99,12 +99,12 @@ struct strm_field_traits< bool >
         static void           encode( uint8_t*& p, bool v ) { *p++ = v ? 1 : 0; }
 };
 
-inline status init( ref< asrt_stream_client > client, asrt_node& prev )
+ASRT_NODISCARD inline status init( ref< asrt_stream_client > client, asrt_node& prev )
 {
         return asrt_stream_client_init( client, &prev );
 }
 
-inline status define(
+ASRT_NODISCARD inline status define(
     ref< asrt_stream_client >          client,
     uint8_t                            schema_id,
     enum asrt_strm_field_type_e const* fields,
@@ -114,7 +114,7 @@ inline status define(
         return asrt_stream_client_define(
             client, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
 }
-inline status emit(
+ASRT_NODISCARD inline status emit(
     ref< asrt_stream_client >       client,
     uint8_t                         schema_id,
     uint8_t const*                  data,
@@ -125,7 +125,7 @@ inline status emit(
             client, schema_id, data, data_size, done_cb.fn, done_cb.ptr );
 }
 
-inline status reset( ref< asrt_stream_client > client )
+ASRT_NODISCARD inline status reset( ref< asrt_stream_client > client )
 {
         return asrt_stream_client_reset( client );
 }
@@ -185,14 +185,15 @@ struct stream_schema
                 return *this;
         }
 
-        status emit( Ts... args, callback< asrt_stream_done_cb > done_cb )
+        ASRT_NODISCARD status emit( Ts... args, callback< asrt_stream_done_cb > done_cb )
         {
                 uint8_t* p = _emit_buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
                 return asrt::emit( _client, _schema_id, _emit_buf, emit_size, done_cb );
         }
 
-        status emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
+        ASRT_NODISCARD status
+        emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
         {
                 return asrt::emit( _client, _schema_id, buf, emit_size, done_cb );
         }

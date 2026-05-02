@@ -5,4 +5,15 @@ project(asrtr VERSION 0.0)
 set(CMAKE_C_STANDARD 11)
 
 add_library(asrtr reactor.c diag.c collect.c param.c stream.c reac_assm.c)
+add_library(asrt::asrtr ALIAS asrtr)
 target_link_libraries(asrtr PUBLIC asrtl)
+
+install(
+  TARGETS asrtr
+  EXPORT asrtCTargets
+  ARCHIVE DESTINATION lib)
+install(
+  DIRECTORY ./
+  DESTINATION include/asrtr
+  FILES_MATCHING
+  PATTERN "*.h")

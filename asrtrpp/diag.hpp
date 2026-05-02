@@ -34,7 +34,7 @@ inline void rec_diag(
         asrt_diag_client_record( d, file, line, extra, done_cb.fn, done_cb.ptr );
 }
 
-inline status init( ref< asrt_diag_client > d, asrt_node& prev )
+ASRT_NODISCARD inline status init( ref< asrt_diag_client > d, asrt_node& prev )
 {
         return asrt_diag_client_init( d, &prev );
 }

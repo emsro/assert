@@ -55,12 +55,15 @@ private:
         asrt_stream_schemas _s{};
 };
 
-inline status init( ref< asrt_stream_server > srv, asrt_node& prev, asrt_allocator alloc )
+ASRT_NODISCARD inline status init(
+    ref< asrt_stream_server > srv,
+    asrt_node&                prev,
+    asrt_allocator            alloc )
 {
         return asrt_stream_server_init( srv, &prev, alloc );
 }
 
-inline stream_schemas take( ref< asrt_stream_server > srv )
+ASRT_NODISCARD inline stream_schemas take( ref< asrt_stream_server > srv )
 {
         return stream_schemas{ asrt_stream_server_take( srv ) };
 }

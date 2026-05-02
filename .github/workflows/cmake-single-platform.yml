@@ -87,3 +87,18 @@ jobs:
 
       - name: Check
         run: make clang-tidy
+
+  component-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (release)
+        run: cmake --preset release
+
+      - name: Build (release)
+        run: cmake --build --preset release
+
+      - name: Run component test
+        run: sh ci-component-test.sh /tmp/asrt-install _build

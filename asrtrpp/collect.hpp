@@ -78,12 +78,12 @@ concept collect_scalar = collect_append_traits< T >::is_scalar;
 template < typename T >
 concept collect_container = !collect_append_traits< T >::is_scalar;
 
-inline status init( ref< asrt_collect_client > client, asrt_node& prev )
+ASRT_NODISCARD inline status init( ref< asrt_collect_client > client, asrt_node& prev )
 {
         return asrt_collect_client_init( client, &prev );
 }
 
-[[nodiscard]] inline flat_id root_id( ref< asrt_collect_client const > cc )
+ASRT_NODISCARD inline flat_id root_id( ref< asrt_collect_client const > cc )
 {
         return asrt_collect_client_root_id( cc );
 }

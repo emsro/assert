@@ -23,22 +23,25 @@ namespace asrt
 using status = asrt_status;
 using result = asrt_result;
 
-inline status init( ref< asrt_controller > c, asrt_send_req_list* s, allocator a )
+ASRT_NODISCARD inline status init( ref< asrt_controller > c, asrt_send_req_list* s, allocator a )
 {
         return asrt_cntr_init( c, s, a );
 }
 
-inline status start( ref< asrt_controller > c, callback< asrt_init_callback > cb, uint32_t timeout )
+ASRT_NODISCARD inline status start(
+    ref< asrt_controller >         c,
+    callback< asrt_init_callback > cb,
+    uint32_t                       timeout )
 {
         return asrt_cntr_start( c, cb.fn, cb.ptr, timeout );
 }
 
-inline bool is_idle( ref< asrt_controller > c )
+ASRT_NODISCARD inline bool is_idle( ref< asrt_controller > c )
 {
         return asrt_cntr_idle( c ) > 0;
 }
 
-inline status query_desc(
+ASRT_NODISCARD inline status query_desc(
     ref< asrt_controller >         c,
     callback< asrt_desc_callback > cb,
     uint32_t                       timeout )
@@ -46,7 +49,7 @@ inline status query_desc(
         return asrt_cntr_desc( c, cb.fn, cb.ptr, timeout );
 }
 
-inline status query_test_count(
+ASRT_NODISCARD inline status query_test_count(
     ref< asrt_controller >               c,
     callback< asrt_test_count_callback > cb,
     uint32_t                             timeout )
@@ -54,7 +57,7 @@ inline status query_test_count(
         return asrt_cntr_test_count( c, cb.fn, cb.ptr, timeout );
 }
 
-inline status query_test_info(
+ASRT_NODISCARD inline status query_test_info(
     ref< asrt_controller >              c,
     uint16_t                            id,
     callback< asrt_test_info_callback > cb,
@@ -63,7 +66,7 @@ inline status query_test_info(
         return asrt_cntr_test_info( c, id, cb.fn, cb.ptr, timeout );
 }
 
-inline status exec_test(
+ASRT_NODISCARD inline status exec_test(
     ref< asrt_controller >                c,
     uint16_t                              id,
     callback< asrt_test_result_callback > cb,

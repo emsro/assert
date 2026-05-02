@@ -21,7 +21,7 @@
 namespace asrt
 {
 
-inline status init(
+ASRT_NODISCARD inline status init(
     ref< asrt_collect_server > srv,
     asrt_node&                 prev,
     asrt_allocator             alloc,
@@ -31,7 +31,7 @@ inline status init(
         return asrt_collect_server_init( srv, &prev, alloc, tree_block_cap, tree_node_cap );
 }
 
-inline status send_ready(
+ASRT_NODISCARD inline status send_ready(
     ref< asrt_collect_server >            srv,
     flat_id                               root_id,
     callback< asrt_collect_ready_ack_cb > ack_cb,
@@ -45,7 +45,7 @@ inline asrt_flat_tree const& tree( ref< asrt_collect_server > srv )
         return *asrt_collect_server_tree( srv );
 }
 
-inline flat_id next_node_id( ref< asrt_collect_server > srv )
+ASRT_NODISCARD inline flat_id next_node_id( ref< asrt_collect_server > srv )
 {
         return srv->next_node_id;
 }

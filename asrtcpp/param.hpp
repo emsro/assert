@@ -23,7 +23,10 @@ namespace asrt
 
 using status = enum asrt_status;
 
-inline status init( ref< asrt_param_server > srv, asrt_node& prev, asrt_allocator alloc )
+ASRT_NODISCARD inline status init(
+    ref< asrt_param_server > srv,
+    asrt_node&               prev,
+    asrt_allocator           alloc )
 {
         return asrt_param_server_init( srv, &prev, alloc );
 }
@@ -33,7 +36,7 @@ inline void set_tree( ref< asrt_param_server > srv, asrt_flat_tree const& tree )
         asrt_param_server_set_tree( srv, &tree );
 }
 
-inline status send_ready(
+ASRT_NODISCARD inline status send_ready(
     ref< asrt_param_server >            srv,
     flat_id                             root_id,
     callback< asrt_param_ready_ack_cb > ack_cb,

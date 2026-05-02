@@ -7,7 +7,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic -DASRT_DEFAULT_ASSERT"
+        "CMAKE_C_FLAGS": "-Wall -Wextra -pedantic -DASRT_DEFAULT_ASSERT",
+        "CMAKE_CXX_FLAGS": "-DASRT_NODISCARD_ENABLED"
       }
     },
     {
@@ -15,7 +16,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRT_DEFAULT_ASSERT",
-        "CMAKE_CXX_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g",
+        "CMAKE_CXX_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRT_NODISCARD_ENABLED",
         "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },
@@ -24,7 +25,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fsanitize=address -DASRT_DEFAULT_ASSERT",
-        "CMAKE_CXX_FLAGS": "-fsanitize=address",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address -DASRT_NODISCARD_ENABLED",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address",
         "BUILD_SHARED_LIBS": "OFF"
       }
@@ -34,7 +35,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fsanitize=undefined -DASRT_DEFAULT_ASSERT",
-        "CMAKE_CXX_FLAGS": "-fsanitize=undefined",
+        "CMAKE_CXX_FLAGS": "-fsanitize=undefined -DASRT_NODISCARD_ENABLED",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined",
         "BUILD_SHARED_LIBS": "OFF"
       }
