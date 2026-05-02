@@ -43,7 +43,8 @@ struct cntr_tcp_sys
           : _client( client )
           , _clk( clk )
         {
-                std::ignore = asrt_cntr_assm_init( &_asm, asrt_default_allocator() );
+                auto st = asrt_cntr_assm_init( &_asm, asrt_default_allocator() );
+                ASRT_ASSERT( st == ASRT_SUCCESS );
         }
 
         auto take_diag_record() { return asrt_diag_server_take_record( &_asm.diag ); }

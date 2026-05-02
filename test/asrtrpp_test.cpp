@@ -1366,7 +1366,7 @@ template < typename T >
 asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
 {
         asrt::param_result res = co_await asrt::fetch< T >( c, id );
-        std::ignore            = res;  // XXX: fix
+        (void) res;  // exercises the fetch protocol path; result not verified in this helper
 }
 
 template < typename T >

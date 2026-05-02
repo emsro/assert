@@ -36,7 +36,7 @@ static enum asrt_status asrt_collect_client_handle_error(
     struct asrt_collect_client* client,
     struct asrt_span*           buff )
 {
-        (void) buff;
+        (void) buff;  // error message carries no payload
         ASRT_ERR_LOG( "asrt_collect_client", "error received from controller" );
         client->state = ASRT_COLLECT_CLIENT_ERROR;
         return ASRT_SUCCESS;

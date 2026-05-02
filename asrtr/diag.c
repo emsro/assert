@@ -16,8 +16,8 @@
 
 static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg )
 {
-        (void) arg;
-        (void) p;
+        (void) arg;  // diag event handler does not use the callback argument
+        (void) p;    // or the node pointer
         switch ( e ) {
         case ASRT_EVENT_TICK:
                 return ASRT_SUCCESS;

@@ -47,13 +47,13 @@ char* asrt_realloc_str( struct asrt_allocator* a, struct asrt_span* buff );
 
 static inline void* asrt_call_malloc( void* ptr, uint32_t size )
 {
-        (void) ptr;
+        (void) ptr;  // context pointer unused by default malloc
         return malloc( size );
 }
 
 static inline void asrt_call_free( void* ptr, void* mem )
 {
-        (void) ptr;
+        (void) ptr;  // context pointer unused by default free
         free( mem );
 }
 

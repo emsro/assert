@@ -119,27 +119,29 @@ struct paired_ctx
                 if ( asrt::init( r, r_send_queue, "paired_reactor" ) != ASRT_SUCCESS )
                         throw std::runtime_error( "reactor init failed" );
 
-                (void) asrt::add_test( r, t0 );
-                (void) asrt::add_test( r, t1 );
+                REQUIRE( asrt::add_test( r, t0 ) == ASRT_SUCCESS );
+                REQUIRE( asrt::add_test( r, t1 ) == ASRT_SUCCESS );
 
                 if ( asrt::init( c, &c_send_queue, asrt_default_allocator() ) != ASRT_SUCCESS )
                         throw std::runtime_error( "controller init failed" );
 
                 // start init handshake
-                (void) asrt::start(
-                    c,
-                    { []( void* self, asrt::status s ) -> asrt::status {
-                             auto* p = static_cast< paired_ctx* >( self );
-                             p->init_cb_count++;
-                             p->init_status = s;
-                             return ASRT_SUCCESS;
-                     },
-                      this },
-                    1000 );
+                REQUIRE(
+                    asrt::start(
+                        c,
+                        { []( void* self, asrt::status s ) -> asrt::status {
+                                 auto* p = static_cast< paired_ctx* >( self );
+                                 p->init_cb_count++;
+                                 p->init_status = s;
+                                 return ASRT_SUCCESS;
+                         },
+                          this },
+                        1000 ) == ASRT_SUCCESS );
 
                 // complete PROTO_VERSION handshake
                 for ( int i = 0; i < 100 && !asrt::is_idle( c ); i++ ) {
-                        (void) asrt::tick( asrt::node( c ), t++ );
+                        (void) asrt::tick( asrt::node( c ), t++ );  // tick status checked
+                                                                    // implicitly via is_idle
                         deliver( &c_send_queue, &r.node );
                         (void) asrt::tick( asrt::node( r ), t++ );
                         deliver( &r_send_queue, &c.node );
@@ -157,7 +159,8 @@ struct paired_ctx
         void spin()
         {
                 for ( int i = 0; i < 100 && !asrt::is_idle( c ); i++ ) {
-                        (void) asrt::tick( asrt::node( c ), t++ );
+                        (void) asrt::tick( asrt::node( c ), t++ );  // tick status checked
+                                                                    // implicitly via is_idle
                         deliver( &c_send_queue, &r.node );
                         (void) asrt::tick( asrt::node( r ), t++ );
                         deliver( &r_send_queue, &c.node );

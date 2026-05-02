@@ -40,7 +40,7 @@ static enum asrt_status asrt_collect_server_handle_ready_ack(
     struct asrt_collect_server* server,
     struct asrt_span*           buff )
 {
-        (void) buff;
+        (void) buff;  // READY_ACK carries no payload
         if ( server->state != ASRT_COLLECT_SERVER_READY_SENT ) {
                 ASRT_ERR_LOG(
                     "asrt_collect_server",
