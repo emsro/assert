@@ -15,6 +15,37 @@
 
 #include <stddef.h>
 
+void asrt_cobs_encoder_iter( struct asrt_cobs_encoder* e, uint8_t b )
+{
+        ASRT_ASSERT( e );
+        if ( *e->offset == 255 ) {
+                *e->offset = 255;
+                e->offset  = e->p++;
+                *e->offset = 1;
+        }
+        if ( b != 0 ) {
+                *e->offset += 1;
+                *e->p = b;
+        } else {
+                e->offset  = e->p;
+                *e->offset = 1;
+        }
+        e->p++;
+}
+
+void asrt_cobs_decoder_iter( struct asrt_cobs_decoder* d, uint8_t b, uint8_t** p )
+{
+        ASRT_ASSERT( d );
+        if ( d->offset == 1 ) {
+                if ( d->iszero != 0 )
+                        *( *p )++ = 0U;
+                d->offset = b;
+                d->iszero = b != 255U ? 1U : 0U;
+        } else {
+                d->offset -= 1;
+                *( *p )++ = b;
+        }
+}
 
 enum asrt_status asrt_cobs_encode_buffer( struct asrt_span const in, struct asrt_span* out )
 {

@@ -43,17 +43,9 @@ struct stream_schemas
                 o._s = {};
         }
 
-        stream_schemas& operator=( stream_schemas&& o ) noexcept
-        {
-                if ( this != &o ) {
-                        asrt_stream_schemas_free( &_s );
-                        _s   = o._s;
-                        o._s = {};
-                }
-                return *this;
-        }
+        stream_schemas& operator=( stream_schemas&& o ) noexcept;
 
-        ~stream_schemas() { asrt_stream_schemas_free( &_s ); }
+        ~stream_schemas();
 
         asrt_stream_schemas const* operator->() const { return &_s; }
 

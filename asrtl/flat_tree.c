@@ -491,3 +491,59 @@ enum asrt_status asrt_flat_value_decode(
         }
         return ASRT_SUCCESS;
 }
+
+size_t asrt_flat_value_wire_size( struct asrt_flat_value v )
+{
+        switch ( v.type ) {
+        case ASRT_FLAT_STYPE_STR:
+                return v.data.s.str_val ? strlen( v.data.s.str_val ) + 1UL : 1UL;
+        case ASRT_FLAT_STYPE_U32:
+        case ASRT_FLAT_STYPE_BOOL:
+        case ASRT_FLAT_STYPE_FLOAT:
+        case ASRT_FLAT_STYPE_I32:
+                return 4U;
+        case ASRT_FLAT_CTYPE_OBJECT:
+        case ASRT_FLAT_CTYPE_ARRAY:
+                return 8U;
+        default:
+                return 0U;
+        }
+}
+
+void asrt_flat_value_write( uint8_t** p, struct asrt_flat_value v )
+{
+        switch ( v.type ) {
+        case ASRT_FLAT_STYPE_NONE:
+        case ASRT_FLAT_STYPE_NULL:
+                break;
+        case ASRT_FLAT_STYPE_STR: {
+                size_t sl = strlen( v.data.s.str_val );
+                memcpy( *p, v.data.s.str_val, sl );
+                *p += sl;
+                *( *p )++ = '\0';
+                break;
+        }
+        case ASRT_FLAT_STYPE_U32:
+                asrt_add_u32( p, v.data.s.u32_val );
+                break;
+        case ASRT_FLAT_STYPE_I32:
+                asrt_add_i32( p, v.data.s.i32_val );
+                break;
+        case ASRT_FLAT_STYPE_BOOL:
+                asrt_add_u32( p, v.data.s.bool_val );
+                break;
+        case ASRT_FLAT_STYPE_FLOAT: {
+                uint32_t bits;
+                memcpy( &bits, &v.data.s.float_val, sizeof bits );
+                asrt_add_u32( p, bits );
+                break;
+        }
+        case ASRT_FLAT_CTYPE_OBJECT:
+        case ASRT_FLAT_CTYPE_ARRAY:
+                asrt_add_u32( p, v.data.cont.first_child );
+                asrt_add_u32( p, v.data.cont.last_child );
+                break;
+        default:
+                break;
+        }
+}

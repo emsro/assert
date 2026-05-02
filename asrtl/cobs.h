@@ -41,23 +41,7 @@ static inline void asrt_cobs_encoder_init( struct asrt_cobs_encoder* e, uint8_t*
 
 /// Encodes a single byte. Caller must ensure at least 2 bytes are available from `e->p` (offset
 /// reset + data byte in worst case).
-static inline void asrt_cobs_encoder_iter( struct asrt_cobs_encoder* e, uint8_t b )
-{
-        ASRT_ASSERT( e );
-        if ( *e->offset == 255 ) {
-                *e->offset = 255;
-                e->offset  = e->p++;
-                *e->offset = 1;
-        }
-        if ( b != 0 ) {
-                *e->offset += 1;
-                *e->p = b;
-        } else {
-                e->offset  = e->p;
-                *e->offset = 1;
-        }
-        e->p++;
-}
+void asrt_cobs_encoder_iter( struct asrt_cobs_encoder* e, uint8_t b );
 
 /// Encodes entire buffer with COBS. Returns encoded length in `out->e - out->b`, or error status.
 /// Returns ASRT_SIZE_ERR if output buffer is insufficient during encoding.
@@ -78,19 +62,7 @@ static inline void asrt_cobs_decoder_init( struct asrt_cobs_decoder* d )
 }
 
 /// Decodes one COBS-encoded byte. May write zero or one byte to `*p`.
-static inline void asrt_cobs_decoder_iter( struct asrt_cobs_decoder* d, uint8_t b, uint8_t** p )
-{
-        ASRT_ASSERT( d );
-        if ( d->offset == 1 ) {
-                if ( d->iszero != 0 )
-                        *( *p )++ = 0U;
-                d->offset = b;
-                d->iszero = b != 255U ? 1U : 0U;
-        } else {
-                d->offset -= 1;
-                *( *p )++ = b;
-        }
-}
+void asrt_cobs_decoder_iter( struct asrt_cobs_decoder* d, uint8_t b, uint8_t** p );
 
 /// Input buffer for COBS-encoded data. `buff` is total capacity, `used` is occupied region.
 struct asrt_cobs_ibuffer
