@@ -19,7 +19,7 @@ namespace asrt
 template < has_param_query_traits T >
 struct param_result
 {
-        using value_type = typename param_query_traits< T >::value_type;
+        using value_type = param_query_traits< T >::value_type;
 
         value_type  value;
         char const* key;  // Points to internal buffer of param client, valid until next query
@@ -62,18 +62,17 @@ struct param_query_sender
                 void start()
                 {
                         using traits = param_query_traits< T >;
-                        auto cb      = +[]( asrt_param_client*,
-                                       asrt_param_query*         q,
-                                       typename traits::raw_type raw ) {
-                                auto& self = *reinterpret_cast< op* >( q->cb_ptr );
-                                if ( q->error_code != ASRT_PARAM_ERR_NONE )
-                                        self.recv.set_error( ASRT_RECV_ERR );
-                                else
-                                        self.recv.set_value( param_result< T >{
-                                            static_cast< typename traits::value_type >( raw ),
-                                            q->key,
-                                            q->next_sibling } );
-                        };
+                        auto cb =
+                            +[]( asrt_param_client*, asrt_param_query* q, traits::raw_type raw ) {
+                                    auto& self = *reinterpret_cast< op* >( q->cb_ptr );
+                                    if ( q->error_code != ASRT_PARAM_ERR_NONE )
+                                            self.recv.set_error( ASRT_RECV_ERR );
+                                    else
+                                            self.recv.set_value( param_result< T >{
+                                                static_cast< traits::value_type >( raw ),
+                                                q->key,
+                                                q->next_sibling } );
+                            };
                         auto s = query< T >( c, &q, node_id, key, cb, this );
                         if ( s != ASRT_SUCCESS )
                                 recv.set_error( ASRT_RECV_ERR );

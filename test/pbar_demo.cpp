@@ -20,13 +20,14 @@
 #include <CLI/CLI.hpp>
 #include <chrono>
 #include <random>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
 
 using namespace std::literals::chrono_literals;
 
-static std::vector< std::string > const k_names = {
+static char const* k_names[] = {
     "test_allocator_basic",   "test_allocator_overflow",   "test_allocator_free_null",
     "test_controller_init",   "test_controller_dispatch",  "test_controller_teardown",
     "test_callbacks_timeout", "test_callbacks_fire_order", "test_reactor_create",
@@ -70,7 +71,7 @@ int main( int argc, char** argv )
         int failed = 0;
 
         for ( int i = 0; i < total; ++i ) {
-                std::string const& name = k_names[i % k_names.size()];
+                char const* name = k_names[i % std::size( k_names )];
 
                 bar.set_status(
                     pbar::fg( "Running: ", pbar::colors::dim_gray ) + pbar::bold( name ) );

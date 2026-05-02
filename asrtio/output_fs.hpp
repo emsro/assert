@@ -84,6 +84,7 @@ struct null_fs : output_fs
 private:
         struct null_buf : std::streambuf
         {
+        protected:
                 int_type overflow( int_type c ) override { return c; }
         };
 

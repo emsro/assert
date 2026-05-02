@@ -24,158 +24,153 @@
 #include <algorithm>
 #include <doctest/doctest.h>
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
 
-//---------------------------------------------------------------------
-// lib
-
-static void setup_test(
-    struct asrt_reactor* r,
-    struct asrt_test*    t,
-    char const*          name,
-    void*                data,
-    asrt_test_callback   start_f )
+    namespace
 {
-        assert( r );
-        assert( t );
-        enum asrt_status st = asrt_test_init( t, name, data, start_f );
-        CHECK_EQ( ASRT_SUCCESS, st );
-        st = asrt_reactor_add_test( r, t );
-        CHECK_EQ( ASRT_SUCCESS, st );
-}
 
-static void check_reactor_init(
-    struct asrt_reactor*       reac,
-    struct asrt_send_req_list* send_queue,
-    char const*                desc )
-{
-        enum asrt_status st = asrt_reactor_init( reac, send_queue, desc );
-        CHECK_EQ( ASRT_SUCCESS, st );
-}
+        //---------------------------------------------------------------------
+        // lib
 
-static void check_diag_init( struct asrt_diag_client* diag, struct asrt_node* prev )
-{
-        enum asrt_status st = asrt_diag_client_init( diag, prev );
-        CHECK_EQ( ASRT_SUCCESS, st );
-}
-
-static void check_reactor_recv( struct asrt_reactor* reac, struct asrt_span msg )
-{
-        enum asrt_status st = asrt_chann_recv( &reac->node, msg );
-        CHECK_EQ( ASRT_SUCCESS, st );
-}
-
-static void check_reactor_recv_flags(
-    struct asrt_reactor* reac,
-    struct asrt_span     msg,
-    uint32_t             flags )
-{
-        check_reactor_recv( reac, msg );
-        CHECK_EQ( flags, reac->flags & ~ASRT_PASSIVE_FLAGS );
-}
-
-static void check_reactor_tick( struct asrt_reactor* reac, collector* coll )
-{
-        enum asrt_status st = asrt_chann_tick( &reac->node, 0 );
-        CHECK_EQ( ASRT_SUCCESS, st );
-        CHECK_EQ( 0x00, reac->flags & ~ASRT_PASSIVE_FLAGS );
-        drain_send_queue( reac->node.send_queue, coll );
-}
-
-static void check_recv_and_spin(
-    struct asrt_reactor*    reac,
-    collector*              coll,
-    uint8_t*                beg,
-    uint8_t*                end,
-    enum asrt_reactor_flags fls )
-{
-        check_reactor_recv_flags( reac, ( struct asrt_span ){ beg, end }, fls );
-        int       i = 0;
-        int const n = 1000;
-        for ( ; i < n; i++ ) {
-                check_reactor_tick( reac, coll );
-                if ( reac->state == ASRT_REAC_IDLE )
-                        break;
+        void setup_test(
+            struct asrt_reactor * r,
+            struct asrt_test * t,
+            char const*        name,
+            void*              data,
+            asrt_test_callback start_f )
+        {
+                assert( r );
+                assert( t );
+                enum asrt_status st = asrt_test_init( t, name, data, start_f );
+                CHECK_EQ( ASRT_SUCCESS, st );
+                st = asrt_reactor_add_test( r, t );
+                CHECK_EQ( ASRT_SUCCESS, st );
         }
-        CHECK_NE( i, n );
-}
 
-static void check_run_test(
-    struct asrt_reactor* reac,
-    collector*           coll,
-    uint32_t             test_id,
-    uint32_t             run_id )
-{
-        struct asrt_u8d8msg   msg = {};
-        struct asrt_send_req* req = asrt_msg_ctor_test_start( &msg, test_id, run_id );
-        check_recv_and_spin( reac, coll, req->buff.b, req->buff.e, ASRT_FLAG_TSTART );
-}
+        void check_reactor_init(
+            struct asrt_reactor * reac, struct asrt_send_req_list * send_queue, char const* desc )
+        {
+                enum asrt_status st = asrt_reactor_init( reac, send_queue, desc );
+                CHECK_EQ( ASRT_SUCCESS, st );
+        }
 
-static void assert_diag_record_any_line( struct collected_data& collected )
-{
-        assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
-        uint32_t line = 0;
-        asrt_u8d4_to_u32( collected.data.data() + 1, &line );
-        CHECK( line >= 1 );
-        CHECK( collected.data.size() > 5 );
-        auto* fn_begin = collected.data.data() + 5;
-        auto* fn_end   = collected.data.data() + collected.data.size();
-        CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
-                return b == '\0';
-        } ) );
-}
+        void check_diag_init( struct asrt_diag_client * diag, struct asrt_node * prev )
+        {
+                enum asrt_status st = asrt_diag_client_init( diag, prev );
+                CHECK_EQ( ASRT_SUCCESS, st );
+        }
 
-static void assert_diag_record( struct collected_data& collected, uint32_t line )
-{
-        assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
-        assert_u32( line, collected.data.data() + 1 );
-        CHECK( collected.data.size() > 5 );
-        auto* fn_begin = collected.data.data() + 5;
-        auto* fn_end   = collected.data.data() + collected.data.size();
-        CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
-                return b == '\0';
-        } ) );
-}
+        void check_reactor_recv( struct asrt_reactor * reac, struct asrt_span msg )
+        {
+                enum asrt_status st = asrt_chann_recv( &reac->node, msg );
+                CHECK_EQ( ASRT_SUCCESS, st );
+        }
 
-static void assert_test_result(
-    struct collected_data&  collected,
-    uint32_t                id,
-    enum asrt_test_result_e result )
-{
-        assert_collected_core_hdr( collected, 0x08, ASRT_MSG_TEST_RESULT );
-        assert_u32( id, collected.data.data() + 2 );
-        assert_u16( result, collected.data.data() + 6 );
-}
+        void check_reactor_recv_flags(
+            struct asrt_reactor * reac, struct asrt_span msg, uint32_t flags )
+        {
+                check_reactor_recv( reac, msg );
+                CHECK_EQ( flags, reac->flags & ~ASRT_PASSIVE_FLAGS );
+        }
 
-static void assert_test_start( struct collected_data& collected, uint16_t test_id, uint32_t run_id )
-{
-        assert_collected_core_hdr( collected, 0x08, ASRT_MSG_TEST_START );
-        assert_u16( test_id, collected.data.data() + 2 );
-        assert_u32( run_id, collected.data.data() + 4 );
-}
+        void check_reactor_tick( struct asrt_reactor * reac, collector * coll )
+        {
+                enum asrt_status st = asrt_chann_tick( &reac->node, 0 );
+                CHECK_EQ( ASRT_SUCCESS, st );
+                CHECK_EQ( 0x00, reac->flags & ~ASRT_PASSIVE_FLAGS );
+                drain_send_queue( reac->node.send_queue, coll );
+        }
 
-/// drain_send_queue / drain_send_queue_ex are defined in collector.hpp
+        void check_recv_and_spin(
+            struct asrt_reactor * reac,
+            collector * coll,
+            uint8_t * beg,
+            uint8_t * end,
+            enum asrt_reactor_flags fls )
+        {
+                check_reactor_recv_flags( reac, ( struct asrt_span ){ beg, end }, fls );
+                int       i = 0;
+                int const n = 1000;
+                for ( ; i < n; i++ ) {
+                        check_reactor_tick( reac, coll );
+                        if ( reac->state == ASRT_REAC_IDLE )
+                                break;
+                }
+                CHECK_NE( i, n );
+        }
 
-struct reactor_ctx
-{
-        struct asrt_reactor reac = {};
-        collector           coll;
-        asrt_send_req_list  reac_sq    = {};
-        asrt_send_req_list  diag_sq    = {};
-        uint8_t             buffer[64] = {};
-        struct asrt_span    sp         = {};
+        void check_run_test(
+            struct asrt_reactor * reac, collector * coll, uint32_t test_id, uint32_t run_id )
+        {
+                struct asrt_u8d8msg   msg = {};
+                struct asrt_send_req* req = asrt_msg_ctor_test_start( &msg, test_id, run_id );
+                check_recv_and_spin( reac, coll, req->buff.b, req->buff.e, ASRT_FLAG_TSTART );
+        }
 
-        reactor_ctx() { sp = { buffer, buffer + sizeof buffer }; }
-        ~reactor_ctx() { CHECK_EQ( coll.data.empty(), true ); }
-};
+        void assert_diag_record_any_line( struct collected_data & collected )
+        {
+                assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
+                uint32_t line = 0;
+                asrt_u8d4_to_u32( collected.data.data() + 1, &line );
+                CHECK( line >= 1 );
+                CHECK( collected.data.size() > 5 );
+                auto* fn_begin = collected.data.data() + 5;
+                auto* fn_end   = collected.data.data() + collected.data.size();
+                CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
+                        return b == '\0';
+                } ) );
+        }
 
-//---------------------------------------------------------------------
-// tests
+        void assert_diag_record( struct collected_data & collected, uint32_t line )
+        {
+                assert_collected_diag_hdr( collected, ASRT_DIAG_MSG_RECORD );
+                assert_u32( line, collected.data.data() + 1 );
+                CHECK( collected.data.size() > 5 );
+                auto* fn_begin = collected.data.data() + 5;
+                auto* fn_end   = collected.data.data() + collected.data.size();
+                CHECK( std::none_of( fn_begin, fn_end, []( uint8_t b ) {
+                        return b == '\0';
+                } ) );
+        }
 
-static enum asrt_status dataless_test_fun( struct asrt_record* x )
-{
-        (void) x;
-        return ASRT_SUCCESS;
+        void assert_test_result(
+            struct collected_data & collected, uint32_t id, enum asrt_test_result_e result )
+        {
+                assert_collected_core_hdr( collected, 0x08, ASRT_MSG_TEST_RESULT );
+                assert_u32( id, collected.data.data() + 2 );
+                assert_u16( result, collected.data.data() + 6 );
+        }
+
+        void assert_test_start(
+            struct collected_data & collected, uint16_t test_id, uint32_t run_id )
+        {
+                assert_collected_core_hdr( collected, 0x08, ASRT_MSG_TEST_START );
+                assert_u16( test_id, collected.data.data() + 2 );
+                assert_u32( run_id, collected.data.data() + 4 );
+        }
+
+
+        struct reactor_ctx
+        {
+                struct asrt_reactor reac;
+                collector           coll;
+                asrt_send_req_list  reac_sq    = {};
+                asrt_send_req_list  diag_sq    = {};
+                uint8_t             buffer[64] = {};
+                struct asrt_span    sp         = {};
+
+                reactor_ctx() { sp = { buffer, buffer + sizeof buffer }; }
+                ~reactor_ctx() { CHECK_EQ( coll.data.empty(), true ); }
+        };
+
+        //---------------------------------------------------------------------
+        // tests
+
+        enum asrt_status dataless_test_fun( struct asrt_record * x )
+        {
+                (void) x;
+                return ASRT_SUCCESS;
+        }
 }
 
 TEST_CASE_FIXTURE( reactor_ctx, "reactor_init" )
@@ -678,6 +673,9 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_multi_flag" )
 // diag_record accepted/busy — standalone fixture, no reactor dependency
 // =============================================================================
 
+namespace
+{
+
 struct diag_record_ctx
 {
         asrt_send_req_list send_queue = {};
@@ -695,6 +693,8 @@ struct diag_record_ctx
         diag_record_ctx() { CHECK_EQ( ASRT_SUCCESS, asrt_diag_client_init( &diag, &root_node ) ); }
         ~diag_record_ctx() { coll.data.clear(); }
 };
+
+}  // namespace
 
 // fire-and-forget (NULL callback): slot free → ACCEPTED, message queued
 TEST_CASE_FIXTURE( diag_record_ctx, "diag_record_no_cb_accepted" )
@@ -1165,6 +1165,9 @@ static uint8_t* build_param_response_arr(
         return p;
 }
 
+namespace
+{
+
 struct param_client_ctx
 {
         static constexpr uint32_t buff_size = 256;
@@ -1229,6 +1232,8 @@ struct param_client_ctx
         }
         ~param_client_ctx() { asrt_param_client_deinit( &client ); }
 };
+
+}  // namespace
 
 TEST_CASE( "asrt_param_client_init" )
 {
@@ -1839,6 +1844,9 @@ TEST_CASE_FIXTURE( param_client_ctx, "query_pending_flag" )
 // Query timeout tests
 // ============================================================================
 
+namespace
+{
+
 struct param_timeout_ctx
 {
         static constexpr uint32_t bugg_size = 256;
@@ -1889,6 +1897,8 @@ struct param_timeout_ctx
         }
         ~param_timeout_ctx() { asrt_param_client_deinit( &client ); }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( param_timeout_ctx, "query_timeout_fires_after_deadline" )
 {
@@ -2030,6 +2040,9 @@ static uint8_t* build_coll_error( uint8_t* buf, uint8_t error_code )
         return p;
 }
 
+namespace
+{
+
 struct collect_client_ctx
 {
         asrt_send_req_list         send_queue = {};
@@ -2056,6 +2069,8 @@ struct collect_client_ctx
         }
         ~collect_client_ctx() = default;
 };
+
+}  // namespace
 
 TEST_CASE( "asrt_collect_client_init" )
 {
@@ -2211,13 +2226,13 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
                 (void) st;  // stored separately via cb_st capture below
         };
         // Use a stateful lambda via a lambda-to-fptr adapter
-        struct Ctx
+        struct ctx_s
         {
                 int*              called;
                 enum asrt_status* st;
         } ctx{ &called, &cb_st };
         auto fptr = []( void* p, enum asrt_status st ) {
-                auto* c = static_cast< Ctx* >( p );
+                auto* c = static_cast< ctx_s* >( p );
                 *c->called += 1;
                 *c->st = st;
         };
@@ -2241,13 +2256,13 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
 
         int              called = 0;
         enum asrt_status cb_st  = ASRT_SUCCESS;
-        struct Ctx
+        struct ctx_s
         {
                 int*              called;
                 enum asrt_status* st;
         } ctx{ &called, &cb_st };
         auto fptr = []( void* p, enum asrt_status st ) {
-                auto* c = static_cast< Ctx* >( p );
+                auto* c = static_cast< ctx_s* >( p );
                 *c->called += 1;
                 *c->st = st;
         };
@@ -2289,6 +2304,9 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_busy_while_in
 
 #include "../asrtr/stream.h"
 
+namespace
+{
+
 struct strm_client_ctx
 {
         collector                 coll;
@@ -2307,6 +2325,8 @@ struct strm_client_ctx
                 drain_send_queue_ex( &send_queue, &coll, st );
         }
 };
+
+}  // namespace
 
 // --- init ---
 
@@ -2503,7 +2523,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback"
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         bool                        cb_fired = false;
-        asrt_status                 cb_st    = {};
+        asrt_status                 cb_st    = ASRT_INTERNAL_ERR;
         auto                        done_cb  = []( void* p, enum asrt_status s ) {
                 auto* pair = static_cast< std::pair< bool*, asrt_status* >* >( p );
                 *pair->first  = true;
@@ -2601,7 +2621,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: valid sends DATA message"
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_emit: done_cb fires via tick" )
 {
-        asrt_status cb_status = {};
+        asrt_status cb_status = ASRT_INTERNAL_ERR;
         auto        cb        = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
@@ -2730,7 +2750,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: clears done_cb" )
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: full define→tick cycle with callback" )
 {
-        asrt_status cb_status = {};
+        asrt_status cb_status = ASRT_INTERNAL_ERR;
         auto        cb        = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };

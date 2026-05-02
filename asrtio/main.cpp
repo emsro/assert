@@ -36,7 +36,8 @@ using namespace std::literals::chrono_literals;
 namespace asrtio
 {
 using asrt::opt;
-
+namespace
+{
 struct pbar_reporter : suite_reporter
 {
         pbar::terminal_progress& bar;
@@ -89,13 +90,11 @@ struct pbar_reporter : suite_reporter
         void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
-namespace
-{
 std::shared_ptr< pbar::terminal_progress > g_bar;
 asrt_log_level                             g_log_level = ASRT_LOG_ERROR;
 std::ostream*                              g_log_file  = nullptr;
-}  // namespace
-static std::string plain_log_line(
+
+std::string plain_log_line(
     enum asrt_log_level level,
     char const*         module,
     char const*         fmt,
@@ -131,7 +130,7 @@ static std::string plain_log_line(
         return std::string( ts ) + "  " + ( module ? module : "-" ) + "  " + ls + "  " + msgbuf;
 }
 
-static std::string pbar_format_log(
+std::string pbar_format_log(
     enum asrt_log_level level,
     char const*         module,
     char const*         fmt,
@@ -154,6 +153,7 @@ static std::string pbar_format_log(
         return pbar::colored_wall_time() + "  " + pbar::dim( module ? module : "-" ) + "  " +
                pbar::fg( ls, lc ) + "  " + msgbuf;
 }
+}  // namespace
 
 extern "C" {
 void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... )
@@ -178,7 +178,10 @@ void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, .
 }
 }
 
-static task< void > run_tcp(
+namespace
+{
+
+task< void > run_tcp(
     task_ctx&                       ctx,
     arena&                          arena,
     steady_clock&                   clk,
@@ -205,7 +208,7 @@ static task< void > run_tcp(
         g_bar.reset();
 };
 
-static task< void > run_rsim(
+task< void > run_rsim(
     task_ctx&                       ctx,
     arena&                          arena,
     steady_clock&                   clk,
@@ -279,7 +282,7 @@ struct final_receiver
                 }
         }
 };
-
+}  // namespace
 }  // namespace asrtio
 
 int main( int argc, char* argv[] )

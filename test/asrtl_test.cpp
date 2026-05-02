@@ -129,6 +129,9 @@ TEST_CASE( "fill_buffer_exact_fit" )
         CHECK_EQ( 0xBE, dest[2] );
 }
 
+namespace
+{
+
 struct cobs_record
 {
         uint8_t const*                 raw;
@@ -137,6 +140,8 @@ struct cobs_record
         uint32_t                       encoded_size;
         std::unique_ptr< cobs_record > next;
 };
+
+}  // namespace
 
 static void cobs_record_append(
     std::unique_ptr< cobs_record >& head,
@@ -582,6 +587,9 @@ TEST_CASE( "cobs_ibuffer_iter_consumes_trailing_zero" )
 // ============================================================================
 
 // Structure to track received messages
+namespace
+{
+
 struct test_msg_record
 {
         asrt_chann_id chid;
@@ -595,6 +603,8 @@ struct test_channel_ctx
         size_t                 msg_count;
         enum asrt_status       return_status;
 };
+
+}  // namespace
 
 static enum asrt_status test_channel_recv_cb( void* ptr, enum asrt_event_e event, void* arg )
 {
@@ -1010,7 +1020,7 @@ TEST_CASE( "cobs_ibuffer_insert_l13" )
 {
         // L13: Verify asrt_cobs_ibuffer_insert works with larger buffers
         // (uses int instead of ptrdiff_t, but should work for reasonable sizes)
-        size_t                 buf_size = 1024 * 1024;  // 1MB buffer
+        size_t                 buf_size = (size_t) 1024 * 1024;  // 1MB buffer
         std::vector< uint8_t > storage( buf_size, 0 );
 
         struct asrt_cobs_ibuffer ib;
@@ -1018,7 +1028,7 @@ TEST_CASE( "cobs_ibuffer_insert_l13" )
         asrt_cobs_ibuffer_init( &ib, sp );
 
         // Insert data that's large but fits
-        size_t                 insert_size = 100 * 1024;  // 100KB
+        size_t                 insert_size = (size_t) 100 * 1024;  // 100KB
         std::vector< uint8_t > payload( insert_size, 0 );
         for ( size_t i = 0; i < insert_size; i++ )
                 payload[i] = (uint8_t) ( i & 0xFF );

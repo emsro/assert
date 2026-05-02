@@ -31,7 +31,11 @@
 
 using namespace std::chrono_literals;
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
+
+    namespace
+{
+}
 
 // ---------------------------------------------------------------------------
 // Component 3: cobs_node::on_data
@@ -168,6 +172,9 @@ TEST_CASE( "cobs_on_data_multi_packet" )
 // ---------------------------------------------------------------------------
 // Component 4: run_test_suite + cntr_tcp_sys integration
 
+namespace
+{
+
 struct recording_reporter : asrtio::suite_reporter
 {
         uint32_t                   count = 0;
@@ -202,6 +209,8 @@ struct recording_reporter : asrtio::suite_reporter
         void on_stream_data( std::string_view, asrt::stream_schemas const& ) override {}
 };
 
+}  // namespace
+
 // Drain a uv_loop: close any remaining handles, run until empty, then free.
 static void drain_loop( uv_loop_t* loop )
 {
@@ -221,6 +230,9 @@ static void drain_loop( uv_loop_t* loop )
         // double-closes and crashes in debug builds (libuv memsets on close).
         uv_loop_delete( loop );
 }
+
+namespace
+{
 
 struct test_receiver
 {
@@ -256,6 +268,8 @@ struct test_receiver
         ecor::empty_env get_env() const noexcept { return {}; }
 };
 
+}  // namespace
+
 static asrtio::task< void > suite_coro(
     asrtio::task_ctx&           tctx,
     uv_loop_t*                  loop,
@@ -275,6 +289,9 @@ static asrtio::task< void > suite_coro(
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, nfs, {} );
         reporter.done_names_at_on_done = (int) reporter.done_names.size();
 }
+
+namespace
+{
 
 struct suite_run
 {
@@ -308,6 +325,8 @@ struct suite_run
                 drain_loop( loop );
         }
 };
+
+}  // namespace
 
 TEST_CASE( "suite_basic" )
 {
@@ -400,6 +419,9 @@ TEST_CASE( "suite_seed_changes_outcomes" )
 // ---------------------------------------------------------------------------
 // Component 5: param protocol over TCP
 
+namespace
+{
+
 struct param_received_node
 {
         asrt::flat_id   id;
@@ -427,6 +449,8 @@ struct param_e2e_state
                 }
         }
 };
+
+}  // namespace
 
 static asrtio::task< void > param_e2e_coro(
     asrtio::task_ctx&           tctx,
@@ -832,9 +856,9 @@ TEST_CASE( "ftfj_mixed_types" )
         int           count = 0;
         while ( id != 0 ) {
                 auto r = query( tree, id );
-                if ( strcmp( r.key, "n" ) == 0 )
+                if ( strcmp( r.key, "n" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_NULL, r.value.type );
-                else if ( strcmp( r.key, "b" ) == 0 ) {
+                } else if ( strcmp( r.key, "b" ) == 0 ) {
                         CHECK_EQ( ASRT_FLAT_STYPE_BOOL, r.value.type );
                         CHECK_EQ( 1U, r.value.data.s.bool_val );
                 } else if ( strcmp( r.key, "i" ) == 0 ) {
@@ -1324,8 +1348,6 @@ TEST_CASE( "pc_runs_for_listed_overrides_wildcard" )
 
 // --- param_config_from_json() tests ---
 
-#include <nlohmann/json.hpp>
-
 TEST_CASE( "pcfj_multi_test_round_trip" )
 {
         auto j = nlohmann::json::parse( R"({
@@ -1474,6 +1496,9 @@ static asrtio::task< void > suite_param_coro(
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params, nfs, {} );
 }
 
+namespace
+{
+
 struct param_suite_run
 {
         recording_reporter reporter;
@@ -1498,7 +1523,7 @@ struct param_suite_run
                 } );
 
                 auto op =
-                    ( suite_param_coro( tctx, loop, 42, arena, clk, reporter, params, client ) |
+                    ( suite_param_coro( tctx, loop, seed, arena, clk, reporter, params, client ) |
                       asrtio::complete_arena( arena ) )
                         .connect( test_receiver{ &done, &idle } );
                 op.start();
@@ -1507,6 +1532,8 @@ struct param_suite_run
                 drain_loop( loop );
         }
 };
+
+}  // namespace
 
 TEST_CASE( "suite_param_multi_run" )
 {

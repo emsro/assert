@@ -67,7 +67,7 @@ struct gen_sender
 {
         using sender_concept = ecor::sender_t;
         using context_type   = T;
-        using value_sig      = typename T::value_sig;
+        using value_sig      = T::value_sig;
 
         T ctx;
 

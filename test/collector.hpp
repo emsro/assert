@@ -14,7 +14,7 @@
 #include "../asrtl/chann.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/diag_proto.h"
-#include "./util.h"
+#include "./util.hpp"
 
 #include <assert.h>
 #include <deque>

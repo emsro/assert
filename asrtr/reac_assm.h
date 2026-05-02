@@ -32,7 +32,7 @@ struct asrt_reac_assm
         struct asrt_stream_client  stream;
 };
 
-inline enum asrt_status asrt_reac_assm_init(
+static inline enum asrt_status asrt_reac_assm_init(
     struct asrt_reac_assm* assembly,
     char const*            desc,
     uint32_t               timeout )

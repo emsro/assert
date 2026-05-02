@@ -13,12 +13,16 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
+#include "../asrtlpp/callback.hpp"
+#include "../asrtlpp/util.hpp"
 #include "../asrtr/diag.h"
 
 #include <cstdint>
 
 namespace asrt
 {
+
+using status = asrt_status;
 
 inline void rec_diag(
     ref< asrt_diag_client >              d,

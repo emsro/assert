@@ -454,7 +454,7 @@ static enum asrt_status asrt_cntr_recv_test_exec(
 //---------------------------------------------------------------------
 // tick
 
-enum asrt_status asrt_cntr_tick( struct asrt_controller* c, uint32_t now )
+static enum asrt_status asrt_cntr_tick( struct asrt_controller* c, uint32_t now )
 {
         switch ( c->state ) {
         case ASRT_CNTR_INIT:

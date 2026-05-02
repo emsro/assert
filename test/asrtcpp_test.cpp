@@ -31,7 +31,11 @@
 #include <string>
 #include <vector>
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
+
+    namespace
+{
+}
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -67,6 +71,9 @@ static void deliver( asrt_send_req_list* sq, asrt_node* peer_head )
 
 // ---------------------------------------------------------------------------
 // test callables for the reactor side
+
+namespace
+{
 
 struct passing_test
 {
@@ -158,6 +165,8 @@ struct paired_ctx
                 CHECK( asrt::is_idle( c ) );
         }
 };
+
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // fmt
@@ -357,6 +366,9 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 // recv_cb.  Construction order: send lambdas first (capture this, only called
 // at runtime), then the diag objects that consume them.
 
+namespace
+{
+
 struct diag_paired_ctx : paired_ctx
 {
         asrt_diag_server c_diag;
@@ -377,6 +389,8 @@ struct diag_paired_ctx : paired_ctx
                 asrt::deinit( c_diag );
         }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( diag_paired_ctx, "diag_record_received_by_controller" )
 {
@@ -437,6 +451,9 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
 // ---------------------------------------------------------------------------
 // param_server wrapper
 
+namespace
+{
+
 struct param_server_ctx : paired_ctx
 {
         collector         param_coll;
@@ -452,6 +469,8 @@ struct param_server_ctx : paired_ctx
 
         void drain_param() { drain_send_queue( &c_send_queue, &param_coll ); }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( param_server_ctx, "param_server_node_chained" )
 {
@@ -548,6 +567,9 @@ static uint8_t* build_csrv_append(
         return p;
 }
 
+namespace
+{
+
 struct collect_server_ctx
 {
         collector           coll;
@@ -581,6 +603,8 @@ struct collect_server_ctx
                 coll.data.clear();
         }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_node_chained" )
 {

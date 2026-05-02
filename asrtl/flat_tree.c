@@ -403,9 +403,9 @@ enum asrt_status asrt_flat_tree_find_by_key(
         }
 
         asrt_flat_id child_id = 0;
-        if ( parent->value.type == ASRT_FLAT_CTYPE_OBJECT )
+        if ( parent->value.type == ASRT_FLAT_CTYPE_OBJECT ) {
                 child_id = parent->value.data.cont.first_child;
-        else {
+        } else {
                 ASRT_ERR_LOG(
                     "asrt_flat_tree", "find_by_key: parent_id=%u is not an object", parent_id );
                 return ASRT_ARG_ERR;

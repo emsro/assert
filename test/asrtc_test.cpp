@@ -27,28 +27,29 @@
 
 #include <doctest/doctest.h>
 
-ASRT_DEFINE_GPOS_LOG()
+static ASRT_DEFINE_GPOS_LOG()
+
+    namespace
+{
+}
 
 //---------------------------------------------------------------------
 // lib
-
-static void check_recv( auto* c, struct asrt_span msg )
+namespace
+{
+void check_recv( auto* c, struct asrt_span msg )
 {
         enum asrt_status st = asrt_chann_recv( &c->node, msg );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-static void check_tick( auto* c, uint32_t now )
+void check_tick( auto* c, uint32_t now )
 {
         enum asrt_status st = asrt_chann_tick( &c->node, now );
         CHECK_EQ( ASRT_SUCCESS, st );
 }
 
-static void check_recv_and_spin(
-    struct asrt_controller* c,
-    uint8_t*                beg,
-    uint8_t*                end,
-    uint32_t*               now )
+void check_recv_and_spin( struct asrt_controller* c, uint8_t* beg, uint8_t* end, uint32_t* now )
 {
         check_recv( c, ( struct asrt_span ){ .b = beg, .e = end } );
         int       i = 0;
@@ -60,18 +61,18 @@ static void check_recv_and_spin(
 
 struct controller_ctx
 {
-        struct asrt_controller    cntr = {};
+        struct asrt_controller    cntr;
         collector                 coll;
-        struct asrt_send_req_list send_queue  = {};
-        enum asrt_status          init_status = {};
-        uint32_t                  t           = 1;
+        struct asrt_send_req_list send_queue = {};
+        enum asrt_status          init_status;
+        uint32_t                  t = 1;
 
         controller_ctx() {}
         ~controller_ctx() { CHECK_EQ( coll.data.size(), 0 ); }
         void drain() { drain_send_queue( &send_queue, &coll ); }
 };
 
-static struct asrt_span flatten_req( uint8_t* buf, struct asrt_send_req const* req )
+struct asrt_span flatten_req( uint8_t* buf, struct asrt_send_req const* req )
 {
         uint8_t* p = buf;
         memcpy( p, req->buff.b, req->buff.e - req->buff.b );
@@ -84,14 +85,14 @@ static struct asrt_span flatten_req( uint8_t* buf, struct asrt_send_req const* r
         return ( struct asrt_span ){ .b = buf, .e = p };
 }
 
-static enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
+enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
 {
         enum asrt_status* p = (enum asrt_status*) ptr;
         *p                  = s;
         return ASRT_SUCCESS;
 }
 
-static void check_cntr_full_init( controller_ctx* ctx )
+void check_cntr_full_init( controller_ctx* ctx )
 {
         enum asrt_status st =
             asrt_cntr_init( &ctx->cntr, &ctx->send_queue, asrt_default_allocator() );
@@ -109,8 +110,7 @@ static void check_cntr_full_init( controller_ctx* ctx )
         check_recv_and_spin( &ctx->cntr, req->buff.b, req->buff.e, &ctx->t );
         CHECK_EQ( ASRT_SUCCESS, ctx->init_status );
 }
-
-
+}  // namespace
 //---------------------------------------------------------------------
 // tests
 
@@ -146,7 +146,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         CHECK_EQ( ASRT_SUCCESS, init_status );
 }
 
-static enum asrt_status cpy_desc_cb( void* ptr, enum asrt_status s, char const* desc )
+namespace
+{
+
+enum asrt_status cpy_desc_cb( void* ptr, enum asrt_status s, char const* desc )
 {
         (void) s;
         std::string* p = (std::string*) ptr;
@@ -160,11 +163,7 @@ struct test_info_result
         std::string desc;
 };
 
-static enum asrt_status cpy_test_info_cb(
-    void*            ptr,
-    enum asrt_status s,
-    uint16_t         tid,
-    char const*      desc )
+enum asrt_status cpy_test_info_cb( void* ptr, enum asrt_status s, uint16_t tid, char const* desc )
 {
         (void) s;
         struct test_info_result* r = (struct test_info_result*) ptr;
@@ -180,7 +179,7 @@ struct test_info_cb_capture
         std::string      desc;
 };
 
-static enum asrt_status cpy_test_info_capture_cb(
+enum asrt_status cpy_test_info_capture_cb(
     void*            ptr,
     enum asrt_status s,
     uint16_t         tid,
@@ -192,6 +191,8 @@ static enum asrt_status cpy_test_info_capture_cb(
         c->desc   = desc ? desc : "";
         return ASRT_SUCCESS;
 }
+
+}  // namespace
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
 {
@@ -811,7 +812,8 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
 
 //---------------------------------------------------------------------
 // diag channel — controller side
-
+namespace
+{
 
 struct diag_ctx
 {
@@ -827,6 +829,8 @@ struct diag_ctx
                 REQUIRE_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, alloc ) );
         }
 };
+
+}  // namespace
 
 TEST_CASE( "diag_init" )
 {
@@ -1293,6 +1297,9 @@ static uint8_t* build_query( uint8_t* buf, asrt::flat_id node_id )
         return p;
 }
 
+namespace
+{
+
 struct param_ctx
 {
         struct asrt_node          head      = {};
@@ -1313,6 +1320,8 @@ struct param_ctx
         ~param_ctx() { asrt_param_server_deinit( &param ); }
         void drain() { drain_send_queue( &send_queue, &coll ); }
 };
+
+}  // namespace
 
 TEST_CASE( "asrt_param_server_init" )
 {
@@ -1546,6 +1555,9 @@ TEST_CASE_FIXTURE( param_ctx, "asrt_param_server_deinit_frees_buffer" )
         alloc_ctx.free_calls = 0;
 }
 
+namespace
+{
+
 template < typename Server, typename Client >
 struct server_client_base
 {
@@ -1647,6 +1659,8 @@ struct param_loopback_ctx : param_base
                 asrt_param_server_deinit( &server );
         }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( param_loopback_ctx, "param_loopback_full_tree_traversal" )
 {
@@ -2014,6 +2028,9 @@ static uint8_t* build_collect_append(
         return p;
 }
 
+namespace
+{
+
 struct collect_ctx
 {
         struct asrt_node           head      = {};
@@ -2035,6 +2052,8 @@ struct collect_ctx
         ~collect_ctx() { asrt_collect_server_deinit( &server ); }
         void drain() { drain_send_queue( &send_queue, &coll ); }
 };
+
+}  // namespace
 
 TEST_CASE( "asrt_collect_server_init" )
 {
@@ -2280,7 +2299,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_duplicate_sends_erro
 
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ack_cb_fires" )
 {
-        enum asrt_status ack_status = {};
+        enum asrt_status ack_status = ASRT_INTERNAL_ERR;
         auto             ack_cb     = []( void* ptr, enum asrt_status s ) {
                 *static_cast< enum asrt_status* >( ptr ) = s;
         };
@@ -2300,7 +2319,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ack_cb_fires" )
 
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_timeout_fires_ack_cb" )
 {
-        enum asrt_status ack_status = {};
+        enum asrt_status ack_status = ASRT_INTERNAL_ERR;
         auto             ack_cb     = []( void* ptr, enum asrt_status s ) {
                 *static_cast< enum asrt_status* >( ptr ) = s;
         };
@@ -2335,7 +2354,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_double_call_retu
 
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_after_timeout_allowed" )
 {
-        enum asrt_status ack_status = {};
+        enum asrt_status ack_status = ASRT_INTERNAL_ERR;
         auto             ack_cb     = []( void* ptr, enum asrt_status s ) {
                 *static_cast< enum asrt_status* >( ptr ) = s;
         };
@@ -2434,6 +2453,9 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_alloc_failure_sends_
         coll.data.clear();
 }
 
+namespace
+{
+
 using collect_base = server_client_base< asrt_collect_server, asrt_collect_client >;
 
 struct collect_loopback_ctx : collect_base
@@ -2470,6 +2492,8 @@ struct collect_loopback_ctx : collect_base
                 REQUIRE_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
         }
 };
+
+}  // namespace
 
 TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_handshake" )
 {
@@ -2619,6 +2643,9 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 #include "../asrtc/stream.h"
 #include "../asrtr/stream.h"
 
+namespace
+{
+
 /// Fixture for isolated controller-side stream server tests.
 struct strm_server_ctx
 {
@@ -2642,6 +2669,8 @@ struct strm_server_ctx
         }
         void drain() { drain_send_queue( &send_queue, &coll ); }
 };
+
+}  // namespace
 
 /// Helper: build a raw DEFINE message and deliver it to the server's recv_cb.
 static enum asrt_status strm_deliver_define(
@@ -2998,6 +3027,9 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_clear: frees all schemas and re
 
 // --- loopback: reactor client → controller server ---
 
+namespace
+{
+
 struct strm_loopback_ctx : server_client_base< asrt_stream_server, asrt_stream_client >
 {
         collector                 coll;
@@ -3028,10 +3060,12 @@ struct strm_loopback_ctx : server_client_base< asrt_stream_server, asrt_stream_c
         }
 };
 
+}  // namespace
+
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema received" )
 {
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT };
-        asrt_status                 done_st  = {};
+        asrt_status                 done_st  = ASRT_INTERNAL_ERR;
         auto                        done_cb  = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };

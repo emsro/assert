@@ -14,6 +14,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/flat_type_traits.hpp"
+#include "../asrtlpp/util.hpp"
 #include "../asrtr/param.h"
 
 #include <concepts>
@@ -100,10 +101,10 @@ concept has_param_query_traits = requires { typename param_query_traits< T >; };
 template < typename CB, typename T >
 concept typed_param_query_callable =
     has_param_query_traits< T > && requires(
-                                       CB                                           cb,
-                                       asrt_param_client*                           c,
-                                       asrt_param_query*                            q,
-                                       typename param_query_traits< T >::value_type v ) {
+                                       CB                                  cb,
+                                       asrt_param_client*                  c,
+                                       asrt_param_query*                   q,
+                                       param_query_traits< T >::value_type v ) {
             { cb( c, q, v ) } -> std::same_as< void >;
     };
 
@@ -142,9 +143,9 @@ template < has_param_query_traits T, typed_param_query_callable< T > CB >
         using traits     = param_query_traits< T >;
         q->expected_type = traits::flat_type;
         q->cb.*traits::cb_member =
-            []( asrt_param_client* c, asrt_param_query* qq, typename traits::raw_type raw ) {
+            []( asrt_param_client* c, asrt_param_query* qq, traits::raw_type raw ) {
                     ( *reinterpret_cast< CB* >( qq->cb_ptr ) )(
-                        c, qq, static_cast< typename traits::value_type >( raw ) );
+                        c, qq, static_cast< traits::value_type >( raw ) );
             };
         q->cb_ptr = &cb;
         return asrt_param_client_query( q, cl, node_id, key );

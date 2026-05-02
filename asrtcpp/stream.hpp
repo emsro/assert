@@ -14,9 +14,12 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
+#include "../asrtlpp/util.hpp"
 
 namespace asrt
 {
+
+using status = asrt_status;
 
 /// Owning handle for a collection of stream schemas and their records.
 ///

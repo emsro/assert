@@ -10,18 +10,24 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../asrtcpp/param.hpp"
+#include "../asrtcpp/stream.hpp"
 #include "../asrtl/log.h"
 #include "../asrtlpp/fmt.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
 #include "../asrtr/record.h"
+#include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
+#include "../asrtrpp/param_sender.hpp"
 #include "../asrtrpp/reactor.hpp"
+#include "../asrtrpp/stream.hpp"
+#include "../asrtrpp/task_unit.hpp"
 #include "./collector.hpp"
 #include "./util.h"
 
 #include <algorithm>
+#include <cstring>
 #include <doctest/doctest.h>
 #include <format>
 #include <functional>
@@ -30,16 +36,22 @@
 
 static ASRT_DEFINE_GPOS_LOG()
 
-    // ---------------------------------------------------------------------------
-    // helpers
+    namespace
+{
+}
 
-    /// Drain all requests from sq into coll.
-    static void drain( asrt_send_req_list* sq, collector* coll )
+// ---------------------------------------------------------------------------
+// helpers
+
+namespace
+{
+/// Drain all requests from sq into coll.
+void drain( asrt_send_req_list* sq, collector* coll )
 {
         drain_send_queue( sq, coll );
 }
 
-static void assert_diag_record( collected_data& cd, uint32_t line )
+void assert_diag_record( collected_data& cd, uint32_t line )
 {
         assert_collected_diag_hdr( cd, ASRT_DIAG_MSG_RECORD );
         assert_u32( line, cd.data.data() + 1 );
@@ -51,7 +63,7 @@ static void assert_diag_record( collected_data& cd, uint32_t line )
         } ) );
 }
 
-static void ready_ack_noop( void*, asrt_status ) {}
+void ready_ack_noop( void*, asrt_status ) {}
 
 // ---------------------------------------------------------------------------
 // test callables for unit<T>
@@ -130,7 +142,7 @@ struct diag_ctx
                 asrt::deinit( r );
         }
 };
-
+}  // namespace
 // ---------------------------------------------------------------------------
 // fmt
 
@@ -169,9 +181,10 @@ TEST_CASE( "unit_cb_pass" )
         asrt_test_input input{};
         input.test_ptr = &u;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_RUNNING;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_RUNNING,
+            .inpt  = &input,
+        };
 
         asrt_status st = asrt::unit< pass_test >::cb( &rec );
         CHECK_EQ( ASRT_SUCCESS, st );
@@ -186,9 +199,10 @@ TEST_CASE( "unit_cb_fail" )
         asrt_test_input input{};
         input.test_ptr = &u;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_RUNNING;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_RUNNING,
+            .inpt  = &input,
+        };
 
         asrt_status st = asrt::unit< err_cb_test >::cb( &rec );
         CHECK_NE( ASRT_SUCCESS, st );
@@ -216,18 +230,16 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_record" )
 
 // ---------------------------------------------------------------------------
 // reactor end-to-end
-
-static void assert_test_start_msg( collected_data& cd, uint16_t test_id, uint32_t run_id )
+namespace
+{
+void assert_test_start_msg( collected_data& cd, uint16_t test_id, uint32_t run_id )
 {
         assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_START );
         assert_u16( test_id, cd.data.data() + 2 );
         assert_u32( run_id, cd.data.data() + 4 );
 }
 
-static void assert_test_result_msg(
-    collected_data&         cd,
-    uint32_t                run_id,
-    enum asrt_test_result_e result )
+void assert_test_result_msg( collected_data& cd, uint32_t run_id, enum asrt_test_result_e result )
 {
         assert_collected_core_hdr( cd, 0x08, ASRT_MSG_TEST_RESULT );
         assert_u32( run_id, cd.data.data() + 2 );
@@ -277,7 +289,7 @@ struct e2e_ctx
                 }
         }
 };
-
+}  // namespace
 TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
 {
         // test 0: pass_test
@@ -308,8 +320,11 @@ TEST_CASE_FIXTURE( e2e_ctx, "reactor_e2e" )
 // ---------------------------------------------------------------------------
 // param_client wrapper — loopback with C++ param_server
 
+namespace
+{
+
 /// Flatten a send_req and dispatch to the matching channel node under peer_head.
-static void deliver_req( asrt_send_req_list* sq, asrt_node* peer_head )
+void deliver_req( asrt_send_req_list* sq, asrt_node* peer_head )
 {
         while ( sq->head ) {
                 asrt_send_req* req = sq->head;
@@ -420,6 +435,8 @@ struct param_loopback_cpp_ctx
         }
 };
 
+}  // namespace
+
 TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_loopback_handshake" )
 {
         struct asrt_flat_tree tree;
@@ -503,6 +520,8 @@ TEST_CASE_FIXTURE( param_loopback_cpp_ctx, "param_cpp_error_reaches_callback" )
 
 // ---------------------------------------------------------------------------
 // typed query<T> tests
+namespace
+{
 
 struct typed_loopback_ctx
 {
@@ -585,7 +604,7 @@ struct typed_loopback_ctx
                 }
         }
 };
-
+}  // namespace
 TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_query_u32_happy" )
 {
         asrt_flat_tree tree;
@@ -906,10 +925,10 @@ TEST_CASE_FIXTURE( typed_loopback_ctx, "typed_find_c_callback" )
         asrt_flat_tree_deinit( &tree );
 }
 
+namespace
+{
 // ---------------------------------------------------------------------------
 // task_unit<T> — coroutine-based test harness
-
-#include "../asrtrpp/task_unit.hpp"
 
 // --- test task definitions ---
 
@@ -964,7 +983,7 @@ struct tu_multi_error : asrt::task_test
                 co_yield asrt::with_error{ ASRT_INIT_ERR };
         }
 };
-
+}  // namespace
 // --- task_unit: construction ---
 
 TEST_CASE( "task_unit_name" )
@@ -977,7 +996,8 @@ TEST_CASE( "task_unit_name" )
 }
 
 // --- task_unit: direct cb tests ---
-
+namespace
+{
 struct tu_cb_ctx
 {
         asrt::malloc_free_memory_resource mem;
@@ -994,7 +1014,7 @@ struct tu_cb_ctx
                 }
         }
 };
-
+}  // namespace
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_pass" )
 {
         asrt::task_unit< tu_pass > u{ tu_pass{ ctx } };
@@ -1003,9 +1023,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_pass" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_pass >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         run_to_completion( u, rec );
         CHECK_EQ( ASRT_TEST_PASS, rec.state );
@@ -1019,9 +1040,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_fail" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_fail >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         run_to_completion( u, rec );
         CHECK_EQ( ASRT_TEST_FAIL, rec.state );
@@ -1035,9 +1057,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_error" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_error >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         run_to_completion( u, rec );
         CHECK_EQ( ASRT_TEST_ERROR, rec.state );
@@ -1051,9 +1074,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_pass" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_pass >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         // First cb call: sets RUNNING, starts coroutine
         asrt::task_unit< tu_multi_pass >::cb( &rec );
@@ -1080,9 +1104,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_fail" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_fail >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         run_to_completion( u, rec );
         CHECK_EQ( ASRT_TEST_FAIL, rec.state );
@@ -1096,9 +1121,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_error" )
         input.test_ptr   = &u;
         input.continue_f = asrt::task_unit< tu_multi_error >::cb;
 
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
-        rec.inpt  = &input;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = &input,
+        };
 
         run_to_completion( u, rec );
         CHECK_EQ( ASRT_TEST_ERROR, rec.state );
@@ -1107,8 +1133,10 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_multi_step_error" )
 // cb is no-op when state is not INIT (coroutine already started)
 TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_noop_after_start" )
 {
-        asrt_record rec{};
-        rec.state = ASRT_TEST_INIT;
+        asrt_record rec{
+            .state = ASRT_TEST_INIT,
+            .inpt  = nullptr,
+        };
 
         asrt::task_unit< tu_multi_pass > u{ tu_multi_pass{ ctx } };
 
@@ -1129,6 +1157,8 @@ TEST_CASE_FIXTURE( tu_cb_ctx, "task_unit_cb_noop_after_start" )
         CHECK_EQ( ASRT_TEST_RUNNING, rec.state );
 }
 
+namespace
+{
 // --- task_unit: reactor integration ---
 
 struct tu_e2e_ctx
@@ -1182,6 +1212,7 @@ struct tu_e2e_ctx
                 }
         }
 };
+}  // namespace
 
 TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_pass" )
 {
@@ -1225,8 +1256,8 @@ TEST_CASE_FIXTURE( tu_e2e_ctx, "task_unit_e2e_multi_step" )
 
 // ---------------------------------------------------------------------------
 // param_query_sender — param() and find() free functions
-
-#include "../asrtrpp/param_sender.hpp"
+namespace
+{
 
 // Test fixture: cross-wired param loopback with task_ctx for coroutine tests.
 // The sender under test (param_query_sender) is async — the callback fires
@@ -1332,14 +1363,14 @@ struct param_sender_ctx
 // Free-function coroutines (ecor requires task_ctx& as first arg, no lambda coroutines).
 
 template < typename T >
-static asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
+asrt::task< void > ps_do_fetch( asrt::task_ctx&, asrt_param_client& c, uint16_t id )
 {
         asrt::param_result res = co_await asrt::fetch< T >( c, id );
         std::ignore            = res;  // XXX: fix
 }
 
 template < typename T >
-static asrt::task< void > ps_do_find(
+asrt::task< void > ps_do_find(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1348,7 +1379,7 @@ static asrt::task< void > ps_do_find(
         co_await asrt::find< T >( c, parent, key );
 }
 
-static asrt::task< void > ps_capture_find_u32(
+asrt::task< void > ps_capture_find_u32(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1358,7 +1389,7 @@ static asrt::task< void > ps_capture_find_u32(
         *out = co_await asrt::find< uint32_t >( c, parent, key );
 }
 
-static asrt::task< void > ps_capture_find_str(
+asrt::task< void > ps_capture_find_str(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1369,7 +1400,7 @@ static asrt::task< void > ps_capture_find_str(
         *out   = v;
 }
 
-static asrt::task< void > ps_find_u32_then_check(
+asrt::task< void > ps_find_u32_then_check(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1381,7 +1412,7 @@ static asrt::task< void > ps_find_u32_then_check(
         *reached = true;
 }
 
-static asrt::task< void > ps_sequential_finds(
+asrt::task< void > ps_sequential_finds(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1394,7 +1425,7 @@ static asrt::task< void > ps_sequential_finds(
         *sum   = a.value + b.value;
 }
 
-static asrt::task< void > ps_second_fails(
+asrt::task< void > ps_second_fails(
     asrt::task_ctx&,
     asrt_param_client& c,
     uint16_t           parent,
@@ -1408,7 +1439,7 @@ static asrt::task< void > ps_second_fails(
         (void) b;
         *reached = true;
 }
-
+}  // namespace
 // --- param<T>: happy paths ---
 
 TEST_CASE_FIXTURE( param_sender_ctx, "ps_param_u32_happy" )
@@ -1707,14 +1738,15 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
 // collect_client (C++ wrapper)
 // ---------------------------------------------------------------------------
 
-#include "../asrtrpp/collect.hpp"
+namespace
+{
 
-static inline asrt_status inject_collect_msg( asrt_node* n, uint8_t* b, uint8_t* e )
+inline asrt_status inject_collect_msg( asrt_node* n, uint8_t* b, uint8_t* e )
 {
         return asrt_chann_recv( n, ( asrt_span ){ .b = b, .e = e } );
 }
 
-static inline uint8_t* make_coll_ready(
+inline uint8_t* make_coll_ready(
     uint8_t*      buf,
     asrt::flat_id root_id,
     asrt::flat_id next_node_id = 1 )
@@ -1757,6 +1789,7 @@ struct collect_cpp_ctx
                 coll.data.clear();
         }
 };
+}  // namespace
 
 TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_handshake" )
 {
@@ -1806,8 +1839,9 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
 // ---------------------------------------------------------------------------
 // collect_sender (coroutine support)
 // ---------------------------------------------------------------------------
-
-static asrt::task< void > cs_do_append_scalar(
+namespace
+{
+asrt::task< void > cs_do_append_scalar(
     asrt::task_ctx&,
     asrt_collect_client& cc,
     asrt::flat_id        parent )
@@ -1819,7 +1853,7 @@ static asrt::task< void > cs_do_append_scalar(
         co_await asrt::append( cc, parent, "ratio", 3.14F );
 }
 
-static asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
+asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
 {
         auto root = co_await asrt::append< asrt::obj >( cc, 0, "root" );
         auto arr  = co_await asrt::append< asrt::arr >( cc, root, "items" );
@@ -1857,7 +1891,7 @@ struct collect_sender_ctx : collect_cpp_ctx
                 return result;
         }
 };
-
+}  // namespace
 TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_scalars" )
 {
         make_active();
@@ -1883,13 +1917,10 @@ TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_tree" )
 // stream C++ wrapper tests
 // =====================================================================
 
-#include "../asrtcpp/stream.hpp"
-#include "../asrtrpp/stream.hpp"
-
-#include <cstring>
-
 // ---------------------------------------------------------------------------
 // helpers
+namespace
+{
 
 struct strm_cpp_ctx
 {
@@ -1932,13 +1963,14 @@ struct strm_cpp_ctx
         }
 };
 
+}  // namespace
 // --- basic C++ wrapper ---
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: define + tick cycle" )
 {
         asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
-        asrt_status            done_st  = {};
-        auto                   done_cb  = []( void* p, enum asrt_status s ) {
+        asrt_status            done_st;
+        auto                   done_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
         CHECK_EQ( ASRT_SUCCESS, asrt::define( client, 0, fields, 1, { done_cb, &done_st } ) );
@@ -1971,7 +2003,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: reset via wrapper" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: u8 define + emit" )
 {
-        asrt_status done_st = {};
+        asrt_status done_st;
         auto        done_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
@@ -2193,8 +2225,8 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit done_cb fires via tick" )
         CHECK_EQ( ASRT_SUCCESS, asrt::define( client, 0, fields, 1, {} ) );
         tick_client();
 
-        asrt_status cb_status = {};
-        auto        done_cb   = []( void* p, enum asrt_status s ) {
+        asrt_status cb_status;
+        auto        done_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
         uint8_t data[] = { 42 };
@@ -2224,14 +2256,14 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_cpp: emit with null done_cb succeeds" )
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: emit done_cb fires via tick" )
 {
-        asrt_status done_st = {};
+        asrt_status done_st;
         auto        done_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
         asrt::stream_schema< uint8_t > schema( client, 0, {} );
         tick_client();
 
-        asrt_status rec_st = {};
+        asrt_status rec_st;
         auto        rec_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
@@ -2249,7 +2281,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit done_cb" )
         asrt::stream_schema< uint8_t, uint16_t > schema( client, 0, {} );
         tick_client();
 
-        asrt_status rec_st = {};
+        asrt_status rec_st;
         auto        rec_cb = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };

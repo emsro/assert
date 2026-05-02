@@ -444,7 +444,7 @@ enum asrt_status asrt_reactor_add_test( struct asrt_reactor* reac, struct asrt_t
         return ASRT_SUCCESS;
 }
 
-enum asrt_status asrt_reactor_event( void* p, enum asrt_event_e e, void* arg )
+static enum asrt_status asrt_reactor_event( void* p, enum asrt_event_e e, void* arg )
 {
         switch ( e ) {
         case ASRT_EVENT_TICK:
