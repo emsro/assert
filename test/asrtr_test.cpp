@@ -19,7 +19,7 @@
 #include "../asrtr/reactor.h"
 #include "./asrtr_tests.h"
 #include "./collector.hpp"
-#include "./util.h"
+#include "./util.hpp"
 
 #include <algorithm>
 #include <doctest/doctest.h>

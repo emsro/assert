@@ -24,7 +24,7 @@
 #include "../asrtrpp/stream.hpp"
 #include "../asrtrpp/task_unit.hpp"
 #include "./collector.hpp"
-#include "./util.h"
+#include "./util.hpp"
 
 #include <algorithm>
 #include <cstring>

@@ -23,7 +23,7 @@
 #include "../asrtr/param.h"
 #include "./collector.hpp"
 #include "./stub_allocator.hpp"
-#include "./util.h"
+#include "./util.hpp"
 
 #include <doctest/doctest.h>
 

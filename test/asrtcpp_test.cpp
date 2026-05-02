@@ -24,7 +24,7 @@
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "./collector.hpp"
-#include "./util.h"
+#include "./util.hpp"
 
 #include <doctest/doctest.h>
 #include <format>
