@@ -42,10 +42,7 @@ static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg
         return ASRT_SUCCESS;
 }
 
-enum asrt_status asrt_diag_client_init(
-    struct asrt_diag_client* diag,
-    struct asrt_node*        prev,
-    struct asrt_sender       sender )
+enum asrt_status asrt_diag_client_init( struct asrt_diag_client* diag, struct asrt_node* prev )
 {
         if ( !diag || !prev ) {
                 ASRT_ERR_LOG( "asrt_diag", "Invalid arguments to diag init" );
@@ -54,12 +51,12 @@ enum asrt_status asrt_diag_client_init(
         *diag = ( struct asrt_diag_client ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_DIAG,
-                    .e_cb_ptr = diag,
-                    .e_cb     = asrt_diag_event,
-                    .next     = NULL,
+                    .chid       = ASRT_DIAG,
+                    .e_cb_ptr   = diag,
+                    .e_cb       = asrt_diag_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr = sender,
         };
         asrt_node_link( prev, &diag->node );
         return ASRT_SUCCESS;
@@ -72,47 +69,96 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag )
         asrt_node_unlink( &diag->node );
 }
 
-static inline enum asrt_status asrt_diag_send_cb( void* ptr, struct asrt_rec_span* sp )
-{
-        struct asrt_diag_client* diag = (struct asrt_diag_client*) ptr;
-        return asrt_send( &diag->sendr, ASRT_DIAG, sp, NULL, NULL );
-}
-
-void asrt_diag_client_record(
+enum asrt_diag_record_result asrt_diag_client_record(
     struct asrt_diag_client* diag,
     char const*              file,
     uint32_t                 line,
-    char const*              extra )
+    char const*              extra,
+    asrt_diag_record_done_cb done_cb,
+    void*                    done_ptr )
 {
         ASRT_ASSERT( diag );
         ASRT_ASSERT( file );
 
         ASRT_INF_LOG( "asrt_diag", "Sending diag message: %s:%u", file, line );
 
-        enum asrt_status st =
-            asrt_msg_rtoc_diag_record( file, line, extra, asrt_diag_send_cb, diag );
-        if ( st != ASRT_SUCCESS )
-                ASRT_ERR_LOG(
-                    "asrt_diag", "Failed to send diag message: %s", asrt_status_to_str( st ) );
+        if ( asrt_send_is_req_used( diag->node.send_queue, &diag->msg.req ) ) {
+                ASRT_ERR_LOG( "asrt_diag", "diag slot busy, dropping record" );
+                return ASRT_DIAG_RECORD_BUSY;
+        }
+        asrt_send_enque(
+            &diag->node,
+            asrt_msg_rtoc_diag_record( &diag->msg, file, line, extra ),
+            done_cb,
+            done_ptr );
+        return ASRT_DIAG_RECORD_ACCEPTED;
 }
 
-static inline enum asrt_status asrt_reac_send( void* r, struct asrt_rec_span* sp )
+static enum asrt_status asrt_send_test_start_error(
+    struct asrt_reactor* reac,
+    uint16_t             test_id,
+    uint32_t             run_id );
+
+static void asrt_reactor_wait_send_done( void* ptr, enum asrt_status st )
 {
-        ASRT_ASSERT( r && sp );
-        return asrt_send( &( (struct asrt_reactor*) r )->sendr, ASRT_CORE, sp, NULL, NULL );
+        struct asrt_reactor* reac = (struct asrt_reactor*) ptr;
+        ASRT_ASSERT( reac->state == ASRT_REAC_WAIT_SEND );
+        if ( st == ASRT_SUCCESS ) {
+                reac->state = reac->wait_send.next_state;
+                return;
+        }
+        ASRT_ERR_LOG( "asrtr_asrtr", "waited send failed, sending error result" );
+        if ( asrt_send_is_req_used( reac->node.send_queue, &reac->wait_send.err_result_msg.req ) ) {
+                ASRT_ERR_LOG( "asrtr_asrtr", "error result slot busy, dropping test error" );
+                reac->state = ASRT_REAC_IDLE;
+                return;
+        }
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_test_result(
+                &reac->wait_send.err_result_msg,
+                reac->wait_send.err_run_id,
+                ASRT_TEST_RESULT_ERROR ),
+            NULL,
+            NULL );
+        reac->state = ASRT_REAC_IDLE;
 }
 
-static enum asrt_status asrt_send_test_error(
+static void asrt_reactor_error_start_sent( void* ptr, enum asrt_status st )
+{
+        struct asrt_reactor* reac = (struct asrt_reactor*) ptr;
+        ASRT_ASSERT( reac->state == ASRT_REAC_WAIT_SEND );
+        if ( st != ASRT_SUCCESS ) {
+                ASRT_ERR_LOG( "asrtr_asrtr", "error start send failed, skipping result" );
+                reac->state = reac->wait_send.next_state;
+                return;
+        }
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->test_result_msg.req ) );
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_test_result(
+                &reac->test_result_msg, reac->wait_send.err_run_id, ASRT_TEST_RESULT_ERROR ),
+            asrt_reactor_wait_send_done,
+            reac );
+}
+
+static enum asrt_status asrt_send_test_start_error(
     struct asrt_reactor* reac,
     uint16_t             test_id,
     uint32_t             run_id )
 {
-        enum asrt_status st = asrt_msg_rtoc_test_start( test_id, run_id, asrt_reac_send, reac );
-        if ( st != ASRT_SUCCESS )
-                return st;
-        return asrt_msg_rtoc_test_result( run_id, ASRT_TEST_RESULT_ERROR, asrt_reac_send, reac );
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->test_start_msg.req ) );
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->test_result_msg.req ) );
+        reac->wait_send.next_state = reac->state;
+        reac->wait_send.err_run_id = run_id;
+        reac->state                = ASRT_REAC_WAIT_SEND;
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_test_start( &reac->test_start_msg, test_id, run_id ),
+            asrt_reactor_error_start_sent,
+            reac );
+        return ASRT_SUCCESS;
 }
-
 
 static enum asrt_status asrt_reactor_tick_flag_test_info( struct asrt_reactor* reac )
 {
@@ -120,27 +166,32 @@ static enum asrt_status asrt_reactor_tick_flag_test_info( struct asrt_reactor* r
         uint32_t          i = reac->recv_test_info_id;
         while ( i-- > 0 && t )
                 t = t->next;
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->ti_msg.req ) );
+        reac->wait_send.next_state = reac->state;
+        reac->wait_send.err_run_id = 0;
+        reac->state                = ASRT_REAC_WAIT_SEND;
         if ( !t ) {
-                if ( asrt_msg_rtoc_test_info(
-                         reac->recv_test_info_id,
-                         ASRT_TEST_INFO_MISSING_TEST_ERR,
-                         "",
-                         0,
-                         asrt_reac_send,
-                         reac ) != ASRT_SUCCESS ) {
-                        ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send missing test info" );
-                        return ASRT_SEND_ERR;
-                }
-        } else if (
-            asrt_msg_rtoc_test_info(
-                reac->recv_test_info_id,
-                ASRT_TEST_INFO_SUCCESS,
-                t->desc,
-                strlen( t->desc ),
-                asrt_reac_send,
-                reac ) != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send test info" );
-                return ASRT_SEND_ERR;
+                asrt_send_enque(
+                    &reac->node,
+                    asrt_msg_rtoc_test_info(
+                        &reac->ti_msg,
+                        reac->recv_test_info_id,
+                        ASRT_TEST_INFO_MISSING_TEST_ERR,
+                        "",
+                        0 ),
+                    asrt_reactor_wait_send_done,
+                    reac );
+        } else {
+                asrt_send_enque(
+                    &reac->node,
+                    asrt_msg_rtoc_test_info(
+                        &reac->ti_msg,
+                        reac->recv_test_info_id,
+                        ASRT_TEST_INFO_SUCCESS,
+                        t->desc,
+                        strlen( t->desc ) ),
+                    asrt_reactor_wait_send_done,
+                    reac );
         }
         return ASRT_SUCCESS;
 }
@@ -148,7 +199,7 @@ static enum asrt_status asrt_reactor_tick_flag_test_info( struct asrt_reactor* r
 static enum asrt_status asrt_reactor_tick_flag_test_start( struct asrt_reactor* reac )
 {
         if ( reac->state != ASRT_REAC_IDLE ) {
-                if ( asrt_send_test_error(
+                if ( asrt_send_test_start_error(
                          reac, reac->recv_test_start_id, reac->recv_test_run_id ) !=
                      ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send busy test error result" );
@@ -161,7 +212,7 @@ static enum asrt_status asrt_reactor_tick_flag_test_start( struct asrt_reactor* 
         while ( i-- > 0 && t )
                 t = t->next;
         if ( !t ) {
-                if ( asrt_send_test_error(
+                if ( asrt_send_test_start_error(
                          reac, reac->recv_test_start_id, reac->recv_test_run_id ) !=
                      ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send missing test error result" );
@@ -177,37 +228,47 @@ static enum asrt_status asrt_reactor_tick_flag_test_start( struct asrt_reactor* 
                     .state = ASRT_TEST_INIT,
                     .inpt  = &reac->test_info,
                 };
-                reac->state = ASRT_REAC_TEST_EXEC;
-                if ( asrt_msg_rtoc_test_start(
-                         reac->recv_test_start_id,
-                         reac->record.inpt->run_id,
-                         asrt_reac_send,
-                         reac ) != ASRT_SUCCESS ) {
-                        ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send test start" );
-                        return ASRT_SEND_ERR;
-                }
+                reac->wait_send.next_state = ASRT_REAC_TEST_EXEC;
+                reac->wait_send.err_run_id = reac->recv_test_run_id;
+                reac->state                = ASRT_REAC_WAIT_SEND;
+                ASRT_ASSERT(
+                    !asrt_send_is_req_used( reac->node.send_queue, &reac->test_start_msg.req ) );
+                asrt_send_enque(
+                    &reac->node,
+                    asrt_msg_rtoc_test_start(
+                        &reac->test_start_msg, reac->recv_test_start_id, reac->recv_test_run_id ),
+                    asrt_reactor_wait_send_done,
+                    reac );
         }
         return ASRT_SUCCESS;
 }
 
 static enum asrt_status asrt_reactor_tick_flag_desc( struct asrt_reactor* reac )
 {
-        if ( asrt_msg_rtoc_desc( reac->desc, strlen( reac->desc ), asrt_reac_send, reac ) !=
-             ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send description" );
-                return ASRT_SEND_ERR;
-        }
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->desc_msg.req ) );
+        reac->wait_send.next_state = reac->state;
+        reac->wait_send.err_run_id = 0;
+        reac->state                = ASRT_REAC_WAIT_SEND;
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_desc( &reac->desc_msg, reac->desc, strlen( reac->desc ) ),
+            asrt_reactor_wait_send_done,
+            reac );
         return ASRT_SUCCESS;
 }
 
 static enum asrt_status asrt_reactor_tick_flag_proto_ver( struct asrt_reactor* reac )
 {
-        if ( asrt_msg_rtoc_proto_version(
-                 ASRT_PROTO_MAJOR, ASRT_PROTO_MINOR, ASRT_PROTO_PATCH, asrt_reac_send, reac ) !=
-             ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send protocol version" );
-                return ASRT_SEND_ERR;
-        }
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->proto_ver_msg.req ) );
+        reac->wait_send.next_state = reac->state;
+        reac->wait_send.err_run_id = 0;
+        reac->state                = ASRT_REAC_WAIT_SEND;
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_proto_version(
+                &reac->proto_ver_msg, ASRT_PROTO_MAJOR, ASRT_PROTO_MINOR, ASRT_PROTO_PATCH ),
+            asrt_reactor_wait_send_done,
+            reac );
         return ASRT_SUCCESS;
 }
 
@@ -218,10 +279,15 @@ static enum asrt_status asrt_reactor_tick_flag_tc( struct asrt_reactor* reac )
         while ( t != NULL )
                 ++count, t = t->next;
         ASRT_INF_LOG( "asrtr_asrtr", "Sending test count: %u", count );
-        if ( asrt_msg_rtoc_test_count( count, asrt_reac_send, reac ) != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send test count" );
-                return ASRT_SEND_ERR;
-        }
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->tc_msg.req ) );
+        reac->wait_send.next_state = reac->state;
+        reac->wait_send.err_run_id = 0;
+        reac->state                = ASRT_REAC_WAIT_SEND;
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_test_count( &reac->tc_msg, count ),
+            asrt_reactor_wait_send_done,
+            reac );
         return ASRT_SUCCESS;
 }
 
@@ -300,12 +366,15 @@ static enum asrt_status asrt_reactor_tick_report( struct asrt_reactor* reac )
         asrt_test_result    res    = record->state == ASRT_TEST_ERROR ? ASRT_TEST_RESULT_ERROR :
                                      record->state == ASRT_TEST_FAIL  ? ASRT_TEST_RESULT_FAILURE :
                                                                         ASRT_TEST_RESULT_SUCCESS;
-        if ( asrt_msg_rtoc_test_result( record->inpt->run_id, res, asrt_reac_send, reac ) !=
-             ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrtr_asrtr", "Failed to send test result" );
-                return ASRT_SEND_ERR;
-        }
-        reac->state = ASRT_REAC_IDLE;
+        ASRT_ASSERT( !asrt_send_is_req_used( reac->node.send_queue, &reac->test_result_msg.req ) );
+        reac->wait_send.next_state = ASRT_REAC_IDLE;
+        reac->wait_send.err_run_id = 0;
+        reac->state                = ASRT_REAC_WAIT_SEND;
+        asrt_send_enque(
+            &reac->node,
+            asrt_msg_rtoc_test_result( &reac->test_result_msg, record->inpt->run_id, res ),
+            asrt_reactor_wait_send_done,
+            reac );
         return ASRT_SUCCESS;
 }
 
@@ -313,6 +382,9 @@ static enum asrt_status asrt_reactor_tick( struct asrt_reactor* reac )
 {
         ASRT_ASSERT( reac );
         ASRT_ASSERT( reac->desc );
+
+        if ( reac->state == ASRT_REAC_WAIT_SEND )
+                return ASRT_SUCCESS;
 
         if ( reac->flags & ~ASRT_PASSIVE_FLAGS )
                 return asrt_reactor_tick_flags( reac );
@@ -452,23 +524,23 @@ enum asrt_status asrt_reactor_event( void* p, enum asrt_event_e e, void* arg )
 }
 
 enum asrt_status asrt_reactor_init(
-    struct asrt_reactor* reac,
-    struct asrt_sender   sender,
-    char const*          desc )
+    struct asrt_reactor*       reac,
+    struct asrt_send_req_list* send_queue,
+    char const*                desc )
 {
-        if ( !reac || !desc ) {
+        if ( !reac || !desc || !send_queue ) {
                 ASRT_ERR_LOG( "asrtr_asrtr", "Invalid arguments to reactor init" );
                 return ASRT_INIT_ERR;
         }
         *reac = ( struct asrt_reactor ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_CORE,
-                    .e_cb_ptr = reac,
-                    .e_cb     = asrt_reactor_event,
-                    .next     = NULL,
+                    .chid       = ASRT_CORE,
+                    .e_cb_ptr   = reac,
+                    .e_cb       = asrt_reactor_event,
+                    .next       = NULL,
+                    .send_queue = send_queue,
                 },
-            .sendr              = sender,
             .desc               = desc,
             .first_test         = NULL,
             .last_test          = NULL,

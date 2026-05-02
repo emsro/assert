@@ -12,11 +12,6 @@
 
 #include "../asrtl/log.h"
 
-static enum asrt_status asrt_param_server_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_param_server* param = (struct asrt_param_server*) p;
-        return asrt_send( &param->sendr, ASRT_PARA, buff, NULL, NULL );
-}
 
 static enum asrt_status asrt_param_server_handle_ready_ack(
     struct asrt_param_server* param,
@@ -103,8 +98,17 @@ static enum asrt_status asrt_param_server_handle_find_by_key(
         enum asrt_status              st =
             asrt_flat_tree_find_by_key( (struct asrt_flat_tree*) param->tree, parent_id, key, &qr );
         if ( st != ASRT_SUCCESS ) {
-                return asrt_msg_ctor_param_error(
-                    ASRT_PARAM_ERR_INVALID_QUERY, parent_id, asrt_param_server_send, param );
+                if ( asrt_send_is_req_used(
+                         param->node.send_queue, &param->find_by_key_err_msg.req ) ) {
+                        return ASRT_SUCCESS;  // already sending an error, avoid flooding
+                }
+                asrt_send_enque(
+                    &param->node,
+                    asrt_msg_ctor_param_error(
+                        &param->find_by_key_err_msg, ASRT_PARAM_ERR_INVALID_QUERY, parent_id ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         param->pending              = ASRT_PARAM_SERVER_PENDING_QUERY;
@@ -171,25 +175,42 @@ static enum asrt_status asrt_param_server_tick( struct asrt_param_server* param,
                 if ( st == ASRT_SIZE_ERR ) {
                         ASRT_ERR_LOG(
                             "asrt_param_server", "query: response too large for node %u", node_id );
-                        return asrt_msg_ctor_param_error(
-                            ASRT_PARAM_ERR_RESPONSE_TOO_LARGE,
-                            node_id,
-                            asrt_param_server_send,
-                            param );
+
+                        if ( asrt_send_is_req_used(
+                                 param->node.send_queue, &param->query_err_msg.req ) ) {
+                                return ASRT_SUCCESS;  // already sending an error, avoid flooding
+                        }
+                        asrt_send_enque(
+                            &param->node,
+                            asrt_msg_ctor_param_error(
+                                &param->query_err_msg, ASRT_PARAM_ERR_RESPONSE_TOO_LARGE, node_id ),
+                            NULL,
+                            NULL );
+                        return ASRT_SUCCESS;
                 }
                 if ( st != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG(
                             "asrt_param_server", "query: encode failure for node %u", node_id );
-                        return asrt_msg_ctor_param_error(
-                            ASRT_PARAM_ERR_ENCODE_FAILURE, node_id, asrt_param_server_send, param );
+                        if ( asrt_send_is_req_used(
+                                 param->node.send_queue, &param->query_err_msg.req ) ) {
+                                return ASRT_SUCCESS;  // already sending an error, avoid flooding
+                        }
+                        asrt_send_enque(
+                            &param->node,
+                            asrt_msg_ctor_param_error(
+                                &param->query_err_msg, ASRT_PARAM_ERR_ENCODE_FAILURE, node_id ),
+                            NULL,
+                            NULL );
+                        return ASRT_SUCCESS;
                 }
 
-                struct asrt_rec_span span = {
-                    .b    = param->enc_buff,
-                    .e    = param->enc_buff + out_len,
-                    .next = NULL,
-                };
-                return asrt_send( &param->sendr, ASRT_PARA, &span, NULL, NULL );
+                param->query_msg.buff = ( struct asrt_span_span ){
+                    .b          = param->enc_buff,
+                    .e          = param->enc_buff + out_len,
+                    .rest       = NULL,
+                    .rest_count = 0 };
+                asrt_send_enque( &param->node, &param->query_msg, NULL, NULL );
+                return ASRT_SUCCESS;
         }
         }
         return ASRT_SUCCESS;
@@ -233,7 +254,6 @@ static enum asrt_status asrt_param_server_event( void* p, enum asrt_event_e e, v
 enum asrt_status asrt_param_server_init(
     struct asrt_param_server* param,
     struct asrt_node*         prev,
-    struct asrt_sender        sender,
     struct asrt_allocator     alloc )
 {
         if ( !param || !prev )
@@ -241,12 +261,12 @@ enum asrt_status asrt_param_server_init(
         *param = ( struct asrt_param_server ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_PARA,
-                    .e_cb_ptr = param,
-                    .e_cb     = asrt_param_server_event,
-                    .next     = NULL,
+                    .chid       = ASRT_PARA,
+                    .e_cb_ptr   = param,
+                    .e_cb       = asrt_param_server_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr        = sender,
             .tree         = NULL,
             .alloc        = alloc,
             .max_msg_size = 0,
@@ -293,7 +313,11 @@ enum asrt_status asrt_param_server_send_ready(
         param->ack_cb_ptr   = ack_cb_ptr;
         param->timeout      = timeout;
         param->deadline     = 0;
-        return asrt_msg_ctor_param_ready( root_id, asrt_param_server_send, param );
+
+        asrt_send_enque(
+            &param->node, asrt_msg_ctor_param_ready( &param->ready_msg, root_id ), NULL, NULL );
+
+        return ASRT_SUCCESS;
 }
 
 void asrt_param_server_deinit( struct asrt_param_server* param )

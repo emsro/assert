@@ -14,7 +14,6 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
 #include <memory>
@@ -30,13 +29,9 @@ struct diag_record_deleter
         void operator()( asrt_diag_record* rec ) const { asrt_diag_free_record( alloc, rec ); }
 };
 
-inline status init(
-    ref< asrt_diag_server > d,
-    asrt_node&              prev,
-    autosender              sender,
-    asrt_allocator          alloc )
+inline status init( ref< asrt_diag_server > d, asrt_node& prev, asrt_allocator alloc )
 {
-        return asrt_diag_server_init( d, &prev, sender, alloc );
+        return asrt_diag_server_init( d, &prev, alloc );
 }
 
 inline std::unique_ptr< diag_record, diag_record_deleter > take_record( ref< asrt_diag_server > d )

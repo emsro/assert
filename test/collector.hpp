@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "../asrtl/chann.h"
 #include "../asrtl/core_proto.h"
 #include "../asrtl/diag_proto.h"
 #include "./util.h"
@@ -47,42 +48,33 @@ static inline void assert_data_ll_contain_str(
 }
 
 
-static inline enum asrt_status sender_collect(
-    void*                 data,
-    asrt_chann_id         id,
-    struct asrt_rec_span* buff,
-    asrt_send_done_cb     done_cb,
-    void*                 done_ptr )
+static inline void drain_send_queue_ex(
+    struct asrt_send_req_list* list,
+    collector*                 coll,
+    enum asrt_status           st )
 {
-        assert( data );
-        collector* c     = (collector*) data;
-        uint32_t   total = 0;
-        for ( struct asrt_rec_span* seg = buff; seg; seg = seg->next )
-                total += (uint32_t) ( seg->e - seg->b );
+        while ( list->head != NULL ) {
+                struct asrt_send_req* req = list->head;
+                list->head                = req->next;
+                if ( list->head == NULL )
+                        list->tail = NULL;
+                req->next = NULL;  // free the slot
 
-        struct collected_data p
-        {
-                .id = id
-        };
-        p.data.resize( total );
-        uint8_t* dst = p.data.data();
-        struct asrt_span sp
-        {
-                .b = dst, .e = dst + total
-        };
-        asrt_rec_span_to_span( &sp, buff );
-        c->data.push_back( p );
-        if ( done_cb )
-                done_cb( done_ptr, ASRT_SUCCESS );
-        return ASRT_SUCCESS;
+                struct collected_data p;
+                p.id = req->chid;
+                p.data.insert( p.data.end(), req->buff.b, req->buff.e );
+                for ( uint32_t i = 0; i < req->buff.rest_count; i++ )
+                        p.data.insert( p.data.end(), req->buff.rest[i].b, req->buff.rest[i].e );
+                coll->data.push_back( p );
+
+                if ( req->done_cb )
+                        req->done_cb( req->done_ptr, st );
+        }
 }
 
-static inline void setup_sender_collector( struct asrt_sender* s, collector* ptr )
+static inline void drain_send_queue( struct asrt_send_req_list* list, collector* coll )
 {
-        *s = ( struct asrt_sender ){
-            .ptr = (void*) ptr,
-            .cb  = &sender_collect,
-        };
+        drain_send_queue_ex( list, coll, ASRT_SUCCESS );
 }
 
 

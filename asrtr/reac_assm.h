@@ -23,6 +23,7 @@ extern "C" {
 
 struct asrt_reac_assm
 {
+        struct asrt_send_req_list  send_queue;
         struct asrt_reactor        reactor;
         struct asrt_diag_client    diag;
         struct asrt_collect_client collect;
@@ -33,20 +34,19 @@ struct asrt_reac_assm
 
 inline enum asrt_status asrt_reac_assm_init(
     struct asrt_reac_assm* assembly,
-    struct asrt_sender     sender,
     char const*            desc,
     uint32_t               timeout )
 {
-        if ( asrt_reactor_init( &assembly->reactor, sender, desc ) != ASRT_SUCCESS ) {
+        if ( asrt_reactor_init( &assembly->reactor, &assembly->send_queue, desc ) !=
+             ASRT_SUCCESS ) {
                 ASRT_ERR_LOG( "asrt_reac_assm", "reactor init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrt_diag_client_init( &assembly->diag, &assembly->reactor.node, sender ) !=
-             ASRT_SUCCESS ) {
+        if ( asrt_diag_client_init( &assembly->diag, &assembly->reactor.node ) != ASRT_SUCCESS ) {
                 ASRT_ERR_LOG( "asrt_reac_assm", "diag init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrt_collect_client_init( &assembly->collect, &assembly->diag.node, sender ) !=
+        if ( asrt_collect_client_init( &assembly->collect, &assembly->diag.node ) !=
              ASRT_SUCCESS ) {
                 ASRT_ERR_LOG( "asrt_reac_assm", "collect client init failed" );
                 return ASRT_INIT_ERR;
@@ -54,7 +54,6 @@ inline enum asrt_status asrt_reac_assm_init(
         if ( asrt_param_client_init(
                  &assembly->param,
                  &assembly->collect.node,
-                 sender,
                  ( struct asrt_span ){
                      .b = assembly->param_cache_buf,
                      .e = assembly->param_cache_buf + sizeof( assembly->param_cache_buf ),
@@ -63,8 +62,7 @@ inline enum asrt_status asrt_reac_assm_init(
                 ASRT_ERR_LOG( "asrt_reac_assm", "param client init failed" );
                 return ASRT_INIT_ERR;
         }
-        if ( asrt_stream_client_init( &assembly->stream, &assembly->param.node, sender ) !=
-             ASRT_SUCCESS ) {
+        if ( asrt_stream_client_init( &assembly->stream, &assembly->param.node ) != ASRT_SUCCESS ) {
                 ASRT_ERR_LOG( "asrt_reac_assm", "stream client init failed" );
                 return ASRT_INIT_ERR;
         }

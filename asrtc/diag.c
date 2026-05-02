@@ -117,7 +117,6 @@ static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg
 enum asrt_status asrt_diag_server_init(
     struct asrt_diag_server* diag,
     struct asrt_node*        prev,
-    struct asrt_sender       sender,
     struct asrt_allocator    alloc )
 {
         if ( !diag || !prev )
@@ -125,12 +124,13 @@ enum asrt_status asrt_diag_server_init(
         *diag = ( struct asrt_diag_server ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_DIAG,
-                    .e_cb_ptr = diag,
-                    .e_cb     = asrt_diag_event,
-                    .next     = NULL,
+                    .chid       = ASRT_DIAG,
+                    .e_cb_ptr   = diag,
+                    .e_cb       = asrt_diag_event,
+                    .next       = NULL,
+                    .prev       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr     = sender,
             .alloc     = alloc,
             .first_rec = NULL,
             .last_rec  = NULL,

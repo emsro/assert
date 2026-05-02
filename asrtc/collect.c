@@ -32,12 +32,6 @@ static char const* asrt_collect_server_state_to_str( enum asrt_collect_server_st
         return "unknown";
 }
 
-static enum asrt_status asrt_collect_server_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_collect_server* server = (struct asrt_collect_server*) p;
-        return asrt_send( &server->sendr, ASRT_COLL, buff, NULL, NULL );
-}
-
 // ---------------------------------------------------------------------------
 // recv handlers (fast path — store data, set pending)
 // ---------------------------------------------------------------------------
@@ -122,8 +116,15 @@ static enum asrt_status asrt_collect_server_handle_append(
                 ASRT_ERR_LOG(
                     "asrt_collect_server", "append: tree append failed for node %u", node_id );
                 server->state = ASRT_COLLECT_SERVER_IDLE;
-                return asrt_msg_ctor_collect_error(
-                    ASRT_COLLECT_ERR_NONE, asrt_collect_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;  // already sending an error, avoid flooding
+
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_collect_error( &server->err_msg, ASRT_COLLECT_ERR_APPEND_FAILED ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         return ASRT_SUCCESS;
@@ -213,7 +214,6 @@ static enum asrt_status asrt_collect_server_event( void* p, enum asrt_event_e e,
 enum asrt_status asrt_collect_server_init(
     struct asrt_collect_server* server,
     struct asrt_node*           prev,
-    struct asrt_sender          sender,
     struct asrt_allocator       alloc,
     uint32_t                    tree_block_cap,
     uint32_t                    tree_node_cap )
@@ -223,12 +223,13 @@ enum asrt_status asrt_collect_server_init(
         *server = ( struct asrt_collect_server ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_COLL,
-                    .e_cb_ptr = server,
-                    .e_cb     = asrt_collect_server_event,
-                    .next     = NULL,
+                    .chid       = ASRT_COLL,
+                    .e_cb_ptr   = server,
+                    .e_cb       = asrt_collect_server_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr          = sender,
+            .err_msg        = { 0 },
             .alloc          = alloc,
             .tree           = { 0 },
             .tree_block_cap = tree_block_cap,
@@ -273,8 +274,12 @@ enum asrt_status asrt_collect_server_send_ready(
         server->cmd.ack_cb_ptr = ack_cb_ptr;
         server->cmd.timeout    = timeout;
         server->cmd.deadline   = 0;
-        return asrt_msg_ctor_collect_ready(
-            root_id, server->next_node_id, asrt_collect_server_send, server );
+        asrt_send_enque(
+            &server->node,
+            asrt_msg_ctor_collect_ready( &server->ready_msg, root_id, server->next_node_id ),
+            NULL,
+            NULL );
+        return ASRT_SUCCESS;
 }
 
 struct asrt_flat_tree const* asrt_collect_server_tree( struct asrt_collect_server const* server )

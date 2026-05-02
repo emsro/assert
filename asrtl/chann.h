@@ -54,16 +54,43 @@ static inline char const* asrt_event_to_str( enum asrt_event_e event )
         return "unknown";
 }
 
+/// Callback invoked when a send operation completes.
+typedef void ( *asrt_send_done_cb )( void* ptr, enum asrt_status status );
+
+struct asrt_send_req
+{
+        struct asrt_span_span buff;
+        asrt_chann_id         chid;
+        asrt_send_done_cb     done_cb;
+        void*                 done_ptr;
+
+        struct asrt_send_req* next;
+};
+
+struct asrt_send_req_list
+{
+        struct asrt_send_req* head;
+        struct asrt_send_req* tail;
+};
+
+static inline int32_t asrt_send_is_req_used(
+    struct asrt_send_req_list const* list,
+    struct asrt_send_req const*      req )
+{
+        return req->next != NULL || list->tail == req;
+}
+
 typedef enum asrt_status ( *asrt_event_callback )( void* ptr, enum asrt_event_e event, void* arg );
 
 /// Channel node representing one channel, chid should be unique within existing chain
 struct asrt_node
 {
-        asrt_chann_id       chid;
-        void*               e_cb_ptr;
-        asrt_event_callback e_cb;
-        struct asrt_node*   next;
-        struct asrt_node*   prev;
+        asrt_chann_id              chid;
+        void*                      e_cb_ptr;
+        asrt_event_callback        e_cb;
+        struct asrt_node*          next;
+        struct asrt_node*          prev;
+        struct asrt_send_req_list* send_queue;
 };
 
 /// Insert `node` after `after` in the chain.
@@ -117,35 +144,86 @@ enum asrt_status asrt_chann_cobs_dispatch(
     struct asrt_node*         head,
     struct asrt_span          in_buff );
 
-/// Callback invoked when a send operation completes.
-typedef void ( *asrt_send_done_cb )( void* ptr, enum asrt_status status );
-
-typedef enum asrt_status ( *asrt_send_callback )(
-    void*                 ptr,
-    asrt_chann_id         id,
-    struct asrt_rec_span* buff,
-    asrt_send_done_cb     done_cb,
-    void*                 done_ptr );
-
-/// Sender structure holding callback and pointer for send operations.
-struct asrt_sender
-{
-        void*              ptr;
-        asrt_send_callback cb;
-};
-
-/// Sends buffer to channel with given id using sender's callback.
-static inline enum asrt_status asrt_send(
-    struct asrt_sender*   r,
-    asrt_chann_id         chid,
-    struct asrt_rec_span* buff,
+/// Enqueue a send request on the node's send queue, to be sent out in order.  The caller should
+/// setup the buffer in the req struct before calling this. Channel ID and done callback are set by
+/// this function.
+static inline void asrt_send_enque(
+    struct asrt_node*     node,
+    struct asrt_send_req* req,
     asrt_send_done_cb     done_cb,
     void*                 done_ptr )
 {
-        ASRT_ASSERT( r );
-        ASRT_ASSERT( r->cb );
-        return r->cb( r->ptr, chid, buff, done_cb, done_ptr );
+        struct asrt_send_req_list* list = node->send_queue;
+        if ( list->tail != NULL )
+                list->tail->next = req;
+        else
+                list->head = req;
+        list->tail    = req;
+        req->next     = NULL;
+        req->chid     = node->chid;
+        req->done_cb  = done_cb;
+        req->done_ptr = done_ptr;
 }
+
+/// Return the next pending send request without removing it, or NULL if the list is empty.
+/// The caller inspects req->buff / req->chid and performs the actual send.
+static inline struct asrt_send_req* asrt_send_req_list_next( struct asrt_send_req_list* list )
+{
+        return list->head;
+}
+
+/// Mark the head request as completed: remove it from the list, free the slot (req->next = NULL),
+/// and invoke its done_cb (if set) with the supplied status.
+/// Behaviour is undefined if the list is empty.
+static inline void asrt_send_req_list_done(
+    struct asrt_send_req_list* list,
+    enum asrt_status           status )
+{
+        struct asrt_send_req* req = list->head;
+        ASRT_ASSERT( req != NULL );
+        list->head = req->next;
+        if ( list->head == NULL )
+                list->tail = NULL;
+        req->next = NULL;  // free the slot
+        if ( req->done_cb )
+                req->done_cb( req->done_ptr, status );
+}
+
+struct asrt_u8d1msg
+{
+        uint8_t              buff[1];
+        struct asrt_send_req req;
+};
+struct asrt_u8d2msg
+{
+        uint8_t              buff[2];
+        struct asrt_send_req req;
+};
+struct asrt_u8d4msg
+{
+        uint8_t              buff[4];
+        struct asrt_send_req req;
+};
+struct asrt_u8d5msg
+{
+        uint8_t              buff[5];
+        struct asrt_send_req req;
+};
+struct asrt_u8d6msg
+{
+        uint8_t              buff[6];
+        struct asrt_send_req req;
+};
+struct asrt_u8d8msg
+{
+        uint8_t              buff[8];
+        struct asrt_send_req req;
+};
+struct asrt_u8d9msg
+{
+        uint8_t              buff[9];
+        struct asrt_send_req req;
+};
 
 #ifdef __cplusplus
 }

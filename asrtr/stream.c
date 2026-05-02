@@ -10,21 +10,18 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./stream.h"
 
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 
 
 static void asrt_stream_send_done( void* ptr, enum asrt_status status )
 {
         struct asrt_stream_client* client = (struct asrt_stream_client*) ptr;
-        client->op.done.send_status       = status;
-        if ( client->state != ASRT_STRM_ERROR )
-                client->state = ASRT_STRM_DONE;
-}
-
-static inline enum asrt_status asrt_stream_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_stream_client* client = (struct asrt_stream_client*) p;
-        return asrt_send( &client->sendr, ASRT_STRM, buff, asrt_stream_send_done, client );
+        if ( client->state == ASRT_STRM_ERROR )
+                return;  // preserve ERROR state (e.g. recv error arrived before send completes)
+        ASRT_ASSERT( client->state == ASRT_STRM_WAIT );
+        client->op.done.send_status = status;
+        client->state               = ASRT_STRM_DONE;
 }
 
 static enum asrt_status asrt_stream_client_recv( void* data, struct asrt_span buff )
@@ -96,14 +93,9 @@ enum asrt_status asrt_stream_client_emit(
         client->done_cb_ptr = done_cb_ptr;
         client->state       = ASRT_STRM_WAIT;
 
-        enum asrt_status st =
-            asrt_msg_rtoc_strm_data( schema_id, data, data_size, asrt_stream_send, client );
-        if ( st != ASRT_SUCCESS ) {
-                client->done_cb     = NULL;
-                client->done_cb_ptr = NULL;
-                client->state       = ASRT_STRM_IDLE;
-                return ASRT_SEND_ERR;
-        }
+        struct asrt_send_req* req =
+            asrt_msg_rtoc_strm_data( &client->data_msg, schema_id, data, data_size );
+        asrt_send_enque( &client->node, req, asrt_stream_send_done, client );
         return ASRT_SUCCESS;
 }
 
@@ -140,17 +132,10 @@ static enum asrt_status asrt_stream_tick_define_send( struct asrt_stream_client*
 {
         client->state = ASRT_STRM_WAIT;
 
-        struct asrt_stream_pending_define* p = &client->op.define;
-
-        enum asrt_status st = asrt_msg_rtoc_strm_define(
-            p->schema_id, p->fields, p->field_count, asrt_stream_send, client );
-        if ( st != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG(
-                    "asrt_stream_client",
-                    "failed to send DEFINE message: %s",
-                    asrt_status_to_str( st ) );
-                return ASRT_SEND_ERR;
-        }
+        struct asrt_stream_pending_define* p   = &client->op.define;
+        struct asrt_send_req*              req = asrt_msg_rtoc_strm_define(
+            &client->define_msg, p->schema_id, p->fields, p->field_count );
+        asrt_send_enque( &client->node, req, asrt_stream_send_done, client );
         return ASRT_SUCCESS;
 }
 
@@ -188,20 +173,19 @@ static enum asrt_status asrt_stream_client_event( void* p, enum asrt_event_e e, 
 
 enum asrt_status asrt_stream_client_init(
     struct asrt_stream_client* client,
-    struct asrt_node*          prev,
-    struct asrt_sender         sender )
+    struct asrt_node*          prev )
 {
         if ( !client || !prev )
                 return ASRT_INIT_ERR;
         *client = ( struct asrt_stream_client ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_STRM,
-                    .e_cb_ptr = client,
-                    .e_cb     = asrt_stream_client_event,
-                    .next     = NULL,
+                    .chid       = ASRT_STRM,
+                    .e_cb_ptr   = client,
+                    .e_cb       = asrt_stream_client_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr = sender,
             .state = ASRT_STRM_IDLE,
         };
         asrt_node_link( prev, &client->node );

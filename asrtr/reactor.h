@@ -36,6 +36,7 @@ enum asrt_reactor_state
         ASRT_REAC_IDLE        = 1,
         ASRT_REAC_TEST_EXEC   = 2,
         ASRT_REAC_TEST_REPORT = 3,
+        ASRT_REAC_WAIT_SEND   = 4,  // blocked until test_start_msg send completes
 };
 
 enum asrt_reactor_flags
@@ -54,28 +55,40 @@ enum asrt_reactor_flags
 
 struct asrt_reactor
 {
-        struct asrt_node   node;
-        struct asrt_sender sendr;
-        char const*        desc;
+        struct asrt_node node;
+        char const*      desc;
 
         struct asrt_test* first_test;
         struct asrt_test* last_test;
 
         enum asrt_reactor_state state;
-        struct asrt_test_input  test_info;
-        struct asrt_record      record;
+        struct asrt_reac_wait_send
+        {
+                enum asrt_reactor_state next_state;
+                uint32_t                err_run_id;
+                struct asrt_u8d8msg     err_result_msg;
+        } wait_send;
+        struct asrt_test_input test_info;
+        struct asrt_record     record;
 
         uint32_t flags;  // values of asrt_reactor_flags
 
         uint16_t recv_test_info_id;
         uint16_t recv_test_start_id;
         uint32_t recv_test_run_id;
+
+        struct asrt_u8d8msg            proto_ver_msg;
+        struct asrt_core_desc_msg      desc_msg;
+        struct asrt_u8d4msg            tc_msg;
+        struct asrt_core_test_info_msg ti_msg;
+        struct asrt_u8d8msg            test_start_msg;
+        struct asrt_u8d8msg            test_result_msg;
 };
 
 enum asrt_status asrt_reactor_init(
-    struct asrt_reactor* reac,
-    struct asrt_sender   sender,
-    char const*          desc );
+    struct asrt_reactor*       reac,
+    struct asrt_send_req_list* send_queue,
+    char const*                desc );
 
 enum asrt_status asrt_test_init(
     struct asrt_test*  t,

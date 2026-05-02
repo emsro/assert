@@ -14,8 +14,8 @@
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 #include "../asrtlpp/callback.hpp"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/status_sender.hpp"
+#include "../asrtlpp/util.hpp"
 #include "../asrtr/stream.h"
 
 #include <cstdint>
@@ -99,9 +99,9 @@ struct strm_field_traits< bool >
         static void           encode( uint8_t*& p, bool v ) { *p++ = v ? 1 : 0; }
 };
 
-inline status init( ref< asrt_stream_client > client, asrt_node& prev, autosender s )
+inline status init( ref< asrt_stream_client > client, asrt_node& prev )
 {
-        return asrt_stream_client_init( client, &prev, s );
+        return asrt_stream_client_init( client, &prev );
 }
 
 inline status define(
@@ -187,10 +187,9 @@ struct stream_schema
 
         status emit( Ts... args, callback< asrt_stream_done_cb > done_cb )
         {
-                uint8_t  buf[emit_size];
-                uint8_t* p = buf;
+                uint8_t* p = _emit_buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
-                return asrt::emit( _client, _schema_id, buf, emit_size, done_cb );
+                return asrt::emit( _client, _schema_id, _emit_buf, emit_size, done_cb );
         }
 
         status emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
@@ -205,6 +204,7 @@ struct stream_schema
 private:
         asrt_stream_client* _client;
         uint8_t             _schema_id;
+        uint8_t             _emit_buf[emit_size > 0 ? emit_size : 1];
 };
 
 }  // namespace asrt

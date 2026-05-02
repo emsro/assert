@@ -16,18 +16,16 @@
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/flat_type_traits.hpp"
-#include "../asrtlpp/sender.hpp"
+#include "../asrtlpp/util.hpp"
 
 namespace asrt
 {
 
-inline status init(
-    ref< asrt_param_server > srv,
-    asrt_node&               prev,
-    autosender               sender,
-    asrt_allocator           alloc )
+using status = enum asrt_status;
+
+inline status init( ref< asrt_param_server > srv, asrt_node& prev, asrt_allocator alloc )
 {
-        return asrt_param_server_init( srv, &prev, sender, alloc );
+        return asrt_param_server_init( srv, &prev, alloc );
 }
 
 inline void set_tree( ref< asrt_param_server > srv, asrt_flat_tree const& tree )

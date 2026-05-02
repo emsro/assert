@@ -14,7 +14,6 @@
 #include "../asrtc/controller.h"
 #include "../asrtc/result.h"
 #include "../asrtlpp/callback.hpp"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
 #include <functional>
@@ -28,13 +27,11 @@ using result = asrt_result;
 /// XXX: revise status usage in C++ API - prefer sender
 /// XXX: revisit inline usage and move stuff to .cpp
 
-/// XXX: do a sender-based
-inline status init( ref< asrt_controller > c, autosender s, allocator a )
+inline status init( ref< asrt_controller > c, asrt_send_req_list* s, allocator a )
 {
         return asrt_cntr_init( c, s, a );
 }
 
-/// XXX: do a sender-based
 inline status start( ref< asrt_controller > c, callback< asrt_init_callback > cb, uint32_t timeout )
 {
         return asrt_cntr_start( c, cb.fn, cb.ptr, timeout );

@@ -20,8 +20,6 @@ extern "C" {
 #include "./status.h"
 #include "./util.h"
 
-#include <string.h>
-
 // Message IDs (uint8_t, channel 4)
 enum asrt_param_message_id_e
 {
@@ -48,81 +46,99 @@ enum asrt_param_err_e
         ASRT_PARAM_ERR_TIMEOUT            = 0x05,
 };
 
-typedef enum asrt_status ( *asrt_param_msg_callback )( void* ptr, struct asrt_rec_span* buff );
-
-
-static inline enum asrt_status asrt_msg_ctor_param_ready(
-    asrt_flat_id            root_id,
-    asrt_param_msg_callback cb,
-    void*                   cb_ptr )
+static inline struct asrt_send_req* asrt_msg_ctor_param_ready(
+    struct asrt_u8d5msg* ready_msg,
+    asrt_flat_id         root_id )
 {
-        uint8_t  buf[5];
-        uint8_t* p = buf;
+        uint8_t* p = ready_msg->buff;
         *p++       = ASRT_PARAM_MSG_READY;
         asrt_add_u32( &p, root_id );
-        struct asrt_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
-        return cb( cb_ptr, &span );
+        ready_msg->req.buff = ( struct asrt_span_span ){
+            .b          = ready_msg->buff,
+            .e          = p,
+            .rest       = NULL,
+            .rest_count = 0,
+        };
+        return &ready_msg->req;
 }
 
-static inline enum asrt_status asrt_msg_rtoc_param_ready_ack(
-    uint32_t                max_msg_size,
-    asrt_param_msg_callback cb,
-    void*                   cb_ptr )
+static inline struct asrt_send_req* asrt_msg_rtoc_param_ready_ack(
+    struct asrt_u8d5msg* msg,
+    uint32_t             max_msg_size )
 {
-        uint8_t  buf[5];
-        uint8_t* p = buf;
+        uint8_t* p = msg->buff;
         *p++       = ASRT_PARAM_MSG_READY_ACK;
         asrt_add_u32( &p, max_msg_size );
-        struct asrt_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
-        return cb( cb_ptr, &span );
+        msg->req.buff = ( struct asrt_span_span ){
+            .b          = msg->buff,
+            .e          = msg->buff + sizeof msg->buff,
+            .rest       = NULL,
+            .rest_count = 0,
+        };
+        return &msg->req;
 }
 
-static inline enum asrt_status asrt_msg_rtoc_param_query(
-    asrt_flat_id            node_id,
-    asrt_param_msg_callback cb,
-    void*                   cb_ptr )
+static inline struct asrt_send_req* asrt_msg_rtoc_param_query(
+    struct asrt_u8d5msg* msg,
+    asrt_flat_id         node_id )
 {
-        uint8_t  buf[5];
-        uint8_t* p = buf;
+        uint8_t* p = msg->buff;
         *p++       = ASRT_PARAM_MSG_QUERY;
         asrt_add_u32( &p, node_id );
-        struct asrt_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
-        return cb( cb_ptr, &span );
+        msg->req.buff = ( struct asrt_span_span ){
+            .b          = msg->buff,
+            .e          = msg->buff + sizeof msg->buff,
+            .rest       = NULL,
+            .rest_count = 0,
+        };
+        return &msg->req;
 }
 
-static inline enum asrt_status asrt_msg_rtoc_param_find_by_key(
-    struct asrt_span*       buff,
-    asrt_flat_id            parent_id,
-    char const*             key,
-    asrt_param_msg_callback cb,
-    void*                   cb_ptr )
+struct asrt_param_find_by_key_msg
 {
-        size_t   key_len = strlen( key );
-        uint8_t* p       = buff->b;
-        if ( 5U + key_len + 1U > (size_t) ( buff->e - buff->b ) )
-                return ASRT_SIZE_ERR;
-        *p++ = ASRT_PARAM_MSG_FIND_BY_KEY;
-        asrt_add_u32( &p, parent_id );
-        memcpy( p, key, key_len );
-        p += key_len;
-        *p++                      = '\0';
-        struct asrt_rec_span span = { .b = buff->b, .e = p, .next = NULL };
-        return cb( cb_ptr, &span );
+        uint8_t              nul;       // embedded NUL terminator for key
+        struct asrt_span     spans[2];  // [0] = key bytes, [1] = &nul
+        uint8_t              hdr[5];    // msg_id + parent_id
+        struct asrt_send_req req;
+};
+
+static inline struct asrt_send_req* asrt_msg_rtoc_param_find_by_key(
+    struct asrt_param_find_by_key_msg* msg,
+    asrt_flat_id                       parent_id,
+    char const*                        key )
+{
+        uint8_t* h = msg->hdr;
+        *h++       = ASRT_PARAM_MSG_FIND_BY_KEY;
+        asrt_add_u32( &h, parent_id );
+        size_t key_len = strlen( key );
+        msg->nul       = '\0';
+        msg->spans[0]  = ( struct asrt_span ){ .b = (uint8_t*) key, .e = (uint8_t*) key + key_len };
+        msg->spans[1]  = ( struct asrt_span ){ .b = &msg->nul, .e = &msg->nul + 1 };
+        msg->req.buff  = ( struct asrt_span_span ){
+             .b          = msg->hdr,
+             .e          = msg->hdr + sizeof msg->hdr,
+             .rest       = msg->spans,
+             .rest_count = 2,
+        };
+        return &msg->req;
 }
 
-static inline enum asrt_status asrt_msg_ctor_param_error(
-    enum asrt_param_err_e   error_code,
-    asrt_flat_id            node_id,
-    asrt_param_msg_callback cb,
-    void*                   cb_ptr )
+static inline struct asrt_send_req* asrt_msg_ctor_param_error(
+    struct asrt_u8d6msg*  msg,
+    enum asrt_param_err_e error_code,
+    asrt_flat_id          node_id )
 {
-        uint8_t  buf[6];
-        uint8_t* p = buf;
+        uint8_t* p = msg->buff;
         *p++       = ASRT_PARAM_MSG_ERROR;
         *p++       = error_code;
         asrt_add_u32( &p, node_id );
-        struct asrt_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
-        return cb( cb_ptr, &span );
+        msg->req.buff = ( struct asrt_span_span ){
+            .b          = msg->buff,
+            .e          = p,
+            .rest       = NULL,
+            .rest_count = 0,
+        };
+        return &msg->req;
 }
 
 // Returns the number of bytes the value payload occupies on the wire (not

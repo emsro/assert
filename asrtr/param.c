@@ -10,9 +10,21 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./param.h"
 
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 
 #include <string.h>
+
+static void asrt_param_ready_ack_done( void* ptr, enum asrt_status st )
+{
+        struct asrt_param_client* client = (struct asrt_param_client*) ptr;
+        ASRT_ASSERT( client->state == ASRT_PARAM_CLIENT_READY_SENT );
+        if ( st == ASRT_SUCCESS )
+                client->ready = 1;
+        else
+                ASRT_ERR_LOG( "asrt_param_client", "ready_ack send failed" );
+        client->state = ASRT_PARAM_CLIENT_IDLE;
+}
 
 static void asrt_param_dispatch_cb(
     struct asrt_param_client*     client,
@@ -86,12 +98,6 @@ static void asrt_param_finish_query(
         asrt_param_dispatch_cb( client, q, val, type_ok );
 }
 
-static enum asrt_status asrt_param_client_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_param_client* client = (struct asrt_param_client*) p;
-        return asrt_send( &client->sendr, ASRT_PARA, buff, NULL, NULL );
-}
-
 // Cache lookup — walk cache_buf, parsing each node.
 // On hit: deliver via finish_query.  On miss: clear cache + send wire QUERY.
 //
@@ -158,24 +164,29 @@ static enum asrt_status asrt_cache_try_deliver(
 
         client->cache_len = 0;
         if ( mode == SEARCH_BY_KEY ) {
-                struct asrt_span buf = {
-                    .b = client->cache_buf, .e = client->cache_buf + client->cache_capacity };
-                return asrt_msg_rtoc_param_find_by_key(
-                    &buf,
-                    client->pending_query->node_id,
-                    client->pending_query->key,
-                    asrt_param_client_send,
-                    client );
+                asrt_send_enque(
+                    &client->node,
+                    asrt_msg_rtoc_param_find_by_key(
+                        &client->find_by_key_msg,
+                        client->pending_query->node_id,
+                        client->pending_query->key ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
-        return asrt_msg_rtoc_param_query(
-            client->pending_query->node_id, asrt_param_client_send, client );
+        asrt_send_enque(
+            &client->node,
+            asrt_msg_rtoc_param_query( &client->query_msg, client->pending_query->node_id ),
+            NULL,
+            NULL );
+        return ASRT_SUCCESS;
 }
 
 static enum asrt_status asrt_param_client_handle_ready(
     struct asrt_param_client* client,
     struct asrt_span*         buff )
 {
-        if ( client->pending != ASRT_PARAM_CLIENT_PENDING_NONE ) {
+        if ( client->state != ASRT_PARAM_CLIENT_IDLE ) {
                 ASRT_ERR_LOG( "asrt_param_client", "ready: pending event not consumed" );
                 return ASRT_RECV_ERR;
         }
@@ -186,8 +197,8 @@ static enum asrt_status asrt_param_client_handle_ready(
         asrt_flat_id root_id;
         asrt_cut_u32( &buff->b, &root_id );
 
-        client->pending              = ASRT_PARAM_CLIENT_PENDING_READY;
-        client->pending_data.root_id = root_id;
+        client->state              = ASRT_PARAM_CLIENT_READY_RECV;
+        client->state_data.root_id = root_id;
         return ASRT_SUCCESS;
 }
 
@@ -195,7 +206,7 @@ static enum asrt_status asrt_param_client_handle_response(
     struct asrt_param_client* client,
     struct asrt_span*         buff )
 {
-        if ( client->pending != ASRT_PARAM_CLIENT_PENDING_NONE ) {
+        if ( client->state != ASRT_PARAM_CLIENT_IDLE ) {
                 ASRT_ERR_LOG( "asrt_param_client", "response: pending event not consumed" );
                 return ASRT_RECV_ERR;
         }
@@ -213,7 +224,7 @@ static enum asrt_status asrt_param_client_handle_response(
 
         asrt_u8d4_to_u32( client->cache_buf + len - 4, &client->cache_next_sibling );
 
-        client->pending = ASRT_PARAM_CLIENT_PENDING_DELIVER;
+        client->state = ASRT_PARAM_CLIENT_DELIVER;
         return ASRT_SUCCESS;
 }
 
@@ -221,7 +232,7 @@ static enum asrt_status asrt_param_client_handle_error(
     struct asrt_param_client* client,
     struct asrt_span*         buff )
 {
-        if ( client->pending != ASRT_PARAM_CLIENT_PENDING_NONE ) {
+        if ( client->state != ASRT_PARAM_CLIENT_IDLE ) {
                 ASRT_ERR_LOG( "asrt_param_client", "error: pending event not consumed" );
                 return ASRT_RECV_ERR;
         }
@@ -233,17 +244,17 @@ static enum asrt_status asrt_param_client_handle_error(
         asrt_flat_id node_id;
         asrt_cut_u32( &buff->b, &node_id );
 
-        client->pending_data.error.error_code = error_code;
-        client->pending_data.error.node_id    = node_id;
-        client->pending                       = ASRT_PARAM_CLIENT_PENDING_QUERY_ERROR;
+        client->state_data.error.error_code = error_code;
+        client->state_data.error.node_id    = node_id;
+        client->state                       = ASRT_PARAM_CLIENT_QUERY_ERROR;
         return ASRT_SUCCESS;
 }
 
 
 static enum asrt_status asrt_param_client_tick( struct asrt_param_client* client, uint32_t now )
 {
-        switch ( client->pending ) {
-        case ASRT_PARAM_CLIENT_PENDING_NONE:
+        switch ( client->state ) {
+        case ASRT_PARAM_CLIENT_IDLE:
                 if ( client->pending_query && client->timeout > 0 ) {
                         struct asrt_param_query* q = client->pending_query;
                         if ( q->start == 0 ) {
@@ -256,32 +267,33 @@ static enum asrt_status asrt_param_client_tick( struct asrt_param_client* client
                 }
                 return ASRT_SUCCESS;
 
-        case ASRT_PARAM_CLIENT_PENDING_READY: {
-                asrt_flat_id root_id = client->pending_data.root_id;
-                client->pending      = ASRT_PARAM_CLIENT_PENDING_NONE;
+        case ASRT_PARAM_CLIENT_READY_RECV: {
+                asrt_flat_id root_id = client->state_data.root_id;
+                client->state        = ASRT_PARAM_CLIENT_READY_SENT;
                 client->ready        = 0;
                 client->root_id      = root_id;
                 client->cache_len    = 0;
 
-                enum asrt_status st = asrt_msg_rtoc_param_ready_ack(
-                    client->cache_capacity, asrt_param_client_send, client );
-                if ( st != ASRT_SUCCESS ) {
-                        ASRT_ERR_LOG( "asrt_param_client", "ready: failed to send READY_ACK" );
-                        return st;
-                }
-                client->ready = 1;
+                asrt_send_enque(
+                    &client->node,
+                    asrt_msg_rtoc_param_ready_ack( &client->ready_ack_msg, client->cache_capacity ),
+                    asrt_param_ready_ack_done,
+                    client );
                 return ASRT_SUCCESS;
         }
 
-        case ASRT_PARAM_CLIENT_PENDING_DELIVER:
-                client->pending = ASRT_PARAM_CLIENT_PENDING_NONE;
+        case ASRT_PARAM_CLIENT_READY_SENT:
+                return ASRT_SUCCESS;
+
+        case ASRT_PARAM_CLIENT_DELIVER:
+                client->state = ASRT_PARAM_CLIENT_IDLE;
                 return asrt_cache_try_deliver(
                     client, client->pending_query->key ? SEARCH_BY_KEY : SEARCH_BY_NODE );
 
-        case ASRT_PARAM_CLIENT_PENDING_QUERY_ERROR: {
-                uint8_t      error_code           = client->pending_data.error.error_code;
-                asrt_flat_id node_id              = client->pending_data.error.node_id;
-                client->pending                   = ASRT_PARAM_CLIENT_PENDING_NONE;
+        case ASRT_PARAM_CLIENT_QUERY_ERROR: {
+                uint8_t      error_code           = client->state_data.error.error_code;
+                asrt_flat_id node_id              = client->state_data.error.node_id;
+                client->state                     = ASRT_PARAM_CLIENT_IDLE;
                 client->pending_query->error_code = error_code;
                 client->pending_query->node_id    = node_id;
 
@@ -333,7 +345,6 @@ static enum asrt_status asrt_param_client_event( void* p, enum asrt_event_e e, v
 enum asrt_status asrt_param_client_init(
     struct asrt_param_client* client,
     struct asrt_node*         prev,
-    struct asrt_sender        sender,
     struct asrt_span          msg_buffer,
     uint32_t                  timeout )
 {
@@ -344,12 +355,12 @@ enum asrt_status asrt_param_client_init(
         *client = ( struct asrt_param_client ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_PARA,
-                    .e_cb_ptr = client,
-                    .e_cb     = asrt_param_client_event,
-                    .next     = NULL,
+                    .chid       = ASRT_PARA,
+                    .e_cb_ptr   = client,
+                    .e_cb       = asrt_param_client_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr              = sender,
             .root_id            = ASRT_PARAM_NONE_ID,
             .ready              = 0,
             .cache_buf          = msg_buffer.b,
@@ -358,7 +369,7 @@ enum asrt_status asrt_param_client_init(
             .cache_next_sibling = ASRT_PARAM_NONE_ID,
             .pending_query      = NULL,
             .timeout            = timeout,
-            .pending            = ASRT_PARAM_CLIENT_PENDING_NONE,
+            .state              = ASRT_PARAM_CLIENT_IDLE,
         };
         asrt_node_link( prev, &client->node );
         return ASRT_SUCCESS;
@@ -394,7 +405,7 @@ enum asrt_status asrt_param_client_query(
         query->key            = key;
         query->next_sibling   = ASRT_PARAM_NONE_ID;
         query->start          = 0;
-        client->pending       = ASRT_PARAM_CLIENT_PENDING_DELIVER;
+        client->state         = ASRT_PARAM_CLIENT_DELIVER;
         return ASRT_SUCCESS;
 }
 

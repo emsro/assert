@@ -16,7 +16,6 @@
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/flat_type_traits.hpp"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 
 namespace asrt
@@ -25,13 +24,11 @@ namespace asrt
 inline status init(
     ref< asrt_collect_server > srv,
     asrt_node&                 prev,
-    autosender                 send_cb,
     asrt_allocator             alloc,
     uint32_t                   tree_block_cap,
     uint32_t                   tree_node_cap )
 {
-        return asrt_collect_server_init(
-            srv, &prev, send_cb, alloc, tree_block_cap, tree_node_cap );
+        return asrt_collect_server_init( srv, &prev, alloc, tree_block_cap, tree_node_cap );
 }
 
 inline status send_ready(

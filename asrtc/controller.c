@@ -17,13 +17,6 @@
 
 #include <string.h>
 
-static inline enum asrt_status asrt_cntr_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_controller* c = (struct asrt_controller*) p;
-        ASRT_ASSERT( c && buff && buff->b && buff->e );
-        return asrt_send( &c->sendr, ASRT_CORE, buff, NULL, NULL );
-}
-
 static uint32_t asrt_cntr_check_timeout( struct asrt_controller* c, uint32_t now )
 {
         if ( now >= c->deadline ) {
@@ -68,8 +61,7 @@ static enum asrt_status asrt_cntr_tick_init( struct asrt_controller* c, uint32_t
         struct asrt_init_handler* h = &c->hndl.init;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_proto_version( asrt_cntr_send, c ) != ASRT_SUCCESS )
-                        return ASRT_SEND_ERR;
+                asrt_send_enque( &c->node, asrt_msg_ctor_proto_version( &h->msg ), NULL, NULL );
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
@@ -153,8 +145,7 @@ static enum asrt_status asrt_cntr_tick_test_count( struct asrt_controller* c, ui
         struct asrt_tc_handler* h = &c->hndl.tc;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_count( asrt_cntr_send, c ) != ASRT_SUCCESS )
-                        return ASRT_SEND_ERR;
+                asrt_send_enque( &c->node, asrt_msg_ctor_test_count( &h->msg ), NULL, NULL );
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
@@ -222,8 +213,7 @@ static enum asrt_status asrt_cntr_tick_desc( struct asrt_controller* c, uint32_t
         struct asrt_desc_handler* h = &c->hndl.desc;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_desc( asrt_cntr_send, c ) != ASRT_SUCCESS )
-                        return ASRT_SEND_ERR;
+                asrt_send_enque( &c->node, asrt_msg_ctor_desc( &h->msg ), NULL, NULL );
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
@@ -295,8 +285,7 @@ static enum asrt_status asrt_cntr_tick_test_info( struct asrt_controller* c, uin
         struct asrt_ti_handler* h = &c->hndl.ti;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_info( h->tid, asrt_cntr_send, c ) != ASRT_SUCCESS )
-                        return ASRT_SEND_ERR;
+                asrt_send_enque( &c->node, asrt_msg_ctor_test_info( &h->msg, h->tid ), NULL, NULL );
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
@@ -388,9 +377,11 @@ static enum asrt_status asrt_cntr_tick_test_exec( struct asrt_controller* c, uin
         struct asrt_exec_handler* h = &c->hndl.exec;
         switch ( c->stage ) {
         case ASRT_STAGE_INIT:
-                if ( asrt_msg_ctor_test_start( h->res.test_id, h->res.run_id, asrt_cntr_send, c ) !=
-                     ASRT_SUCCESS )
-                        return ASRT_SEND_ERR;
+                asrt_send_enque(
+                    &c->node,
+                    asrt_msg_ctor_test_start( &h->msg, h->res.test_id, h->res.run_id ),
+                    NULL,
+                    NULL );
                 c->stage    = ASRT_STAGE_WAITING;
                 c->deadline = now + h->timeout;
                 break;
@@ -536,21 +527,22 @@ static enum asrt_status asrt_cntr_event( void* p, enum asrt_event_e e, void* arg
 }
 
 enum asrt_status asrt_cntr_init(
-    struct asrt_controller* c,
-    struct asrt_sender      s,
-    struct asrt_allocator   alloc )
+    struct asrt_controller*    c,
+    struct asrt_send_req_list* send_queue,
+    struct asrt_allocator      alloc )
 {
         if ( !c )
                 return ASRT_INIT_ERR;
         *c = ( struct asrt_controller ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_CORE,
-                    .e_cb_ptr = c,
-                    .e_cb     = &asrt_cntr_event,
-                    .next     = NULL,
+                    .chid       = ASRT_CORE,
+                    .e_cb_ptr   = c,
+                    .e_cb       = &asrt_cntr_event,
+                    .next       = NULL,
+                    .prev       = NULL,
+                    .send_queue = send_queue,
                 },
-            .sendr    = s,
             .alloc    = alloc,
             .run_id   = 0,
             .state    = ASRT_CNTR_IDLE,

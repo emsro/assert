@@ -65,7 +65,7 @@ struct asrt_stream_schemas
 struct asrt_stream_server
 {
         struct asrt_node      node;
-        struct asrt_sender    sendr;
+        struct asrt_u8d2msg   err_msg;
         struct asrt_allocator alloc;
 
         struct asrt_stream_schema* lookup[ASRT_STREAM_MAX_SCHEMAS];  ///< Internal lookup by ID.
@@ -75,7 +75,6 @@ struct asrt_stream_server
 enum asrt_status asrt_stream_server_init(
     struct asrt_stream_server* server,
     struct asrt_node*          prev,
-    struct asrt_sender         sender,
     struct asrt_allocator      alloc );
 
 /// Take all defined schemas and their records.

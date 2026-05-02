@@ -85,7 +85,7 @@ inline demo_spec make_demo_fail()
         return {
             .tname = "demo_fail", .body = []( demo_test& self, asrt::record& r ) -> asrt_status {
                     r.state = ASRT_TEST_FAIL;
-                    asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "intentional" );
+                    asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "intentional", {} );
                     return ASRT_SUCCESS;
             } };
 }
@@ -114,7 +114,7 @@ inline demo_spec make_demo_check_fail()
                     int sum = 2 + 2;
                     ASRT_RECORD_CHECK( &r, sum == 5 );
                     if ( r.state == ASRT_TEST_FAIL )
-                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "sum == 5" );
+                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "sum == 5", {} );
                     if ( r.state != ASRT_TEST_FAIL )
                             r.state = ASRT_TEST_PASS;
                     return ASRT_SUCCESS;
@@ -164,7 +164,7 @@ inline demo_spec make_demo_random()
                         ASRT_TEST_PASS, ASRT_TEST_FAIL, ASRT_TEST_ERROR };
                     r.state = k_results[pick( self.rng )];
                     if ( r.state != ASRT_TEST_PASS )
-                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "random outcome" );
+                            asrt::rec_diag( self.diag, "demo.hpp", __LINE__, "random outcome", {} );
                     return ASRT_SUCCESS;
             } };
 }
@@ -265,7 +265,7 @@ inline demo_spec make_demo_param_value()
                                      &pq );
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed", {} );
                                     r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
@@ -280,7 +280,7 @@ inline demo_spec make_demo_param_value()
                                      self.param, &pq.q, first, detail::param_u32_qr_cb, &pq );
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed", {} );
                                     r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
@@ -292,12 +292,12 @@ inline demo_spec make_demo_param_value()
                             ASRT_RECORD_CHECK( &r, pq.q.error_code == 0 );
                             if ( r.state == ASRT_TEST_FAIL ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "expected u32" );
+                                        self.diag, "demo.hpp", __LINE__, "expected u32", {} );
                             } else {
                                     ASRT_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRT_TEST_FAIL )
                                             asrt::rec_diag(
-                                                self.diag, "demo.hpp", __LINE__, "val > 0" );
+                                                self.diag, "demo.hpp", __LINE__, "val > 0", {} );
                                     else
                                             r.state = ASRT_TEST_PASS;
                             }
@@ -341,7 +341,7 @@ inline demo_spec make_demo_param_count()
                                      &pq );
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed", {} );
                                     r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
@@ -356,7 +356,7 @@ inline demo_spec make_demo_param_count()
                                      self.param, &pq.q, first, detail::param_any_qr_cb, &pq );
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "fetch failed" );
+                                        self.diag, "demo.hpp", __LINE__, "fetch failed", {} );
                                     r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
@@ -377,7 +377,11 @@ inline demo_spec make_demo_param_count()
                                              &pq );
                                          s != ASRT_SUCCESS ) {
                                             asrt::rec_diag(
-                                                self.diag, "demo.hpp", __LINE__, "fetch failed" );
+                                                self.diag,
+                                                "demo.hpp",
+                                                __LINE__,
+                                                "fetch failed",
+                                                {} );
                                             r.state = ASRT_TEST_FAIL;
                                             return ASRT_SUCCESS;
                                     }
@@ -387,7 +391,7 @@ inline demo_spec make_demo_param_count()
                             ASRT_RECORD_CHECK( &r, child_count > 0 );
                             if ( r.state == ASRT_TEST_FAIL )
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "child_count > 0" );
+                                        self.diag, "demo.hpp", __LINE__, "child_count > 0", {} );
                             else
                                     r.state = ASRT_TEST_PASS;
                             return ASRT_SUCCESS;
@@ -430,7 +434,7 @@ inline demo_spec make_demo_param_find()
                                      &pq );
                                  s != ASRT_SUCCESS ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "find failed" );
+                                        self.diag, "demo.hpp", __LINE__, "find failed", {} );
                                     r.state = ASRT_TEST_FAIL;
                                     return ASRT_SUCCESS;
                             }
@@ -441,12 +445,12 @@ inline demo_spec make_demo_param_find()
                             ASRT_RECORD_CHECK( &r, pq.q.error_code == 0 );
                             if ( r.state == ASRT_TEST_FAIL ) {
                                     asrt::rec_diag(
-                                        self.diag, "demo.hpp", __LINE__, "find 'count'" );
+                                        self.diag, "demo.hpp", __LINE__, "find 'count'", {} );
                             } else {
                                     ASRT_RECORD_CHECK( &r, pq.u32_val > 0 );
                                     if ( r.state == ASRT_TEST_FAIL )
                                             asrt::rec_diag(
-                                                self.diag, "demo.hpp", __LINE__, "count > 0" );
+                                                self.diag, "demo.hpp", __LINE__, "count > 0", {} );
                                     else
                                             r.state = ASRT_TEST_PASS;
                             }

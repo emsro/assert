@@ -35,7 +35,6 @@ enum asrt_cntr_state
 struct asrt_controller
 {
         struct asrt_node      node;
-        struct asrt_sender    sendr;
         struct asrt_allocator alloc;
 
         uint32_t             run_id;
@@ -53,9 +52,9 @@ struct asrt_controller
 };
 
 enum asrt_status asrt_cntr_init(
-    struct asrt_controller* c,
-    struct asrt_sender      s,
-    struct asrt_allocator   alloc );
+    struct asrt_controller*    c,
+    struct asrt_send_req_list* send_queue,
+    struct asrt_allocator      alloc );
 
 enum asrt_status asrt_cntr_start(
     struct asrt_controller* c,

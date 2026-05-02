@@ -15,12 +15,6 @@
 #include <string.h>
 
 
-static enum asrt_status asrt_stream_server_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_stream_server* server = (struct asrt_stream_server*) p;
-        return asrt_send( &server->sendr, ASRT_STRM, buff, NULL, NULL );
-}
-
 static void asrt_stream_clear_schema(
     struct asrt_allocator*     alloc,
     struct asrt_stream_schema* schema )
@@ -61,30 +55,42 @@ static enum asrt_status asrt_stream_server_handle_define(
         uint8_t schema_id   = *buff->b++;
         uint8_t field_count = *buff->b++;
 
-        if ( schema_id >= ASRT_STREAM_MAX_SCHEMAS ) {
-                ASRT_ERR_LOG( "asrt_stream", "define: schema_id %u out of range", schema_id );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_INVALID_DEFINE, asrt_stream_server_send, server );
-        }
-
-        if ( field_count == 0 ) {
-                ASRT_ERR_LOG( "asrt_stream", "define: zero field_count" );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_INVALID_DEFINE, asrt_stream_server_send, server );
+        if ( schema_id >= ASRT_STREAM_MAX_SCHEMAS || field_count == 0 ) {
+                ASRT_ERR_LOG( "asrt_stream", "define: invalid, schema_id: %u", schema_id );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_INVALID_DEFINE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         if ( server->lookup[schema_id] ) {
-                ASRT_ERR_LOG( "asrt_stream", "define: schema %u already defined", schema_id );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_DUPLICATE_SCHEMA, asrt_stream_server_send, server );
+                ASRT_ERR_LOG( "asrt_stream", "define: duplicate schema_id: %u", schema_id );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_DUPLICATE_SCHEMA ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         // Allocate schema
         struct asrt_stream_schema* schema = asrt_alloc( &server->alloc, sizeof( *schema ) );
         if ( !schema ) {
                 ASRT_ERR_LOG( "asrt_stream", "define: schema alloc failed" );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_ALLOC_FAILURE, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_ALLOC_FAILURE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
         *schema = ( struct asrt_stream_schema ){
             .schema_id   = schema_id,
@@ -102,8 +108,14 @@ static enum asrt_status asrt_stream_server_handle_define(
         if ( !schema->fields ) {
                 ASRT_ERR_LOG( "asrt_stream", "define: fields alloc failed" );
                 asrt_free( &server->alloc, (void**) &schema );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_ALLOC_FAILURE, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_ALLOC_FAILURE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
         memset( schema->fields, 0, (size_t) field_count * sizeof( *schema->fields ) );
 
@@ -113,8 +125,14 @@ static enum asrt_status asrt_stream_server_handle_define(
                 ASRT_ERR_LOG( "asrt_stream", "define: truncated field tags" );
                 asrt_free( &server->alloc, (void**) &schema->fields );
                 asrt_free( &server->alloc, (void**) &schema );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_INVALID_DEFINE, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_INVALID_DEFINE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         for ( uint8_t i = 0; i < field_count; i++ ) {
@@ -125,8 +143,16 @@ static enum asrt_status asrt_stream_server_handle_define(
                             "asrt_stream", "define: bad type tag 0x%02x at field %u", type_tag, i );
                         asrt_free( &server->alloc, (void**) &schema->fields );
                         asrt_free( &server->alloc, (void**) &schema );
-                        return asrt_msg_ctor_strm_error(
-                            ASRT_STRM_ERR_INVALID_DEFINE, asrt_stream_server_send, server );
+                        if ( asrt_send_is_req_used(
+                                 server->node.send_queue, &server->err_msg.req ) )
+                                return ASRT_SUCCESS;
+                        asrt_send_enque(
+                            &server->node,
+                            asrt_msg_ctor_strm_error(
+                                &server->err_msg, ASRT_STRM_ERR_INVALID_DEFINE ),
+                            NULL,
+                            NULL );
+                        return ASRT_SUCCESS;
                 }
 
                 schema->fields[i] = type_tag;
@@ -149,8 +175,14 @@ static enum asrt_status asrt_stream_server_handle_data(
 
         if ( schema_id >= ASRT_STREAM_MAX_SCHEMAS || !server->lookup[schema_id] ) {
                 ASRT_ERR_LOG( "asrt_stream", "data: unknown schema %u", schema_id );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_UNKNOWN_SCHEMA, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_UNKNOWN_SCHEMA ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         struct asrt_stream_schema* schema    = server->lookup[schema_id];
@@ -163,16 +195,28 @@ static enum asrt_status asrt_stream_server_handle_data(
                     schema_id,
                     remaining,
                     schema->record_size );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_SIZE_MISMATCH, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_SIZE_MISMATCH ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         // Allocate record node and data buffer
         struct asrt_stream_record* rec = asrt_alloc( &server->alloc, (uint32_t) sizeof( *rec ) );
         if ( !rec ) {
                 ASRT_ERR_LOG( "asrt_stream", "data: alloc failed for schema %u", schema_id );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_ALLOC_FAILURE, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_ALLOC_FAILURE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
 
         rec->next = NULL;
@@ -180,8 +224,14 @@ static enum asrt_status asrt_stream_server_handle_data(
         if ( !rec->data ) {
                 asrt_free( &server->alloc, (void**) &rec );
                 ASRT_ERR_LOG( "asrt_stream", "data: data alloc failed for schema %u", schema_id );
-                return asrt_msg_ctor_strm_error(
-                    ASRT_STRM_ERR_ALLOC_FAILURE, asrt_stream_server_send, server );
+                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
+                        return ASRT_SUCCESS;
+                asrt_send_enque(
+                    &server->node,
+                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_ALLOC_FAILURE ),
+                    NULL,
+                    NULL );
+                return ASRT_SUCCESS;
         }
         memcpy( rec->data, buff->b, schema->record_size );
 
@@ -233,7 +283,6 @@ static enum asrt_status asrt_stream_server_event( void* p, enum asrt_event_e e, 
 enum asrt_status asrt_stream_server_init(
     struct asrt_stream_server* server,
     struct asrt_node*          prev,
-    struct asrt_sender         sender,
     struct asrt_allocator      alloc )
 {
         if ( !server || !prev )
@@ -241,12 +290,12 @@ enum asrt_status asrt_stream_server_init(
         *server = ( struct asrt_stream_server ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_STRM,
-                    .e_cb_ptr = server,
-                    .e_cb     = asrt_stream_server_event,
-                    .next     = NULL,
+                    .chid       = ASRT_STRM,
+                    .e_cb_ptr   = server,
+                    .e_cb       = asrt_stream_server_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr = sender,
             .alloc = alloc,
         };
         memset( (void*) server->lookup, 0, sizeof server->lookup );

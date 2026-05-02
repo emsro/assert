@@ -13,7 +13,6 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtr/diag.h"
 
 #include <cstdint>
@@ -22,17 +21,18 @@ namespace asrt
 {
 
 inline void rec_diag(
-    ref< asrt_diag_client > d,
-    char const*             file,
-    uint32_t                line,
-    char const*             extra = nullptr )
+    ref< asrt_diag_client >              d,
+    char const*                          file,
+    uint32_t                             line,
+    char const*                          extra,
+    callback< asrt_diag_record_done_cb > done_cb )
 {
-        asrt_diag_client_record( d, file, line, extra );
+        asrt_diag_client_record( d, file, line, extra, done_cb.fn, done_cb.ptr );
 }
 
-inline status init( ref< asrt_diag_client > d, asrt_node& prev, autosender sender )
+inline status init( ref< asrt_diag_client > d, asrt_node& prev )
 {
-        return asrt_diag_client_init( d, &prev, sender );
+        return asrt_diag_client_init( d, &prev );
 }
 
 inline void deinit( ref< asrt_diag_client > d )

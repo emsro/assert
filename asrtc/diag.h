@@ -34,7 +34,6 @@ void asrt_diag_free_record( struct asrt_allocator* alloc, struct asrt_diag_recor
 struct asrt_diag_server
 {
         struct asrt_node      node;
-        struct asrt_sender    sendr;
         struct asrt_allocator alloc;
 
         struct asrt_diag_record* first_rec;
@@ -44,7 +43,6 @@ struct asrt_diag_server
 enum asrt_status asrt_diag_server_init(
     struct asrt_diag_server* diag,
     struct asrt_node*        prev,
-    struct asrt_sender       sender,
     struct asrt_allocator    alloc );
 
 struct asrt_diag_record* asrt_diag_server_take_record( struct asrt_diag_server* diag );

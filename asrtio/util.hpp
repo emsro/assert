@@ -52,22 +52,33 @@ struct cobs_node
         char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
-        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt::rec_span& buff ) const
+        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt_span_span const& buff )
+            const
         {
                 uint8_t  buffer[1024];
                 uint8_t* p  = buffer + 8;  // offset for COBS encoding
                 uint8_t* pp = p;
 
+                auto copy_span = [&]( uint8_t const* b, uint8_t const* e ) -> bool {
+                        size_t len = (size_t) ( e - b );
+                        if ( (size_t) ( pp - p ) + len > sizeof( buffer ) - 8 ) {
+                                ASRT_ERR_LOG( module, "Buffer overflow in COBS encoding" );
+                                return false;
+                        }
+                        memcpy( pp, b, len );
+                        pp += len;
+                        return true;
+                };
+
                 size_t size = sizeof( asrt::chann_id );
                 asrt_add_u16( &pp, id );
-                for ( asrt::rec_span* sp = &buff; sp != nullptr; sp = sp->next ) {
-                        if ( size + ( sp->e - sp->b ) > sizeof( buffer ) - 8 ) {
-                                ASRT_ERR_LOG( module, "Buffer overflow in COBS encoding" );
+                size += (size_t) ( buff.e - buff.b );
+                if ( !copy_span( buff.b, buff.e ) )
+                        return ASRT_SEND_ERR;
+                for ( uint32_t i = 0; i < buff.rest_count; i++ ) {
+                        size += (size_t) ( buff.rest[i].e - buff.rest[i].b );
+                        if ( !copy_span( buff.rest[i].b, buff.rest[i].e ) )
                                 return ASRT_SEND_ERR;
-                        }
-                        memcpy( pp, sp->b, sp->e - sp->b );
-                        pp += sp->e - sp->b;
-                        size += sp->e - sp->b;
                 }
                 struct asrt_span sp
                 {

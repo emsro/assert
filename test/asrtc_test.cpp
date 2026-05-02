@@ -60,21 +60,29 @@ static void check_recv_and_spin(
 
 struct controller_ctx
 {
-        struct asrt_controller cntr = {};
-        collector              coll;
-        struct asrt_sender     send        = {};
-        uint8_t                buffer[128] = {};
-        struct asrt_span       sp          = {};
-        enum asrt_status       init_status = {};
-        uint32_t               t           = 1;
+        struct asrt_controller    cntr = {};
+        collector                 coll;
+        struct asrt_send_req_list send_queue  = {};
+        enum asrt_status          init_status = {};
+        uint32_t                  t           = 1;
 
-        controller_ctx()
-        {
-                sp = { buffer, buffer + sizeof buffer };
-                setup_sender_collector( &send, &coll );
-        }
+        controller_ctx() {}
         ~controller_ctx() { CHECK_EQ( coll.data.size(), 0 ); }
+        void drain() { drain_send_queue( &send_queue, &coll ); }
 };
+
+static struct asrt_span flatten_req( uint8_t* buf, struct asrt_send_req const* req )
+{
+        uint8_t* p = buf;
+        memcpy( p, req->buff.b, req->buff.e - req->buff.b );
+        p += req->buff.e - req->buff.b;
+        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
+                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
+                memcpy( p, req->buff.rest[i].b, sz );
+                p += sz;
+        }
+        return ( struct asrt_span ){ .b = buf, .e = p };
+}
 
 static enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
 {
@@ -85,23 +93,20 @@ static enum asrt_status record_init_cb( void* ptr, enum asrt_status s )
 
 static void check_cntr_full_init( controller_ctx* ctx )
 {
-        enum asrt_status st = asrt_cntr_init( &ctx->cntr, ctx->send, asrt_default_allocator() );
+        enum asrt_status st =
+            asrt_cntr_init( &ctx->cntr, &ctx->send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &ctx->cntr, &record_init_cb, &ctx->init_status, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &ctx->cntr, ctx->t++ );
+        ctx->drain();
 
         assert_collected_core_hdr( ctx->coll.data.back(), 0x02, ASRT_MSG_PROTO_VERSION );
         ctx->coll.data.pop_back();
 
-        uint8_t          buffer[64];
-        struct asrt_span sp = {
-            .b = buffer,
-            .e = buffer + sizeof buffer,
-        };
-
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &ctx->cntr, buffer, sp.b, &ctx->t );
+        struct asrt_u8d8msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_proto_version( &msg, 0, 1, 0 );
+        check_recv_and_spin( &ctx->cntr, req->buff.b, req->buff.e, &ctx->t );
         CHECK_EQ( ASRT_SUCCESS, ctx->init_status );
 }
 
@@ -112,10 +117,10 @@ static void check_cntr_full_init( controller_ctx* ctx )
 TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
 {
         enum asrt_status st;
-        st = asrt_cntr_init( NULL, send, asrt_default_allocator() );
+        st = asrt_cntr_init( NULL, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_INIT_ERR, st );
 
-        st = asrt_cntr_init( &cntr, send, asrt_default_allocator() );
+        st = asrt_cntr_init( &cntr, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( ASRT_CORE, cntr.node.chid );
         CHECK( asrt_cntr_idle( &cntr ) );
@@ -126,12 +131,16 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_init" )
         CHECK( !asrt_cntr_idle( &cntr ) );
 
         check_tick( &cntr, t++ );
+        drain();
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_PROTO_VERSION );
         coll.data.pop_back();
 
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buffer, sp.b, &t );
+        {
+                struct asrt_u8d8msg   msg = {};
+                struct asrt_send_req* req = asrt_msg_rtoc_proto_version( &msg, 0, 1, 0 );
+                check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
+        }
 
         CHECK( asrt_cntr_idle( &cntr ) );
         CHECK_EQ( ASRT_SUCCESS, init_status );
@@ -193,13 +202,19 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_desc" )
         st = asrt_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_DESC );
         coll.data.pop_back();
 
         char const* msg = "wololo1";
-        asrt_msg_rtoc_desc( msg, strlen( msg ), asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buffer, sp.b, &t );
+        {
+                struct asrt_core_desc_msg dmsg = {};
+                struct asrt_send_req*     req  = asrt_msg_rtoc_desc( &dmsg, msg, strlen( msg ) );
+                uint8_t                   flat[128];
+                auto                      fsp = flatten_req( flat, req );
+                check_recv_and_spin( &cntr, fsp.b, fsp.e, &t );
+        }
 
         CHECK( desc != "" );
         CHECK( msg == desc );
@@ -222,12 +237,16 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_count" )
         st         = asrt_cntr_test_count( &cntr, &cpy_u32_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
 
         assert_collected_core_hdr( coll.data.back(), 0x02, ASRT_MSG_TEST_COUNT );
         coll.data.pop_back();
 
-        asrt_msg_rtoc_test_count( 42, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buffer, sp.b, &t );
+        {
+                struct asrt_u8d4msg   msg = {};
+                struct asrt_send_req* req = asrt_msg_rtoc_test_count( &msg, 42 );
+                check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
+        }
 
         CHECK_EQ( 42, p );
 }
@@ -241,15 +260,21 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info" )
         st = asrt_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
 
         assert_collected_core_hdr( coll.data.back(), 0x04, ASRT_MSG_TEST_INFO );
         assert_u16( 42, coll.data.back().data.data() + 2 );
         coll.data.pop_back();
 
         char const* desc = "barbaz";
-        asrt_msg_rtoc_test_info(
-            42, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ), asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buffer, sp.b, &t );
+        {
+                struct asrt_core_test_info_msg timsg = {};
+                struct asrt_send_req*          req   = asrt_msg_rtoc_test_info(
+                    &timsg, 42, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ) );
+                uint8_t flat[128];
+                auto    fsp = flatten_req( flat, req );
+                check_recv_and_spin( &cntr, fsp.b, fsp.e, &t );
+        }
 
         CHECK( desc == p.desc );
         CHECK_EQ( 42, p.tid );
@@ -263,17 +288,21 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
         enum asrt_status st = asrt_cntr_test_info( &cntr, 42, &cpy_test_info_cb, (void*) &p, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // Reply with a different tid (99 instead of 42)
-        uint8_t          buf[64];
-        struct asrt_span sp   = { .b = buf, .e = buf + sizeof buf };
-        char const*      desc = "barbaz";
-        asrt_msg_rtoc_test_info(
-            99, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ), asrt_rec_span_to_span_cb, &sp );
-        enum asrt_status rst =
-            asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, rst );
+        char const* desc = "barbaz";
+        {
+                struct asrt_core_test_info_msg timsg = {};
+                struct asrt_send_req*          req   = asrt_msg_rtoc_test_info(
+                    &timsg, 99, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ) );
+                uint8_t          flat[128];
+                auto             fsp = flatten_req( flat, req );
+                enum asrt_status rst =
+                    asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = fsp.b, .e = fsp.e } );
+                CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, rst );
+        }
 
         CHECK( p.desc.empty() );
 }
@@ -287,13 +316,17 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_missing_status" )
             asrt_cntr_test_info( &cntr, 42, &cpy_test_info_capture_cb, &capture, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
-        uint8_t          buf[64];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_info(
-            42, ASRT_TEST_INFO_MISSING_TEST_ERR, "", 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        {
+                struct asrt_core_test_info_msg timsg = {};
+                struct asrt_send_req*          req =
+                    asrt_msg_rtoc_test_info( &timsg, 42, ASRT_TEST_INFO_MISSING_TEST_ERR, "", 0 );
+                uint8_t flat[64];
+                auto    fsp = flatten_req( flat, req );
+                check_recv_and_spin( &cntr, fsp.b, fsp.e, &t );
+        }
 
         CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, capture.status );
         CHECK_EQ( 42, capture.tid );
@@ -330,33 +363,40 @@ static struct asrt_allocator failing_allocator( void )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_desc_alloc_failure" )
 {
-        enum asrt_status st = asrt_cntr_init( &cntr, send, failing_allocator() );
+        enum asrt_status st = asrt_cntr_init( &cntr, &send_queue, failing_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();  // discard PROTO_VERSION request
 
         // Simulate receiving a proto-version reply to advance to IDLE
-        uint8_t          buf[64];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        {
+                struct asrt_u8d8msg   msg = {};
+                struct asrt_send_req* req = asrt_msg_rtoc_proto_version( &msg, 0, 1, 0 );
+                check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
+        }
         CHECK_EQ( ASRT_SUCCESS, init_status );
 
         std::string desc;
         st = asrt_cntr_desc( &cntr, &cpy_desc_cb, (void*) &desc, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();  // discard DESC request
 
         // Send a DESC reply — alloc will return NULL, recv must return an error
-        sp              = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        char const* msg = "hello";
-        asrt_msg_rtoc_desc( msg, strlen( msg ), asrt_rec_span_to_span_cb, &sp );
-        enum asrt_status rst =
-            asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
-        CHECK_NE( ASRT_SUCCESS, rst );
+        char const* msg2 = "hello";
+        {
+                struct asrt_core_desc_msg dmsg = {};
+                struct asrt_send_req*     req  = asrt_msg_rtoc_desc( &dmsg, msg2, strlen( msg2 ) );
+                uint8_t                   flat[64];
+                auto                      fsp = flatten_req( flat, req );
+                enum asrt_status          rst =
+                    asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = fsp.b, .e = fsp.e } );
+                CHECK_NE( ASRT_SUCCESS, rst );
+        }
 }
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
@@ -368,6 +408,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         st = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
 
         assert_collected_core_hdr( coll.data.back(), 0x08, ASRT_MSG_TEST_START );
         assert_u16( 42, coll.data.back().data.data() + 2 );
@@ -377,16 +418,23 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_run_test" )
         for ( int i = 0; i < 4; i++ )
                 check_tick( &cntr, t++ );
 
-        asrt_msg_rtoc_test_start( 42, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv( &cntr, ( struct asrt_span ){ .b = buffer, .e = sp.b } );
+        {
+                struct asrt_u8d8msg   tsmsg = {};
+                struct asrt_send_req* tsreq = asrt_msg_rtoc_test_start( &tsmsg, 42, 0 );
+                check_recv( &cntr, ( struct asrt_span ){ .b = tsreq->buff.b, .e = tsreq->buff.e } );
+        }
+
         for ( int i = 0; i < 4; i++ )
                 check_tick( &cntr, t++ );
 
         CHECK_EQ( coll.data.empty(), true );
 
-        uint8_t* b = sp.b;
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, b, sp.b, &t );
+        {
+                struct asrt_u8d8msg   trmsg = {};
+                struct asrt_send_req* trreq =
+                    asrt_msg_rtoc_test_result( &trmsg, 0, ASRT_TEST_RESULT_SUCCESS );
+                check_recv_and_spin( &cntr, trreq->buff.b, trreq->buff.e, &t );
+        }
 
         CHECK_EQ( res.test_id, 42 );
         CHECK_EQ( res.run_id, 0 );
@@ -413,18 +461,21 @@ TEST_CASE_FIXTURE( controller_ctx, "realloc_str_long_string" )
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
 {
-        enum asrt_status st = asrt_cntr_init( &cntr, send, asrt_default_allocator() );
+        enum asrt_status st = asrt_cntr_init( &cntr, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // reply with a mismatched major version
-        uint8_t          buf[64];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_proto_version( ASRT_PROTO_MAJOR + 1, 0, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv( &cntr, ( struct asrt_span ){ .b = buf, .e = sp.b } );
+        {
+                struct asrt_u8d8msg   msg = {};
+                struct asrt_send_req* req =
+                    asrt_msg_rtoc_proto_version( &msg, ASRT_PROTO_MAJOR + 1, 0, 0 );
+                check_recv( &cntr, ( struct asrt_span ){ .b = req->buff.b, .e = req->buff.e } );
+        }
 
         enum asrt_status st2 = asrt_chann_tick( &cntr.node, t++ );
         CHECK_EQ( ASRT_VERSION_ERR, init_status );
@@ -472,13 +523,14 @@ static enum asrt_status record_result_cb( void* ptr, enum asrt_status s, struct 
 
 TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
 {
-        enum asrt_status st = asrt_cntr_init( &cntr, send, asrt_default_allocator() );
+        enum asrt_status st = asrt_cntr_init( &cntr, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &cntr, &record_init_cb, &init_status, 3 );
         CHECK_EQ( ASRT_SUCCESS, st );
 
         // now=0: sends request, enters WAITING, deadline = 0+3 = 3
         check_tick( &cntr, 0 );
+        drain();
         coll.data.pop_back();
 
         // now=1,2: still waiting
@@ -501,6 +553,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_count" )
         CHECK_EQ( ASRT_SUCCESS, st );
 
         check_tick( &cntr, 0 );
+        drain();
         coll.data.pop_back();
 
         check_tick( &cntr, 1 );
@@ -521,6 +574,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_desc" )
         CHECK_EQ( ASRT_SUCCESS, st );
 
         check_tick( &cntr, 0 );
+        drain();
         coll.data.pop_back();
 
         check_tick( &cntr, 1 );
@@ -541,6 +595,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_test_info" )
         CHECK_EQ( ASRT_SUCCESS, st );
 
         check_tick( &cntr, 0 );
+        drain();
         coll.data.pop_back();
 
         check_tick( &cntr, 1 );
@@ -562,6 +617,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_exec" )
 
         // now=0: STAGE_INIT → sends, enters WAITING, deadline = 0+3 = 3
         check_tick( &cntr, 0 );
+        drain();
         coll.data.pop_back();
 
         // now=1,2: still waiting
@@ -605,13 +661,13 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_test_error_result" )
         enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // A direct TEST_RESULT(ERROR) reply should complete the exec as an error.
-        uint8_t          buf[16];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_ERROR, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        struct asrt_u8d8msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_test_result( &msg, 0, ASRT_TEST_RESULT_ERROR );
+        check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
         CHECK_EQ( ASRT_TEST_RESULT_ERROR, res.res );
 }
 
@@ -624,13 +680,13 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 42, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );  // sends TEST_START request
+        drain();
         coll.data.pop_back();
 
         // Send TEST_RESULT with wrong run_id (controller expects 0, send 99)
-        uint8_t          buf[16];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 99, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        struct asrt_u8d8msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_test_result( &msg, 99, ASRT_TEST_RESULT_SUCCESS );
+        check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
 
         CHECK_EQ( ASRT_TEST_RESULT_ERROR, res.res );
         CHECK_EQ( coll.data.empty(), true );
@@ -641,11 +697,10 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 {
         check_cntr_full_init( this );
 
-        uint8_t          buf[16];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
-        enum asrt_status rst =
-            asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = buf, .e = sp.b } );
+        struct asrt_u8d8msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_proto_version( &msg, 0, 1, 0 );
+        enum asrt_status      rst = asrt_chann_recv(
+            &cntr.node, ( struct asrt_span ){ .b = req->buff.b, .e = req->buff.e } );
         CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, rst );
         CHECK( asrt_cntr_idle( &cntr ) );
 }
@@ -653,7 +708,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 // empty buffer — top-level header truncation
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 {
-        enum asrt_status st = asrt_cntr_init( &cntr, send, asrt_default_allocator() );
+        enum asrt_status st = asrt_cntr_init( &cntr, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
@@ -665,21 +720,22 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_hdr" )
 
         // Drain: tick to send request then satisfy it
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
-        uint8_t          vbuf[16];
-        struct asrt_span vsp = { .b = vbuf, .e = vbuf + sizeof vbuf };
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &vsp );
-        check_recv_and_spin( &cntr, vbuf, vsp.b, &t );
+        struct asrt_u8d8msg   vmsg = {};
+        struct asrt_send_req* vreq = asrt_msg_rtoc_proto_version( &vmsg, 0, 1, 0 );
+        check_recv_and_spin( &cntr, vreq->buff.b, vreq->buff.e, &t );
 }
 
 // truncated proto-version reply while in INIT/WAITING
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
 {
-        enum asrt_status st = asrt_cntr_init( &cntr, send, asrt_default_allocator() );
+        enum asrt_status st = asrt_cntr_init( &cntr, &send_queue, asrt_default_allocator() );
         CHECK_EQ( ASRT_SUCCESS, st );
         st = asrt_cntr_start( &cntr, &record_init_cb, &init_status, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // ID + only major(2) — missing minor(2) + patch(2) = too short
@@ -692,9 +748,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_init" )
         CHECK_EQ( ASRT_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_proto_version( 0, 1, 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        struct asrt_u8d8msg   vmsg = {};
+        struct asrt_send_req* vreq = asrt_msg_rtoc_proto_version( &vmsg, 0, 1, 0 );
+        check_recv_and_spin( &cntr, vreq->buff.b, vreq->buff.e, &t );
 }
 
 // truncated test-count reply while in HNDL_TC/WAITING
@@ -706,6 +762,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         enum asrt_status st    = asrt_cntr_test_count( &cntr, &record_tc_cb, &cb_st, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // Just the message ID, no u16 count
@@ -717,9 +774,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_count" )
         CHECK_EQ( ASRT_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_count( 0, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        struct asrt_u8d4msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_test_count( &msg, 0 );
+        check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
 }
 
 // truncated test-info reply while in HNDL_TI/WAITING
@@ -731,6 +788,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         enum asrt_status        st = asrt_cntr_test_info( &cntr, 7, &cpy_test_info_cb, &p, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         // Just the message ID, no u16 tid
@@ -742,11 +800,13 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_test_info" )
         CHECK_EQ( ASRT_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        char const* desc = "x";
-        sp               = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_info(
-            7, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ), asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        char const*                    desc = "x";
+        struct asrt_core_test_info_msg tmsg = {};
+        struct asrt_send_req*          treq =
+            asrt_msg_rtoc_test_info( &tmsg, 7, ASRT_TEST_INFO_SUCCESS, desc, strlen( desc ) );
+        uint8_t flat[128];
+        auto    fsp = flatten_req( flat, treq );
+        check_recv_and_spin( &cntr, fsp.b, fsp.e, &t );
 }
 
 //---------------------------------------------------------------------
@@ -759,13 +819,12 @@ struct diag_ctx
         stub_allocator_ctx alloc_ctx = {};
         asrt_allocator     alloc     = {};
         asrt_diag_server   diag      = {};
-        asrt_sender        null_send = {};
 
         diag_ctx()
         {
                 head.chid = ASRT_CORE;
                 alloc     = asrt_stub_allocator( &alloc_ctx );
-                REQUIRE_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, null_send, alloc ) );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, alloc ) );
         }
 };
 
@@ -773,23 +832,16 @@ TEST_CASE( "diag_init" )
 {
         struct asrt_node head = {};
         head.chid             = ASRT_CORE;
-        asrt_sender null_send = {};
 
         // diag = NULL
-        CHECK_EQ(
-            ASRT_INIT_ERR,
-            asrt_diag_server_init( NULL, &head, null_send, asrt_default_allocator() ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_diag_server_init( NULL, &head, asrt_default_allocator() ) );
 
         // prev = NULL
         struct asrt_diag_server diag = {};
-        CHECK_EQ(
-            ASRT_INIT_ERR,
-            asrt_diag_server_init( &diag, NULL, null_send, asrt_default_allocator() ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_diag_server_init( &diag, NULL, asrt_default_allocator() ) );
 
         // valid
-        CHECK_EQ(
-            ASRT_SUCCESS,
-            asrt_diag_server_init( &diag, &head, null_send, asrt_default_allocator() ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, asrt_default_allocator() ) );
         CHECK_EQ( ASRT_DIAG, diag.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) diag.node.e_cb_ptr );
         CHECK_EQ( nullptr, diag.first_rec );
@@ -1016,13 +1068,12 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_take_record" )
 // C-FREE-1,2
 TEST_CASE( "diag_free_record" )
 {
-        struct asrt_node head             = {};
-        head.chid                         = ASRT_CORE;
-        stub_allocator_ctx      sctx      = {};
-        asrt_allocator          alloc     = asrt_stub_allocator( &sctx );
-        asrt_sender             null_send = {};
-        struct asrt_diag_server diag      = {};
-        REQUIRE_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, null_send, alloc ) );
+        struct asrt_node head         = {};
+        head.chid                     = ASRT_CORE;
+        stub_allocator_ctx      sctx  = {};
+        asrt_allocator          alloc = asrt_stub_allocator( &sctx );
+        struct asrt_diag_server diag  = {};
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_diag_server_init( &diag, &head, alloc ) );
 
         uint8_t  buf[16];
         uint8_t* p = buf;
@@ -1062,23 +1113,21 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
 
         // empty queue → success
         {
-                struct asrt_node head2             = {};
-                head2.chid                         = ASRT_CORE;
-                asrt_sender             null_send2 = {};
-                struct asrt_diag_server d2         = {};
-                asrt_diag_server_init( &d2, &head2, null_send2, asrt_default_allocator() );
+                struct asrt_node head2     = {};
+                head2.chid                 = ASRT_CORE;
+                struct asrt_diag_server d2 = {};
+                asrt_diag_server_init( &d2, &head2, asrt_default_allocator() );
                 asrt_diag_server_deinit( &d2 );
         }
 
         // one record → freed
         {
-                struct asrt_node head3             = {};
-                head3.chid                         = ASRT_CORE;
-                stub_allocator_ctx      sctx3      = {};
-                asrt_allocator          a3         = asrt_stub_allocator( &sctx3 );
-                asrt_sender             null_send3 = {};
-                struct asrt_diag_server d3         = {};
-                asrt_diag_server_init( &d3, &head3, null_send3, a3 );
+                struct asrt_node head3        = {};
+                head3.chid                    = ASRT_CORE;
+                stub_allocator_ctx      sctx3 = {};
+                asrt_allocator          a3    = asrt_stub_allocator( &sctx3 );
+                struct asrt_diag_server d3    = {};
+                asrt_diag_server_init( &d3, &head3, a3 );
                 p    = buf;
                 *p++ = ASRT_DIAG_MSG_RECORD;
                 asrt_add_u32( &p, 1 );
@@ -1092,13 +1141,12 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_deinit" )
 
         // three records → all freed
         {
-                struct asrt_node head4             = {};
-                head4.chid                         = ASRT_CORE;
-                stub_allocator_ctx      sctx4      = {};
-                asrt_allocator          a4         = asrt_stub_allocator( &sctx4 );
-                asrt_sender             null_send4 = {};
-                struct asrt_diag_server d4         = {};
-                asrt_diag_server_init( &d4, &head4, null_send4, a4 );
+                struct asrt_node head4        = {};
+                head4.chid                    = ASRT_CORE;
+                stub_allocator_ctx      sctx4 = {};
+                asrt_allocator          a4    = asrt_stub_allocator( &sctx4 );
+                struct asrt_diag_server d4    = {};
+                asrt_diag_server_init( &d4, &head4, a4 );
                 for ( uint32_t i = 0; i < 3; i++ ) {
                         p    = buf;
                         *p++ = ASRT_DIAG_MSG_RECORD;
@@ -1142,6 +1190,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         enum asrt_status   st  = asrt_cntr_test_exec( &cntr, 1, result_cb, &res, 1000 );
         CHECK_EQ( ASRT_SUCCESS, st );
         check_tick( &cntr, t++ );
+        drain();
         coll.data.pop_back();
 
         uint8_t          buf[16];
@@ -1156,9 +1205,9 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
         CHECK_EQ( ASRT_RECV_ERR, rst );
 
         // Satisfy properly to clean up
-        sp = ( struct asrt_span ){ .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_test_result( 0, ASRT_TEST_RESULT_SUCCESS, asrt_rec_span_to_span_cb, &sp );
-        check_recv_and_spin( &cntr, buf, sp.b, &t );
+        struct asrt_u8d8msg   msg = {};
+        struct asrt_send_req* req = asrt_msg_rtoc_test_result( &msg, 0, ASRT_TEST_RESULT_SUCCESS );
+        check_recv_and_spin( &cntr, req->buff.b, req->buff.e, &t );
         CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res.res );
         CHECK_EQ( coll.data.empty(), true );
 }
@@ -1169,11 +1218,12 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_truncated_exec" )
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
 {
         // Serialize with the real protocol encoder (extra=NULL)
-        uint8_t          buf[128];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_diag_record( "foo.c", 7, NULL, asrt_rec_span_to_span_cb, &sp );
+        struct asrt_diag_record_msg dmsg = {};
+        struct asrt_send_req*       req  = asrt_msg_rtoc_diag_record( &dmsg, "foo.c", 7, NULL );
+        uint8_t                     flat[128];
+        auto                        fsp = flatten_req( flat, req );
 
-        check_recv( &diag, ( struct asrt_span ){ .b = buf, .e = sp.b } );
+        check_recv( &diag, fsp );
 
         auto* rec = asrt_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1188,11 +1238,12 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_no_extra" )
 TEST_CASE_FIXTURE( diag_ctx, "diag_recv_proto_with_extra" )
 {
         // Serialize with the real protocol encoder, file + extra
-        uint8_t          buf[128];
-        struct asrt_span sp = { .b = buf, .e = buf + sizeof buf };
-        asrt_msg_rtoc_diag_record( "test.c", 42, "x > 0", asrt_rec_span_to_span_cb, &sp );
+        struct asrt_diag_record_msg dmsg = {};
+        struct asrt_send_req*       req = asrt_msg_rtoc_diag_record( &dmsg, "test.c", 42, "x > 0" );
+        uint8_t                     flat[128];
+        auto                        fsp = flatten_req( flat, req );
 
-        check_recv( &diag, ( struct asrt_span ){ .b = buf, .e = sp.b } );
+        check_recv( &diag, fsp );
 
         auto* rec = asrt_diag_server_take_record( &diag );
         REQUIRE_NE( nullptr, rec );
@@ -1244,41 +1295,37 @@ static uint8_t* build_query( uint8_t* buf, asrt::flat_id node_id )
 
 struct param_ctx
 {
-        struct asrt_node         head      = {};
-        stub_allocator_ctx       alloc_ctx = {};
-        asrt_allocator           alloc     = {};
-        struct asrt_param_server param     = {};
-        collector                coll;
-        asrt_sender              sendr = {};
-        uint32_t                 t     = 1;
+        struct asrt_node          head      = {};
+        stub_allocator_ctx        alloc_ctx = {};
+        asrt_allocator            alloc     = {};
+        struct asrt_param_server  param     = {};
+        collector                 coll;
+        struct asrt_send_req_list send_queue = {};
+        uint32_t                  t          = 1;
 
         param_ctx()
         {
-                head.chid = ASRT_CORE;
-                alloc     = asrt_stub_allocator( &alloc_ctx );
-                setup_sender_collector( &sendr, &coll );
-                REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &param, &head, sendr, alloc ) );
+                head.chid       = ASRT_CORE;
+                alloc           = asrt_stub_allocator( &alloc_ctx );
+                head.send_queue = &send_queue;
+                REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &param, &head, alloc ) );
         }
         ~param_ctx() { asrt_param_server_deinit( &param ); }
+        void drain() { drain_send_queue( &send_queue, &coll ); }
 };
 
 TEST_CASE( "asrt_param_server_init" )
 {
         struct asrt_node head           = {};
         head.chid                       = ASRT_CORE;
-        asrt_sender              null_s = {};
         struct asrt_param_server param2 = {};
 
+        CHECK_EQ( ASRT_INIT_ERR, asrt_param_server_init( NULL, &head, asrt_default_allocator() ) );
         CHECK_EQ(
-            ASRT_INIT_ERR,
-            asrt_param_server_init( NULL, &head, null_s, asrt_default_allocator() ) );
-        CHECK_EQ(
-            ASRT_INIT_ERR,
-            asrt_param_server_init( &param2, NULL, null_s, asrt_default_allocator() ) );
+            ASRT_INIT_ERR, asrt_param_server_init( &param2, NULL, asrt_default_allocator() ) );
 
         CHECK_EQ(
-            ASRT_SUCCESS,
-            asrt_param_server_init( &param2, &head, null_s, asrt_default_allocator() ) );
+            ASRT_SUCCESS, asrt_param_server_init( &param2, &head, asrt_default_allocator() ) );
         CHECK_EQ( ASRT_PARA, param2.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) param2.node.e_cb_ptr );
         CHECK_EQ( &param2.node, head.next );
@@ -1309,6 +1356,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrt_param_server_send_ready_encodes_correctly" )
         asrt_param_server_set_tree( &param, &tree );
 
         CHECK_EQ( ASRT_SUCCESS, asrt_param_server_send_ready( &param, 1U, 1000, NULL, NULL ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -1405,6 +1453,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrt_param_server_query_produces_response" )
         // Query node 2 ("alpha", u32=10)
         check_recv( &param, ( struct asrt_span ){ .b = buf, .e = build_query( buf, 2U ) } );
         check_tick( &param, t++ );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -1435,6 +1484,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrt_param_server_query_multi_batch" )
         // First query: only node 2 fits → next_sibling_id points to node 3
         check_recv( &param, ( struct asrt_span ){ .b = buf, .e = build_query( buf, 2U ) } );
         check_tick( &param, t++ );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -1463,7 +1513,7 @@ TEST_CASE_FIXTURE( param_ctx, "asrt_param_server_query_oversize_returns_error" )
         check_tick( &param, t++ );
         check_recv( &param, ( struct asrt_span ){ .b = buf, .e = build_query( buf, 2U ) } );
         check_tick( &param, t++ );
-
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         auto& msg = coll.data.front();
         CHECK_EQ( ASRT_PARA, msg.id );
@@ -1503,48 +1553,37 @@ struct server_client_base
         Client   client = {};
         uint32_t t      = 1;
 
-        static enum asrt_status srv_to_cli(
-            void* ptr,
-            asrt_chann_id /*id*/,
-            struct asrt_rec_span* buff,
-            asrt_send_done_cb     done_cb,
-            void*                 done_ptr )
+        static void deliver( struct asrt_send_req_list* sq, struct asrt_node* to )
         {
-                auto*            ctx = (server_client_base*) ptr;
-                uint8_t          flat[512];
-                struct asrt_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrt_rec_span_to_span( &sp, buff );
-                struct asrt_span msg = { .b = flat, .e = sp.b };
-                auto             st  = asrt_chann_recv( &ctx->client.node, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
+                while ( sq->head ) {
+                        struct asrt_send_req* req = sq->head;
+                        sq->head                  = req->next;
+                        if ( !sq->head )
+                                sq->tail = NULL;
+                        req->next = NULL;
+                        uint8_t  flat[512];
+                        uint8_t* p = flat;
+                        memcpy( p, req->buff.b, req->buff.e - req->buff.b );
+                        p += req->buff.e - req->buff.b;
+                        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
+                                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
+                                memcpy( p, req->buff.rest[i].b, sz );
+                                p += sz;
+                        }
+                        auto st = asrt_chann_recv( to, ( struct asrt_span ){ .b = flat, .e = p } );
+                        if ( req->done_cb )
+                                req->done_cb( req->done_ptr, st );
+                }
         }
 
-        static enum asrt_status cli_to_srv(
-            void* ptr,
-            asrt_chann_id /*id*/,
-            struct asrt_rec_span* buff,
-            asrt_send_done_cb     done_cb,
-            void*                 done_ptr )
-        {
-                auto*            ctx = (server_client_base*) ptr;
-                uint8_t          flat[512];
-                struct asrt_span sp = { .b = flat, .e = flat + sizeof flat };
-                asrt_rec_span_to_span( &sp, buff );
-                struct asrt_span msg = { .b = flat, .e = sp.b };
-                auto             st  = asrt_chann_recv( &ctx->server.node, msg );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        }
-
-        // Tick both sides up to N times until neither has pending work
+        // Tick both sides up to N times, routing queued messages between them
         void spin( int max_iter = 100 )
         {
                 for ( int i = 0; i < max_iter; i++ ) {
                         asrt_chann_tick( &server.node, t++ );
+                        deliver( server.node.send_queue, &client.node );
                         asrt_chann_tick( &client.node, t++ );
+                        deliver( client.node.send_queue, &server.node );
                 }
         }
 };
@@ -1560,9 +1599,8 @@ struct param_loopback_ctx : param_base
         static constexpr uint32_t cli_buff_size          = 256;
         uint8_t                   cli_buf[cli_buff_size] = {};
 
-        // Cross-wired senders: server sends → client recv, client sends → server recv
-        asrt_sender srv_sendr = {};
-        asrt_sender cli_sendr = {};
+        struct asrt_send_req_list srv_sq = {};
+        struct asrt_send_req_list cli_sq = {};
 
         // Response callback state
         struct received_node
@@ -1593,16 +1631,14 @@ struct param_loopback_ctx : param_base
 
         param_loopback_ctx()
         {
-                srv_head.chid = ASRT_CORE;
-                cli_head.chid = ASRT_CORE;
-                alloc         = asrt_stub_allocator( &alloc_ctx );
-                srv_sendr     = asrt_sender{ .ptr = this, .cb = srv_to_cli };
-                cli_sendr     = asrt_sender{ .ptr = this, .cb = cli_to_srv };
-                REQUIRE_EQ(
-                    ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, srv_sendr, alloc ) );
+                srv_head.chid       = ASRT_CORE;
+                cli_head.chid       = ASRT_CORE;
+                srv_head.send_queue = &srv_sq;
+                cli_head.send_queue = &cli_sq;
+                alloc               = asrt_stub_allocator( &alloc_ctx );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, alloc ) );
                 struct asrt_span mb = { .b = cli_buf, .e = cli_buf + cli_buff_size };
-                REQUIRE_EQ(
-                    ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, cli_sendr, mb, 10 ) );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, mb, 10 ) );
         }
 
         ~param_loopback_ctx()
@@ -1724,12 +1760,14 @@ TEST_CASE_FIXTURE( param_base, "param_loopback_multi_batch" )
         cli_head.chid = ASRT_CORE;
         alloc         = asrt_stub_allocator( &alloc_ctx );
 
-        asrt_sender ssend = { .ptr = this, .cb = srv_to_cli };
-        asrt_sender csend = { .ptr = this, .cb = cli_to_srv };
+        struct asrt_send_req_list srv_sq2 = {};
+        struct asrt_send_req_list cli_sq2 = {};
+        srv_head.send_queue               = &srv_sq2;
+        cli_head.send_queue               = &cli_sq2;
 
-        REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, ssend, alloc ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_param_server_init( &server, &srv_head, alloc ) );
         struct asrt_span mb = { .b = cli_buf, .e = cli_buf + small_buff_size };
-        REQUIRE_EQ( ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, csend, mb, 100 ) );
+        REQUIRE_EQ( ASRT_SUCCESS, asrt_param_client_init( &client, &cli_head, mb, 100 ) );
 
         // Tree: root(OBJECT,1) → 4 children (U32, ids 2..5)
         struct asrt_flat_tree tree;
@@ -1962,10 +2000,18 @@ static uint8_t* build_collect_append(
     char const*                   key,
     struct asrt_flat_value const* value )
 {
-        struct asrt_span sp = { .b = buf, .e = buf + 256 };
-        asrt_msg_rtoc_collect_append(
-            parent_id, node_id, key, value, asrt_rec_span_to_span_cb, &sp );
-        return sp.b;
+        struct asrt_collect_append_msg msg = {};
+        struct asrt_send_req*          req =
+            asrt_msg_rtoc_collect_append( &msg, parent_id, node_id, key, value );
+        uint8_t* p = buf;
+        memcpy( p, req->buff.b, req->buff.e - req->buff.b );
+        p += req->buff.e - req->buff.b;
+        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
+                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
+                memcpy( p, req->buff.rest[i].b, sz );
+                p += sz;
+        }
+        return p;
 }
 
 struct collect_ctx
@@ -1975,37 +2021,35 @@ struct collect_ctx
         asrt_allocator             alloc     = {};
         struct asrt_collect_server server    = {};
         collector                  coll;
-        asrt_sender                sendr = {};
-        uint32_t                   t     = 1;
+        struct asrt_send_req_list  send_queue = {};
+        uint32_t                   t          = 1;
 
         collect_ctx()
         {
-                head.chid = ASRT_CORE;
-                alloc     = asrt_stub_allocator( &alloc_ctx );
-                setup_sender_collector( &sendr, &coll );
+                head.chid       = ASRT_CORE;
+                alloc           = asrt_stub_allocator( &alloc_ctx );
+                head.send_queue = &send_queue;
                 REQUIRE_EQ(
-                    ASRT_SUCCESS, asrt_collect_server_init( &server, &head, sendr, alloc, 4, 16 ) );
+                    ASRT_SUCCESS, asrt_collect_server_init( &server, &head, alloc, 4, 16 ) );
         }
         ~collect_ctx() { asrt_collect_server_deinit( &server ); }
+        void drain() { drain_send_queue( &send_queue, &coll ); }
 };
 
 TEST_CASE( "asrt_collect_server_init" )
 {
-        struct asrt_node head             = {};
-        head.chid                         = ASRT_CORE;
-        asrt_sender                null_s = {};
-        struct asrt_collect_server s      = {};
+        struct asrt_node head        = {};
+        head.chid                    = ASRT_CORE;
+        struct asrt_collect_server s = {};
 
         CHECK_EQ(
             ASRT_INIT_ERR,
-            asrt_collect_server_init( NULL, &head, null_s, asrt_default_allocator(), 4, 16 ) );
+            asrt_collect_server_init( NULL, &head, asrt_default_allocator(), 4, 16 ) );
         CHECK_EQ(
-            ASRT_INIT_ERR,
-            asrt_collect_server_init( &s, NULL, null_s, asrt_default_allocator(), 4, 16 ) );
+            ASRT_INIT_ERR, asrt_collect_server_init( &s, NULL, asrt_default_allocator(), 4, 16 ) );
 
         CHECK_EQ(
-            ASRT_SUCCESS,
-            asrt_collect_server_init( &s, &head, null_s, asrt_default_allocator(), 4, 16 ) );
+            ASRT_SUCCESS, asrt_collect_server_init( &s, &head, asrt_default_allocator(), 4, 16 ) );
         CHECK_EQ( ASRT_COLL, s.node.chid );
         CHECK_NE( nullptr, (void*) (uintptr_t) s.node.e_cb_ptr );
         CHECK_EQ( &s.node, head.next );
@@ -2016,6 +2060,7 @@ TEST_CASE( "asrt_collect_server_init" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_encodes_correctly" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
 
         auto& msg = coll.data.front();
@@ -2031,6 +2076,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_encodes_correctl
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_recv_ready_ack_activates" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2043,6 +2089,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_recv_ready_ack_activates" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_recv_ready_ack_while_pending_returns_error" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2059,6 +2106,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_recv_ready_ack_while_pendin
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_builds_tree" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         // Handshake
@@ -2102,6 +2150,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_builds_tree" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_string_value" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2152,6 +2201,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_before_active_return
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_back_to_back_appends" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2195,6 +2245,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_back_to_back_appends" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_duplicate_sends_error" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2219,6 +2270,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_duplicate_sends_erro
 
         // Error should have been sent and server deactivated
         CHECK_EQ( ASRT_COLLECT_SERVER_IDLE, server.state );
+        drain();
         REQUIRE_GE( coll.data.size(), 1U );
         auto& err_msg = coll.data.back();
         CHECK_EQ( ASRT_COLL, err_msg.id );
@@ -2236,6 +2288,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ack_cb_fires" )
         CHECK_EQ(
             ASRT_SUCCESS,
             asrt_collect_server_send_ready( &server, 1U, 1000, ack_cb, &ack_status ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2254,6 +2307,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_timeout_fires_ack_cb" )
 
         CHECK_EQ(
             ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 10, ack_cb, &ack_status ) );
+        drain();
         coll.data.pop_front();
 
         // Tick past deadline without receiving READY_ACK
@@ -2266,6 +2320,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_timeout_fires_ack_cb" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_double_call_returns_error" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         CHECK_EQ( ASRT_ARG_ERR, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
@@ -2287,6 +2342,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_after_timeout_al
 
         CHECK_EQ(
             ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 5, ack_cb, &ack_status ) );
+        drain();
         coll.data.pop_front();
 
         for ( uint32_t i = 0; i < 10; i++ )
@@ -2295,6 +2351,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_after_timeout_al
 
         // Should be allowed to call send_ready again after timeout
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2307,6 +2364,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_send_ready_after_timeout_al
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ready_ack_reinits_tree" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2331,6 +2389,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ready_ack_reinits_tree" )
 
         // Second handshake should reinit tree (clearing old data)
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
         check_recv(
             &server, ( struct asrt_span ){ .b = buf, .e = build_collect_ready_ack( buf ) } );
@@ -2344,6 +2403,7 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_ready_ack_reinits_tree" )
 TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_alloc_failure_sends_error_and_resets" )
 {
         CHECK_EQ( ASRT_SUCCESS, asrt_collect_server_send_ready( &server, 1U, 1000, NULL, NULL ) );
+        drain();
         coll.data.pop_front();
 
         uint8_t buf[8];
@@ -2366,6 +2426,12 @@ TEST_CASE_FIXTURE( collect_ctx, "asrt_collect_server_append_alloc_failure_sends_
 
         // Tree alloc failure → error sent to reactor, server resets to idle
         CHECK_EQ( ASRT_COLLECT_SERVER_IDLE, server.state );
+        drain();
+        REQUIRE_EQ( 1U, coll.data.size() );
+        CHECK_EQ( ASRT_COLL, coll.data.front().id );
+        CHECK_EQ( ASRT_COLLECT_MSG_ERROR, coll.data.front().data[0] );
+        CHECK_EQ( ASRT_COLLECT_ERR_APPEND_FAILED, coll.data.front().data[1] );
+        coll.data.clear();
 }
 
 using collect_base = server_client_base< asrt_collect_server, asrt_collect_client >;
@@ -2377,21 +2443,19 @@ struct collect_loopback_ctx : collect_base
         stub_allocator_ctx alloc_ctx = {};
         asrt_allocator     alloc     = {};
 
-        asrt_sender srv_sendr = {};
-        asrt_sender cli_sendr = {};
+        struct asrt_send_req_list srv_sq = {};
+        struct asrt_send_req_list cli_sq = {};
 
         collect_loopback_ctx()
         {
-                srv_head.chid = ASRT_CORE;
-                cli_head.chid = ASRT_CORE;
-                alloc         = asrt_stub_allocator( &alloc_ctx );
-                srv_sendr     = asrt_sender{ .ptr = this, .cb = srv_to_cli };
-                cli_sendr     = asrt_sender{ .ptr = this, .cb = cli_to_srv };
+                srv_head.chid       = ASRT_CORE;
+                cli_head.chid       = ASRT_CORE;
+                srv_head.send_queue = &srv_sq;
+                cli_head.send_queue = &cli_sq;
+                alloc               = asrt_stub_allocator( &alloc_ctx );
                 REQUIRE_EQ(
-                    ASRT_SUCCESS,
-                    asrt_collect_server_init( &server, &srv_head, srv_sendr, alloc, 4, 16 ) );
-                REQUIRE_EQ(
-                    ASRT_SUCCESS, asrt_collect_client_init( &client, &cli_head, cli_sendr ) );
+                    ASRT_SUCCESS, asrt_collect_server_init( &server, &srv_head, alloc, 4, 16 ) );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt_collect_client_init( &client, &cli_head ) );
         }
 
         ~collect_loopback_ctx() { asrt_collect_server_deinit( &server ); }
@@ -2425,25 +2489,34 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_multi_level_tree" )
         handshake( 1U );
 
         // parent_id=0 = virtual root for top-level nodes.
-        // Server must tick between appends to process each pending APPEND.
+        // spin(1) per append: deliver client→server + fire done_cb (client→ACTIVE)
         asrt::flat_id root, nums;
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, &root ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt_collect_client_append_object( &client, 0, NULL, &root, NULL, NULL ) );
+        spin( 1 );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_array( &client, root, "nums", &nums ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt_collect_client_append_array( &client, root, "nums", &nums, NULL, NULL ) );
+        spin( 1 );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 10 ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 10, NULL, NULL ) );
+        spin( 1 );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 20 ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 20, NULL, NULL ) );
+        spin( 1 );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_str( &client, root, "name", "hello" ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt_collect_client_append_str( &client, root, "name", "hello", NULL, NULL ) );
+        spin( 1 );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_bool( &client, root, "flag", 1 ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS, asrt_collect_client_append_bool( &client, root, "flag", 1, NULL, NULL ) );
+        spin( 1 );
 
         // Verify the tree built on the controller side
         struct asrt_flat_tree const*  tree = asrt_collect_server_tree( &server );
@@ -2485,8 +2558,9 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
         handshake();
 
         // Append first node (parent=0 = virtual root)
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL, NULL, NULL ) );
+        spin( 1 );  // deliver append to server so node 1 is in the tree
 
         // The client auto-assigns node_ids starting at 1.  The second append
         // gets id=2 — which is unique, so we cannot trigger a duplicate via the
@@ -2500,8 +2574,8 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
         uint8_t          buf[256];
         uint8_t*         end = build_collect_append( buf, 0, 1, "dup", &dup );
         struct asrt_span msg = { .b = buf, .e = end };
-        check_recv( &server, msg );
-        check_tick( &server, t++ );
+        check_recv( &server, msg );  // duplicate → server IDLE + ERROR enqueued
+        spin( 1 );                   // deliver ERROR from server to client
 
         // Server should have sent ERROR and gone idle
         CHECK_EQ( ASRT_COLLECT_SERVER_IDLE, server.state );
@@ -2516,8 +2590,9 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         handshake();
 
         // Append one valid node (parent=0 = virtual root)
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL ) );
-        check_tick( &server, t++ );
+        CHECK_EQ(
+            ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL, NULL, NULL ) );
+        spin( 1 );  // deliver append to server so node 1 is in the tree
 
         // Force duplicate via raw message
         struct asrt_flat_value dup
@@ -2528,13 +2603,13 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         uint8_t          buf[256];
         uint8_t*         end = build_collect_append( buf, 0, 1, "x", &dup );
         struct asrt_span msg = { .b = buf, .e = end };
-        check_recv( &server, msg );
-        check_tick( &server, t++ );
+        check_recv( &server, msg );  // duplicate → server IDLE + ERROR enqueued
+        spin( 1 );                   // deliver ERROR from server to client
 
         CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 
         // Further appends from the client should fail
-        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, "y", 99 ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, "y", 99, NULL, NULL ) );
 }
 
 // =====================================================================
@@ -2547,24 +2622,25 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 /// Fixture for isolated controller-side stream server tests.
 struct strm_server_ctx
 {
-        collector          coll;
-        asrt_sender        sender = {};
-        stub_allocator_ctx alloc_ctx;
-        asrt_allocator     alloc  = {};
-        asrt_node          root   = {};
-        asrt_stream_server server = {};
+        collector                 coll;
+        struct asrt_send_req_list send_queue = {};
+        stub_allocator_ctx        alloc_ctx;
+        asrt_allocator            alloc  = {};
+        asrt_node                 root   = {};
+        asrt_stream_server        server = {};
 
         strm_server_ctx()
         {
-                setup_sender_collector( &sender, &coll );
-                alloc = asrt_stub_allocator( &alloc_ctx );
-                CHECK_EQ( ASRT_SUCCESS, asrt_stream_server_init( &server, &root, sender, alloc ) );
+                alloc           = asrt_stub_allocator( &alloc_ctx );
+                root.send_queue = &send_queue;
+                CHECK_EQ( ASRT_SUCCESS, asrt_stream_server_init( &server, &root, alloc ) );
         }
         ~strm_server_ctx()
         {
                 asrt_stream_server_deinit( &server );
                 coll.data.clear();
         }
+        void drain() { drain_send_queue( &send_queue, &coll ); }
 };
 
 /// Helper: build a raw DEFINE message and deliver it to the server's recv_cb.
@@ -2604,18 +2680,16 @@ static enum asrt_status strm_deliver_data(
 
 TEST_CASE( "strm_server_init: null server" )
 {
-        asrt_node      root   = {};
-        asrt_sender    sender = {};
-        asrt_allocator alloc  = {};
-        CHECK_EQ( ASRT_INIT_ERR, asrt_stream_server_init( nullptr, &root, sender, alloc ) );
+        asrt_node      root  = {};
+        asrt_allocator alloc = {};
+        CHECK_EQ( ASRT_INIT_ERR, asrt_stream_server_init( nullptr, &root, alloc ) );
 }
 
 TEST_CASE( "strm_server_init: null prev" )
 {
         asrt_stream_server server = {};
-        asrt_sender        sender = {};
         asrt_allocator     alloc  = {};
-        CHECK_EQ( ASRT_INIT_ERR, asrt_stream_server_init( &server, nullptr, sender, alloc ) );
+        CHECK_EQ( ASRT_INIT_ERR, asrt_stream_server_init( &server, nullptr, alloc ) );
 }
 
 TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_init: valid" )
@@ -2686,6 +2760,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: zero field_count sends 
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 0, fields, 0 ) );
         // Server should have sent an ERROR message back
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM, coll.data[0].id );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
@@ -2699,6 +2774,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: duplicate schema sends 
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 5, fields, 1 ) );
         // Second define with same schema_id
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 5, fields, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_DUPLICATE_SCHEMA, coll.data[0].data[1] );
@@ -2711,6 +2787,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: invalid field type tag"
         uint8_t          buf[] = { ASRT_STRM_MSG_DEFINE, 0, 1, 0xFF };
         struct asrt_span sp    = { .b = buf, .e = buf + 4 };
         check_recv( &server, sp );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
@@ -2723,6 +2800,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: truncated field tags" )
         uint8_t          buf[] = { ASRT_STRM_MSG_DEFINE, 0, 3, ASRT_STRM_FIELD_U8 };
         struct asrt_span sp    = { .b = buf, .e = buf + 4 };
         check_recv( &server, sp );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
@@ -2734,6 +2812,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: alloc failure on schema
         alloc_ctx.fail_at_call               = 1;  // fail first alloc (schema struct)
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 0, fields, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_ALLOC_FAILURE, coll.data[0].data[1] );
@@ -2745,6 +2824,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: alloc failure on fields
         alloc_ctx.fail_at_call               = 2;  // pass schema alloc, fail fields alloc
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 0, fields, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_ALLOC_FAILURE, coll.data[0].data[1] );
@@ -2757,6 +2837,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: unknown schema" )
 {
         uint8_t data[] = { 0x42 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 10, data, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_UNKNOWN_SCHEMA, coll.data[0].data[1] );
@@ -2769,6 +2850,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: size mismatch" )
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_define( &server, 0, fields, 1 ) );
         uint8_t data[] = { 1, 2 };  // only 2 bytes, not 4
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, 2 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_SIZE_MISMATCH, coll.data[0].data[1] );
@@ -2821,6 +2903,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: alloc failure on record n
         alloc_ctx.fail_at_call = 3;
         uint8_t data[]         = { 0x01 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_ALLOC_FAILURE, coll.data[0].data[1] );
@@ -2836,6 +2919,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: alloc failure on data buf
         alloc_ctx.fail_at_call = 4;
         uint8_t data[]         = { 0x01 };
         CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, 1 ) );
+        drain();
         REQUIRE_EQ( 1U, coll.data.size() );
         CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
         CHECK_EQ( ASRT_STRM_ERR_ALLOC_FAILURE, coll.data[0].data[1] );
@@ -2916,28 +3000,31 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_clear: frees all schemas and re
 
 struct strm_loopback_ctx : server_client_base< asrt_stream_server, asrt_stream_client >
 {
-        collector coll;
-        asrt_node root_r = {};
-        asrt_node root_c = {};
+        collector                 coll;
+        asrt_node                 root_r = {};
+        asrt_node                 root_c = {};
+        struct asrt_send_req_list cli_sq = {};
+        struct asrt_send_req_list srv_sq = {};
 
         stub_allocator_ctx alloc_ctx;
 
-        asrt_sender sender_r = { .ptr = nullptr, .cb = cli_to_srv };
-        asrt_sender sender_c = { .ptr = nullptr, .cb = srv_to_cli };
-
         strm_loopback_ctx()
         {
-                sender_r.ptr = this;
-                sender_c.ptr = this;
-                auto alloc   = asrt_stub_allocator( &alloc_ctx );
-                CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_init( &client, &root_r, sender_r ) );
-                CHECK_EQ(
-                    ASRT_SUCCESS, asrt_stream_server_init( &server, &root_c, sender_c, alloc ) );
+                root_r.send_queue = &cli_sq;
+                root_c.send_queue = &srv_sq;
+                auto alloc        = asrt_stub_allocator( &alloc_ctx );
+                CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_init( &client, &root_r ) );
+                CHECK_EQ( ASRT_SUCCESS, asrt_stream_server_init( &server, &root_c, alloc ) );
         }
         ~strm_loopback_ctx()
         {
                 asrt_stream_server_deinit( &server );
                 coll.data.clear();
+        }
+        void client_tick( uint32_t now )
+        {
+                check_tick( &client, now );
+                deliver( &cli_sq, &server.node );
         }
 };
 
@@ -2950,7 +3037,7 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema r
         };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 1, fields, 2, done_cb, &done_st ) );
-        check_tick( &client, 1 );
+        client_tick( 1 );
         CHECK_EQ( ASRT_STRM_DONE, client.state );
         check_tick( &client, 2 );
         CHECK_EQ( ASRT_STRM_IDLE, client.state );
@@ -2969,14 +3056,12 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define + record + take" )
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
 
-        // Send 3 records
         for ( uint8_t i = 10; i < 13; i++ ) {
                 CHECK_EQ(
                     ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, &i, 1, nullptr, nullptr ) );
-                check_tick( &client, 3 + i - 10 );
+                spin( 2 );
         }
 
         // Take from server
@@ -3000,14 +3085,13 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: duplicate define → error
         // First define succeeds
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         // Second define with same ID → controller sends ERROR → client enters ERROR
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_ERROR, client.state );
         CHECK_EQ( ASRT_STRM_ERR_DUPLICATE_SCHEMA, client.err_code );
 }
@@ -3017,13 +3101,13 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: data size mismatch → err
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };  // expects 4 bytes
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
 
         // Send 1 byte instead of 4 → server sends error → client enters ERROR
         uint8_t bad_data[] = { 0x01 };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, bad_data, 1, nullptr, nullptr ) );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_ERROR, client.state );
         CHECK_EQ( ASRT_STRM_ERR_SIZE_MISMATCH, client.err_code );
 }
@@ -3033,12 +3117,12 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejecte
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
-        asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
+        CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr ) );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_ERROR, client.state );
 
         // Further records should fail
@@ -3052,12 +3136,12 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefin
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
 
         // Force error
         uint8_t bad[] = { 0x01 };
-        asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr );
+        CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, bad, 1, nullptr, nullptr ) );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_ERROR, client.state );
 
         // Reset client
@@ -3069,13 +3153,12 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefin
         enum asrt_strm_field_type_e fields2[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
             ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields2, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
-        check_tick( &client, 2 );
+        spin( 2 );
         CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         uint8_t good[] = { 42 };
         CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_emit( &client, 0, good, 1, nullptr, nullptr ) );
-        check_tick( &client, 1 );
+        spin( 2 );
 
         auto result = asrt_stream_server_take( &server );
         REQUIRE_EQ( 1U, result.schema_count );

@@ -31,8 +31,12 @@ enum asrt_param_server_pending
 
 struct asrt_param_server
 {
-        struct asrt_node               node;
-        struct asrt_sender             sendr;
+        struct asrt_node     node;
+        struct asrt_u8d6msg  find_by_key_err_msg;
+        struct asrt_u8d6msg  query_err_msg;
+        struct asrt_send_req query_msg;
+        struct asrt_u8d5msg  ready_msg;
+
         struct asrt_flat_tree const*   tree;  // non-owning; must outlive each test
         struct asrt_allocator          alloc;
         uint32_t                       max_msg_size;
@@ -53,7 +57,6 @@ struct asrt_param_server
 enum asrt_status asrt_param_server_init(
     struct asrt_param_server* param,
     struct asrt_node*         prev,
-    struct asrt_sender        sender,
     struct asrt_allocator     alloc );
 
 void asrt_param_server_set_tree(

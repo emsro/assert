@@ -19,20 +19,20 @@ extern "C" {
 #include "../asrtl/flat_tree.h"
 #include "../asrtl/param_proto.h"
 
-enum asrt_param_client_pending
+enum asrt_param_client_state
 {
-        ASRT_PARAM_CLIENT_PENDING_NONE = 0,
-        ASRT_PARAM_CLIENT_PENDING_READY,
-        ASRT_PARAM_CLIENT_PENDING_DELIVER,
-        ASRT_PARAM_CLIENT_PENDING_QUERY_ERROR,
+        ASRT_PARAM_CLIENT_IDLE = 0,
+        ASRT_PARAM_CLIENT_READY_RECV,
+        ASRT_PARAM_CLIENT_READY_SENT,
+        ASRT_PARAM_CLIENT_DELIVER,
+        ASRT_PARAM_CLIENT_QUERY_ERROR,
 };
 
 struct asrt_param_client
 {
-        struct asrt_node   node;
-        struct asrt_sender sendr;
-        asrt_flat_id       root_id;
-        int                ready;
+        struct asrt_node node;
+        asrt_flat_id     root_id;
+        int              ready;
 
         uint8_t*     cache_buf;
         uint32_t     cache_capacity;
@@ -43,7 +43,7 @@ struct asrt_param_client
 
         uint32_t timeout;
 
-        enum asrt_param_client_pending pending;
+        enum asrt_param_client_state state;
 
         union
         {
@@ -53,13 +53,16 @@ struct asrt_param_client
                         uint8_t      error_code;
                         asrt_flat_id node_id;
                 } error;
-        } pending_data;
+        } state_data;
+
+        struct asrt_u8d5msg               ready_ack_msg;
+        struct asrt_u8d5msg               query_msg;
+        struct asrt_param_find_by_key_msg find_by_key_msg;
 };
 
 enum asrt_status asrt_param_client_init(
     struct asrt_param_client* client,
     struct asrt_node*         prev,
-    struct asrt_sender        sender,
     struct asrt_span          msg_buffer,
     uint32_t                  timeout );
 

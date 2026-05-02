@@ -14,7 +14,6 @@
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
 #include "../asrtlpp/flat_type_traits.hpp"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtr/param.h"
 
 #include <concepts>
@@ -23,6 +22,8 @@
 
 namespace asrt
 {
+
+using status = asrt_status;
 
 // Trait system to pick C-API callback based on requested type
 template < typename T >
@@ -109,11 +110,10 @@ concept typed_param_query_callable =
 inline status init(
     ref< asrt_param_client > client,
     asrt_node&               prev,
-    autosender               s,
     asrt_span                msg_buffer,
     uint32_t                 timeout )
 {
-        return asrt_param_client_init( client, &prev, s, msg_buffer, timeout );
+        return asrt_param_client_init( client, &prev, msg_buffer, timeout );
 }
 
 [[nodiscard]] inline bool ready( ref< asrt_param_client const > client )

@@ -14,7 +14,6 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtlpp/sender.hpp"
 
 namespace asrt
 {
@@ -61,13 +60,9 @@ private:
         asrt_stream_schemas _s{};
 };
 
-inline status init(
-    ref< asrt_stream_server > srv,
-    asrt_node&                prev,
-    autosender                send_cb,
-    asrt_allocator            alloc )
+inline status init( ref< asrt_stream_server > srv, asrt_node& prev, asrt_allocator alloc )
 {
-        return asrt_stream_server_init( srv, &prev, send_cb, alloc );
+        return asrt_stream_server_init( srv, &prev, alloc );
 }
 
 inline stream_schemas take( ref< asrt_stream_server > srv )

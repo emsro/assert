@@ -13,7 +13,6 @@
 #include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
-#include "../asrtlpp/sender.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtr/reactor.h"
 
@@ -22,7 +21,8 @@
 namespace asrt
 {
 
-using record = asrt_record;
+using send_req_list = asrt_send_req_list;
+using record        = asrt_record;
 
 // Test harness that stores test T which should be callable with a record reference and return a
 // status.
@@ -52,9 +52,9 @@ struct unit : asrt_test
 };
 
 /// XXX: add C++ init to other asrt:: abstractions, inluding deinit
-inline enum asrt_status init( ref< asrt_reactor > reac, autosender sender, char const* desc )
+inline enum asrt_status init( ref< asrt_reactor > reac, send_req_list& req_l, char const* desc )
 {
-        return asrt_reactor_init( reac, sender, desc );
+        return asrt_reactor_init( reac, &req_l, desc );
 }
 
 inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )

@@ -16,10 +16,6 @@
 #include <doctest/doctest.h>
 #include <stdlib.h>
 
-static inline enum asrt_status asrt_rec_span_to_span_cb( void* ptr, struct asrt_rec_span* rec )
-{
-        return asrt_rec_span_to_span( (struct asrt_span*) ptr, rec );
-}
 
 inline void assert_u16( uint16_t val, uint8_t const* data )
 {

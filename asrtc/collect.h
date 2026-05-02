@@ -53,8 +53,11 @@ struct asrt_collect_ready_data
 ///   4. After test ends, controller reads the tree via tree().
 struct asrt_collect_server
 {
-        struct asrt_node      node;
-        struct asrt_sender    sendr;
+        struct asrt_node node;
+
+        struct asrt_u8d2msg err_msg;
+        struct asrt_u8d9msg ready_msg;
+
         struct asrt_allocator alloc;
         struct asrt_flat_tree tree;
         uint32_t              tree_block_cap;
@@ -71,7 +74,6 @@ struct asrt_collect_server
 enum asrt_status asrt_collect_server_init(
     struct asrt_collect_server* server,
     struct asrt_node*           prev,
-    struct asrt_sender          sender,
     struct asrt_allocator       alloc,
     uint32_t                    tree_block_cap,
     uint32_t                    tree_node_cap );

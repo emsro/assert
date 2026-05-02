@@ -48,8 +48,7 @@ struct conn_ctx
         conn_ctx( uint32_t seed )
           : rng( seed )
         {
-                if ( asrt_reac_assm_init( &assm, asrt::autosender{ *this }, "rsim", 100 ) !=
-                     ASRT_SUCCESS ) {
+                if ( asrt_reac_assm_init( &assm, "rsim", 100 ) != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
                 }
@@ -96,23 +95,20 @@ struct conn_ctx
                 asrt::add_test( assm.reactor, *t );
         }
 
-        asrt::status operator()(
-            asrt::chann_id    id,
-            asrt::rec_span*   buff,
-            asrt_send_done_cb done_cb,
-            void*             done_ptr )
-        {
-                auto st = rx.write( (uv_stream_t*) &client, id, *buff );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
-        }
-
         void tick()
         {
                 task_ctx.tick();
                 auto now = uv_now( client.loop );
                 asrt_reac_assm_tick( &assm, now );
+
+                while ( auto* req = asrt_send_req_list_next( &assm.send_queue ) ) {
+                        if ( disconnected ) {
+                                asrt_send_req_list_done( &assm.send_queue, ASRT_SEND_ERR );
+                                continue;
+                        }
+                        auto st = rx.write( (uv_stream_t*) &client, req->chid, req->buff );
+                        asrt_send_req_list_done( &assm.send_queue, st );
+                }
         }
 
         cobs_node rx;

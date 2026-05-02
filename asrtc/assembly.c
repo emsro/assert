@@ -10,25 +10,22 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./assembly.h"
 
-enum asrt_status asrt_cntr_assm_init(
-    struct asrt_cntr_assm* a,
-    struct asrt_sender     sender,
-    struct asrt_allocator  alloc )
+enum asrt_status asrt_cntr_assm_init( struct asrt_cntr_assm* a, struct asrt_allocator alloc )
 {
         enum asrt_status st;
-        st = asrt_cntr_init( &a->cntr, sender, alloc );
+        st = asrt_cntr_init( &a->cntr, &a->send_queue, alloc );
         if ( st != ASRT_SUCCESS )
                 return st;
-        st = asrt_diag_server_init( &a->diag, &a->cntr.node, sender, alloc );
+        st = asrt_diag_server_init( &a->diag, &a->cntr.node, alloc );
         if ( st != ASRT_SUCCESS )
                 goto fail_cntr;
-        st = asrt_collect_server_init( &a->collect, &a->diag.node, sender, alloc, 64, 256 );
+        st = asrt_collect_server_init( &a->collect, &a->diag.node, alloc, 64, 256 );
         if ( st != ASRT_SUCCESS )
                 goto fail_diag;
-        st = asrt_param_server_init( &a->param, &a->collect.node, sender, alloc );
+        st = asrt_param_server_init( &a->param, &a->collect.node, alloc );
         if ( st != ASRT_SUCCESS )
                 goto fail_collect;
-        st = asrt_stream_server_init( &a->stream, &a->param.node, sender, alloc );
+        st = asrt_stream_server_init( &a->stream, &a->param.node, alloc );
         if ( st != ASRT_SUCCESS )
                 goto fail_param;
         return ASRT_SUCCESS;

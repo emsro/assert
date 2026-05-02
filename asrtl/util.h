@@ -82,17 +82,6 @@ static inline void asrt_add_i32( uint8_t** data, int32_t val )
 // updates to/to_size to reflect filled in data
 void asrt_fill_buffer( uint8_t const* from, uint32_t from_size, struct asrt_span* buff );
 
-static inline enum asrt_status asrt_rec_span_to_span(
-    struct asrt_span*     sp,
-    struct asrt_rec_span* rec )
-{
-        for ( ; rec != NULL; rec = rec->next ) {
-                size_t const n = (size_t) ( rec->e - rec->b );
-                memcpy( sp->b, rec->b, n );
-                sp->b += n;
-        }
-        return ASRT_SUCCESS;
-}
 
 #ifdef __cplusplus
 }

@@ -43,27 +43,7 @@ struct cntr_tcp_sys
           : _client( client )
           , _clk( clk )
         {
-                std::ignore = asrt_cntr_assm_init(
-                    &_asm, asrt_sender{ .ptr = this, .cb = send_cb }, asrt_default_allocator() );
-        }
-
-        static asrt_status send_cb(
-            void*             ptr,
-            asrt_chann_id     id,
-            asrt_rec_span*    buff,
-            asrt_send_done_cb done_cb,
-            void*             done_ptr )
-        {
-                auto* sys = static_cast< cntr_tcp_sys* >( ptr );
-                if ( sys->_disconnected ) {
-                        if ( done_cb )
-                                done_cb( done_ptr, ASRT_SEND_ERR );
-                        return ASRT_SEND_ERR;
-                }
-                auto st = sys->_rx.write( (uv_stream_t*) sys->_client.get(), id, *buff );
-                if ( done_cb )
-                        done_cb( done_ptr, st );
-                return st;
+                std::ignore = asrt_cntr_assm_init( &_asm, asrt_default_allocator() );
         }
 
         auto take_diag_record() { return asrt_diag_server_take_record( &_asm.diag ); }
@@ -74,6 +54,15 @@ struct cntr_tcp_sys
         {
                 auto now = static_cast< uint32_t >( _clk.now().count() );
                 asrt_cntr_assm_tick( &_asm, now );
+
+                while ( auto* req = asrt_send_req_list_next( &_asm.send_queue ) ) {
+                        if ( _disconnected ) {
+                                asrt_send_req_list_done( &_asm.send_queue, ASRT_SEND_ERR );
+                                continue;
+                        }
+                        auto st = _rx.write( (uv_stream_t*) _client.get(), req->chid, req->buff );
+                        asrt_send_req_list_done( &_asm.send_queue, st );
+                }
         }
 
 

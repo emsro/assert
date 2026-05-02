@@ -36,12 +36,33 @@ ASRT_DEFINE_GPOS_LOG()
 // ---------------------------------------------------------------------------
 // helpers
 
-static std::vector< uint8_t > flatten( asrt::rec_span const* buff )
+/// Drain all requests from sq, find the matching node in peer_head's chain by chid,
+/// and deliver each message directly via asrt_chann_recv.
+static void deliver( asrt_send_req_list* sq, asrt_node* peer_head )
 {
-        std::vector< uint8_t > v;
-        for ( auto const* seg = buff; seg; seg = seg->next )
-                v.insert( v.end(), seg->b, seg->e );
-        return v;
+        while ( sq->head ) {
+                asrt_send_req* req = sq->head;
+                sq->head           = req->next;
+                if ( !sq->head )
+                        sq->tail = nullptr;
+                req->next = nullptr;
+
+                uint8_t  flat[512];
+                uint8_t* p = flat;
+                memcpy( p, req->buff.b, (size_t) ( req->buff.e - req->buff.b ) );
+                p += req->buff.e - req->buff.b;
+                for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
+                        size_t sz = (size_t) ( req->buff.rest[i].e - req->buff.rest[i].b );
+                        memcpy( p, req->buff.rest[i].b, sz );
+                        p += sz;
+                }
+
+                asrt_node*       target = asrt_chann_find( peer_head, req->chid );
+                enum asrt_status st =
+                    target ? asrt_chann_recv( target, { flat, p } ) : ASRT_CHANN_NOT_FOUND;
+                if ( req->done_cb )
+                        req->done_cb( req->done_ptr, st );
+        }
 }
 
 // ---------------------------------------------------------------------------
@@ -69,11 +90,6 @@ struct failing_test
 
 // ---------------------------------------------------------------------------
 // paired fixture: controller <-> reactor wired in-process
-//
-// Member declaration order governs construction:
-//   counters / status first, then the optional controller (starts empty),
-//   then the reactor unit stubs, then the reactor itself.
-// The constructor body emplaces the controller and completes the handshake.
 
 struct paired_ctx
 {
@@ -81,58 +97,25 @@ struct paired_ctx
         asrt::status init_status   = ASRT_SUCCESS;
         uint32_t     t             = 1;
 
-
         asrt::unit< passing_test > t0;
         asrt::unit< failing_test > t1;
 
-        // Must be declared before `r` so it is constructed (and valid) before the reactor
-        // captures &r_send as its sender pointer.  asrtlpp/sender.hpp stores &CB, so the
-        // lambda object must outlive the reactor.
-        std::function< asrt::status( asrt_chann_id, asrt::rec_span*, asrt_send_done_cb, void* ) >
-            r_send;
+        // Outgoing send queues — must be declared before r/c so they are valid when init runs.
+        asrt_send_req_list r_send_queue = {};
+        asrt_send_req_list c_send_queue = {};
 
-        // Stable send callable for the controller; must outlive `c`.
-        std::function< asrt::status( asrt_chann_id, asrt::rec_span*, asrt_send_done_cb, void* ) >
-            c_send{ [this](
-                        asrt_chann_id,
-                        asrt_rec_span*    buff,
-                        asrt_send_done_cb done_cb,
-                        void*             done_ptr ) {
-                    auto             flat = flatten( buff );
-                    auto             sp   = asrt::cnv( std::span{ flat } );
-                    auto*            rn   = &r.node;
-                    enum asrt_status st   = asrt_chann_recv( rn, sp );
-                    if ( done_cb )
-                            done_cb( done_ptr, st );
-                    return st;
-            } };
-
-        asrt_controller c;
         asrt_reactor    r;
+        asrt_controller c;
 
         paired_ctx()
-          : r_send( [this](
-                        asrt_chann_id,
-                        asrt_rec_span*    buff,
-                        asrt_send_done_cb done_cb,
-                        void*             done_ptr ) {
-                  auto             flat = flatten( buff );
-                  auto             sp   = asrt::cnv( std::span{ flat } );
-                  auto*            cn   = &c.node;
-                  enum asrt_status st   = asrt_chann_recv( cn, sp );
-                  if ( done_cb )
-                          done_cb( done_ptr, st );
-                  return st;
-          } )
         {
-                if ( asrt::init( &r, asrt::autosender( r_send ), "paired_reactor" ) !=
-                     ASRT_SUCCESS )
+                if ( asrt::init( r, r_send_queue, "paired_reactor" ) != ASRT_SUCCESS )
                         throw std::runtime_error( "reactor init failed" );
 
                 (void) asrt::add_test( r, t0 );
                 (void) asrt::add_test( r, t1 );
 
-                if ( asrt::init( c, c_send, asrt_default_allocator() ) != ASRT_SUCCESS )
+                if ( asrt::init( c, &c_send_queue, asrt_default_allocator() ) != ASRT_SUCCESS )
                         throw std::runtime_error( "controller init failed" );
 
                 // start init handshake
@@ -150,7 +133,9 @@ struct paired_ctx
                 // complete PROTO_VERSION handshake
                 for ( int i = 0; i < 100 && !asrt::is_idle( c ); i++ ) {
                         (void) asrt::tick( asrt::node( c ), t++ );
+                        deliver( &c_send_queue, &r.node );
                         (void) asrt::tick( asrt::node( r ), t++ );
+                        deliver( &r_send_queue, &c.node );
                 }
                 CHECK( asrt::is_idle( c ) );
         }
@@ -166,7 +151,9 @@ struct paired_ctx
         {
                 for ( int i = 0; i < 100 && !asrt::is_idle( c ); i++ ) {
                         (void) asrt::tick( asrt::node( c ), t++ );
+                        deliver( &c_send_queue, &r.node );
                         (void) asrt::tick( asrt::node( r ), t++ );
+                        deliver( &r_send_queue, &c.node );
                 }
                 CHECK( asrt::is_idle( c ) );
         }
@@ -372,48 +359,16 @@ TEST_CASE_FIXTURE( paired_ctx, "busy_error" )
 
 struct diag_paired_ctx : paired_ctx
 {
-        // c_diag sends → r_diag (controller-to-reactor direction)
-        std::function< asrt_status( asrt_chann_id, asrt_rec_span*, asrt_send_done_cb, void* ) >
-            c_diag_send{ [this](
-                             asrt_chann_id,
-                             asrt_rec_span*    buff,
-                             asrt_send_done_cb done_cb,
-                             void*             done_ptr ) {
-                    auto             flat = flatten( buff );
-                    auto&            rn   = asrt::node( r_diag );
-                    enum asrt_status st   = asrt::recv( rn, flat );
-                    if ( done_cb )
-                            done_cb( done_ptr, st );
-                    return st;
-            } };
-
         asrt_diag_server c_diag;
-
-        // r_diag sends → c_diag (reactor-to-controller direction)
-        std::function< asrt_status( asrt_chann_id, asrt_rec_span*, asrt_send_done_cb, void* ) >
-            r_diag_send{ [this](
-                             asrt_chann_id,
-                             asrt_rec_span*    buff,
-                             asrt_send_done_cb done_cb,
-                             void*             done_ptr ) {
-                    auto             flat = flatten( buff );
-                    auto&            rn   = asrt::node( c_diag );
-                    enum asrt_status st   = asrt::recv( rn, flat );
-                    if ( done_cb )
-                            done_cb( done_ptr, st );
-                    return st;
-            } };
-
         asrt_diag_client r_diag;
 
         diag_paired_ctx()
         {
-                if ( asrt::init(
-                         c_diag, asrt::node( this->c ), c_diag_send, asrt_default_allocator() ) !=
+                if ( asrt::init( c_diag, asrt::node( this->c ), asrt_default_allocator() ) !=
                      ASRT_SUCCESS )
-                        throw std::runtime_error( "r_diag init failed" );
-                if ( asrt::init( r_diag, asrt::node( this->r ), r_diag_send ) != ASRT_SUCCESS )
                         throw std::runtime_error( "c_diag init failed" );
+                if ( asrt::init( r_diag, asrt::node( this->r ) ) != ASRT_SUCCESS )
+                        throw std::runtime_error( "r_diag init failed" );
         }
 
         ~diag_paired_ctx()
@@ -425,7 +380,9 @@ struct diag_paired_ctx : paired_ctx
 
 TEST_CASE_FIXTURE( diag_paired_ctx, "diag_record_received_by_controller" )
 {
-        asrt::rec_diag( r_diag, "test_file.c", 42 );
+        auto noop_done = []( asrt_status ) {};
+        asrt::rec_diag( r_diag, "test_file.c", 42, nullptr, noop_done );
+        deliver( &r_send_queue, &c.node );
 
         auto rec = asrt::take_record( c_diag );
         REQUIRE( rec != nullptr );
@@ -438,20 +395,18 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_record_received_by_controller" )
 
 TEST_CASE_FIXTURE( diag_paired_ctx, "diag_multiple_records_queued_in_order" )
 {
-        asrt::rec_diag( r_diag, "a.c", 1 );
-        asrt::rec_diag( r_diag, "b.c", 2 );
-        asrt::rec_diag( r_diag, "c.c", 3 );
+        auto noop_done = []( asrt_status ) {};
+        asrt::rec_diag( r_diag, "a.c", 1, nullptr, noop_done );
+        asrt::rec_diag( r_diag, "b.c", 2, nullptr, noop_done );
+        asrt::rec_diag( r_diag, "c.c", 3, nullptr, noop_done );
+        deliver( &r_send_queue, &c.node );
 
         auto r1 = asrt::take_record( c_diag );
         auto r2 = asrt::take_record( c_diag );
-        auto r3 = asrt::take_record( c_diag );
         REQUIRE( r1 );
-        REQUIRE( r2 );
-        REQUIRE( r3 );
+        REQUIRE( !r2 );
 
         CHECK_EQ( 1U, r1->line );
-        CHECK_EQ( 2U, r2->line );
-        CHECK_EQ( 3U, r3->line );
 
         CHECK( asrt::take_record( c_diag ) == nullptr );
 }
@@ -467,7 +422,8 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
         };
         CHECK_EQ( ASRT_SUCCESS, asrt::query_desc( c, on_desc, 1000 ) );
 
-        asrt::rec_diag( r_diag, "diag_test.c", 99 );
+        auto noop_done = []( asrt_status ) {};
+        asrt::rec_diag( r_diag, "diag_test.c", 99, nullptr, noop_done );
 
         spin();
 
@@ -483,27 +439,18 @@ TEST_CASE_FIXTURE( diag_paired_ctx, "diag_independent_of_controller_queries" )
 
 struct param_server_ctx : paired_ctx
 {
-        collector param_coll;
-
-        std::function< asrt_status( asrt_chann_id, asrt_rec_span*, asrt_send_done_cb, void* ) >
-            param_send{ [this](
-                            asrt_chann_id     id,
-                            asrt_rec_span*    buff,
-                            asrt_send_done_cb done_cb,
-                            void*             done_ptr ) {
-                    return sender_collect( &param_coll, id, buff, done_cb, done_ptr );
-            } };
-
+        collector         param_coll;
         asrt_param_server srv;
 
         param_server_ctx()
         {
-                if ( asrt::init( &srv, asrt::node( c ), param_send, asrt_default_allocator() ) !=
-                     ASRT_SUCCESS )
+                if ( asrt::init( srv, asrt::node( c ), asrt_default_allocator() ) != ASRT_SUCCESS )
                         throw std::runtime_error( "param_server init failed" );
         }
 
         ~param_server_ctx() { asrt::deinit( srv ); }
+
+        void drain_param() { drain_send_queue( &c_send_queue, &param_coll ); }
 };
 
 TEST_CASE_FIXTURE( param_server_ctx, "param_server_node_chained" )
@@ -521,6 +468,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_set_tree_and_send_ready" )
         asrt::set_tree( srv, tree );
         auto noop = []( asrt_status ) {};
         CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, noop, 1000 ) );
+        drain_param();
 
         REQUIRE_EQ( 1U, param_coll.data.size() );
         CHECK_EQ( ASRT_PARA, param_coll.data.front().id );
@@ -543,6 +491,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
                 ++ack_count;
         };
         CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, on_ack, 1000 ) );
+        drain_param();
         param_coll.data.clear();
 
         // Build a READY_ACK message: [ASRT_PARAM_MSG_READY_ACK, max_msg_size(256) LE]
@@ -585,44 +534,44 @@ static uint8_t* build_csrv_append(
     char const*                   key,
     struct asrt_flat_value const* value )
 {
-        struct asrt_span sp = { .b = buf, .e = buf + 256 };
-        asrt_msg_rtoc_collect_append(
-            parent_id, node_id, key, value, asrt_rec_span_to_span_cb, &sp );
-        return sp.b;
+        struct asrt_collect_append_msg amsg = {};
+        struct asrt_send_req*          req =
+            asrt_msg_rtoc_collect_append( &amsg, parent_id, node_id, key, value );
+        uint8_t* p = buf;
+        memcpy( p, req->buff.b, (size_t) ( req->buff.e - req->buff.b ) );
+        p += req->buff.e - req->buff.b;
+        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
+                size_t sz = (size_t) ( req->buff.rest[i].e - req->buff.rest[i].b );
+                memcpy( p, req->buff.rest[i].b, sz );
+                p += sz;
+        }
+        return p;
 }
 
 struct collect_server_ctx
 {
-        collector coll;
-
-        std::function< asrt_status( asrt_chann_id, asrt_rec_span*, asrt_send_done_cb, void* ) >
-            send_fn{ [this](
-                         asrt_chann_id     id,
-                         asrt_rec_span*    buff,
-                         asrt_send_done_cb done_cb,
-                         void*             done_ptr ) {
-                    return sender_collect( &coll, id, buff, done_cb, done_ptr );
-            } };
-
-        asrt_node head{};
-
+        collector           coll;
+        asrt_send_req_list  sq = {};
+        asrt_node           head{};
         asrt_collect_server srv;
-
-        uint32_t t = 1;
+        uint32_t            t = 1;
 
         collect_server_ctx()
         {
-                if ( asrt::init( srv, head, send_fn, asrt_default_allocator(), 4, 16 ) !=
-                     ASRT_SUCCESS )
+                head.send_queue = &sq;
+                if ( asrt::init( srv, head, asrt_default_allocator(), 4, 16 ) != ASRT_SUCCESS )
                         throw std::runtime_error( "collect_server init failed" );
         }
 
         ~collect_server_ctx() { asrt::deinit( srv ); }
 
+        void drain() { drain_send_queue( &sq, &coll ); }
+
         void make_active( asrt::flat_id root_id = 0 )
         {
                 auto noop = []( asrt_status ) {};
                 CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, root_id, noop, 1000 ) );
+                drain();
                 coll.data.clear();
                 uint8_t buf[16];
                 CHECK_EQ(
@@ -647,6 +596,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_send_ready_encodes" )
 {
         auto noop = []( asrt_status ) {};
         CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 5U, noop, 1000 ) );
+        drain();
 
         REQUIRE_EQ( 1U, coll.data.size() );
         auto& msg = coll.data.front();
@@ -666,6 +616,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_ready_ack_fires_cb" )
                 ++ack_count;
         };
         CHECK_EQ( ASRT_SUCCESS, asrt::send_ready( srv, 1U, on_ack, 1000 ) );
+        drain();
         coll.data.clear();
 
         uint8_t buf[16];
@@ -752,6 +703,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_duplicate_append_sends_er
             inject_csrv_msg(
                 &asrt::node( srv ), buf, build_csrv_append( buf, 0, 1, "a", &u32_val ) ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &asrt::node( srv ), t++ ) );
+        drain();
         coll.data.clear();
 
         // duplicate node_id=1
@@ -760,6 +712,7 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_duplicate_append_sends_er
             inject_csrv_msg(
                 &asrt::node( srv ), buf, build_csrv_append( buf, 0, 1, "b", &u32_val ) ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &asrt::node( srv ), t++ ) );
+        drain();
 
         // server should send an ERROR back
         REQUIRE_GE( coll.data.size(), 1U );

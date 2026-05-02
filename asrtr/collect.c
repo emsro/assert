@@ -10,13 +10,8 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #include "./collect.h"
 
+#include "../asrtl/asrt_assert.h"
 #include "../asrtl/log.h"
-
-static enum asrt_status asrt_collect_client_send( void* p, struct asrt_rec_span* buff )
-{
-        struct asrt_collect_client* client = (struct asrt_collect_client*) p;
-        return asrt_send( &client->sendr, ASRT_COLL, buff, NULL, NULL );
-}
 
 // ---------------------------------------------------------------------------
 // recv handlers (fast path)
@@ -70,18 +65,43 @@ static enum asrt_status asrt_collect_client_recv( void* data, struct asrt_span b
 // Public API
 // ---------------------------------------------------------------------------
 
+static void asrt_collect_client_append_done( void* ptr, enum asrt_status st )
+{
+        struct asrt_collect_client* client = (struct asrt_collect_client*) ptr;
+        ASRT_ASSERT( client->state == ASRT_COLLECT_CLIENT_APPEND_SENT );
+        if ( st == ASRT_SUCCESS ) {
+                client->state = ASRT_COLLECT_CLIENT_ACTIVE;
+        } else {
+                ASRT_ERR_LOG( "asrt_collect_client", "append send failed" );
+                client->state = ASRT_COLLECT_CLIENT_ERROR;
+        }
+        if ( client->append_done_cb )
+                client->append_done_cb( client->append_done_ptr, st );
+}
+
+static void asrt_collect_client_ready_ack_done( void* ptr, enum asrt_status st )
+{
+        struct asrt_collect_client* client = (struct asrt_collect_client*) ptr;
+        ASRT_ASSERT( client->state == ASRT_COLLECT_CLIENT_READY_SENT );
+        if ( st == ASRT_SUCCESS ) {
+                client->state = ASRT_COLLECT_CLIENT_ACTIVE;
+        } else {
+                ASRT_ERR_LOG( "asrt_collect_client", "ready_ack send failed" );
+                client->state = ASRT_COLLECT_CLIENT_IDLE;
+        }
+}
+
 static enum asrt_status asrt_collect_client_tick( struct asrt_collect_client* client )
 {
         if ( client->state != ASRT_COLLECT_CLIENT_READY_RECV )
                 return ASRT_SUCCESS;
 
-        enum asrt_status st = asrt_msg_rtoc_collect_ready_ack( asrt_collect_client_send, client );
-        if ( st != ASRT_SUCCESS ) {
-                ASRT_ERR_LOG( "asrt_collect_client", "tick: failed to send ready_ack" );
-                return st;
-        }
-
-        client->state = ASRT_COLLECT_CLIENT_ACTIVE;
+        client->state = ASRT_COLLECT_CLIENT_READY_SENT;
+        asrt_send_enque(
+            &client->node,
+            asrt_msg_rtoc_collect_ready_ack( &client->ready_ack_msg ),
+            asrt_collect_client_ready_ack_done,
+            client );
         return ASRT_SUCCESS;
 }
 
@@ -100,20 +120,19 @@ static enum asrt_status asrt_collect_client_event( void* p, enum asrt_event_e e,
 
 enum asrt_status asrt_collect_client_init(
     struct asrt_collect_client* client,
-    struct asrt_node*           prev,
-    struct asrt_sender          sender )
+    struct asrt_node*           prev )
 {
         if ( !client || !prev )
                 return ASRT_INIT_ERR;
         *client = ( struct asrt_collect_client ){
             .node =
                 ( struct asrt_node ){
-                    .chid     = ASRT_COLL,
-                    .e_cb_ptr = client,
-                    .e_cb     = asrt_collect_client_event,
-                    .next     = NULL,
+                    .chid       = ASRT_COLL,
+                    .e_cb_ptr   = client,
+                    .e_cb       = asrt_collect_client_event,
+                    .next       = NULL,
+                    .send_queue = prev->send_queue,
                 },
-            .sendr        = sender,
             .state        = ASRT_COLLECT_CLIENT_IDLE,
             .root_id      = 0,
             .next_node_id = 1,
@@ -128,23 +147,32 @@ enum asrt_status asrt_collect_client_append(
     asrt_flat_id                  parent_id,
     char const*                   key,
     struct asrt_flat_value const* value,
-    asrt_flat_id*                 out_id )
+    asrt_flat_id*                 out_id,
+    asrt_send_done_cb             done_cb,
+    void*                         done_ptr )
 {
-        if ( client->state == ASRT_COLLECT_CLIENT_ERROR ) {
-                ASRT_ERR_LOG( "asrt_collect_client", "append: in error state" );
-                return ASRT_ARG_ERR;
-        }
         if ( client->state != ASRT_COLLECT_CLIENT_ACTIVE ) {
-                ASRT_ERR_LOG( "asrt_collect_client", "append: not active" );
-                return ASRT_ARG_ERR;
+                enum asrt_status ret =
+                    client->state == ASRT_COLLECT_CLIENT_APPEND_SENT ? ASRT_BUSY_ERR : ASRT_ARG_ERR;
+                ASRT_ERR_LOG(
+                    "asrt_collect_client",
+                    "append: called in unexpected state %d",
+                    (int) client->state );
+                return ret;
         }
 
-        asrt_flat_id     node_id = client->next_node_id++;
-        enum asrt_status st      = asrt_msg_rtoc_collect_append(
-            parent_id, node_id, key, value, asrt_collect_client_send, client );
-        if ( st == ASRT_SUCCESS && out_id )
+        asrt_flat_id node_id    = client->next_node_id++;
+        client->append_done_cb  = done_cb;
+        client->append_done_ptr = done_ptr;
+        client->state           = ASRT_COLLECT_CLIENT_APPEND_SENT;
+        asrt_send_enque(
+            &client->node,
+            asrt_msg_rtoc_collect_append( &client->append_msg, parent_id, node_id, key, value ),
+            asrt_collect_client_append_done,
+            client );
+        if ( out_id )
                 *out_id = node_id;
-        return st;
+        return ASRT_SUCCESS;
 }
 
 void asrt_collect_client_deinit( struct asrt_collect_client* client )

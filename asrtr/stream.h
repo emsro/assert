@@ -51,14 +51,16 @@ enum asrt_stream_client_state
 /// Reactor-side stream client (ASRT_STRM channel).
 struct asrt_stream_client
 {
-        struct asrt_node   node;
-        struct asrt_sender sendr;
+        struct asrt_node node;
 
         enum asrt_stream_client_state state;
         enum asrt_strm_err_e          err_code;  ///< valid when state == ASRT_STRM_ERROR.
 
         asrt_stream_done_cb done_cb;      ///< user callback, fired in DONE state.
         void*               done_cb_ptr;  ///< user context for done_cb.
+
+        struct asrt_strm_define_msg define_msg;
+        struct asrt_strm_data_msg   data_msg;
 
         union
         {
@@ -70,8 +72,7 @@ struct asrt_stream_client
 /// Initialise a stream client and link it into the node chain.
 enum asrt_status asrt_stream_client_init(
     struct asrt_stream_client* client,
-    struct asrt_node*          prev,
-    struct asrt_sender         sender );
+    struct asrt_node*          prev );
 
 /// Deinitialise a stream client and unlink it from the node chain.
 void asrt_stream_client_deinit( struct asrt_stream_client* client );

@@ -34,6 +34,8 @@ struct asrt_assembly_exec_handler
 
 struct asrt_cntr_assm
 {
+        struct asrt_send_req_list send_queue;
+
         struct asrt_controller     cntr;
         struct asrt_diag_server    diag;
         struct asrt_collect_server collect;
@@ -45,7 +47,6 @@ struct asrt_cntr_assm
 
 enum asrt_status asrt_cntr_assm_init(
     struct asrt_cntr_assm* assembly,
-    struct asrt_sender     sender,
     struct asrt_allocator  alloc );
 
 void asrt_cntr_assm_deinit( struct asrt_cntr_assm* assembly );

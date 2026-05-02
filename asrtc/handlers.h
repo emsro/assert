@@ -35,6 +35,8 @@ enum asrt_stage_e
 
 struct asrt_init_handler
 {
+        struct asrt_u8d2msg msg;
+
         asrt_init_callback cb;
         void*              ptr;
         uint32_t           timeout;
@@ -49,6 +51,8 @@ struct asrt_init_handler
 
 struct asrt_tc_handler
 {
+        struct asrt_u8d2msg msg;
+
         uint16_t                 count;
         void*                    ptr;
         asrt_test_count_callback cb;
@@ -57,6 +61,8 @@ struct asrt_tc_handler
 
 struct asrt_desc_handler
 {
+        struct asrt_u8d2msg msg;
+
         char*              desc;
         void*              ptr;
         asrt_desc_callback cb;
@@ -65,6 +71,8 @@ struct asrt_desc_handler
 
 struct asrt_ti_handler
 {
+        struct asrt_u8d4msg msg;
+
         uint16_t                tid;
         asrt_test_info_result   result;
         char*                   desc;
@@ -75,6 +83,8 @@ struct asrt_ti_handler
 
 struct asrt_exec_handler
 {
+        struct asrt_u8d8msg msg;
+
         struct asrt_result        res;
         void*                     ptr;
         asrt_test_result_callback cb;

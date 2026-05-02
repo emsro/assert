@@ -27,8 +27,7 @@ using chann_id  = asrt_chann_id;
 using status    = asrt_status;
 using allocator = asrt_allocator;
 using span      = asrt_span;
-using rec_span  = asrt_rec_span;
-using send_cb   = std::function< asrt_status( chann_id, rec_span& ) >;
+using span_span = asrt_span_span;
 template < typename T >
 using uptr = std::unique_ptr< T >;
 template < typename T >

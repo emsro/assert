@@ -28,8 +28,6 @@ enum asrt_strm_message_id_e
 };
 typedef uint8_t asrt_strm_message_id;
 
-typedef enum asrt_status ( *asrt_strm_msg_callback )( void* ptr, struct asrt_rec_span* buff );
-
 /// Field type tags.
 enum asrt_strm_field_type_e
 {
@@ -120,61 +118,78 @@ static inline char const* asrt_strm_field_type_to_str( enum asrt_strm_field_type
 
 /// Send DEFINE message from reactor to controller.
 /// Header: [MSG_DEFINE, schema_id, field_count] followed by field_count tags.
-static inline enum asrt_status asrt_msg_rtoc_strm_define(
+struct asrt_strm_define_msg
+{
+        struct asrt_span     field_span;
+        uint8_t              fields[255];
+        uint8_t              hdr[3];
+        struct asrt_send_req req;
+};
+
+static inline struct asrt_send_req* asrt_msg_rtoc_strm_define(
+    struct asrt_strm_define_msg*       msg,
     uint8_t                            schema_id,
     enum asrt_strm_field_type_e const* fields,
-    uint16_t                           field_count,
-    asrt_strm_msg_callback             cb,
-    void*                              cb_ptr )
+    uint16_t                           field_count )
 {
-        if ( field_count > 255 )
-                return ASRT_ARG_ERR;
-
-        uint8_t hdr[3];
-        hdr[0] = ASRT_STRM_MSG_DEFINE;
-        hdr[1] = schema_id;
-        hdr[2] = (uint8_t) field_count;
-
-        uint8_t field_bytes[255];
+        ASRT_ASSERT( field_count <= 255 );
+        msg->hdr[0] = ASRT_STRM_MSG_DEFINE;
+        msg->hdr[1] = schema_id;
+        msg->hdr[2] = (uint8_t) field_count;
         for ( uint16_t i = 0; i < field_count; i++ )
-                field_bytes[i] = (uint8_t) fields[i];
-
-        struct asrt_rec_span field_span = {
-            .b = field_bytes, .e = field_bytes + field_count, .next = NULL };
-        struct asrt_rec_span hdr_span = { .b = hdr, .e = hdr + sizeof hdr, .next = &field_span };
-        return cb( cb_ptr, &hdr_span );
+                msg->fields[i] = (uint8_t) fields[i];
+        msg->field_span = ( struct asrt_span ){ .b = msg->fields, .e = msg->fields + field_count };
+        msg->req.buff   = ( struct asrt_span_span ){
+              .b          = msg->hdr,
+              .e          = msg->hdr + sizeof msg->hdr,
+              .rest       = &msg->field_span,
+              .rest_count = 1,
+        };
+        return &msg->req;
 }
 
 /// Send DATA message from reactor to controller.
 /// Header: [MSG_DATA, schema_id] followed by raw record bytes.
-static inline enum asrt_status asrt_msg_rtoc_strm_data(
-    uint8_t                schema_id,
-    uint8_t const*         data,
-    uint16_t               data_size,
-    asrt_strm_msg_callback cb,
-    void*                  cb_ptr )
+struct asrt_strm_data_msg
 {
-        uint8_t hdr[2];
-        hdr[0] = ASRT_STRM_MSG_DATA;
-        hdr[1] = schema_id;
+        struct asrt_span     data_span;
+        uint8_t              hdr[2];
+        struct asrt_send_req req;
+};
 
-        struct asrt_rec_span data_span = {
-            .b = (uint8_t*) data, .e = (uint8_t*) data + data_size, .next = NULL };
-        struct asrt_rec_span hdr_span = { .b = hdr, .e = hdr + sizeof hdr, .next = &data_span };
-        return cb( cb_ptr, &hdr_span );
+static inline struct asrt_send_req* asrt_msg_rtoc_strm_data(
+    struct asrt_strm_data_msg* msg,
+    uint8_t                    schema_id,
+    uint8_t const*             data,
+    uint16_t                   data_size )
+{
+        msg->hdr[0] = ASRT_STRM_MSG_DATA;
+        msg->hdr[1] = schema_id;
+        msg->data_span =
+            ( struct asrt_span ){ .b = (uint8_t*) data, .e = (uint8_t*) data + data_size };
+        msg->req.buff = ( struct asrt_span_span ){
+            .b          = msg->hdr,
+            .e          = msg->hdr + sizeof msg->hdr,
+            .rest       = &msg->data_span,
+            .rest_count = 1,
+        };
+        return &msg->req;
 }
 
 /// Send ERROR message from controller to reactor.
-static inline enum asrt_status asrt_msg_ctor_strm_error(
-    enum asrt_strm_err_e   error_code,
-    asrt_strm_msg_callback cb,
-    void*                  cb_ptr )
+static inline struct asrt_send_req* asrt_msg_ctor_strm_error(
+    struct asrt_u8d2msg* msg,
+    enum asrt_strm_err_e error_code )
 {
-        uint8_t buf[2];
-        buf[0]                    = ASRT_STRM_MSG_ERROR;
-        buf[1]                    = error_code;
-        struct asrt_rec_span span = { .b = buf, .e = buf + sizeof buf, .next = NULL };
-        return cb( cb_ptr, &span );
+        msg->buff[0]  = ASRT_STRM_MSG_ERROR;
+        msg->buff[1]  = error_code;
+        msg->req.buff = ( struct asrt_span_span ){
+            .b          = msg->buff,
+            .e          = msg->buff + 2,
+            .rest       = NULL,
+            .rest_count = 0,
+        };
+        return &msg->req;
 }
 
 #ifdef __cplusplus
