@@ -83,7 +83,8 @@ struct conn_ctx
         void reg_demo( demo_spec spec )
         {
                 auto& t = demo_tests.emplace_back( std::move( spec ), assm.diag, assm.param, rng );
-                add_test( assm.reactor, t );
+                if ( add_test( assm.reactor, t ) != ASRT_SUCCESS )
+                        throw std::runtime_error( "add_test failed" );
         }
 
         template < typename T, typename... Args >
@@ -92,7 +93,8 @@ struct conn_ctx
                 auto s =
                     std::make_shared< asrt::task_unit< T > >( T{ task_ctx, (Args&&) args... } );
                 auto& t = task_demo_tests.emplace_back( s, (asrt_test*) s.get() );
-                asrt::add_test( assm.reactor, *t );
+                if ( asrt::add_test( assm.reactor, *t ) != ASRT_SUCCESS )
+                        throw std::runtime_error( "add_test failed" );
         }
 
         void tick()

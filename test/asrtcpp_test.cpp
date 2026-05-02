@@ -521,7 +521,7 @@ TEST_CASE_FIXTURE( param_server_ctx, "param_server_ready_ack_cb_fires" )
         asrt_span sp         = { .b = ack_msg, .e = ack_msg + sizeof ack_msg };
 
         auto& n = asrt::node( srv );
-        asrt::recv( n, sp );
+        CHECK_EQ( ASRT_SUCCESS, asrt::recv( n, sp ) );
 
         CHECK_EQ( 0, ack_count );  // not yet — pending, needs tick
         CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( srv ), t++ ) );
