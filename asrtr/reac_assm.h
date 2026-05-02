@@ -37,6 +37,7 @@ inline enum asrt_status asrt_reac_assm_init(
     char const*            desc,
     uint32_t               timeout )
 {
+        asrt_send_req_list_init( &assembly->send_queue );
         if ( asrt_reactor_init( &assembly->reactor, &assembly->send_queue, desc ) !=
              ASRT_SUCCESS ) {
                 ASRT_ERR_LOG( "asrt_reac_assm", "reactor init failed" );

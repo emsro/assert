@@ -73,6 +73,12 @@ struct asrt_send_req_list
         struct asrt_send_req* tail;
 };
 
+static inline void asrt_send_req_list_init( struct asrt_send_req_list* list )
+{
+        list->head = NULL;
+        list->tail = NULL;
+}
+
 static inline int32_t asrt_send_is_req_used(
     struct asrt_send_req_list const* list,
     struct asrt_send_req const*      req )

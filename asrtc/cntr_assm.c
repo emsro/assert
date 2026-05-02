@@ -8,11 +8,12 @@
 /// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 /// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 /// PERFORMANCE OF THIS SOFTWARE.
-#include "./assembly.h"
+#include "./cntr_assm.h"
 
 enum asrt_status asrt_cntr_assm_init( struct asrt_cntr_assm* a, struct asrt_allocator alloc )
 {
         enum asrt_status st;
+        asrt_send_req_list_init( &a->send_queue );
         st = asrt_cntr_init( &a->cntr, &a->send_queue, alloc );
         if ( st != ASRT_SUCCESS )
                 return st;

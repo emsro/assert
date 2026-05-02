@@ -10,7 +10,7 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include "../asrtc/assembly.h"
+#include "../asrtc/cntr_assm.h"
 #include "../asrtc/result.h"
 #include "../asrtcpp/collect.hpp"
 #include "../asrtcpp/controller.hpp"
