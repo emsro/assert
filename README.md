@@ -1,5 +1,7 @@
 # asrt — Automated System for Software & Embedded Regression Testing
 
+[![Build](https://github.com/emsro/asrt/actions/workflows/cmake-single-platform.yml/badge.svg)](https://github.com/emsro/asrt/actions/workflows/cmake-single-platform.yml)
+
 Host-driven testing framework for software and embedded targets.
 
 

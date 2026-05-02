@@ -15,6 +15,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g -DASRT_DEFAULT_ASSERT",
+        "CMAKE_CXX_FLAGS": "-fprofile-arcs -ftest-coverage -O0 -g",
         "ASSERT_ENABLE_COVERAGE": "ON"
       }
     },

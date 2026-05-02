@@ -14,7 +14,7 @@ jobs:
   build:
     strategy:
       matrix:
-        preset: [debug, asan, ubsan, release]
+        preset: [ debug, asan, ubsan, release ]
         compiler:
           - { cc: gcc, cxx: g++ }
           - { cc: clang, cxx: clang++ }
@@ -26,16 +26,16 @@ jobs:
       CXX: ${{ matrix.compiler.cxx }}
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configure CMake
-      run: cmake --preset ${{ matrix.preset }}
+      - name: Configure CMake
+        run: cmake --preset ${{ matrix.preset }}
 
-    - name: Build
-      run: cmake --build --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
 
-    - name: Test
-      run: ctest --preset ${{ matrix.preset }}
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
 
   coverage:
     runs-on: ubuntu-latest
@@ -56,6 +56,9 @@ jobs:
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: _build/cobertura.xml
+          badge: true
+          format: markdown
+          output: both
 
   pre-commit:
     runs-on: ubuntu-latest
@@ -77,10 +80,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configure CMake
-      run: cmake --preset debug
+      - name: Configure CMake
+        run: cmake --preset debug
 
-    - name: Check
-      run: make clang-tidy
+      - name: Check
+        run: make clang-tidy
