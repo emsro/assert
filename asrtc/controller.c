@@ -99,13 +99,13 @@ static enum asrt_status asrt_cntr_recv_init(
         ASRT_ASSERT( c->state == ASRT_CNTR_INIT );
 
         if ( eid != ASRT_MSG_PROTO_VERSION )
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         if ( asrt_span_unfit_for( buff, 3 * sizeof( uint16_t ) ) )
                 return ASRT_RECV_ERR;
 
         struct asrt_init_handler* h = &c->hndl.init;
         if ( c->stage != ASRT_STAGE_WAITING )  // XXX: can this get stuck?  // C02
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
 
         asrt_cut_u16( &buff->b, &h->ver.major );
         asrt_cut_u16( &buff->b, &h->ver.minor );
@@ -169,12 +169,12 @@ static enum asrt_status asrt_cntr_recv_test_count(
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TC );
 
         if ( eid != ASRT_MSG_TEST_COUNT )
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) ) )
                 return ASRT_RECV_ERR;
         struct asrt_tc_handler* h = &c->hndl.tc;
         if ( c->stage != ASRT_STAGE_WAITING )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
 
         asrt_cut_u16( &buff->b, &h->count );
 
@@ -238,11 +238,11 @@ static enum asrt_status asrt_cntr_recv_desc(
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_DESC );
         if ( e != ASRT_MSG_DESC )
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
 
         struct asrt_desc_handler* h = &c->hndl.desc;
         if ( c->stage != ASRT_STAGE_WAITING )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
 
         h->desc = asrt_realloc_str( &c->alloc, buff );
         if ( h->desc == NULL )
@@ -295,7 +295,7 @@ static enum asrt_status asrt_cntr_tick_test_info( struct asrt_controller* c, uin
                 break;
         case ASRT_STAGE_END: {
                 enum asrt_status cb_status =
-                    h->result == ASRT_TEST_INFO_SUCCESS ? ASRT_SUCCESS : ASRT_RECV_UNEXPECTED_ERR;
+                    h->result == ASRT_TEST_INFO_SUCCESS ? ASRT_SUCCESS : ASRT_RECV_ERR;
                 enum asrt_status res = h->cb( h->ptr, cb_status, h->tid, h->desc );
                 asrt_free( &c->alloc, (void**) &h->desc );
                 c->state = ASRT_CNTR_IDLE;
@@ -312,26 +312,26 @@ static enum asrt_status asrt_cntr_recv_test_info(
 {
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_TI );
         if ( eid != ASRT_MSG_TEST_INFO )
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
 
         if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint8_t ) ) )
                 return ASRT_RECV_ERR;
 
         struct asrt_ti_handler* h = &c->hndl.ti;
         if ( c->stage != ASRT_STAGE_WAITING )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
         uint16_t tid;
         asrt_cut_u16( &buff->b, &tid );
         if ( tid != h->tid ) {
                 ASRT_ERR_LOG(
                     "asrtc", "Test info response tid mismatch: got %u, expected %u", tid, h->tid );
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
 
         uint8_t res = *buff->b++;
         if ( res != ASRT_TEST_INFO_SUCCESS && res != ASRT_TEST_INFO_MISSING_TEST_ERR ) {
                 ASRT_ERR_LOG( "asrtc", "Invalid test info result code: %u", res );
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
         h->result = (asrt_test_info_result) res;
 
@@ -406,7 +406,7 @@ static enum asrt_status asrt_cntr_recv_test_exec(
         ASRT_ASSERT( c->state == ASRT_CNTR_HNDL_EXEC );
         struct asrt_exec_handler* h = &c->hndl.exec;
         if ( c->stage != ASRT_STAGE_WAITING )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
         switch ( eid ) {
         case ASRT_MSG_TEST_START: {
                 if ( asrt_span_unfit_for( buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) )
@@ -445,7 +445,7 @@ static enum asrt_status asrt_cntr_recv_test_exec(
                 break;
         }
         default:
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
 
         return ASRT_SUCCESS;
@@ -506,11 +506,11 @@ static enum asrt_status asrt_cntr_recv( void* data, struct asrt_span buff )
                 st = asrt_cntr_recv_test_exec( c, eid, &buff );
                 break;
         case ASRT_CNTR_IDLE:
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
         if ( st != ASRT_SUCCESS )
                 return st;
-        return buff.b == buff.e ? ASRT_SUCCESS : ASRT_RECV_TRAILING_ERR;
+        return buff.b == buff.e ? ASRT_SUCCESS : ASRT_RECV_ERR;
 }
 
 static enum asrt_status asrt_cntr_event( void* p, enum asrt_event_e e, void* arg )
@@ -523,7 +523,7 @@ static enum asrt_status asrt_cntr_event( void* p, enum asrt_event_e e, void* arg
                 return asrt_cntr_recv( c, *(struct asrt_span*) arg );
         }
         ASRT_ERR_LOG( "asrtc", "unexpected event: %s", asrt_event_to_str( e ) );
-        return ASRT_INVALID_EVENT_ERR;
+        return ASRT_ARG_ERR;
 }
 
 enum asrt_status asrt_cntr_init(

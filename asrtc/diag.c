@@ -95,7 +95,7 @@ static enum asrt_status asrt_diag_recv( void* data, struct asrt_span buff )
                 break;
         default:
                 ASRT_ERR_LOG( "asrt_diag", "Received unknown diag message id: %u", id );
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
 
         return st;
@@ -111,7 +111,7 @@ static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg
                 return ASRT_SUCCESS;
         }
         ASRT_ERR_LOG( "asrt_diag", "unexpected event: %s", asrt_event_to_str( e ) );
-        return ASRT_INVALID_EVENT_ERR;
+        return ASRT_ARG_ERR;
 }
 
 enum asrt_status asrt_diag_server_init(

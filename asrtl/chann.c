@@ -26,7 +26,7 @@ struct asrt_node* asrt_chann_find( struct asrt_node* head, asrt_chann_id id )
 enum asrt_status asrt_chann_dispatch( struct asrt_node* head, struct asrt_span buff )
 {
         if ( !head )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_ARG_ERR;
 
         if ( asrt_span_unfit_for( &buff, sizeof( asrt_chann_id ) ) )
                 return ASRT_SIZE_ERR;

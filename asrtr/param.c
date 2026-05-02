@@ -323,7 +323,7 @@ static enum asrt_status asrt_param_client_recv( void* data, struct asrt_span buf
                 return asrt_param_client_handle_error( client, &buff );
         default:
                 ASRT_ERR_LOG( "asrt_param_client", "Unknown param message id: %u", id );
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
 }
 

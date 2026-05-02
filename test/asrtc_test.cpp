@@ -302,7 +302,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_tid_mismatch" )
                 auto             fsp = flatten_req( flat, req );
                 enum asrt_status rst =
                     asrt_chann_recv( &cntr.node, ( struct asrt_span ){ .b = fsp.b, .e = fsp.e } );
-                CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, rst );
+                CHECK_EQ( ASRT_RECV_ERR, rst );
         }
 
         CHECK( p.desc.empty() );
@@ -329,7 +329,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_info_missing_status" )
                 check_recv_and_spin( &cntr, fsp.b, fsp.e, &t );
         }
 
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, capture.status );
+        CHECK_EQ( ASRT_RECV_ERR, capture.status );
         CHECK_EQ( 42, capture.tid );
         CHECK( capture.desc.empty() );
 }
@@ -693,7 +693,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_test_exec_wrong_run_id" )
         CHECK_EQ( coll.data.empty(), true );
 }
 
-// recv while controller is IDLE → ASRT_RECV_UNEXPECTED_ERR
+// recv while controller is IDLE → ASRT_RECV_ERR
 TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
 {
         check_cntr_full_init( this );
@@ -702,7 +702,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_recv_idle" )
         struct asrt_send_req* req = asrt_msg_rtoc_proto_version( &msg, 0, 1, 0 );
         enum asrt_status      rst = asrt_chann_recv(
             &cntr.node, ( struct asrt_span ){ .b = req->buff.b, .e = req->buff.e } );
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, rst );
+        CHECK_EQ( ASRT_RECV_ERR, rst );
         CHECK( asrt_cntr_idle( &cntr ) );
 }
 
@@ -943,14 +943,14 @@ TEST_CASE_FIXTURE( diag_ctx, "diag_recv_errors" )
         // unknown ID 0x00
         buf[0] = 0x00;
         CHECK_EQ(
-            ASRT_RECV_UNEXPECTED_ERR,
+            ASRT_RECV_ERR,
             asrt_chann_recv( &diag.node, ( struct asrt_span ){ .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
         // unknown ID 0xFF
         buf[0] = 0xFF;
         CHECK_EQ(
-            ASRT_RECV_UNEXPECTED_ERR,
+            ASRT_RECV_ERR,
             asrt_chann_recv( &diag.node, ( struct asrt_span ){ .b = buf, .e = buf + 1 } ) );
         CHECK_EQ( nullptr, diag.first_rec );
 
@@ -2742,7 +2742,7 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_recv: unknown message id" )
 {
         uint8_t          buf[] = { 0xFF };
         struct asrt_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, asrt_chann_recv( &server.node, sp ) );
+        CHECK_EQ( ASRT_RECV_ERR, asrt_chann_recv( &server.node, sp ) );
 }
 
 // --- DEFINE handling ---

@@ -614,7 +614,7 @@ static enum asrt_status test_channel_recv_cb( void* ptr, enum asrt_event_e event
         struct test_channel_ctx* ctx  = (struct test_channel_ctx*) ptr;
         struct asrt_span         buff = *(struct asrt_span*) arg;
         if ( ctx->msg_count >= 16 )
-                return ASRT_RECV_INTERNAL_ERR;
+                return ASRT_INTERNAL_ERR;
 
         struct test_msg_record* rec = &ctx->messages[ctx->msg_count++];
         rec->size                   = std::min( buff.e - buff.b, (long) sizeof( rec->data ) );
@@ -969,7 +969,7 @@ TEST_CASE( "chann_cobs_dispatch_ibuffer_size_err" )
 TEST_CASE( "chann_cobs_dispatch_recv_cb_error" )
 {
         // When recv_cb returns an error, cobs_dispatch must propagate it
-        struct test_channel_ctx ctx  = { .return_status = ASRT_RECV_INTERNAL_ERR };
+        struct test_channel_ctx ctx  = { .return_status = ASRT_INTERNAL_ERR };
         struct asrt_node        node = {
                    .chid = 1, .e_cb_ptr = &ctx, .e_cb = test_channel_recv_cb, .next = NULL };
 

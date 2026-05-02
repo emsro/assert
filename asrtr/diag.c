@@ -23,7 +23,7 @@ static enum asrt_status asrt_diag_event( void* p, enum asrt_event_e e, void* arg
                 return ASRT_SUCCESS;
         case ASRT_EVENT_RECV:
                 ASRT_ERR_LOG( "asrt_diag", "Received unexpected message on diag channel" );
-                return ASRT_INVALID_EVENT_ERR;
+                return ASRT_ARG_ERR;
         }
         return ASRT_SUCCESS;
 }

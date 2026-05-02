@@ -364,7 +364,7 @@ static enum asrt_status asrt_reactor_recv( void* data, struct asrt_span buff )
         case ASRT_MSG_TEST_INFO: {
                 if ( r->flags & ASRT_FLAG_TI ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "TEST_INFO already pending" );
-                        return ASRT_RECV_UNEXPECTED_ERR;
+                        return ASRT_RECV_ERR;
                 }
                 if ( asrt_span_unfit_for( &buff, sizeof( uint16_t ) ) ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "TEST_INFO message too short" );
@@ -378,7 +378,7 @@ static enum asrt_status asrt_reactor_recv( void* data, struct asrt_span buff )
         case ASRT_MSG_TEST_START: {
                 if ( r->flags & ASRT_FLAG_TSTART ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "TEST_START already pending" );
-                        return ASRT_RECV_UNEXPECTED_ERR;
+                        return ASRT_RECV_ERR;
                 }
                 if ( asrt_span_unfit_for( &buff, sizeof( uint16_t ) + sizeof( uint32_t ) ) ) {
                         ASRT_ERR_LOG( "asrtr_asrtr", "TEST_START message too short" );
@@ -397,7 +397,7 @@ static enum asrt_status asrt_reactor_recv( void* data, struct asrt_span buff )
         case ASRT_MSG_TEST_RESULT:
         default:
                 ASRT_ERR_LOG( "asrtr_asrtr", "Unknown message ID: %u", id );
-                return ASRT_RECV_UNKNOWN_ID_ERR;
+                return ASRT_RECV_ERR;
         }
         // If not all bytes are consumed - error
         enum asrt_status res = buff.b == buff.e ? ASRT_SUCCESS : ASRT_RECV_ERR;
@@ -453,7 +453,7 @@ static enum asrt_status asrt_reactor_event( void* p, enum asrt_event_e e, void* 
                 return asrt_reactor_recv( p, *(struct asrt_span*) arg );
         }
         ASRT_ERR_LOG( "asrtr_asrtr", "Received unexpected event on reactor channel" );
-        return ASRT_INVALID_EVENT_ERR;
+        return ASRT_ARG_ERR;
 }
 
 enum asrt_status asrt_reactor_init(

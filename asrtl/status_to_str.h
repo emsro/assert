@@ -21,43 +21,31 @@ inline static char const* asrt_status_to_str( enum asrt_status st )
 {
         switch ( st ) {
         case ASRT_VERSION_ERR:
-                return "version mismatch error";
-        case ASRT_TIMEOUT_ERR:
-                return "timeout error";
-        case ASRT_CALLBACK_ERR:
-                return "callback error";
-        case ASRT_INVALID_EVENT_ERR:
-                return "invalid event error";
+                return "version mismatch";
         case ASRT_KEY_FORBIDDEN_ERR:
                 return "key forbidden on array child";
         case ASRT_KEY_REQUIRED_ERR:
                 return "key required on object child";
-        case ASRT_INTERNAL_ERR:
-                return "internal error";
-        case ASRT_ARG_ERR:
-                return "argument error";
-        case ASRT_INIT_ERR:
-                return "initialization error";
-        case ASRT_RECV_TRAILING_ERR:
-                return "receive trailing bytes error";
         case ASRT_CHANN_NOT_FOUND:
                 return "channel not found";
-        case ASRT_ALLOC_ERR:
-                return "allocation error";
+        case ASRT_INTERNAL_ERR:
+                return "internal error";
+        case ASRT_TIMEOUT_ERR:
+                return "timeout";
+        case ASRT_BUSY_ERR:
+                return "busy";
         case ASRT_SEND_ERR:
                 return "send error";
-        case ASRT_RECV_INTERNAL_ERR:
-                return "receive internal error";
-        case ASRT_RECV_UNEXPECTED_ERR:
-                return "receive unexpected message error";
-        case ASRT_RECV_UNKNOWN_ID_ERR:
-                return "receive unknown id error";
-        case ASRT_BUSY_ERR:
-                return "busy error";
         case ASRT_RECV_ERR:
                 return "receive error";
         case ASRT_SIZE_ERR:
                 return "size error";
+        case ASRT_ALLOC_ERR:
+                return "allocation error";
+        case ASRT_ARG_ERR:
+                return "argument error";
+        case ASRT_INIT_ERR:
+                return "lifecycle stage error";
         case ASRT_SUCCESS:
                 return "success";
         }

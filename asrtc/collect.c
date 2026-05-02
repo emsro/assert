@@ -145,7 +145,7 @@ static enum asrt_status asrt_collect_server_recv( void* data, struct asrt_span b
                 return asrt_collect_server_handle_append( server, &buff );
         default:
                 ASRT_ERR_LOG( "asrt_collect_server", "unknown message id: %u", id );
-                return ASRT_RECV_UNEXPECTED_ERR;
+                return ASRT_RECV_ERR;
         }
 }
 
@@ -208,7 +208,7 @@ static enum asrt_status asrt_collect_server_event( void* p, enum asrt_event_e e,
                 return asrt_collect_server_recv( server, *(struct asrt_span*) arg );
         }
         ASRT_ERR_LOG( "asrt_collect", "unexpected event: %s", asrt_event_to_str( e ) );
-        return ASRT_INVALID_EVENT_ERR;
+        return ASRT_ARG_ERR;
 }
 
 enum asrt_status asrt_collect_server_init(

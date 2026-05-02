@@ -543,7 +543,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_info_repeat" )
         // second recv before tick — must be rejected
         enum asrt_status st = asrt_chann_recv(
             &reac.node, ( struct asrt_span ){ ti_rpt_req->buff.b, ti_rpt_req->buff.e } );
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, st );
+        CHECK_EQ( ASRT_RECV_ERR, st );
 
         // flag must still be set
         CHECK_EQ( ASRT_FLAG_TI, reac.flags & ~ASRT_PASSIVE_FLAGS );
@@ -569,7 +569,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_test_start_repeat" )
         // second recv before tick — must be rejected
         enum asrt_status st = asrt_chann_recv(
             &reac.node, ( struct asrt_span ){ ts_rpt_req->buff.b, ts_rpt_req->buff.e } );
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, st );
+        CHECK_EQ( ASRT_RECV_ERR, st );
 
         // flag must still be set
         CHECK_EQ( ASRT_FLAG_TSTART, reac.flags & ~ASRT_PASSIVE_FLAGS );
@@ -2669,7 +2669,7 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: unknown message id" )
 {
         uint8_t          buf[] = { 0xFF };
         struct asrt_span sp    = { .b = buf, .e = buf + 1 };
-        CHECK_EQ( ASRT_RECV_UNEXPECTED_ERR, asrt_chann_recv( &client.node, sp ) );
+        CHECK_EQ( ASRT_RECV_ERR, asrt_chann_recv( &client.node, sp ) );
 }
 
 // --- send_done preserves ERROR ---
