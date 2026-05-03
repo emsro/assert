@@ -1,8 +1,16 @@
+<div align="center">
+
 # asrt — Automated System for Software & Embedded Regression Testing
+
+[**Documentation**](https://emsro.github.io/asrt/)
 
 [![Build](https://github.com/emsro/asrt/actions/workflows/cmake-single-platform.yml/badge.svg)](https://github.com/emsro/asrt/actions/workflows/cmake-single-platform.yml)
 
+---
+
 Host-driven testing framework for software and embedded targets.
+
+</div>
 
 
 Tests live on the target (Device Under Test). The host discovers and runs them remotely, collects results, and reports them. The target does not need a display, filesystem, or OS — only the ability to send and receive bytes.
