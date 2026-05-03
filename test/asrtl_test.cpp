@@ -2132,8 +2132,9 @@ TEST_CASE( "strm_proto: define serializes header and fields" )
             ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT, ASRT_STRM_FIELD_I16 };
         struct asrt_strm_define_msg dmsg = {};
         struct asrt_send_req*       req  = asrt_msg_rtoc_strm_define( &dmsg, 7, fields, 3 );
-        uint8_t                     buf[64];
-        uint32_t                    len = strm_flatten( buf, req );
+        REQUIRE_NE( req, nullptr );
+        uint8_t  buf[64];
+        uint32_t len = strm_flatten( buf, req );
 
         REQUIRE_EQ( len, 6U );
         CHECK_EQ( buf[0], ASRT_STRM_MSG_DEFINE );
@@ -2149,8 +2150,9 @@ TEST_CASE( "strm_proto: define single field" )
         enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_BOOL };
         struct asrt_strm_define_msg dmsg     = {};
         struct asrt_send_req*       req      = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 1 );
-        uint8_t                     buf[64];
-        uint32_t                    len = strm_flatten( buf, req );
+        REQUIRE_NE( req, nullptr );
+        uint8_t  buf[64];
+        uint32_t len = strm_flatten( buf, req );
 
         REQUIRE_EQ( len, 4U );
         CHECK_EQ( buf[0], ASRT_STRM_MSG_DEFINE );
@@ -2166,8 +2168,9 @@ TEST_CASE( "strm_proto: define rejects field_count > 255" )
         // field_count=256 is truncated to uint8_t=0 in old API, new API asserts/UB — skip
         // invocation just verify that 0 field_count produces correct empty define
         struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 0 );
-        uint8_t               buf[64];
-        uint32_t              len = strm_flatten( buf, req );
+        REQUIRE_NE( req, nullptr );
+        uint8_t  buf[64];
+        uint32_t len = strm_flatten( buf, req );
         REQUIRE_EQ( len, 3U );
         CHECK_EQ( buf[0], ASRT_STRM_MSG_DEFINE );
 }
@@ -2177,8 +2180,9 @@ TEST_CASE( "strm_proto: data serializes header and payload" )
         uint8_t const             payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
         struct asrt_strm_data_msg dmsg      = {};
         struct asrt_send_req*     req       = asrt_msg_rtoc_strm_data( &dmsg, 12, payload, 4 );
-        uint8_t                   buf[64];
-        uint32_t                  len = strm_flatten( buf, req );
+        REQUIRE_NE( req, nullptr );
+        uint8_t  buf[64];
+        uint32_t len = strm_flatten( buf, req );
 
         REQUIRE_EQ( len, 6U );
         CHECK_EQ( buf[0], ASRT_STRM_MSG_DATA );
@@ -2193,8 +2197,9 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 {
         struct asrt_strm_data_msg dmsg = {};
         struct asrt_send_req*     req  = asrt_msg_rtoc_strm_data( &dmsg, 0, nullptr, 0 );
-        uint8_t                   buf[64];
-        uint32_t                  len = strm_flatten( buf, req );
+        REQUIRE_NE( req, nullptr );
+        uint8_t  buf[64];
+        uint32_t len = strm_flatten( buf, req );
 
         REQUIRE_EQ( len, 2U );
         CHECK_EQ( buf[0], ASRT_STRM_MSG_DATA );

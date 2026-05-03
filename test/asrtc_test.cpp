@@ -478,7 +478,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_version_mismatch" )
                 check_recv( &cntr, ( struct asrt_span ){ .b = req->buff.b, .e = req->buff.e } );
         }
 
-        enum asrt_status st2 = asrt_chann_tick( &cntr.node, t++ );
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &cntr.node, t++ ) );
         CHECK_EQ( ASRT_VERSION_ERR, init_status );
         CHECK( asrt_cntr_idle( &cntr ) );
 }
@@ -540,7 +540,7 @@ TEST_CASE_FIXTURE( controller_ctx, "cntr_timeout_init" )
         CHECK( !asrt_cntr_idle( &cntr ) );
 
         // now=3: deadline reached → timeout
-        enum asrt_status st2 = asrt_chann_tick( &cntr.node, 3 );
+        CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &cntr.node, 3 ) );
         CHECK_EQ( ASRT_TIMEOUT_ERR, init_status );
         CHECK( asrt_cntr_idle( &cntr ) );
 }

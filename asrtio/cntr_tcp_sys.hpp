@@ -45,6 +45,11 @@ struct cntr_tcp_sys
         {
                 auto st = asrt_cntr_assm_init( &_asm, asrt_default_allocator() );
                 ASRT_ASSERT( st == ASRT_SUCCESS );
+                if ( st != ASRT_SUCCESS )
+                        ASRT_ERR_LOG(
+                            "cntr_tcp_sys",
+                            "Failed to initialize controller assembly: %s",
+                            asrt_status_to_str( st ) );
         }
 
         auto take_diag_record() { return asrt_diag_server_take_record( &_asm.diag ); }

@@ -196,7 +196,7 @@ static inline asrt_flat_id asrt_collect_client_root_id( struct asrt_collect_clie
 }
 
 /// Return true if the client is busy (READY received and acknowledged, no errors).
-static inline bool asrt_collect_client_is_busy( struct asrt_collect_client const* client )
+static inline uint8_t asrt_collect_client_is_busy( struct asrt_collect_client const* client )
 {
         return client->state == ASRT_COLLECT_CLIENT_READY_SENT ||
                client->state == ASRT_COLLECT_CLIENT_APPEND_SENT;

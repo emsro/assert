@@ -184,6 +184,7 @@ TEST_CASE_FIXTURE( reactor_ctx, "reactor_init" )
         CHECK_EQ( ASRT_INIT_ERR, st );
 
         st = asrt_reactor_init( &reac, &reac_sq, "rec1" );
+        CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( reac.first_test, nullptr );
         CHECK_EQ( reac.node.chid, ASRT_CORE );
         CHECK_EQ( reac.state, ASRT_REAC_IDLE );
