@@ -346,4 +346,18 @@ ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char
         return param_query_sender< T >{ client, key, parent_id };
 }
 
+/// co_await fetch(client, node_id) — typeless query; completes with param_result<void>
+/// (asrt_flat_value with .type and .data populated).
+inline ecor::sender auto fetch( ref< asrt_param_client > client, flat_id node_id )
+{
+        return param_query_sender< void >{ client, nullptr, node_id };
+}
+
+/// co_await find(client, parent_id, key) — typeless find by key; completes with param_result<void>
+/// (asrt_flat_value with .type and .data populated).
+inline ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char const* key )
+{
+        return param_query_sender< void >{ client, key, parent_id };
+}
+
 }  // namespace asrt

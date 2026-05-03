@@ -1445,6 +1445,27 @@ asrt::task< void > ps_second_fails(
         (void) b;
         *reached = true;
 }
+
+asrt::task< void > ps_fetch_void_capture_type(
+    asrt::task_ctx&,
+    asrt_param_client*    c,
+    uint16_t              id,
+    asrt_flat_value_type* out_type )
+{
+        asrt::param_result< void > res = co_await asrt::fetch( *c, id );
+        *out_type                      = res.value.type;
+}
+
+asrt::task< void > ps_find_void_capture_type(
+    asrt::task_ctx&,
+    asrt_param_client*    c,
+    uint16_t              parent,
+    char const*           key,
+    asrt_flat_value_type* out_type )
+{
+        asrt::param_result< void > res = co_await asrt::find( *c, parent, key );
+        *out_type                      = res.value.type;
+}
 }  // namespace
 // --- param<T>: happy paths ---
 
@@ -1737,6 +1758,43 @@ TEST_CASE_FIXTURE( param_sender_ctx, "ps_second_query_fails_in_coroutine" )
         CHECK_EQ( ASRT_TEST_ERROR, state );
         CHECK_EQ( 10U, first_val );
         CHECK_FALSE( reached );
+        asrt_flat_tree_deinit( &tree );
+}
+
+// --- typeless fetch / find (no explicit T, returns param_result<void>) ---
+
+TEST_CASE_FIXTURE( param_sender_ctx, "ps_fetch_void_u32_happy" )
+{
+        asrt_flat_tree tree;
+        asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 16 );
+        asrt_flat_tree_append_scalar(
+            &tree, 0, 1, nullptr, ASRT_FLAT_STYPE_U32, { .u32_val = 99 } );
+        setup_tree_and_handshake( &tree );
+
+        asrt_flat_value_type out_type = 0;
+        auto                 state    = run_task( [&]( asrt::task_ctx& ctx ) {
+                return ps_fetch_void_capture_type( ctx, &cli, 1, &out_type );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( static_cast< asrt_flat_value_type >( ASRT_FLAT_STYPE_U32 ), out_type );
+        asrt_flat_tree_deinit( &tree );
+}
+
+TEST_CASE_FIXTURE( param_sender_ctx, "ps_find_void_str_happy" )
+{
+        asrt_flat_tree tree;
+        asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 16 );
+        asrt_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRT_FLAT_CTYPE_OBJECT );
+        asrt_flat_tree_append_scalar(
+            &tree, 1, 2, "tag", ASRT_FLAT_STYPE_STR, { .str_val = "hello" } );
+        setup_tree_and_handshake( &tree );
+
+        asrt_flat_value_type out_type = 0;
+        auto                 state    = run_task( [&]( asrt::task_ctx& ctx ) {
+                return ps_find_void_capture_type( ctx, &cli, 1, "tag", &out_type );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( static_cast< asrt_flat_value_type >( ASRT_FLAT_STYPE_STR ), out_type );
         asrt_flat_tree_deinit( &tree );
 }
 
