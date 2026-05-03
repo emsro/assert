@@ -67,3 +67,7 @@ A fix without a reproduction test is incomplete unless there is a strong reason 
   - asrtio flow changes -> `test/asrtio_test.cpp`
 - Prefer deterministic tests with clear setup/teardown.
 - Avoid hidden timing dependencies. Use explicit tick/event loop progression.
+- Each public API must have a documentation comment (`///`) and at least one unit test.
+- Each public C++ API must have a sender-based alternative, unless the function itself already returns a sender.
+- In tests, never discard return values with `(void)` or `std::ignore`. Always check every status code, even when the test is about a different API — this ensures coverage.
+- Use log statements (`ASRT_LOG` / `ASRT_ERR_LOG`) generously in tests so failures are diagnosable from the test output alone.
