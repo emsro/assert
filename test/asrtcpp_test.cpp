@@ -82,11 +82,11 @@ struct task_result_receiver
         using receiver_concept = ecor::receiver_t;
         asrt_test_state* out;
 
-        void set_value() { *out = ASRT_TEST_PASS; }
-        void set_error( ecor::task_error ) { *out = ASRT_TEST_FAIL; }
-        void set_error( asrt::status ) { *out = ASRT_TEST_ERROR; }
-        void set_error( asrt::test_fail_t ) { *out = ASRT_TEST_FAIL; }
-        void set_stopped() { *out = ASRT_TEST_FAIL; }
+        void set_value() const { *out = ASRT_TEST_PASS; }
+        void set_error( ecor::task_error ) const { *out = ASRT_TEST_FAIL; }
+        void set_error( asrt::status ) const { *out = ASRT_TEST_ERROR; }
+        void set_error( asrt::test_fail_t ) const { *out = ASRT_TEST_FAIL; }
+        void set_stopped() const { *out = ASRT_TEST_FAIL; }
         auto get_env() const noexcept { return ecor::empty_env{}; }
 };
 

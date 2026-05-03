@@ -20,9 +20,9 @@
 #include <assert.h>
 #define ASRT_ASSERT( x ) assert( x )
 #else
-#define ASRT_ASSERT( x )            \
-        do {                        \
-                (void) sizeof( x ); \
+#define ASRT_ASSERT( x )                                                     \
+        do {                                                                 \
+                (void) sizeof( x ); /* NOLINT(bugprone-sizeof-expression) */ \
         } while ( 0 )
 #endif
 #endif
