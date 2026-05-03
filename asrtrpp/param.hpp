@@ -272,13 +272,11 @@ struct param_result
 };
 
 
-/// Sender backing co_await fetch<T> and co_await find<T>.
-/// Submits a QUERY or FIND_BY_KEY request and completes with param_result<T>.
+/// Context for param_query_sender: submits a typed QUERY or FIND_BY_KEY request.
+/// @p q is mutable op state filled by the C layer; it lives in the sender_from op.
 template < has_param_query_traits T >
-struct param_query_sender
+struct _param_query_ctx
 {
-        using sender_concept = ecor::sender_t;
-
         using completion_signatures = ecor::completion_signatures<
             ecor::set_value_t( param_result< T > ),
             ecor::set_error_t( status ) >;
@@ -286,78 +284,59 @@ struct param_query_sender
         asrt_param_client* client;
         char const*        key;
         flat_id            node_id;
+        asrt_param_query   q = {};
 
-        template < ecor::receiver R >
-        struct op
+        template < typename OP >
+        void start( OP& op )
         {
-                asrt_param_query   q = {};
-                asrt_param_client* c;
-                char const*        key;
-                flat_id            node_id;
-                R                  recv;
-
-                op( R&& r, asrt_param_client* client, char const* k, flat_id id )
-                  : c( client )
-                  , key( k )
-                  , node_id( id )
-                  , recv( (R&&) r )
-                {
-                }
-
-                void start()
-                {
-                        using traits = param_query_traits< T >;
-                        auto cb =
-                            +[]( asrt_param_client*, asrt_param_query* q, traits::raw_type raw ) {
-                                    auto& self = *reinterpret_cast< op* >( q->cb_ptr );
-                                    if ( q->error_code != ASRT_PARAM_ERR_NONE )
-                                            self.recv.set_error( ASRT_RECV_ERR );
-                                    else
-                                            self.recv.set_value( param_result< T >{
-                                                static_cast< traits::value_type >( raw ),
-                                                q->key,
-                                                q->next_sibling } );
-                            };
-                        auto s = query< T >( c, &q, node_id, key, cb, this );
-                        if ( s != ASRT_SUCCESS )
-                                recv.set_error( ASRT_RECV_ERR );
-                }
-        };
-
-
-        template < ecor::receiver R >
-        auto connect( R&& r ) && noexcept
-        {
-                return op< R >{ (R&&) r, client, key, node_id };
+                using traits = param_query_traits< T >;
+                auto cb = +[]( asrt_param_client*, asrt_param_query* q, traits::raw_type raw ) {
+                        auto* o = static_cast< OP* >( q->cb_ptr );
+                        if ( q->error_code != ASRT_PARAM_ERR_NONE )
+                                o->receiver.set_error( ASRT_RECV_ERR );
+                        else
+                                o->receiver.set_value( param_result< T >{
+                                    static_cast< traits::value_type >( raw ),
+                                    q->key,
+                                    q->next_sibling } );
+                };
+                auto s = query< T >( client, &q, node_id, key, cb, &op );
+                if ( s != ASRT_SUCCESS )
+                        op.receiver.set_error( ASRT_RECV_ERR );
         }
 };
+
+/// Sender backing co_await fetch<T> and co_await find<T>.
+/// Submits a QUERY or FIND_BY_KEY request and completes with param_result<T>.
+template < has_param_query_traits T >
+using param_query_sender = ecor::sender_from< _param_query_ctx< T > >;
 
 /// co_await fetch<T>(client, node_id) — query a node by ID; completes with param_result<T>.
 template < typename T >
 ecor::sender auto fetch( ref< asrt_param_client > client, flat_id node_id )
 {
-        return param_query_sender< T >{ client, nullptr, node_id };
+        return param_query_sender< T >{ { client, nullptr, node_id } };
 }
 
 /// co_await find<T>(client, parent_id, key) — find a child by key; completes with param_result<T>.
 template < typename T >
 ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char const* key )
 {
-        return param_query_sender< T >{ client, key, parent_id };
+        return param_query_sender< T >{ { client, key, parent_id } };
 }
 
 /// co_await fetch(client, node_id) — typeless query; completes with param_result<void>
 /// (asrt_flat_value with .type and .data populated).
 inline ecor::sender auto fetch( ref< asrt_param_client > client, flat_id node_id )
 {
-        return param_query_sender< void >{ client, nullptr, node_id };
+        return param_query_sender< void >{ { client, nullptr, node_id } };
 }
 
 /// co_await find(client, parent_id, key) — typeless find by key; completes with param_result<void>
 /// (asrt_flat_value with .type and .data populated).
 inline ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char const* key )
 {
-        return param_query_sender< void >{ client, key, parent_id };
+        return param_query_sender< void >{ { client, key, parent_id } };
 }
 
 }  // namespace asrt

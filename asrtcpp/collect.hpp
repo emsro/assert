@@ -63,11 +63,9 @@ inline void deinit( ref< asrt_collect_server > srv )
         asrt_collect_server_deinit( srv );
 }
 
-/// Sender backing co_await send_ready(srv, root_id, timeout).
-/// Completes with void once the reactor acknowledges the READY message.
-struct collect_send_ready_sender
+/// Context for collect_send_ready_sender: advertises the tree to the reactor.
+struct _collect_send_ready_ctx
 {
-        using sender_concept = ecor::sender_t;
         using completion_signatures =
             ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
 
@@ -75,39 +73,29 @@ struct collect_send_ready_sender
         flat_id              root_id;
         uint32_t             timeout;
 
-        template < ecor::receiver R >
-        struct op
+        template < typename OP >
+        void start( OP& op )
         {
-                asrt_collect_server* srv;
-                flat_id              root_id;
-                uint32_t             timeout;
-                R                    recv;
-
-                void start()
-                {
-                        auto s = asrt_collect_server_send_ready(
-                            srv,
-                            root_id,
-                            timeout,
-                            +[]( void* p, enum asrt_status s ) {
-                                    auto& self = *static_cast< op* >( p );
-                                    if ( s == ASRT_SUCCESS )
-                                            self.recv.set_value();
-                                    else
-                                            self.recv.set_error( s );
-                            },
-                            this );
-                        if ( s != ASRT_SUCCESS )
-                                recv.set_error( s );
-                }
-        };
-
-        template < ecor::receiver R >
-        auto connect( R&& r ) && noexcept
-        {
-                return op< R >{ srv, root_id, timeout, (R&&) r };
+                auto s = asrt_collect_server_send_ready(
+                    srv,
+                    root_id,
+                    timeout,
+                    +[]( void* p, enum asrt_status s ) {
+                            auto& o = *static_cast< OP* >( p );
+                            if ( s == ASRT_SUCCESS )
+                                    o.receiver.set_value();
+                            else
+                                    o.receiver.set_error( s );
+                    },
+                    &op );
+                if ( s != ASRT_SUCCESS )
+                        op.receiver.set_error( s );
         }
 };
+
+/// Sender backing co_await send_ready(srv, root_id, timeout).
+/// Completes with void once the reactor acknowledges the READY message.
+using collect_send_ready_sender = ecor::sender_from< _collect_send_ready_ctx >;
 
 /// co_await send_ready(srv, root_id, timeout) — advertise the tree to the reactor;
 /// completes with void once the READY_ACK arrives.
@@ -116,7 +104,7 @@ inline ecor::sender auto send_ready(
     flat_id                    root_id,
     uint32_t                   timeout )
 {
-        return collect_send_ready_sender{ srv, root_id, timeout };
+        return collect_send_ready_sender{ { srv, root_id, timeout } };
 }
 
 }  // namespace asrt

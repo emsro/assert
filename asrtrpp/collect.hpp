@@ -88,12 +88,11 @@ ASRT_NODISCARD inline flat_id root_id( ref< asrt_collect_client const > cc )
 
 /// Sender that appends a single node to the collect client's tree.
 template < typename T >
-struct collect_append_sender;
+struct _collect_append_ctx;
 
 template < collect_scalar T >
-struct collect_append_sender< T >
+struct _collect_append_ctx< T >
 {
-        using sender_concept = ecor::sender_t;
         using completion_signatures =
             ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
 
@@ -102,86 +101,70 @@ struct collect_append_sender< T >
         char const*          key;
         T                    val;
 
-
-        template < ecor::receiver R >
-        struct op
+        template < typename OP >
+        void start( OP& op )
         {
-                collect_append_sender s;
-                R                     recv;
-
-                static void on_done( void* ptr, enum asrt_status st )
-                {
-                        auto* o = static_cast< op* >( ptr );
-                        if ( st == ASRT_SUCCESS )
-                                o->recv.set_value();
-                        else
-                                o->recv.set_error( static_cast< status >( st ) );
-                }
-
-                void start()
-                {
-                        using traits             = collect_append_traits< T >;
-                        using member_type        = decltype( asrt_flat_scalar{}.*traits::member );
-                        asrt_flat_value v        = { .type = traits::flat_type };
-                        v.data.s.*traits::member = static_cast< member_type >( s.val );
-                        auto st                  = asrt_collect_client_append(
-                            s.client, s.parent, s.key, &v, NULL, on_done, this );
-                        if ( st != ASRT_SUCCESS )
-                                recv.set_error( st );
-                }
-        };
-
-        template < ecor::receiver R >
-        auto connect( R&& r ) && noexcept
-        {
-                return op< R >{ std::move( *this ), (R&&) r };
+                using traits             = collect_append_traits< T >;
+                using member_type        = decltype( asrt_flat_scalar{}.*traits::member );
+                asrt_flat_value v        = { .type = traits::flat_type };
+                v.data.s.*traits::member = static_cast< member_type >( val );
+                auto s                   = asrt_collect_client_append(
+                    client,
+                    parent,
+                    key,
+                    &v,
+                    nullptr,
+                    +[]( void* ptr, enum asrt_status st ) {
+                            auto* o = static_cast< OP* >( ptr );
+                            if ( st == ASRT_SUCCESS )
+                                    o->receiver.set_value();
+                            else
+                                    o->receiver.set_error( static_cast< status >( st ) );
+                    },
+                    &op );
+                if ( s != ASRT_SUCCESS )
+                        op.receiver.set_error( static_cast< status >( s ) );
         }
 };
 
 template < collect_container T >
-struct collect_append_sender< T >
+struct _collect_append_ctx< T >
 {
-        using sender_concept        = ecor::sender_t;
         using completion_signatures = ecor::
             completion_signatures< ecor::set_value_t( flat_id ), ecor::set_error_t( status ) >;
 
         asrt_collect_client* client;
         flat_id              parent;
         char const*          key;
+        flat_id              out = 0;
 
-        template < ecor::receiver R >
-        struct op
+        template < typename OP >
+        void start( OP& op )
         {
-                collect_append_sender s;
-                R                     recv;
-                flat_id               out = 0;
-
-                static void on_done( void* ptr, enum asrt_status st )
-                {
-                        auto* o = static_cast< op* >( ptr );
-                        if ( st == ASRT_SUCCESS )
-                                o->recv.set_value( o->out );
-                        else
-                                o->recv.set_error( static_cast< status >( st ) );
-                }
-
-                void start()
-                {
-                        using traits       = collect_append_traits< T >;
-                        asrt_flat_value v  = { .type = traits::flat_type };
-                        auto            st = asrt_collect_client_append(
-                            s.client, s.parent, s.key, &v, &out, on_done, this );
-                        if ( st != ASRT_SUCCESS )
-                                recv.set_error( st );
-                }
-        };
-
-        template < ecor::receiver R >
-        auto connect( R&& r ) && noexcept
-        {
-                return op< R >{ std::move( *this ), (R&&) r };
+                using traits      = collect_append_traits< T >;
+                asrt_flat_value v = { .type = traits::flat_type };
+                auto            s = asrt_collect_client_append(
+                    client,
+                    parent,
+                    key,
+                    &v,
+                    &out,
+                    +[]( void* ptr, enum asrt_status st ) {
+                            auto* o = static_cast< OP* >( ptr );
+                            if ( st == ASRT_SUCCESS )
+                                    o->receiver.set_value( o->ctx.out );
+                            else
+                                    o->receiver.set_error( static_cast< status >( st ) );
+                    },
+                    &op );
+                if ( s != ASRT_SUCCESS )
+                        op.receiver.set_error( static_cast< status >( s ) );
         }
 };
+
+template < typename T >
+        requires collect_scalar< T > || collect_container< T >
+using collect_append_sender = ecor::sender_from< _collect_append_ctx< T > >;
 
 /// Scalar append with key: append<uint32_t>(parent, "key", 42, cb).
 template < collect_scalar T >
@@ -203,7 +186,7 @@ status append(
 template < collect_scalar T >
 ecor::sender auto append( ref< asrt_collect_client > cc, flat_id parent, char const* key, T val )
 {
-        return collect_append_sender< T >{ cc, parent, key, val };
+        return collect_append_sender< T >{ { cc, parent, key, val } };
 }
 
 /// Scalar append without key (array child): append<uint32_t>(parent, 42).
@@ -236,7 +219,7 @@ status append(
 template < collect_container T >
 ecor::sender auto append( ref< asrt_collect_client > client, flat_id parent, char const* key )
 {
-        return collect_append_sender< T >{ client, parent, key };
+        return collect_append_sender< T >{ { client, parent, key } };
 }
 
 /// Container append without key (array child): append<obj>(parent, out_id).
@@ -254,14 +237,14 @@ status append(
 template < collect_scalar T >
 ecor::sender auto append( ref< asrt_collect_client > cc, flat_id parent, T val )
 {
-        return collect_append_sender< T >{ cc, parent, nullptr, val };
+        return collect_append_sender< T >{ { cc, parent, nullptr, val } };
 }
 
 /// co_await append<T>(client, parent) — container without key (array child); returns flat_id.
 template < collect_container T >
 ecor::sender auto append( ref< asrt_collect_client > client, flat_id parent )
 {
-        return collect_append_sender< T >{ client, parent, nullptr };
+        return collect_append_sender< T >{ { client, parent, nullptr } };
 }
 
 inline void deinit( ref< asrt_collect_client > client )
