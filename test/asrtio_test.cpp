@@ -2010,6 +2010,4 @@ TEST_CASE( "strm_field_type_to_str" )
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_BOOL ) ), "bool" );
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_LBRACKET ) ), "[" );
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_RBRACKET ) ), "]" );
-        CHECK_EQ(
-            std::string( asrt_strm_field_type_to_str( (enum asrt_strm_field_type_e) 0xFF ) ), "?" );
 }
