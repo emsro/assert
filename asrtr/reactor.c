@@ -22,11 +22,6 @@
 #include <stdio.h>
 #include <string.h>
 
-void asrt_fail( struct asrt_record* rec )
-{
-        rec->state = ASRT_TEST_FAIL;
-}
-
 static enum asrt_status asrt_send_test_start_error(
     struct asrt_reactor* reac,
     uint16_t             test_id,

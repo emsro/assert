@@ -19,6 +19,7 @@
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
+#include "../asrtrpp/reac_assm.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "../asrtrpp/stream.hpp"
 #include "../asrtrpp/task_unit.hpp"
@@ -2418,4 +2419,32 @@ TEST_CASE_FIXTURE( diag_sender_ctx, "diag_rec_sender" )
         REQUIRE_EQ( 1U, coll_d.data.size() );
         assert_diag_record( coll_d.data.front(), 77 );
         coll_d.data.pop_front();
+}
+
+// ---------------------------------------------------------------------------
+// reac_assm wrappers
+
+TEST_CASE( "reac_assm_init_deinit" )
+{
+        asrt_reac_assm assm;
+        CHECK_EQ( ASRT_SUCCESS, asrt::init( assm, "test_reactor", 500 ) );
+        asrt::deinit( assm );
+}
+
+TEST_CASE( "reac_assm_add_test" )
+{
+        asrt_reac_assm          assm;
+        asrt::unit< pass_test > t0;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt::init( assm, "test_reactor", 500 ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::add_test( assm, t0 ) );
+        asrt::deinit( assm );
+}
+
+TEST_CASE( "reac_assm_tick_does_not_crash" )
+{
+        asrt_reac_assm assm;
+        REQUIRE_EQ( ASRT_SUCCESS, asrt::init( assm, "test_reactor", 500 ) );
+        asrt::tick( assm, 1 );
+        asrt::tick( assm, 2 );
+        asrt::deinit( assm );
 }

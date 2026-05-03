@@ -49,23 +49,20 @@ struct asrt_record
         struct asrt_test_input const* inpt;  ///< Immutable per-invocation context.
 };
 
-/// Mark the record as failed.  Used internally by ASRT_CHECK / ASRT_REQUIRE.
-void asrt_fail( struct asrt_record* rec );
-
 /// Check @p x; if false, mark the record as failed (non-fatal: execution continues).
-#define ASRT_RECORD_CHECK( rec, x )           \
-        do {                                  \
-                if ( !( x ) )                 \
-                        asrt_fail( ( rec ) ); \
+#define ASRT_RECORD_CHECK( rec, x )                      \
+        do {                                             \
+                if ( !( x ) )                            \
+                        ( rec )->state = ASRT_TEST_FAIL; \
         } while ( 0 )
 
 /// Check @p x; if false, mark the record as failed and return immediately (fatal).
-#define ASRT_RECORD_REQUIRE( rec, x )         \
-        do {                                  \
-                if ( !( x ) ) {               \
-                        asrt_fail( ( rec ) ); \
-                        return ASRT_SUCCESS;  \
-                }                             \
+#define ASRT_RECORD_REQUIRE( rec, x )                    \
+        do {                                             \
+                if ( !( x ) ) {                          \
+                        ( rec )->state = ASRT_TEST_FAIL; \
+                        return ASRT_SUCCESS;             \
+                }                                        \
         } while ( 0 )
 
 #ifdef __cplusplus

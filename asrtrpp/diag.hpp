@@ -92,4 +92,21 @@ inline ecor::sender auto rec_diag(
         return diag_rec_sender{ { d, file, line, extra } };
 }
 
+#define ASRT_CO_REQUIRE( diag, rec, x )                                         \
+        do {                                                                    \
+                if ( !( x ) ) {                                                 \
+                        ( rec )->state = ASRT_TEST_FAIL;                        \
+                        co_await rec_diag( diag, ASRT_FILENAME, __LINE__, #x ); \
+                        co_return;                                              \
+                }                                                               \
+        } while ( 0 )
+
+#define ASRT_CO_CHECK( diag, rec, x )                                           \
+        do {                                                                    \
+                if ( !( x ) ) {                                                 \
+                        ( rec )->state = ASRT_TEST_FAIL;                        \
+                        co_await rec_diag( diag, ASRT_FILENAME, __LINE__, #x ); \
+                }                                                               \
+        } while ( 0 )
+
 }  // namespace asrt

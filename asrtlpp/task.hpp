@@ -47,6 +47,7 @@ private:
 };
 
 using status = asrt_status;
+using ecor::suspend;
 
 struct test_fail_t
 {

@@ -12,6 +12,7 @@
 
 #include "../asrtc/cntr_assm.h"
 #include "../asrtc/result.h"
+#include "../asrtcpp/cntr_assm.hpp"
 #include "../asrtcpp/collect.hpp"
 #include "../asrtcpp/controller.hpp"
 #include "../asrtcpp/diag.hpp"
@@ -23,6 +24,7 @@
 #include "../asrtlpp/task.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtrpp/diag.hpp"
+#include "../asrtrpp/reac_assm.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "./collector.hpp"
 #include "./util.hpp"
@@ -1032,4 +1034,285 @@ TEST_CASE( "param_send_ready_sender" )
         CHECK_EQ( ASRT_TEST_PASS, state );
 
         asrt_flat_tree_deinit( &tree );
+}
+
+// ---------------------------------------------------------------------------
+// cntr_assm / reac_assm wrappers — assembly-paired fixture
+
+namespace
+{
+
+/// Paired fixture that uses the C++ assembly wrappers on both sides.
+struct assembly_ctx : coroutine_support
+{
+        uint32_t t = 1;
+
+        asrt::unit< passing_test > t0;
+        asrt::unit< failing_test > t1;
+
+        asrt_reac_assm r_assm = {};
+        asrt_cntr_assm c_assm = {};
+
+        int          init_cb_count = 0;
+        asrt::status init_status   = ASRT_SUCCESS;
+
+        assembly_ctx()
+        {
+                REQUIRE_EQ( ASRT_SUCCESS, asrt::init( r_assm, "assm_reactor", 500 ) );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt::add_test( r_assm, t0 ) );
+                REQUIRE_EQ( ASRT_SUCCESS, asrt::add_test( r_assm, t1 ) );
+
+                REQUIRE_EQ( ASRT_SUCCESS, asrt::init( c_assm, asrt_default_allocator() ) );
+
+                REQUIRE_EQ(
+                    ASRT_SUCCESS,
+                    asrt::start(
+                        c_assm.cntr,
+                        { []( void* self, asrt::status s ) -> asrt::status {
+                                 auto* p = static_cast< assembly_ctx* >( self );
+                                 p->init_cb_count++;
+                                 p->init_status = s;
+                                 return ASRT_SUCCESS;
+                         },
+                          this },
+                        1000 ) );
+
+                for ( int i = 0; i < 100 && !asrt::is_idle( c_assm.cntr ); i++ )
+                        pump();
+                CHECK( asrt::is_idle( c_assm.cntr ) );
+        }
+
+        ~assembly_ctx()
+        {
+                asrt::deinit( c_assm );
+                asrt::deinit( r_assm );
+        }
+
+        void pump()
+        {
+                asrt::tick( r_assm, t );
+                deliver( &r_assm.send_queue, &c_assm.cntr.node );
+                asrt::tick( c_assm, t );
+                deliver( &c_assm.send_queue, &r_assm.reactor.node );
+                tctx.tick();
+                t++;
+        }
+
+        void spin()
+        {
+                for ( int i = 0; i < 100; i++ )
+                        pump();
+                CHECK( asrt::is_idle( c_assm.cntr ) );
+        }
+
+        template < typename F >
+        asrt_test_state run_task( F&& make_task )
+        {
+                return run_until_done( tctx, std::forward< F >( make_task ), [&] {
+                        pump();
+                } );
+        }
+};
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// cntr_assm_init_deinit
+
+TEST_CASE( "cntr_assm_init_deinit" )
+{
+        asrt_cntr_assm assm = {};
+        CHECK_EQ( ASRT_SUCCESS, asrt::init( assm, asrt_default_allocator() ) );
+        asrt::deinit( assm );
+}
+
+TEST_CASE( "cntr_assm_tick_does_not_crash" )
+{
+        asrt_cntr_assm assm = {};
+        REQUIRE_EQ( ASRT_SUCCESS, asrt::init( assm, asrt_default_allocator() ) );
+        asrt::tick( assm, 1 );
+        asrt::tick( assm, 2 );
+        asrt::deinit( assm );
+}
+
+// ---------------------------------------------------------------------------
+// assembly_ctx handshake
+
+TEST_CASE_FIXTURE( assembly_ctx, "assm_init_handshake" )
+{
+        CHECK( asrt::is_idle( c_assm.cntr ) );
+        CHECK_EQ( 1, init_cb_count );
+        CHECK_EQ( ASRT_SUCCESS, init_status );
+}
+
+// ---------------------------------------------------------------------------
+// exec_test callback variant
+
+TEST_CASE_FIXTURE( assembly_ctx, "assm_exec_test_pass_callback" )
+{
+        asrt_test_result res = ASRT_TEST_RESULT_ERROR;
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt::exec_test(
+                c_assm,
+                nullptr,
+                0,
+                0,
+                1000,
+                { []( void* p, asrt::status s, asrt_result* r ) -> asrt_status {
+                         ASRT_INF_LOG( "asrtcpp_test", "Test callback called with status %d", s );
+                         CHECK_EQ( ASRT_SUCCESS, s );
+                         *static_cast< asrt_test_result* >( p ) = r->res;
+                         return ASRT_SUCCESS;
+                 },
+                  &res } ) );
+        spin();
+        CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res );
+}
+
+TEST_CASE_FIXTURE( assembly_ctx, "assm_exec_test_fail_callback" )
+{
+        asrt_test_result res = ASRT_TEST_RESULT_ERROR;
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt::exec_test(
+                c_assm,
+                nullptr,
+                0,
+                1,
+                1000,
+                { []( void* p, asrt::status s, asrt_result* r ) -> asrt_status {
+                         CHECK_EQ( ASRT_SUCCESS, s );
+                         *static_cast< asrt_test_result* >( p ) = r->res;
+                         return ASRT_SUCCESS;
+                 },
+                  &res } ) );
+        spin();
+        CHECK_EQ( ASRT_TEST_RESULT_FAILURE, res );
+}
+
+// ---------------------------------------------------------------------------
+// exec_test sender (co_await) variant
+
+static asrt::task< void > do_assm_exec_test(
+    asrt::task_ctx&,
+    asrt_cntr_assm&   assm,
+    uint16_t          tid,
+    asrt_test_result& out )
+{
+        asrt_result r = co_await asrt::exec_test( assm, nullptr, 0, tid, 1000 );
+        out           = r.res;
+}
+
+TEST_CASE_FIXTURE( assembly_ctx, "assm_exec_test_pass_sender" )
+{
+        asrt_test_result res   = ASRT_TEST_RESULT_ERROR;
+        asrt_test_state  state = run_until_done(
+            tctx,
+            [&]( asrt::task_ctx& tc ) {
+                    return do_assm_exec_test( tc, c_assm, 0, res );
+            },
+            [&] {
+                    pump();
+            } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res );
+}
+
+TEST_CASE_FIXTURE( assembly_ctx, "assm_exec_test_fail_sender" )
+{
+        asrt_test_result res   = ASRT_TEST_RESULT_ERROR;
+        asrt_test_state  state = run_until_done(
+            tctx,
+            [&]( asrt::task_ctx& tc ) {
+                    return do_assm_exec_test( tc, c_assm, 1, res );
+            },
+            [&] {
+                    pump();
+            } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_RESULT_FAILURE, res );
+}
+
+// ---------------------------------------------------------------------------
+// asrt::next() / send_req_ref
+
+namespace
+{
+asrt_node make_node( asrt_send_req_list& sq )
+{
+        asrt_node n{};
+        n.send_queue = &sq;
+        n.chid       = ASRT_CORE;
+        return n;
+}
+}  // namespace
+
+TEST_CASE( "next_empty_queue_is_falsy" )
+{
+        asrt_send_req_list sq = {};
+        CHECK_FALSE( asrt::next( sq ) );
+}
+
+TEST_CASE( "next_pending_request_is_truthy" )
+{
+        asrt_send_req_list sq   = {};
+        asrt_node          node = make_node( sq );
+        asrt_u8d2msg       msg{};
+        msg.buff[0] = 0xAB;
+        msg.buff[1] = 0xCD;
+        asrt_send_enque( &node, &msg.req, nullptr, nullptr );
+
+        auto req = asrt::next( sq );
+        REQUIRE( req );
+        CHECK_EQ( ASRT_CORE, req->chid );
+}
+
+TEST_CASE( "next_finish_pops_request" )
+{
+        asrt_send_req_list sq   = {};
+        asrt_node          node = make_node( sq );
+        asrt_u8d2msg       msg{};
+        asrt_send_enque( &node, &msg.req, nullptr, nullptr );
+
+        REQUIRE( asrt::next( sq ) );
+        asrt::next( sq ).finish( ASRT_SUCCESS );
+        CHECK_FALSE( asrt::next( sq ) );
+}
+
+TEST_CASE( "next_drains_multiple_requests" )
+{
+        asrt_send_req_list sq   = {};
+        asrt_node          node = make_node( sq );
+        asrt_u8d2msg       m0{}, m1{}, m2{};
+        asrt_send_enque( &node, &m0.req, nullptr, nullptr );
+        asrt_send_enque( &node, &m1.req, nullptr, nullptr );
+        asrt_send_enque( &node, &m2.req, nullptr, nullptr );
+
+        int count = 0;
+        while ( auto req = asrt::next( sq ) ) {
+                count++;
+                req.finish( ASRT_SUCCESS );
+        }
+        CHECK_EQ( 3, count );
+        CHECK_FALSE( asrt::next( sq ) );
+}
+
+TEST_CASE( "next_finish_invokes_done_cb" )
+{
+        asrt_send_req_list sq   = {};
+        asrt_node          node = make_node( sq );
+        asrt_u8d2msg       msg{};
+
+        asrt_status reported = ASRT_INIT_ERR;
+        asrt_send_enque(
+            &node,
+            &msg.req,
+            +[]( void* p, asrt_status s ) {
+                    *static_cast< asrt_status* >( p ) = s;
+            },
+            &reported );
+
+        asrt::next( sq ).finish( ASRT_SUCCESS );
+        CHECK_EQ( ASRT_SUCCESS, reported );
 }

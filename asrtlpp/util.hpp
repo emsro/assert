@@ -106,4 +106,37 @@ private:
         T* _p;
 };
 
+// ---------------------------------------------------------------------------
+// send_queue helper
+
+/// Wrapper returned by asrt::next().  Truthy when a request is pending;
+/// use operator-> / operator* to access the request, finish(status) to
+/// complete it and pop it from the queue.
+struct send_req_ref
+{
+        explicit       operator bool() const noexcept { return _cur != nullptr; }
+        asrt_send_req* operator->() const noexcept { return _cur; }
+        asrt_send_req& operator*() const noexcept { return *_cur; }
+
+        void finish( enum asrt_status s ) noexcept { asrt_send_req_list_done( _list, s ); }
+
+private:
+        asrt_send_req_list* _list;
+        asrt_send_req*      _cur;
+
+        friend send_req_ref next( asrt_send_req_list& ) noexcept;
+        send_req_ref( asrt_send_req_list* l ) noexcept
+          : _list( l )
+          , _cur( l->head )
+        {
+        }
+};
+
+/// Peek at the next pending send request.
+/// Typical use: @code while (auto req = asrt::next(assm.send_queue)) { ... req.finish(st); }
+inline send_req_ref next( asrt_send_req_list& list ) noexcept
+{
+        return send_req_ref{ &list };
+}
+
 }  // namespace asrt

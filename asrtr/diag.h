@@ -57,17 +57,20 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag );
 /// that cannot strip the path at compile time.
 
 #ifndef ASRT_FILENAME
-#define ASRT_FILENAME                                                 \
-        ( strrchr( __FILE__, '/' )  ? strrchr( __FILE__, '/' ) + 1 :  \
-          strrchr( __FILE__, '\\' ) ? strrchr( __FILE__, '\\' ) + 1 : \
-                                      __FILE__ )
+
+#if defined( __FILE_NAME__ )
+#define ASRT_FILENAME __FILE_NAME__
+#else
+#error "ASRT_FILENAME not defined and __FILE_NAME__ is unavailable on this compiler"
+#endif
+
 #endif
 
 /// Check @p x; if false, mark the record as failed and send a RECORD message (non-fatal).
 #define ASRT_CHECK( diag, rec, x )                                               \
         do {                                                                     \
                 if ( !( x ) ) {                                                  \
-                        asrt_fail( ( rec ) );                                    \
+                        ( rec )->state = ASRT_TEST_FAIL;                         \
                         asrt_diag_client_record(                                 \
                             ( diag ), ASRT_FILENAME, __LINE__, #x, NULL, NULL ); \
                 }                                                                \
@@ -77,7 +80,7 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag );
 #define ASRT_REQUIRE( diag, rec, x )                                             \
         do {                                                                     \
                 if ( !( x ) ) {                                                  \
-                        asrt_fail( ( rec ) );                                    \
+                        ( rec )->state = ASRT_TEST_FAIL;                         \
                         asrt_diag_client_record(                                 \
                             ( diag ), ASRT_FILENAME, __LINE__, #x, NULL, NULL ); \
                         return ASRT_SUCCESS;                                     \
