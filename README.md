@@ -93,6 +93,32 @@ sequenceDiagram
 
 The flow is unidirectional — the target fires records and the host accumulates them. There is no acknowledgement or handshake; records are best-effort within the existing reliable byte stream.
 
+### Reactor side
+
+Assertions are written with `ASRT_CHECK` (non-fatal — records the failure and continues) and `ASRT_REQUIRE` (fatal — records the failure and returns immediately):
+
+```c
+static enum asrt_status measure_voltage( struct asrt_record* rec ) {
+    float v = adc_read();
+    ASRT_CHECK(   &assm.diag, rec, v > 2.5f );  // records failure, continues
+    ASRT_REQUIRE( &assm.diag, rec, v < 5.0f );  // records failure, aborts test
+    return ASRT_SUCCESS;
+}
+```
+
+### Controller side
+
+After each test completes, drain and inspect the accumulated records:
+
+```c
+struct asrt_allocator    alloc = asrt_default_allocator();
+struct asrt_diag_record* r;
+while ( ( r = asrt_diag_server_take_record( &diag ) ) != NULL ) {
+    printf( "FAIL %s:%u  %s\n", r->file, r->line, r->extra ? r->extra : "" );
+    asrt_diag_free_record( &alloc, r );
+}
+```
+
 ## Parameter channel
 
 In addition to test control and diagnostics, the framework provides a **parameter channel** (channel ID 4) for querying structured configuration data from the target at runtime.
@@ -118,6 +144,31 @@ sequenceDiagram
     Note over Host,Target: Responses are cached – repeated queries are served locally
 ```
 
+### Controller side
+
+Build a `flat_tree` of typed values and advertise it to the reactor with a READY message:
+
+```c
+asrt_param_server_set_tree( &param, &tree );
+asrt_param_server_send_ready( &param, root_id, timeout_ms, on_ack, ctx );
+```
+
+The `flat_tree` is borrowed — it must remain valid for the duration of the test.
+
+### Reactor side (C++)
+
+```cpp
+// Fetch a value by known node ID
+auto v = co_await asrt::fetch< uint32_t >( param_client, root_id );
+uint32_t baud = v.value;
+
+// Find a child node by key within a parent object
+auto e = co_await asrt::find< float >( param_client, root_id, "vref" );
+float vref = e.value;
+```
+
+Responses are cached locally — repeated queries for the same node skip the round-trip.
+
 ## Collector channel
 
 The **collector channel** (channel ID 5) lets test code on the target push structured results — measurements, traces, collected samples — up to the host during a test run. The host assembles the incoming data into a `flat_tree` that can be inspected or exported after the test ends.
@@ -138,6 +189,26 @@ sequenceDiagram
 The controller signals readiness with a READY message, the reactor acknowledges, then pushes APPEND messages — one per tree node, fire-and-forget (no per-append ACK). The controller assembles incoming nodes into a `flat_tree`. If an append fails (duplicate node, invalid parent, tree full), the controller sends an ERROR and the session is aborted.
 
 Node IDs are auto-assigned: the READY message carries a `next_node_id` counter that both sides use to stay in sync without per-node negotiation.
+
+### Controller side
+
+Start a collection session before the test and read the tree after it ends:
+
+```c
+asrt_collect_server_send_ready( &coll, root_id, timeout_ms, on_ack, ctx );
+
+// After the test ends:
+struct asrt_flat_tree const* tree = asrt_collect_server_tree( &coll );
+```
+
+### Reactor side (C++)
+
+```cpp
+flat_id root   = asrt::root_id( collect_client );
+flat_id result = co_await asrt::append< asrt::obj >( collect_client, root,   "result" );
+                 co_await asrt::append< uint32_t  >( collect_client, result, "count", 42 );
+                 co_await asrt::append< float     >( collect_client, result, "mean",  3.14f );
+```
 
 ## Stream channel
 
@@ -184,6 +255,18 @@ for ( uint32_t i = 0; i < 100; ++i )
         co_await emit( schema, i * 10, 20.0f + 0.1f * i );
 ```
 
+### Controller side
+
+After each test completes, take all schemas and iterate over their records:
+
+```c
+struct asrt_stream_schemas taken = asrt_stream_server_take( &stream );
+for ( uint32_t i = 0; i < taken.schema_count; ++i ) {
+    struct asrt_stream_schema const* s = &taken.schemas[i];
+    // s->fields[j] gives the type tag; s->first is the record linked list
+}
+asrt_stream_schemas_free( &taken );
+```
 
 ## Pure C core
 

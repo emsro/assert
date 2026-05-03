@@ -21,6 +21,9 @@ extern "C" {
 #include "./reactor.h"
 #include "./stream.h"
 
+/// Convenience assembly of all reactor-side channel modules wired together
+/// in the correct order.  Intended for targets that use every channel; for
+/// leaner setups, initialise the individual modules directly.
 struct asrt_reac_assm
 {
         struct asrt_send_req_list  send_queue;
@@ -32,16 +35,20 @@ struct asrt_reac_assm
         struct asrt_stream_client  stream;
 };
 
+/// Initialise all modules in the assembly.  @p desc is the target description;
+/// @p timeout applies to param-channel READY wait.
 enum asrt_status asrt_reac_assm_init(
     struct asrt_reac_assm* assembly,
     char const*            desc,
     uint32_t               timeout );
 
+/// Advance all modules by one tick.  Should be called periodically from the main loop.
 static inline void asrt_reac_assm_tick( struct asrt_reac_assm* assembly, uint32_t now )
 {
         asrt_chann_tick_successors( &assembly->reactor.node, now );
 }
 
+/// Release all resources owned by the assembly modules.
 void asrt_reac_assm_deinit( struct asrt_reac_assm* assembly );
 
 #ifdef __cplusplus

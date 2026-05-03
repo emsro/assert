@@ -16,10 +16,11 @@
 extern "C" {
 #endif
 
+/// Identifies which end of the connection a component belongs to.
 enum asrt_source
 {
-        ASRT_CONTROLLER,
-        ASRT_REACTOR,
+        ASRT_CONTROLLER,  ///< Host side.
+        ASRT_REACTOR,     ///< Target side.
 };
 
 #ifdef __cplusplus

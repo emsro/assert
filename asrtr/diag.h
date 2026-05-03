@@ -22,6 +22,8 @@ extern "C" {
 #include "../asrtl/log.h"
 #include "../asrtl/util.h"
 
+/// Diagnostic client module — DIAG channel, reactor side.
+/// Sends RECORD messages to the controller when assertions fail.
 struct asrt_diag_client
 {
         struct asrt_node            node;
@@ -36,8 +38,11 @@ enum asrt_diag_record_result
         ASRT_DIAG_RECORD_BUSY     = 1,
 };
 
+/// Initialise the diag client and link it into the channel chain after @p prev.
 enum asrt_status asrt_diag_client_init( struct asrt_diag_client* diag, struct asrt_node* prev );
 
+/// Enqueue a diagnostic record sourced from @p file:@p line with optional expression @p extra.
+/// Returns ASRT_DIAG_RECORD_BUSY if a previous record send is still in progress.
 enum asrt_diag_record_result asrt_diag_client_record(
     struct asrt_diag_client* diag,
     char const*              file,
@@ -45,12 +50,11 @@ enum asrt_diag_record_result asrt_diag_client_record(
     char const*              extra,
     asrt_diag_record_done_cb done_cb,
     void*                    done_ptr );
+/// Unlink and release the diag client.
 void asrt_diag_client_deinit( struct asrt_diag_client* diag );
 
-// Helper macro to record filename, if the method in question does not work, alternatives are:
-// - -DASRT_FILENAME=__FILE__ directly (but it is long and includes path)
-// - -DASRT_FILENAME=`"$(notdir $<)"` (works only with some compilers)
-// - -DASRT_FILENAME=__FILE__ and -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/= (only on some compilers)
+/// Resolves to the basename of __FILE__, falling back gracefully on compilers
+/// that cannot strip the path at compile time.
 
 #ifndef ASRT_FILENAME
 #define ASRT_FILENAME                                                 \
@@ -59,6 +63,7 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag );
                                       __FILE__ )
 #endif
 
+/// Check @p x; if false, mark the record as failed and send a RECORD message (non-fatal).
 #define ASRT_CHECK( diag, rec, x )                                               \
         do {                                                                     \
                 if ( !( x ) ) {                                                  \
@@ -68,6 +73,7 @@ void asrt_diag_client_deinit( struct asrt_diag_client* diag );
                 }                                                                \
         } while ( 0 )
 
+/// Check @p x; if false, mark the record as failed, send a RECORD message, and return (fatal).
 #define ASRT_REQUIRE( diag, rec, x )                                             \
         do {                                                                     \
                 if ( !( x ) ) {                                                  \

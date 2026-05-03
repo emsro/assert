@@ -55,6 +55,7 @@ private:
         asrt_stream_schemas _s{};
 };
 
+/// Initialise a stream server and link it into the channel chain after @p prev.
 ASRT_NODISCARD inline status init(
     ref< asrt_stream_server > srv,
     asrt_node&                prev,
@@ -63,16 +64,19 @@ ASRT_NODISCARD inline status init(
         return asrt_stream_server_init( srv, &prev, alloc );
 }
 
+/// Take all received schemas and their records; clears the server's internal state.
 ASRT_NODISCARD inline stream_schemas take( ref< asrt_stream_server > srv )
 {
         return stream_schemas{ asrt_stream_server_take( srv ) };
 }
 
+/// Discard all schemas and records (e.g. at a test boundary).
 inline void clear( ref< asrt_stream_server > srv )
 {
         asrt_stream_server_clear( srv );
 }
 
+/// Free all stream server resources.
 inline void deinit( ref< asrt_stream_server > srv )
 {
         asrt_stream_server_deinit( srv );

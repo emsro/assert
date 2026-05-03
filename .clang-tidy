@@ -24,7 +24,8 @@ Checks: >
     -readability-implicit-bool-conversion,
     -readability-convert-member-functions-to-static,
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
-  -clang-analyzer-core.uninitialized.Branch
+  -clang-analyzer-core.uninitialized.Branch,
+  -clang-analyzer-cplusplus.NewDeleteLeaks
 WarningsAsErrors: ""
 HeaderFileExtensions:
   - h

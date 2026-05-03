@@ -11,12 +11,19 @@
 #ifndef ASRT_ASRT_ASSERT_H
 #define ASRT_ASRT_ASSERT_H
 
+/// Assertion hook.  Define ASRT_ASSERT before including this header to supply
+/// a custom handler.  If ASRT_DEFAULT_ASSERT is defined, falls back to the
+/// standard assert().  Otherwise silently compiles to a no-op so the library
+/// can be used without any standard-library support.
 #ifndef ASRT_ASSERT
 #ifdef ASRT_DEFAULT_ASSERT
 #include <assert.h>
 #define ASRT_ASSERT( x ) assert( x )
 #else
-#define ASRT_ASSERT( x ) ( (void) 0 )
+#define ASRT_ASSERT( x )            \
+        do {                        \
+                (void) sizeof( x ); \
+        } while ( 0 )
 #endif
 #endif
 

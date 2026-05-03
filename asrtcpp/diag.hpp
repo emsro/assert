@@ -23,12 +23,14 @@ namespace asrt
 
 using diag_record = asrt_diag_record;
 
+/// Custom deleter for diag_record unique_ptr; uses the server's allocator.
 struct diag_record_deleter
 {
         struct asrt_allocator* alloc;
         void operator()( asrt_diag_record* rec ) const { asrt_diag_free_record( alloc, rec ); }
 };
 
+/// Initialise a diag server and link it into the channel chain after @p prev.
 ASRT_NODISCARD inline status init(
     ref< asrt_diag_server > d,
     asrt_node&              prev,
@@ -37,12 +39,15 @@ ASRT_NODISCARD inline status init(
         return asrt_diag_server_init( d, &prev, alloc );
 }
 
+/// Remove and return the oldest buffered record as an owning unique_ptr.
+/// Returns an empty unique_ptr if no records are pending.
 ASRT_NODISCARD inline std::unique_ptr< diag_record, diag_record_deleter > take_record(
     ref< asrt_diag_server > d )
 {
         return { asrt_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
 }
 
+/// Free all buffered records and server resources.
 inline void deinit( ref< asrt_diag_server > d )
 {
         asrt_diag_server_deinit( d );

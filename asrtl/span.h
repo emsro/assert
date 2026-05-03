@@ -18,24 +18,27 @@ extern "C" {
 
 #include <stdint.h>
 
+/// Non-owning view of a contiguous byte range [b, e).
 struct asrt_span
 {
-        uint8_t* b;
-        uint8_t* e;
+        uint8_t* b;  ///< Pointer to the first byte.
+        uint8_t* e;  ///< One-past-the-end pointer.
 };
 
-// Returns 1 if the buffer cannot fit `size` bytes, 0 otherwise.
+/// Returns 1 if the buffer cannot fit @p size bytes, 0 otherwise.
 static inline uint8_t asrt_span_unfit_for( struct asrt_span const* buff, uint32_t size )
 {
         return (uint32_t) ( buff->e - buff->b ) < size ? 1U : 0U;
 }
 
+/// Scatter-gather buffer: a primary byte range [b, e) followed by @p rest_count additional spans.
+/// Used to build multi-part messages without copying all segments into one buffer.
 struct asrt_span_span
 {
-        uint8_t*          b;
-        uint8_t*          e;
-        struct asrt_span* rest;
-        uint32_t          rest_count;
+        uint8_t*          b;           ///< Primary buffer start.
+        uint8_t*          e;           ///< Primary buffer one-past-the-end.
+        struct asrt_span* rest;        ///< Optional array of additional byte ranges.
+        uint32_t          rest_count;  ///< Number of entries in @p rest.
 };
 
 #ifdef __cplusplus

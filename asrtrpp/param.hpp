@@ -16,17 +16,15 @@
 #include "../asrtlpp/flat_type_traits.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtr/param.h"
-
-#include <concepts>
-#include <cstdint>
-#include <type_traits>
+#include "./task_unit.hpp"
 
 namespace asrt
 {
 
 using status = asrt_status;
 
-// Trait system to pick C-API callback based on requested type
+/// Trait mapping a C++ type T to its corresponding C callback type and
+/// asrt_param_cb union member pointer.  Specialised for all param value types.
 template < typename T >
 struct param_query_traits;
 
@@ -98,6 +96,7 @@ struct param_query_traits< void > : param_query_traits< asrt_flat_value >
 template < typename T >
 concept has_param_query_traits = requires { typename param_query_traits< T >; };
 
+/// Concept: CB is a typed callback for T (callable as cb(client*, query*, value_type)).
 template < typename CB, typename T >
 concept typed_param_query_callable =
     has_param_query_traits< T > && requires(
@@ -108,6 +107,8 @@ concept typed_param_query_callable =
             { cb( c, q, v ) } -> std::same_as< void >;
     };
 
+/// Initialise the param client, link it after @p prev, and set the response cache buffer.
+/// @p timeout is how long the client waits for a READY from the controller.
 ASRT_NODISCARD inline status init(
     ref< asrt_param_client > client,
     asrt_node&               prev,
@@ -117,21 +118,25 @@ ASRT_NODISCARD inline status init(
         return asrt_param_client_init( client, &prev, msg_buffer, timeout );
 }
 
+/// Returns true once the controller's READY has been received.
 ASRT_NODISCARD inline bool ready( ref< asrt_param_client const > client )
 {
         return client->ready != 0;
 }
 
+/// Returns true if a query is currently in flight.
 ASRT_NODISCARD inline bool query_pending( ref< asrt_param_client const > client )
 {
         return asrt_param_query_pending( client ) != 0;
 }
 
+/// Return the root node ID received in the last READY message.
 ASRT_NODISCARD inline flat_id root_id( ref< asrt_param_client const > client )
 {
         return asrt_param_client_root_id( client );
 }
-
+/// Submit a typed QUERY or FIND_BY_KEY.  T selects the expected value type; if key is non-null,
+/// a FIND_BY_KEY is sent; otherwise a QUERY by node_id.  Callable callback overload.
 template < has_param_query_traits T, typed_param_query_callable< T > CB >
 ASRT_NODISCARD asrt_status
 query( ref< asrt_param_client > cl, asrt_param_query* q, flat_id node_id, char const* key, CB& cb )
@@ -146,7 +151,7 @@ query( ref< asrt_param_client > cl, asrt_param_query* q, flat_id node_id, char c
         q->cb_ptr = &cb;
         return asrt_param_client_query( q, cl, node_id, key );
 }
-
+/// Submit a typed QUERY or FIND_BY_KEY.  Raw function pointer + void* context overload.
 template < has_param_query_traits T >
 ASRT_NODISCARD asrt_status query(
     ref< asrt_param_client >                  cl,
@@ -163,6 +168,7 @@ ASRT_NODISCARD asrt_status query(
         return asrt_param_client_query( q, cl, node_id, key );
 }
 
+/// Submit a QUERY without type filtering.  Raw C callback + void* overload.
 ASRT_NODISCARD inline asrt_status query(
     ref< asrt_param_client > cl,
     asrt_param_query*        q,
@@ -245,9 +251,99 @@ ASRT_NODISCARD inline asrt_status find(
         return query( cl, q, parent_id, key, cb, cb_ptr );
 }
 
+/// Unlink and release the param client.
 inline void deinit( ref< asrt_param_client > client )
 {
         asrt_param_client_deinit( client );
+}
+
+/// Result of a completed param query.
+/// @p key points into the param client's internal cache — valid until the next query.
+template < has_param_query_traits T >
+struct param_result
+{
+        using value_type = param_query_traits< T >::value_type;
+
+        value_type  value;
+        char const* key;  // Points to internal buffer of param client, valid until next query
+        flat_id     next_sibling;
+
+        operator value_type() const { return value; }
+};
+
+
+/// Sender backing co_await fetch<T> and co_await find<T>.
+/// Submits a QUERY or FIND_BY_KEY request and completes with param_result<T>.
+template < has_param_query_traits T >
+struct param_query_sender
+{
+        using sender_concept = ecor::sender_t;
+
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( param_result< T > ),
+            ecor::set_error_t( status ) >;
+
+        asrt_param_client* client;
+        char const*        key;
+        flat_id            node_id;
+
+        template < ecor::receiver R >
+        struct op
+        {
+                asrt_param_query   q = {};
+                asrt_param_client* c;
+                char const*        key;
+                flat_id            node_id;
+                R                  recv;
+
+                op( R&& r, asrt_param_client* client, char const* k, flat_id id )
+                  : c( client )
+                  , key( k )
+                  , node_id( id )
+                  , recv( (R&&) r )
+                {
+                }
+
+                void start()
+                {
+                        using traits = param_query_traits< T >;
+                        auto cb =
+                            +[]( asrt_param_client*, asrt_param_query* q, traits::raw_type raw ) {
+                                    auto& self = *reinterpret_cast< op* >( q->cb_ptr );
+                                    if ( q->error_code != ASRT_PARAM_ERR_NONE )
+                                            self.recv.set_error( ASRT_RECV_ERR );
+                                    else
+                                            self.recv.set_value( param_result< T >{
+                                                static_cast< traits::value_type >( raw ),
+                                                q->key,
+                                                q->next_sibling } );
+                            };
+                        auto s = query< T >( c, &q, node_id, key, cb, this );
+                        if ( s != ASRT_SUCCESS )
+                                recv.set_error( ASRT_RECV_ERR );
+                }
+        };
+
+
+        template < ecor::receiver R >
+        auto connect( R&& r ) && noexcept
+        {
+                return op< R >{ (R&&) r, client, key, node_id };
+        }
+};
+
+/// co_await fetch<T>(client, node_id) — query a node by ID; completes with param_result<T>.
+template < typename T >
+ecor::sender auto fetch( ref< asrt_param_client > client, flat_id node_id )
+{
+        return param_query_sender< T >{ client, nullptr, node_id };
+}
+
+/// co_await find<T>(client, parent_id, key) — find a child by key; completes with param_result<T>.
+template < typename T >
+ecor::sender auto find( ref< asrt_param_client > client, flat_id parent_id, char const* key )
+{
+        return param_query_sender< T >{ client, key, parent_id };
 }
 
 }  // namespace asrt

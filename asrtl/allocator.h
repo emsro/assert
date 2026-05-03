@@ -22,19 +22,23 @@ extern "C" {
 #include <string.h>
 
 
+/// Allocator vtable.  Pair a function pointer for allocation, one for freeing,
+/// and an opaque context pointer that is forwarded to both.
 struct asrt_allocator
 {
-        void* ptr;
+        void* ptr;  ///< Opaque context passed to alloc/free.
         void* ( *alloc )( void* ptr, uint32_t size );
         void ( *free )( void* ptr, void* mem );
 };
 
+/// Allocate @p size bytes using the allocator.  Returns NULL on failure.
 static inline void* asrt_alloc( struct asrt_allocator* a, uint32_t size )
 {
         ASRT_ASSERT( a && a->free );
         return a->alloc( a->ptr, size );
 }
 
+/// Free memory previously returned by asrt_alloc and set *mem to NULL.
 static inline void asrt_free( struct asrt_allocator* a, void** mem )
 {
         ASRT_ASSERT( a && a->free );
@@ -43,6 +47,8 @@ static inline void asrt_free( struct asrt_allocator* a, void** mem )
         *mem = NULL;
 }
 
+/// Copy the content of @p buff into a newly allocated NUL-terminated string.
+/// Frees the previous content of @p buff->b first.  Returns the new pointer.
 char* asrt_realloc_str( struct asrt_allocator* a, struct asrt_span* buff );
 
 static inline void* asrt_call_malloc( void* ptr, uint32_t size )
@@ -57,6 +63,7 @@ static inline void asrt_call_free( void* ptr, void* mem )
         free( mem );
 }
 
+/// Return an allocator backed by the process-level malloc/free.
 static inline struct asrt_allocator asrt_default_allocator( void )
 {
         return ( struct asrt_allocator ){

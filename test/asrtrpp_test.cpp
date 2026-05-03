@@ -19,7 +19,6 @@
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
-#include "../asrtrpp/param_sender.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "../asrtrpp/stream.hpp"
 #include "../asrtrpp/task_unit.hpp"
@@ -2303,4 +2302,62 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: multi-field emit done_cb" )
         uint16_t val;
         asrt_u8d2_to_u16( rec->data + 1, &val );
         CHECK_EQ( 0x1234, val );
+}
+
+// ---------------------------------------------------------------------------
+// diag_rec_sender
+
+namespace
+{
+
+struct diag_sender_ctx : diag_ctx
+{
+        asrt::malloc_free_memory_resource mem;
+        asrt::task_ctx                    tctx{ mem };
+
+        template < typename F >
+        asrt_test_state run_task( F&& make_task )
+        {
+                struct test_recv
+                {
+                        using receiver_concept = ecor::receiver_t;
+                        asrt_test_state* out;
+
+                        void set_value() { *out = ASRT_TEST_PASS; }
+                        void set_error( ecor::task_error ) { *out = ASRT_TEST_FAIL; }
+                        void set_error( asrt::status ) { *out = ASRT_TEST_ERROR; }
+                        void set_error( asrt::test_fail_t ) { *out = ASRT_TEST_FAIL; }
+                        void set_stopped() { *out = ASRT_TEST_FAIL; }
+                };
+                asrt_test_state result = ASRT_TEST_INIT;
+                auto            op     = make_task( tctx ).connect( test_recv{ &result } );
+                op.start();
+                for ( int i = 0; i < 50 && result == ASRT_TEST_INIT; i++ ) {
+                        drain( &sq_d, &coll_d );
+                        tctx.tick();
+                }
+                return result;
+        }
+};
+
+}  // namespace
+
+static asrt::task< void > do_diag_rec(
+    asrt::task_ctx&,
+    asrt_diag_client& d,
+    char const*       file,
+    uint32_t          line )
+{
+        co_await asrt::rec_diag( d, file, line, nullptr );
+}
+
+TEST_CASE_FIXTURE( diag_sender_ctx, "diag_rec_sender" )
+{
+        auto state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return do_diag_rec( ctx, d, "diag_sender_test.c", 77 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        REQUIRE_EQ( 1U, coll_d.data.size() );
+        assert_diag_record( coll_d.data.front(), 77 );
+        coll_d.data.pop_front();
 }

@@ -24,6 +24,8 @@ struct malloc_free_memory_resource
         void deallocate( void* p, std::size_t, std::size_t ) noexcept { std::free( p ); }
 };
 
+/// Event-loop context that owns a coroutine task scheduler.
+/// Call tick() once per main-loop iteration to drive all pending tasks.
 struct task_ctx
 {
         task_ctx( auto& mem_res )
@@ -51,6 +53,7 @@ struct test_fail_t
 };
 static constexpr test_fail_t test_fail{};
 
+/// Error signatures and trace policy used by all asrt tasks.
 struct task_cfg
 {
         using extra_error_signatures = ecor::
@@ -58,10 +61,15 @@ struct task_cfg
         using trace_type = ecor::task_default_trace;
 };
 
+/// Coroutine task type used throughout asrt's C++ layer.
+/// Supports asrt::status and asrt::test_fail_t error channels.
 template < typename T >
 using task = ecor::task< T, asrt::task_cfg >;
 
 
+/// Generic sender adapter.  Given a context type T that provides value_sig
+/// and implements start(*this, op), wraps it into a sender that also propagates
+/// asrt::status as an error channel.
 template < typename T >
 struct gen_sender
 {
@@ -96,5 +104,45 @@ struct gen_sender
         }
 };
 
+/// Sender that completes with success if the contained status is ASRT_SUCCESS, and with test_fail
+/// otherwise. Can also be used as simple status wrapper - is comparable with status and convertible
+/// to status.
+struct status_sender
+{
+        using sender_concept = ecor::sender_t;
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
+
+        asrt_status status;
+
+        status_sender( asrt_status s )
+          : status( s )
+        {
+        }
+
+        template < ecor::receiver R >
+        struct op
+        {
+                asrt_status s;
+                R           recv;
+
+                void start()
+                {
+                        if ( s == ASRT_SUCCESS )
+                                recv.set_value();
+                        else
+                                recv.set_error( s );
+                }
+        };
+
+        template < ecor::receiver R >
+        auto connect( R&& r ) && noexcept
+        {
+                return op< R >{ status, (R&&) r };
+        }
+
+        constexpr      operator asrt_status() const { return status; }
+        constexpr bool operator==( asrt_status st ) const { return status == st; }
+};
 
 }  // namespace asrt

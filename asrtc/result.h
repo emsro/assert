@@ -20,11 +20,12 @@ extern "C" {
 
 #include <stdint.h>
 
+/// Outcome of a single test execution, delivered to the asrt_test_result_callback.
 struct asrt_result
 {
-        uint16_t         test_id;
-        uint32_t         run_id;
-        asrt_test_result res;
+        uint16_t         test_id;  ///< ID of the test that was executed.
+        uint32_t         run_id;   ///< Unique run token issued by the controller.
+        asrt_test_result res;      ///< Pass / failure / error code.
 };
 
 #ifdef __cplusplus

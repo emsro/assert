@@ -20,6 +20,7 @@
 #include "../asrtl/log.h"
 #include "../asrtlpp/callback.hpp"
 #include "../asrtlpp/fmt.hpp"
+#include "../asrtlpp/task.hpp"
 #include "../asrtlpp/util.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/reactor.hpp"
@@ -75,6 +76,47 @@ static void deliver( asrt_send_req_list* sq, asrt_node* peer_head )
 namespace
 {
 
+// Receiver that maps coroutine completions to asrt_test_state.
+struct task_result_receiver
+{
+        using receiver_concept = ecor::receiver_t;
+        asrt_test_state* out;
+
+        void set_value() { *out = ASRT_TEST_PASS; }
+        void set_error( ecor::task_error ) { *out = ASRT_TEST_FAIL; }
+        void set_error( asrt::status ) { *out = ASRT_TEST_ERROR; }
+        void set_error( asrt::test_fail_t ) { *out = ASRT_TEST_FAIL; }
+        void set_stopped() { *out = ASRT_TEST_FAIL; }
+        auto get_env() const noexcept { return ecor::empty_env{}; }
+};
+
+// Connect and drive a coroutine task to completion.
+// make_task(task_ctx&) returns the task; pump() is called once per iteration
+// before tctx.tick().
+template < typename MakeTask, typename Pump >
+asrt_test_state run_until_done(
+    asrt::task_ctx& tctx,
+    MakeTask&&      make_task,
+    Pump&&          pump,
+    int             max_iters = 200 )
+{
+        asrt_test_state result = ASRT_TEST_INIT;
+        auto            op     = make_task( tctx ).connect( task_result_receiver{ &result } );
+        op.start();
+        for ( int i = 0; i < max_iters && result == ASRT_TEST_INIT; i++ ) {
+                tctx.tick();
+                pump();
+        }
+        return result;
+}
+
+// Mixin that adds coroutine infrastructure (memory resource + task context).
+struct coroutine_support
+{
+        asrt::malloc_free_memory_resource mem;
+        asrt::task_ctx                    tctx{ mem };
+};
+
 struct passing_test
 {
         char const* name() const { return "passing_test"; }
@@ -98,7 +140,7 @@ struct failing_test
 // ---------------------------------------------------------------------------
 // paired fixture: controller <-> reactor wired in-process
 
-struct paired_ctx
+struct paired_ctx : coroutine_support
 {
         int          init_cb_count = 0;
         asrt::status init_status   = ASRT_SUCCESS;
@@ -166,6 +208,17 @@ struct paired_ctx
                         deliver( &r_send_queue, &c.node );
                 }
                 CHECK( asrt::is_idle( c ) );
+        }
+
+        template < typename F >
+        asrt_test_state run_task( F&& make_task )
+        {
+                return run_until_done( tctx, std::forward< F >( make_task ), [&] {
+                        (void) asrt::tick( asrt::node( c ), t++ );
+                        deliver( &c_send_queue, &r.node );
+                        (void) asrt::tick( asrt::node( r ), t++ );
+                        deliver( &r_send_queue, &c.node );
+                } );
         }
 };
 
@@ -583,12 +636,17 @@ struct collect_server_ctx
 
         collect_server_ctx()
         {
+                ASRT_INF_LOG( "asrtcpp_test", "collect_server_ctx init" );
                 head.send_queue = &sq;
                 if ( asrt::init( srv, head, asrt_default_allocator(), 4, 16 ) != ASRT_SUCCESS )
                         throw std::runtime_error( "collect_server init failed" );
         }
 
-        ~collect_server_ctx() { asrt::deinit( srv ); }
+        ~collect_server_ctx()
+        {
+                ASRT_INF_LOG( "asrtcpp_test", "collect_server_ctx deinit" );
+                asrt::deinit( srv );
+        }
 
         void drain() { drain_send_queue( &sq, &coll ); }
 
@@ -745,4 +803,233 @@ TEST_CASE_FIXTURE( collect_server_ctx, "collect_server_duplicate_append_sends_er
         REQUIRE_GE( coll.data.size(), 1U );
         CHECK_EQ( ASRT_COLL, coll.data.back().id );
         CHECK_EQ( ASRT_COLLECT_MSG_ERROR, coll.data.back().data[0] );
+}
+
+// ---------------------------------------------------------------------------
+// Sender-based controller API
+//
+// Each test co_awaits a sender variant and verifies the completion value.
+// Free functions are used because ecor coroutines require task_ctx& as their
+// first argument (lambdas that are coroutines are not supported by ecor).
+
+static asrt::task< void > cntr_sender_start( asrt::task_ctx&, asrt_controller& c, uint32_t timeout )
+{
+        co_await asrt::start( c, timeout );
+}
+
+static asrt::task< void > cntr_sender_query_desc(
+    asrt::task_ctx&,
+    asrt_controller& c,
+    std::string&     out,
+    uint32_t         timeout )
+{
+        out = co_await asrt::query_desc( c, timeout );
+}
+
+static asrt::task< void > cntr_sender_query_test_count(
+    asrt::task_ctx&,
+    asrt_controller& c,
+    uint16_t&        out,
+    uint32_t         timeout )
+{
+        out = co_await asrt::query_test_count( c, timeout );
+}
+
+static asrt::task< void > cntr_sender_query_test_info(
+    asrt::task_ctx&,
+    asrt_controller& c,
+    uint16_t         id,
+    uint16_t&        out_tid,
+    std::string&     out_name,
+    uint32_t         timeout )
+{
+        auto [tid, name] = co_await asrt::query_test_info( c, id, timeout );
+        out_tid          = tid;
+        out_name         = name;
+}
+
+static asrt::task< void > cntr_sender_exec_test(
+    asrt::task_ctx&,
+    asrt_controller&  c,
+    uint16_t          id,
+    asrt_test_result& out,
+    uint32_t          timeout )
+{
+        asrt_result res = co_await asrt::exec_test( c, id, timeout );
+        out             = res.res;
+}
+
+// cntr_start_sender: the constructor already calls start() via callback variant;
+// call it again on a fresh controller to exercise the sender path.
+TEST_CASE( "cntr_start_sender" )
+{
+        coroutine_support cs;
+
+        asrt::unit< passing_test > t0;
+        asrt_send_req_list         r_sq = {};
+        asrt_send_req_list         c_sq = {};
+        asrt_reactor               r;
+        asrt_controller            c;
+        uint32_t                   t = 1;
+
+        REQUIRE( asrt::init( r, r_sq, "sender_reactor" ) == ASRT_SUCCESS );
+        REQUIRE( asrt::add_test( r, t0 ) == ASRT_SUCCESS );
+        REQUIRE( asrt::init( c, &c_sq, asrt_default_allocator() ) == ASRT_SUCCESS );
+
+        auto state = run_until_done(
+            cs.tctx,
+            [&]( asrt::task_ctx& ctx ) {
+                    return cntr_sender_start( ctx, c, 1000 );
+            },
+            [&] {
+                    (void) asrt::tick( asrt::node( c ), t++ );
+                    deliver( &c_sq, &r.node );
+                    (void) asrt::tick( asrt::node( r ), t++ );
+                    deliver( &r_sq, &c.node );
+            } );
+
+        CHECK_EQ( ASRT_TEST_PASS, state );
+
+        asrt::deinit( c );
+        asrt::deinit( r );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_query_desc_sender" )
+{
+        std::string desc;
+        auto        state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_query_desc( ctx, c, desc, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( "paired_reactor", desc );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_query_test_count_sender" )
+{
+        uint16_t count = 0;
+        auto     state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_query_test_count( ctx, c, count, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( 2U, count );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_query_test_info_sender_id0" )
+{
+        uint16_t    tid = 0xffff;
+        std::string name;
+        auto        state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_query_test_info( ctx, c, 0, tid, name, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( 0U, tid );
+        CHECK_EQ( "passing_test", name );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_query_test_info_sender_id1" )
+{
+        uint16_t    tid = 0xffff;
+        std::string name;
+        auto        state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_query_test_info( ctx, c, 1, tid, name, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( 1U, tid );
+        CHECK_EQ( "failing_test", name );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_exec_test_sender_pass" )
+{
+        asrt_test_result res   = ASRT_TEST_RESULT_ERROR;
+        auto             state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_exec_test( ctx, c, 0, res, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_RESULT_SUCCESS, res );
+}
+
+TEST_CASE_FIXTURE( paired_ctx, "cntr_exec_test_sender_fail" )
+{
+        asrt_test_result res   = ASRT_TEST_RESULT_ERROR;
+        auto             state = run_task( [&]( asrt::task_ctx& ctx ) {
+                return cntr_sender_exec_test( ctx, c, 1, res, 1000 );
+        } );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+        CHECK_EQ( ASRT_TEST_RESULT_FAILURE, res );
+}
+
+// ---------------------------------------------------------------------------
+// collect_send_ready_sender and param_send_ready_sender
+
+static asrt::task< void > do_collect_send_ready(
+    asrt::task_ctx&,
+    asrt_collect_server& s,
+    uint32_t             timeout )
+{
+        ASRT_INF_LOG( "asrtcpp_test", "Applying send ready" );
+        co_await asrt::send_ready( s, 1U, timeout );
+}
+
+static asrt::task< void > do_param_send_ready(
+    asrt::task_ctx&,
+    asrt_param_server& s,
+    uint32_t           timeout )
+{
+        co_await asrt::send_ready( s, 1U, timeout );
+}
+
+TEST_CASE( "collect_send_ready_sender" )
+{
+        collect_server_ctx ctx;
+        coroutine_support  cs;
+        auto               state = run_until_done(
+            cs.tctx,
+            [&]( asrt::task_ctx& tc ) {
+                    return do_collect_send_ready( tc, ctx.srv, 1000 );
+            },
+            [&] {
+                    ctx.drain();
+                    bool const had_ready = !ctx.coll.data.empty();
+                    ctx.coll.data.clear();
+                    if ( had_ready ) {
+                            uint8_t buf[16];
+                            CHECK_EQ(
+                                ASRT_SUCCESS,
+                                inject_csrv_msg(
+                                    &asrt::node( ctx.srv ), buf, build_csrv_ready_ack( buf ) ) );
+                    }
+                    CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( ctx.srv ), ctx.t++ ) );
+            },
+            50 );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+}
+
+TEST_CASE( "param_send_ready_sender" )
+{
+        param_server_ctx      ctx;
+        struct asrt_flat_tree tree;
+        asrt_flat_tree_init( &tree, asrt_default_allocator(), 4, 16 );
+        asrt_flat_tree_append_cont( &tree, 0, 1, nullptr, ASRT_FLAT_CTYPE_OBJECT );
+        asrt::set_tree( ctx.srv, tree );
+
+        auto state = run_until_done(
+            ctx.tctx,
+            [&]( asrt::task_ctx& tc ) {
+                    return do_param_send_ready( tc, ctx.srv, 1000 );
+            },
+            [&] {
+                    ctx.drain_param();
+                    bool const had_ready = !ctx.param_coll.data.empty();
+                    ctx.param_coll.data.clear();
+                    if ( had_ready ) {
+                            uint8_t   ack_msg[5] = { ASRT_PARAM_MSG_READY_ACK, 0, 1, 0, 0 };
+                            asrt_span sp         = { .b = ack_msg, .e = ack_msg + sizeof ack_msg };
+                            CHECK_EQ( ASRT_SUCCESS, asrt::recv( asrt::node( ctx.srv ), sp ) );
+                    }
+                    CHECK_EQ( ASRT_SUCCESS, asrt::tick( asrt::node( ctx.srv ), ctx.t++ ) );
+            },
+            50 );
+        CHECK_EQ( ASRT_TEST_PASS, state );
+
+        asrt_flat_tree_deinit( &tree );
 }

@@ -22,9 +22,7 @@
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
-#include "../asrtrpp/param_sender.hpp"
 #include "../asrtrpp/stream.hpp"
-#include "../asrtrpp/stream_sender.hpp"
 #include "../asrtrpp/task_unit.hpp"
 #include "./task.hpp"
 

@@ -19,6 +19,8 @@ namespace asrt
 {
 
 
+/// Coroutine context object passed to task tests.
+/// Provides query() to drive pending coroutine operations from inside exec().
 struct task_test
 {
         task_test( task_ctx& ctx )
@@ -39,7 +41,12 @@ private:
 using ecor::suspend;
 using ecor::with_error;
 
-// XXX: do some form of type erasure to reduce code ize.
+/// Coroutine test adaptor that wraps a definition type T into an asrt_test
+/// driven by an ecor coroutine.  T must provide:
+///   char const* name  — test name
+///   task<void> exec() — coroutine body; co_await any asrt sender inside it
+/// The coroutine runs incrementally: the reactor calls cb() on every tick
+/// until exec() completes.
 template < typename T >
 struct task_unit : asrt_test
 {

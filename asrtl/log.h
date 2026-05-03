@@ -20,21 +20,29 @@
 extern "C" {
 #endif
 
+/// Log severity levels.
 enum asrt_log_level
 {
-        ASRT_LOG_DEBUG = 1,
-        ASRT_LOG_INFO  = 2,
-        ASRT_LOG_ERROR = 4,
+        ASRT_LOG_DEBUG = 1,  ///< Verbose trace messages.
+        ASRT_LOG_INFO  = 2,  ///< Informational messages.
+        ASRT_LOG_ERROR = 4,  ///< Error conditions.
 };
 
+/// Emit a log message.  The implementation must be provided by the application
+/// via ASRT_DEFINE_GPOS_LOG() or a custom definition of asrt_log_impl.
 void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... );
 
+/// Log a DEBUG message from the given @p module.
 #define ASRT_DBG_LOG( module, ... ) asrt_log( ASRT_LOG_DEBUG, module, __VA_ARGS__ )
 
+/// Log an INFO message from the given @p module.
 #define ASRT_INF_LOG( module, ... ) asrt_log( ASRT_LOG_INFO, module, __VA_ARGS__ )
 
+/// Log an ERROR message from the given @p module.
 #define ASRT_ERR_LOG( module, ... ) asrt_log( ASRT_LOG_ERROR, module, __VA_ARGS__ )
 
+/// Define the log backend implementation (asrt_log_impl) with timestamps and
+/// ANSI colour-coded level prefixes, writing to stderr.
 #define ASRT_DEFINE_GPOS_LOG_IMPL                                                             \
         void asrt_log_impl(                                                                   \
             enum asrt_log_level level, char const* module, char const* fmt, va_list args )    \
@@ -66,6 +74,8 @@ void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, .
                 fprintf( stderr, "\n" );                                                      \
         }
 
+/// Define both asrt_log_impl and the public asrt_log() dispatcher in one
+/// translation unit.  Include this macro in exactly one .c/.cpp file.
 #define ASRT_DEFINE_GPOS_LOG()                                                               \
         ASRT_DEFINE_GPOS_LOG_IMPL                                                            \
         void asrt_log( enum asrt_log_level level, char const* module, char const* fmt, ... ) \

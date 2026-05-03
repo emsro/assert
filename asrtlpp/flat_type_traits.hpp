@@ -19,19 +19,21 @@ namespace asrt
 
 using flat_id = asrt_flat_id;
 
-// Shared tag types for object/array containers
+/// Tag type representing a flat-tree OBJECT container node.
 struct obj
 {
 };
+/// Tag type representing a flat-tree ARRAY container node.
 struct arr
 {
 };
 
-// Base trait system mapping C++ types to flat_tree value metadata.
-// Each specialisation exposes:
-//   raw_type   — the type stored in the C union (e.g. uint32_t for bool)
-//   value_type — the C++ facing type
-//   flat_type  — the asrt_flat_value_type constant
+/// Trait mapping a C++ type to its flat_tree metadata.
+/// Each specialisation provides:
+///   raw_type   — the type stored inside the C union
+///   value_type — the C++ facing type (often the same)
+///   flat_type  — the asrt_flat_value_type constant
+///   is_scalar  — true for leaf nodes, false for containers
 template < typename T >
 struct flat_type_traits;
 

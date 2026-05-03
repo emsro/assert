@@ -23,20 +23,29 @@ extern "C" {
 
 #include <stdint.h>
 
+/// A single test registered with the reactor.
+/// Must remain at a stable address from the point of registration until
+/// asrt_reactor_deinit() is called — the reactor holds a raw pointer to it.
+///
+/// Lifetime of a test execution: the controller sends a TEST_START message,
+/// the reactor calls start_f once per tick until start_f returns, then sends
+/// the result back.  The same asrt_test instance may be executed multiple times
+/// across different test runs without re-registration.
 struct asrt_test
 {
-        char const*        desc;
-        void*              ptr;
-        asrt_test_callback start_f;
-        struct asrt_test*  next;
+        char const*        desc;     ///< Human-readable test name.
+        void*              ptr;      ///< Context pointer forwarded to start_f.
+        asrt_test_callback start_f;  ///< Entry point; called each tick while the test is running.
+        struct asrt_test*  next;     ///< Intrusive linked-list link.
 };
 
+/// Internal state machine states for the reactor's CORE channel.
 enum asrt_reactor_state
 {
-        ASRT_REAC_IDLE        = 1,
-        ASRT_REAC_TEST_EXEC   = 2,
-        ASRT_REAC_TEST_REPORT = 3,
-        ASRT_REAC_WAIT_SEND   = 4,  // blocked until test_start_msg send completes
+        ASRT_REAC_IDLE        = 1,  ///< No test running, ready for requests.
+        ASRT_REAC_TEST_EXEC   = 2,  ///< Test is executing (start_f being called each tick).
+        ASRT_REAC_TEST_REPORT = 3,  ///< Test finished, sending the result message.
+        ASRT_REAC_WAIT_SEND   = 4,  ///< Blocked until test_start_msg send completes.
 };
 
 enum asrt_reactor_flags
@@ -85,18 +94,23 @@ struct asrt_reactor
         struct asrt_u8d8msg            test_result_msg;
 };
 
+/// Initialise the reactor and link it into @p send_queue.
+/// @p desc is a human-readable description of the target (borrowed, must remain valid).
 enum asrt_status asrt_reactor_init(
     struct asrt_reactor*       reac,
     struct asrt_send_req_list* send_queue,
     char const*                desc );
 
+/// Initialise a test structure.  @p ptr is forwarded to @p start_f on every execution tick.
 enum asrt_status asrt_test_init(
     struct asrt_test*  t,
     char const*        desc,
     void*              ptr,
     asrt_test_callback start_f );
+/// Append @p test to the reactor’s test list.  The test pointer must remain valid.
 enum asrt_status asrt_reactor_add_test( struct asrt_reactor* reac, struct asrt_test* test );
-void             asrt_reactor_deinit( struct asrt_reactor* reac );
+/// Unlink the reactor from the channel chain and release internal resources.
+void asrt_reactor_deinit( struct asrt_reactor* reac );
 
 #ifdef __cplusplus
 }

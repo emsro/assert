@@ -17,20 +17,26 @@ extern "C" {
 
 #include "./result.h"
 
+/// Called when the protocol handshake completes.  @p s is ASRT_SUCCESS or an error code.
 typedef enum asrt_status ( *asrt_init_callback )( void* ptr, enum asrt_status s );
+/// Called with the result of a TEST_COUNT query.
 typedef enum asrt_status (
     *asrt_test_count_callback )( void* ptr, enum asrt_status s, uint16_t test_count );
+/// Called with the result of a DESC query.
 typedef enum asrt_status ( *asrt_desc_callback )( void* ptr, enum asrt_status s, char const* desc );
+/// Called with the result of a TEST_INFO query.  @p desc is valid until the callback returns.
 typedef enum asrt_status (
     *asrt_test_info_callback )( void* ptr, enum asrt_status s, uint16_t tid, char const* desc );
+/// Called when a test execution completes.  @p res carries test_id, run_id, and result code.
 typedef enum asrt_status (
     *asrt_test_result_callback )( void* ptr, enum asrt_status s, struct asrt_result* res );
 
+/// Lifecycle stage within a handler (init / waiting for reply / done).
 enum asrt_stage_e
 {
-        ASRT_STAGE_INIT    = 0x01,
-        ASRT_STAGE_WAITING = 0x02,
-        ASRT_STAGE_END     = 0x03,
+        ASRT_STAGE_INIT    = 0x01,  ///< Building and sending the request message.
+        ASRT_STAGE_WAITING = 0x02,  ///< Message sent, waiting for the reply.
+        ASRT_STAGE_END     = 0x03,  ///< Reply received or timed out.
 };
 
 struct asrt_init_handler

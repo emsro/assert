@@ -24,8 +24,9 @@ namespace asrt
 using send_req_list = asrt_send_req_list;
 using record        = asrt_record;
 
-// Test harness that stores test T which should be callable with a record reference and return a
-// status.
+/// Test adaptor that wraps a synchronous callable T into an asrt_test.
+/// T must provide name() -> char const* and operator()(record&) -> asrt_status.
+/// The instance must remain at a stable address for the lifetime of the reactor.
 template < typename T >
 struct unit : asrt_test
 {
@@ -51,7 +52,8 @@ struct unit : asrt_test
         T test;
 };
 
-/// XXX: add C++ init to other asrt:: abstractions, inluding deinit
+/// Initialise a reactor and wire it to @p req_l for outgoing messages.
+/// @p desc is a human-readable target description (borrowed).
 ASRT_NODISCARD inline enum asrt_status init(
     ref< asrt_reactor > reac,
     send_req_list&      req_l,
@@ -59,12 +61,13 @@ ASRT_NODISCARD inline enum asrt_status init(
 {
         return asrt_reactor_init( reac, &req_l, desc );
 }
-
+/// Append @p test to the reactor's test list.
 ASRT_NODISCARD inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )
 {
         return asrt_reactor_add_test( reac, &test );
 }
 
+/// Unlink the reactor from the channel chain and release its resources.
 inline void deinit( ref< asrt_reactor > reac )
 {
         asrt_reactor_deinit( reac );
