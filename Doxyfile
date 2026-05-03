@@ -1,0 +1,45 @@
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = "asrt"
+PROJECT_BRIEF          = "Automated System Runtime Testing library"
+OUTPUT_DIRECTORY       =
+
+JAVADOC_AUTOBRIEF      = YES
+INLINE_INHERITED_MEMB  = YES
+BUILTIN_STL_SUPPORT    = YES
+NUM_PROC_THREADS       = 1
+TIMESTAMP              = YES
+
+SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = YES
+
+EXTRACT_ALL            = NO
+EXCLUDE_SYMBOLS        = _*
+
+INPUT                  = README.md \
+                         asrtl/ \
+                         asrtc/ \
+                         asrtr/ \
+                         asrtlpp/ \
+                         asrtcpp/ \
+                         asrtrpp/
+USE_MDFILE_AS_MAINPAGE = README.md
+FILE_PATTERNS          = *.h *.hpp *.md
+RECURSIVE              = NO
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_EXTRA_STYLESHEET  = .doxygen/doxygen-awesome-css/doxygen-awesome.css
+HTML_COLORSTYLE        = LIGHT
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+HTML_DYNAMIC_MENUS     = YES
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+TREEVIEW_WIDTH         = 250
+
+GENERATE_LATEX         = NO
+HAVE_DOT               = NO
+CLASS_GRAPH            = NO
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
