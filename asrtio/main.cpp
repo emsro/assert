@@ -199,7 +199,7 @@ task< void > run_tcp(
                 ASRT_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
                 co_await ecor::just_error( ASRT_INIT_ERR );
         }
-        co_await tcp_connect{ client.get(), host, port };
+        co_await tcp_connect{ { client.get(), host, port } };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 
@@ -228,7 +228,7 @@ task< void > run_rsim(
                 ASRT_ERR_LOG( "asrtio", "uv_tcp_init failed: %s", uv_strerror( r ) );
                 co_await ecor::just_error( ASRT_INIT_ERR );
         }
-        co_await tcp_connect{ client.get(), "0.0.0.0", rs->port() };
+        co_await tcp_connect{ { client.get(), "0.0.0.0", rs->port() } };
         auto sys = arena.make< cntr_tcp_sys >( client, clk );
         sys->start();
 

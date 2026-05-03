@@ -66,44 +66,6 @@ struct task_cfg
 template < typename T >
 using task = ecor::task< T, asrt::task_cfg >;
 
-
-/// Generic sender adapter.  Given a context type T that provides value_sig
-/// and implements start(*this, op), wraps it into a sender that also propagates
-/// asrt::status as an error channel.
-template < typename T >
-struct gen_sender
-{
-        using sender_concept = ecor::sender_t;
-        using context_type   = T;
-        using value_sig      = T::value_sig;
-
-        T ctx;
-
-        template < typename... Args >
-        gen_sender( Args&&... args )
-          : ctx( (Args&&) args... )
-        {
-        }
-
-        using completion_signatures =
-            ecor::completion_signatures< value_sig, ecor::set_error_t( asrt::status ) >;
-
-        template < typename R >
-        struct _op
-        {
-                R            recv;
-                context_type ctx;
-
-                void start() { ctx.start( *this ); }
-        };
-
-        template < typename R >
-        _op< R > connect( R&& receiver ) && noexcept
-        {
-                return { (R&&) receiver, std::move( ctx ) };
-        }
-};
-
 /// Sender that completes with success if the contained status is ASRT_SUCCESS, and with test_fail
 /// otherwise. Can also be used as simple status wrapper - is comparable with status and convertible
 /// to status.

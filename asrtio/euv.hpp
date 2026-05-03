@@ -24,7 +24,8 @@ namespace asrtio
 
 struct _tcp_connect
 {
-        using value_sig = ecor::set_value_t();
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( asrt::status ) >;
 
         uv_tcp_t*    client;
         char const*  host;
@@ -44,7 +45,7 @@ struct _tcp_connect
         {
                 if ( uv_ip4_addr( host, port, &dest ) != 0 ) {
                         ASRT_ERR_LOG( "asrtio_main", "Failed to resolve address" );
-                        op.recv.set_error( ASRT_INIT_ERR );
+                        op.receiver.set_error( ASRT_INIT_ERR );
                         return;
                 }
                 req.data = &op;
@@ -59,25 +60,26 @@ struct _tcp_connect
                                         "asrtio_main",
                                         "TCP connect failed: %s",
                                         uv_strerror( status ) );
-                                    op.recv.set_error( ASRT_INIT_ERR );
+                                    op.receiver.set_error( ASRT_INIT_ERR );
                             } else {
-                                    op.recv.set_value();
+                                    op.receiver.set_value();
                             }
                     } );
                 if ( res != 0 ) {
                         ASRT_ERR_LOG(
                             "asrtio_main", "TCP connect request failed: %s", uv_strerror( res ) );
-                        op.recv.set_error( ASRT_INIT_ERR );
+                        op.receiver.set_error( ASRT_INIT_ERR );
                         return;
                 }
         }
 };
 
-using tcp_connect = asrt::gen_sender< _tcp_connect >;
+using tcp_connect = ecor::sender_from< _tcp_connect >;
 
 struct _cntr_start
 {
-        using value_sig = ecor::set_value_t();
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( asrt::status ) >;
 
         asrt_controller&          cntr;
         std::chrono::milliseconds timeout;
@@ -100,10 +102,10 @@ struct _cntr_start
                                         "asrtio_main",
                                         "Controller start callback failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op->recv.set_error( s );
+                                    op->receiver.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op->recv.set_value();
+                            op->receiver.set_value();
                             return ASRT_SUCCESS;
                     },
                     &op,
@@ -111,15 +113,17 @@ struct _cntr_start
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG(
                             "asrtio_main", "Controller start failed: %s", asrt_status_to_str( s ) );
-                        op.recv.set_error( s );
+                        op.receiver.set_error( s );
                 }
         }
 };
-using cntr_start = asrt::gen_sender< _cntr_start >;
+using cntr_start = ecor::sender_from< _cntr_start >;
 
 struct _cntr_query_test_count
 {
-        using value_sig = ecor::set_value_t( uint32_t );
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( uint32_t ),
+            ecor::set_error_t( asrt::status ) >;
 
         asrt_controller&          cntr;
         std::chrono::milliseconds timeout;
@@ -142,10 +146,10 @@ struct _cntr_query_test_count
                                         "asrtio_main",
                                         "Query test count failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op->recv.set_error( s );
+                                    op->receiver.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op->recv.set_value( count );
+                            op->receiver.set_value( count );
                             return ASRT_SUCCESS;
                     },
                     &op,
@@ -153,15 +157,17 @@ struct _cntr_query_test_count
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG(
                             "asrtio_main", "Query test count failed: %s", asrt_status_to_str( s ) );
-                        op.recv.set_error( s );
+                        op.receiver.set_error( s );
                 }
         }
 };
-using cntr_query_test_count = asrt::gen_sender< _cntr_query_test_count >;
+using cntr_query_test_count = ecor::sender_from< _cntr_query_test_count >;
 
 struct _cntr_query_test_info
 {
-        using value_sig = ecor::set_value_t( uint16_t, std::string );
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( uint16_t, std::string ),
+            ecor::set_error_t( asrt::status ) >;
 
         asrt_controller&          cntr;
         uint32_t                  id;
@@ -187,10 +193,10 @@ struct _cntr_query_test_info
                                         "asrtio_main",
                                         "Query test info failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op->recv.set_error( s );
+                                    op->receiver.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op->recv.set_value( tid, std::string{ desc } );
+                            op->receiver.set_value( tid, std::string{ desc } );
                             return ASRT_SUCCESS;
                     },
                     &op,
@@ -198,15 +204,17 @@ struct _cntr_query_test_info
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG(
                             "asrtio_main", "Query test info failed: %s", asrt_status_to_str( s ) );
-                        op.recv.set_error( s );
+                        op.receiver.set_error( s );
                 }
         }
 };
-using cntr_query_test_info = asrt::gen_sender< _cntr_query_test_info >;
+using cntr_query_test_info = ecor::sender_from< _cntr_query_test_info >;
 
 struct _cntr_exec_test
 {
-        using value_sig = ecor::set_value_t( asrt::result );
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( asrt::result ),
+            ecor::set_error_t( asrt::status ) >;
 
         asrt_controller&          cntr;
         uint32_t                  id;
@@ -232,10 +240,10 @@ struct _cntr_exec_test
                                         "asrtio_main",
                                         "Test execution failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op->recv.set_error( s );
+                                    op->receiver.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op->recv.set_value( *res );
+                            op->receiver.set_value( *res );
                             return ASRT_SUCCESS;
                     },
                     &op,
@@ -243,15 +251,16 @@ struct _cntr_exec_test
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG(
                             "asrtio_main", "Test execution failed: %s", asrt_status_to_str( s ) );
-                        op.recv.set_error( s );
+                        op.receiver.set_error( s );
                 }
         }
 };
-using cntr_exec_test = asrt::gen_sender< _cntr_exec_test >;
+using cntr_exec_test = ecor::sender_from< _cntr_exec_test >;
 
 struct _uv_close
 {
-        using value_sig = ecor::set_value_t();
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( asrt::status ) >;
 
         uv_handle_t* handle;
 
@@ -266,10 +275,10 @@ struct _uv_close
                 handle->data = &op;
                 uv_close( handle, []( uv_handle_t* h ) {
                         auto& op = *static_cast< OP* >( h->data );
-                        op.recv.set_value();
+                        op.receiver.set_value();
                 } );
         }
 };
-using uv_close_handle = asrt::gen_sender< _uv_close >;
+using uv_close_handle = ecor::sender_from< _uv_close >;
 
 }  // namespace asrtio

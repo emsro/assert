@@ -160,27 +160,15 @@ struct suite_reporter
 
 struct _cntr_assembly_exec_test
 {
-        using value_sig = ecor::set_value_t( asrt::result );
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( asrt::result ),
+            ecor::set_error_t( asrt::status ) >;
 
         cntr_tcp_sys&             sys;
         uint16_t                  tid;
         asrt_flat_tree const*     tree;
         asrt_flat_id              root_id;
         std::chrono::milliseconds timeout;
-
-        _cntr_assembly_exec_test(
-            cntr_tcp_sys&             s,
-            uint16_t                  tid,
-            asrt_flat_tree const*     t,
-            asrt_flat_id              rid,
-            std::chrono::milliseconds to )
-          : sys( s )
-          , tid( tid )
-          , tree( t )
-          , root_id( rid )
-          , timeout( to )
-        {
-        }
 
         template < typename OP >
         void start( OP& op )
@@ -198,10 +186,10 @@ struct _cntr_assembly_exec_test
                                         "asrtio_main",
                                         "Assembly exec_test failed: %s",
                                         asrt_status_to_str( s ) );
-                                    op->recv.set_error( s );
+                                    op->receiver.set_error( s );
                                     return ASRT_SUCCESS;
                             }
-                            op->recv.set_value( *res );
+                            op->receiver.set_value( *res );
                             return ASRT_SUCCESS;
                     },
                     &op );
@@ -210,11 +198,11 @@ struct _cntr_assembly_exec_test
                             "asrtio_main",
                             "Assembly exec_test failed: %s",
                             asrt_status_to_str( s ) );
-                        op.recv.set_error( s );
+                        op.receiver.set_error( s );
                 }
         }
 };
-using cntr_assembly_exec_test = asrt::gen_sender< _cntr_assembly_exec_test >;
+using cntr_assembly_exec_test = ecor::sender_from< _cntr_assembly_exec_test >;
 
 inline void write_strm_field( std::ostream& os, enum asrt_strm_field_type_e ft, uint8_t*& p )
 {
@@ -362,9 +350,9 @@ inline task< void > run_test_suite(
     output_fs&                fs,
     std::filesystem::path     output_dir )
 {
-        co_await cntr_start{ sys.cntr(), timeout };
+        co_await cntr_start{ { sys.cntr(), timeout } };
 
-        uint32_t count = co_await cntr_query_test_count{ sys.cntr(), timeout };
+        uint32_t count = co_await cntr_query_test_count{ { sys.cntr(), timeout } };
         reporter.on_count( count );
 
         std::set< std::string > unseen_keys;
@@ -372,7 +360,7 @@ inline task< void > run_test_suite(
                 unseen_keys.insert( key );
 
         for ( uint32_t i = 0; i < count; ++i ) {
-                auto [tid, name] = co_await cntr_query_test_info{ sys.cntr(), i, timeout };
+                auto [tid, name] = co_await cntr_query_test_info{ { sys.cntr(), i, timeout } };
 
                 unseen_keys.erase( name );
 
@@ -388,7 +376,11 @@ inline task< void > run_test_suite(
 
                         auto         t0  = sys.clk().now();
                         asrt::result res = co_await cntr_assembly_exec_test{
-                            sys, tid, roots[ri] != 0 ? &params.tree : nullptr, roots[ri], timeout };
+                            { .sys     = sys,
+                              .tid     = tid,
+                              .tree    = roots[ri] != 0 ? &params.tree : nullptr,
+                              .root_id = roots[ri],
+                              .timeout = timeout } };
 
                         bool const do_output = !output_dir.empty();
                         auto const run_dir   = output_dir / name / std::to_string( ri );

@@ -281,7 +281,7 @@ static asrtio::task< void > suite_coro(
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
-        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::param_config no_params;
@@ -465,7 +465,7 @@ static asrtio::task< void > param_e2e_coro(
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
-        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::null_fs nfs;
@@ -1489,7 +1489,7 @@ static asrtio::task< void > suite_param_coro(
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
-        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::null_fs nfs;
@@ -1682,7 +1682,7 @@ static asrtio::task< void > suite_output_coro(
 {
         auto rs = arena.make< asrtio::rsim_ctx >( loop, 42U );
         REQUIRE( rs->start() == ASRT_SUCCESS );
-        co_await asrtio::tcp_connect{ client.get(), "127.0.0.1", rs->port() };
+        co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
         auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
         sys->start();
         asrtio::param_config no_params;
