@@ -6,7 +6,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(cmake/CPM.cmake)
 
-cpmaddpackage("gh:koniarik/ecor@0.2.2")
+cpmaddpackage("gh:koniarik/ecor@0.2.3")
 
 add_subdirectory(asrtl)
 add_subdirectory(asrtc)
