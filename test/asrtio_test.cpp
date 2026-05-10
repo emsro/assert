@@ -10,9 +10,10 @@
 /// PERFORMANCE OF THIS SOFTWARE.
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../asrtcpp/controller.hpp"
-#include "../asrtio/cntr_tcp_sys.hpp"
+#include "../asrtio/cntr_stream_sys.hpp"
 #include "../asrtio/output_fs.hpp"
 #include "../asrtio/rsim.hpp"
+#include "../asrtio/transport.hpp"
 #include "../asrtio/util.hpp"
 #include "../asrtl/chann.h"
 #include "../asrtl/cobs.h"
@@ -26,8 +27,17 @@
 
 #include <chrono>
 #include <doctest/doctest.h>
+#include <fcntl.h>
 #include <map>
 #include <span>
+#include <termios.h>
+#include <unistd.h>
+
+#if defined( __APPLE__ )
+#include <util.h>
+#elif defined( __linux__ )
+#include <pty.h>
+#endif
 
 using namespace std::chrono_literals;
 
@@ -282,7 +292,8 @@ static asrtio::task< void > suite_coro(
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
         co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
-        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::tcp_transport > >(
+            asrtio::tcp_transport{ client }, clk );
         sys->start();
         asrtio::param_config no_params;
         asrtio::null_fs      nfs;
@@ -466,7 +477,8 @@ static asrtio::task< void > param_e2e_coro(
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
         co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
-        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::tcp_transport > >(
+            asrtio::tcp_transport{ client }, clk );
         sys->start();
         asrtio::null_fs nfs;
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params, nfs, {} );
@@ -1490,7 +1502,8 @@ static asrtio::task< void > suite_param_coro(
         auto rs = arena.make< asrtio::rsim_ctx >( loop, seed );
         REQUIRE( rs->start() == ASRT_SUCCESS );
         co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
-        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::tcp_transport > >(
+            asrtio::tcp_transport{ client }, clk );
         sys->start();
         asrtio::null_fs nfs;
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, params, nfs, {} );
@@ -1683,7 +1696,8 @@ static asrtio::task< void > suite_output_coro(
         auto rs = arena.make< asrtio::rsim_ctx >( loop, 42U );
         REQUIRE( rs->start() == ASRT_SUCCESS );
         co_await asrtio::tcp_connect{ { client.get(), "127.0.0.1", rs->port() } };
-        auto sys = arena.make< asrtio::cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::tcp_transport > >(
+            asrtio::tcp_transport{ client }, clk );
         sys->start();
         asrtio::param_config no_params;
         co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, sfs, "out" );
@@ -2010,4 +2024,137 @@ TEST_CASE( "strm_field_type_to_str" )
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_BOOL ) ), "bool" );
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_LBRACKET ) ), "[" );
         CHECK_EQ( std::string( asrt_strm_field_type_to_str( ASRT_STRM_FIELD_RBRACKET ) ), "]" );
+}
+
+// ---------------------------------------------------------------------------
+// serial transport tests (pty-based, no hardware required)
+// ---------------------------------------------------------------------------
+
+static void open_pty_pair( int& master, int& slave )
+{
+        int m = -1;
+        int s = -1;
+        CHECK_EQ( openpty( &m, &s, nullptr, nullptr, nullptr ), 0 );
+        master = m;
+        slave  = s;
+}
+
+TEST_CASE( "serial_open_and_configure" )
+{
+        // open_serial_port must configure the slave end of a pty with raw
+        // termios and the requested baud rate.
+
+        int master = -1;
+        int slave  = -1;
+        open_pty_pair( master, slave );
+
+        // slave path via ttyname
+        char const* name = ttyname( slave );
+        REQUIRE( name != nullptr );
+        close( slave );  // open_serial_port will re-open it
+
+        asrtio::serial_config cfg;
+        cfg.path = name;
+        cfg.baud = 115200;
+
+        std::string errmsg;
+        int         fd = asrtio::open_serial_port( cfg, errmsg );
+        REQUIRE_MESSAGE( fd >= 0, errmsg );
+
+        struct termios t;
+        REQUIRE_EQ( tcgetattr( fd, &t ), 0 );
+
+        // Must be raw: no ICANON, no ECHO
+        CHECK_EQ( t.c_lflag & ICANON, 0U );
+        CHECK_EQ( t.c_lflag & ECHO, 0U );
+        // Output processing off
+        CHECK_EQ( t.c_oflag, 0U );
+        // Receiver enabled, local mode
+        CHECK_NE( t.c_cflag & CREAD, 0U );
+        CHECK_NE( t.c_cflag & CLOCAL, 0U );
+
+        close( fd );
+        close( master );
+}
+
+TEST_CASE( "serial_open_bad_path" )
+{
+        asrtio::serial_config cfg;
+        cfg.path = "/dev/this-does-not-exist";
+
+        std::string errmsg;
+        int         fd = asrtio::open_serial_port( cfg, errmsg );
+        CHECK_EQ( fd, -1 );
+        CHECK_FALSE( errmsg.empty() );
+}
+
+// ---------------------------------------------------------------------------
+// serial transport integration test (pty pair + cntr_stream_sys)
+// ---------------------------------------------------------------------------
+
+static asrtio::task< void > suite_serial_coro(
+    asrtio::task_ctx&     tctx,
+    asrtio::arena&        arena,
+    asrtio::clock&        clk,
+    recording_reporter&   reporter,
+    asrtio::serial_config cfg,
+    uv_loop_t*            loop,
+    int                   master_fd )
+{
+        auto rs = arena.make< asrtio::pty_rsim >( loop, master_fd );
+        rs->start();
+
+        std::string errmsg;
+        auto        transport = asrtio::serial_transport::open( loop, cfg, errmsg );
+        REQUIRE_MESSAGE( transport.has_value(), errmsg );
+        auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::serial_transport > >(
+            std::move( *transport ), clk );
+        sys->start();
+        asrtio::param_config no_params;
+        asrtio::null_fs      nfs;
+        co_await asrtio::run_test_suite( tctx, *sys, reporter, 1000ms, no_params, nfs, {} );
+}
+
+TEST_CASE( "suite_serial_pty" )
+{
+        int master = -1, slave = -1;
+        open_pty_pair( master, slave );
+
+        char const* slave_name = ttyname( slave );
+        REQUIRE( slave_name != nullptr );
+        std::string slave_path = slave_name;
+        close( slave );  // serial_transport::open will reopen it
+
+        asrtio::serial_config cfg;
+        cfg.path = slave_path;
+        cfg.baud = 115200;
+
+        uv_loop_t*                        loop = uv_loop_new();
+        asrt::malloc_free_memory_resource mem_res;
+        asrtio::task_ctx                  tctx{ mem_res };
+        asrtio::arena                     arena{ tctx, mem_res };
+        asrtio::steady_clock              clk;
+
+        recording_reporter reporter;
+        bool               done = false;
+
+        uv_idle_t idle;
+        idle.data = &tctx;
+        uv_idle_init( loop, &idle );
+        uv_idle_start( &idle, []( uv_idle_t* h ) {
+                static_cast< asrtio::task_ctx* >( h->data )->tick();
+        } );
+
+        auto op = ( suite_serial_coro( tctx, arena, clk, reporter, cfg, loop, master ) |
+                    asrtio::complete_arena( arena ) )
+                      .connect( test_receiver{ &done, &idle } );
+        op.start();
+
+        uv_run( loop, UV_RUN_DEFAULT );
+        drain_loop( loop );
+
+        CHECK( done );
+        CHECK( reporter.count == 23 );
+        CHECK( reporter.starts.size() == reporter.count );
+        CHECK( reporter.done_names.size() == reporter.count );
 }

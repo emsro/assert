@@ -33,9 +33,9 @@ namespace asrtio
 {
 
 
-struct conn_ctx
+// Transport-agnostic demo assembly shared by TCP and pipe-based simulators.
+struct rsim_assembly
 {
-        uv_tcp_t                                    client;
         bool                                        disconnected = false;
         std::mt19937                                rng;
         asrt_reac_assm                              assm;
@@ -43,17 +43,16 @@ struct conn_ctx
         std::vector< std::shared_ptr< asrt_test > > task_demo_tests;
 
         asrt::malloc_free_memory_resource mem;
-        asrt::task_ctx                    task_ctx{ mem };
+        asrt::task_ctx                    tctx{ mem };
+        cobs_node                         rx;
 
-        conn_ctx( uint32_t seed )
+        explicit rsim_assembly( uint32_t seed )
           : rng( seed )
         {
                 if ( asrt_reac_assm_init( &assm, "rsim", 100 ) != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
                 }
-
-                client.data = this;
 
                 reg_demo( make_demo_pass() );
                 reg_demo( make_demo_fail() );
@@ -90,17 +89,18 @@ struct conn_ctx
         template < typename T, typename... Args >
         void reg_task_demo( Args&&... args )
         {
-                auto s =
-                    std::make_shared< asrt::task_unit< T > >( T{ task_ctx, (Args&&) args... } );
+                auto  s = std::make_shared< asrt::task_unit< T > >( T{ tctx, (Args&&) args... } );
                 auto& t = task_demo_tests.emplace_back( s, (asrt_test*) s.get() );
                 if ( asrt::add_test( assm.reactor, *t ) != ASRT_SUCCESS )
                         throw std::runtime_error( "add_test failed" );
         }
 
-        void tick()
+        // Drive the assembly: tick the task context, advance the protocol
+        // state machine, and flush any queued send requests onto stream.
+        void tick_assm( uv_loop_t* loop, uv_stream_t* stream )
         {
-                task_ctx.tick();
-                auto now = uv_now( client.loop );
+                tctx.tick();
+                auto now = uv_now( loop );
                 asrt_reac_assm_tick( &assm, now );
 
                 while ( auto* req = asrt_send_req_list_next( &assm.send_queue ) ) {
@@ -108,31 +108,46 @@ struct conn_ctx
                                 asrt_send_req_list_done( &assm.send_queue, ASRT_SEND_ERR );
                                 continue;
                         }
-                        auto st = rx.write( (uv_stream_t*) &client, req->chid, req->buff );
+                        auto st = rx.write( stream, req->chid, req->buff );
                         asrt_send_req_list_done( &assm.send_queue, st );
                 }
         }
 
-        cobs_node rx;
+        // Begin reading from stream, routing frames into the reactor node.
+        void start_rx(
+            uv_stream_t*                     stream,
+            char const*                      log_tag,
+            std::function< void( ssize_t ) > on_err )
+        {
+                rx.start( stream, &assm.reactor.node, log_tag, std::move( on_err ) );
+        }
+};
 
+struct conn_ctx : rsim_assembly
+{
+        uv_tcp_t client;
+
+        explicit conn_ctx( uint32_t seed )
+          : rsim_assembly( seed )
+        {
+                client.data = this;
+        }
+
+        void tick() { tick_assm( client.loop, (uv_stream_t*) &client ); }
 
         void start()
         {
-                rx.start(
-                    (uv_stream_t*) &client,
-                    &assm.reactor.node,
-                    "asrtio_rsim",
-                    [&]( ssize_t nread ) {
-                            if ( nread == UV_EOF ) {
-                                    ASRT_DBG_LOG( "test_rsim", "Connection closed by remote" );
-                            } else {
-                                    ASRT_ERR_LOG(
-                                        "test_rsim",
-                                        "Read error: %s",
-                                        uv_strerror( static_cast< int >( nread ) ) );
-                            }
-                            disconnect();
-                    } );
+                start_rx( (uv_stream_t*) &client, "asrtio_rsim", [&]( ssize_t nread ) {
+                        if ( nread == UV_EOF ) {
+                                ASRT_DBG_LOG( "test_rsim", "Connection closed by remote" );
+                        } else {
+                                ASRT_ERR_LOG(
+                                    "test_rsim",
+                                    "Read error: %s",
+                                    uv_strerror( static_cast< int >( nread ) ) );
+                        }
+                        disconnect();
+                } );
         }
 
         void disconnect()
@@ -261,6 +276,66 @@ inline task< void > async_destroy( task_ctx& ctx, rsim_ctx& rs )
         for ( auto& c : rs.conns )
                 co_await async_close( ctx, c );
         co_await uv_close_handle{ (uv_handle_t*) &rs.server };
+}
+
+// ---------------------------------------------------------------------------
+// pty_conn_ctx + pty_rsim
+//
+// A simulator peer driven over a pty master fd (uv_pipe_t).  Intended for
+// integration tests that exercise serial_transport without real hardware.
+// ---------------------------------------------------------------------------
+
+struct pty_rsim : rsim_assembly
+{
+        uv_idle_t idle;
+        bool      closed = false;
+        uv_pipe_t pipe;
+
+        pty_rsim( uv_loop_t* loop, int master_fd, uint32_t seed = 42 )
+          : rsim_assembly( seed )
+        {
+                uv_pipe_init( loop, &pipe, /*ipc=*/0 );
+                uv_pipe_open( &pipe, master_fd );
+        }
+
+        void tick() { tick_assm( pipe.loop, (uv_stream_t*) &pipe ); }
+
+        void start()
+        {
+                start_rx( (uv_stream_t*) &pipe, "pty_rsim", [&]( ssize_t nread ) {
+                        if ( nread == UV_EOF )
+                                ASRT_DBG_LOG( "pty_rsim", "Connection closed by remote" );
+                        else
+                                ASRT_ERR_LOG(
+                                    "pty_rsim",
+                                    "Read error: %s",
+                                    uv_strerror( static_cast< int >( nread ) ) );
+                        if ( !disconnected ) {
+                                disconnected = true;
+                                uv_close( (uv_handle_t*) &pipe, nullptr );
+                        }
+                } );
+                uv_idle_init( pipe.loop, &idle );
+                idle.data = this;
+                uv_idle_start( &idle, []( uv_idle_t* h ) {
+                        static_cast< pty_rsim* >( h->data )->tick();
+                } );
+        }
+
+        friend task< void > async_destroy( task_ctx&, pty_rsim& );
+};
+
+inline task< void > async_destroy( task_ctx&, pty_rsim& rs )
+{
+        if ( rs.closed )
+                co_return;
+        rs.closed = true;
+        uv_idle_stop( &rs.idle );
+        co_await uv_close_handle{ (uv_handle_t*) &rs.idle };
+        if ( !rs.disconnected ) {
+                rs.disconnected = true;
+                co_await uv_close_handle{ (uv_handle_t*) &rs.pipe };
+        }
 }
 
 }  // namespace asrtio

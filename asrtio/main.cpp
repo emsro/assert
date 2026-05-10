@@ -12,7 +12,7 @@
 #include "../asrtl/log.h"
 #include "../asrtl/stream_proto.h"
 #include "../asrtlpp/fmt.hpp"
-#include "./cntr_tcp_sys.hpp"
+#include "./cntr_stream_sys.hpp"
 #include "./euv.hpp"
 #include "./output_fs.hpp"
 #include "./pbar.hpp"
@@ -35,6 +35,8 @@ using namespace std::literals::chrono_literals;
 
 namespace asrtio
 {
+using cntr_tcp_sys    = cntr_stream_sys< tcp_transport >;
+using cntr_serial_sys = cntr_stream_sys< serial_transport >;
 using asrt::opt;
 namespace
 {
@@ -200,7 +202,7 @@ task< void > run_tcp(
                 co_await ecor::just_error( ASRT_INIT_ERR );
         }
         co_await tcp_connect{ { client.get(), host, port } };
-        auto sys = arena.make< cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< cntr_tcp_sys >( tcp_transport{ client }, clk );
         sys->start();
 
         co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
@@ -229,7 +231,7 @@ task< void > run_rsim(
                 co_await ecor::just_error( ASRT_INIT_ERR );
         }
         co_await tcp_connect{ { client.get(), "0.0.0.0", rs->port() } };
-        auto sys = arena.make< cntr_tcp_sys >( client, clk );
+        auto sys = arena.make< cntr_tcp_sys >( tcp_transport{ client }, clk );
         sys->start();
 
         co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
@@ -243,6 +245,32 @@ struct tcp_opts
         std::string host;
         uint16_t    port;
 };
+
+task< void > run_serial(
+    task_ctx&                       ctx,
+    arena&                          arena,
+    steady_clock&                   clk,
+    uv_loop_t*                      loop,
+    serial_config                   cfg,
+    std::chrono::milliseconds       timeout,
+    std::unique_ptr< param_config > params,
+    output_fs&                      fs,
+    std::filesystem::path           output_dir )
+{
+        pbar_reporter reporter{ *g_bar };
+        std::string   errmsg;
+        auto          transport = serial_transport::open( loop, cfg, errmsg );
+        if ( !transport ) {
+                ASRT_ERR_LOG( "asrtio", "Failed to open serial port: %s", errmsg.c_str() );
+                co_await ecor::just_error( ASRT_INIT_ERR );
+        }
+        auto sys = arena.make< cntr_serial_sys >( std::move( *transport ), clk );
+        sys->start();
+
+        co_await run_test_suite( ctx, *sys, reporter, timeout, *params, fs, output_dir );
+        g_bar->finish();
+        g_bar.reset();
+}
 
 struct final_receiver
 {
@@ -372,6 +400,47 @@ int main( int argc, char* argv[] )
                             clk,
                             loop,
                             *rsim_seed,
+                            timeout,
+                            std::move( params ),
+                            output_dir.empty() ? static_cast< output_fs& >( nfs ) : rfs,
+                            output_dir );
+                } );
+        } );
+
+        auto  ser_cfg = std::make_shared< serial_config >();
+        auto* ser_sub = app.add_subcommand( "serial", "Connect to serial port device" );
+        ser_sub->fallthrough();
+        ser_sub->add_option( "--port,-d", ser_cfg->path, "Serial device path (e.g. /dev/ttyUSB0)" )
+            ->required();
+        ser_sub->add_option( "--baud,-b", ser_cfg->baud, "Baud rate (default: 115200)" );
+        ser_sub->add_option( "--parity", ser_cfg->parity, "Parity" )
+            ->transform( CLI::CheckedTransformer(
+                std::map< std::string, serial_config::parity_t >{
+                    { "none", serial_config::parity_t::none },
+                    { "odd", serial_config::parity_t::odd },
+                    { "even", serial_config::parity_t::even } },
+                CLI::ignore_case ) );
+        ser_sub->add_option( "--stop-bits", ser_cfg->stop, "Stop bits" )
+            ->transform( CLI::CheckedTransformer(
+                std::map< std::string, serial_config::stop_bits_t >{
+                    { "1", serial_config::stop_bits_t::one },
+                    { "2", serial_config::stop_bits_t::two } },
+                CLI::ignore_case ) );
+        ser_sub->add_option( "--flow", ser_cfg->flow, "Flow control" )
+            ->transform( CLI::CheckedTransformer(
+                std::map< std::string, serial_config::flow_t >{
+                    { "none", serial_config::flow_t::none },
+                    { "rtscts", serial_config::flow_t::rtscts },
+                    { "xonxoff", serial_config::flow_t::xonxoff } },
+                CLI::ignore_case ) );
+        ser_sub->callback( [&, ser_cfg] {
+                launch( [&, ser_cfg]( auto timeout, auto params ) {
+                        return run_serial(
+                            ctx,
+                            ar,
+                            clk,
+                            loop,
+                            *ser_cfg,
                             timeout,
                             std::move( params ),
                             output_dir.empty() ? static_cast< output_fs& >( nfs ) : rfs,
