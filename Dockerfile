@@ -18,6 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 \
         python3-pip \
     && pip3 install --break-system-packages cmake gcovr \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 \
+                           --slave /usr/bin/g++ g++ /usr/bin/g++-15 \
+    && update-alternatives --install /usr/bin/cc  cc  /usr/bin/gcc-15 100 \
+    && update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-15 100
 
 WORKDIR /src
