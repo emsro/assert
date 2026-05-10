@@ -16,7 +16,7 @@ jobs:
       matrix:
         preset: [ debug, asan, ubsan, release ]
         compiler:
-          - { cc: gcc, cxx: g++ }
+          - { cc: gcc-15, cxx: g++-15 }
           - { cc: clang, cxx: clang++ }
 
     runs-on: ubuntu-latest
@@ -27,6 +27,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install GCC 15
+        if: ${{ matrix.compiler.cc == 'gcc-15' }}
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15
 
       - name: Configure CMake
         run: cmake --preset ${{ matrix.preset }}
@@ -40,7 +47,17 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
 
+    env:
+      CC: gcc-15
+      CXX: g++-15
+
     steps:
+      - name: Install GCC 15
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15
+
       - name: Set up Python 3.8 for gcovr
         uses: actions/setup-python@v4
         with:
@@ -79,7 +96,17 @@ jobs:
   clang-tidy:
     runs-on: ubuntu-latest
 
+    env:
+      CC: gcc-15
+      CXX: g++-15
+
     steps:
+      - name: Install GCC 15
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15
+
       - uses: actions/checkout@v4
 
       - name: Configure CMake
