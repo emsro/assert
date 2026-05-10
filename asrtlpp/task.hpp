@@ -12,6 +12,7 @@
 
 #include "../asrtl/status.h"
 
+#include <cstdlib>
 #include <ecor/ecor.hpp>
 
 namespace asrt
