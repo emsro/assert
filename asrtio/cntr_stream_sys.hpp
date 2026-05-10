@@ -174,7 +174,7 @@ struct suite_reporter
         virtual void on_stream_data(
             std::string_view            name,
             asrt::stream_schemas const& schemas ) = 0;
-        virtual ~suite_reporter()                 = default;
+        virtual ~suite_reporter();
 };
 
 struct _cntr_assembly_exec_test

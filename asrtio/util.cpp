@@ -12,6 +12,7 @@
 
 #include "../asrtl/log.h"
 #include "../asrtl/status_to_str.h"
+#include "./output_fs.hpp"
 
 #include <limits>
 
@@ -283,5 +284,7 @@ bool flat_tree_to_json( asrt_flat_tree& tree, asrt::flat_id node_id, nlohmann::j
 {
         return flat_tree_to_json_impl( tree, node_id, out );
 }
+
+output_fs::~output_fs() = default;
 
 }  // namespace asrtio

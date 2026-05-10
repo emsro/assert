@@ -60,7 +60,7 @@ struct output_fs
         /// Called by file_writer destructor — finalises the write.
         virtual void close_write( std::ostream& os ) = 0;
 
-        virtual ~output_fs() = default;
+        virtual ~output_fs();
 };
 
 inline file_writer::~file_writer()

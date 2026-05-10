@@ -46,13 +46,17 @@ target_compile_features(pbar_demo PUBLIC cxx_std_20)
 target_link_libraries(pbar_demo PRIVATE CLI11::CLI11)
 
 if(ASSERT_ENABLE_COVERAGE)
+  set(GCOV_EXECUTABLE
+      "gcov"
+      CACHE STRING "gcov binary used by the coverage test")
   add_test(
     NAME coverage
     COMMAND
-      gcovr --cobertura-pretty --cobertura cobertura.xml -r ${CMAKE_SOURCE_DIR}/
-      --filter ${CMAKE_SOURCE_DIR}/asrtl/ --filter ${CMAKE_SOURCE_DIR}/asrtc/
-      --filter ${CMAKE_SOURCE_DIR}/asrtr/ --filter ${CMAKE_SOURCE_DIR}/asrtlpp/
-      --filter ${CMAKE_SOURCE_DIR}/asrtcpp/ --filter
-      ${CMAKE_SOURCE_DIR}/asrtrpp/ --filter ${CMAKE_SOURCE_DIR}/asrtio/
+      gcovr --gcov-executable ${GCOV_EXECUTABLE} --cobertura-pretty --cobertura
+      cobertura.xml -r ${CMAKE_SOURCE_DIR}/ --filter ${CMAKE_SOURCE_DIR}/asrtl/
+      --filter ${CMAKE_SOURCE_DIR}/asrtc/ --filter ${CMAKE_SOURCE_DIR}/asrtr/
+      --filter ${CMAKE_SOURCE_DIR}/asrtlpp/ --filter
+      ${CMAKE_SOURCE_DIR}/asrtcpp/ --filter ${CMAKE_SOURCE_DIR}/asrtrpp/
+      --filter ${CMAKE_SOURCE_DIR}/asrtio/
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
