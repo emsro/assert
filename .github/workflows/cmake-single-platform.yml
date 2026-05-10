@@ -56,7 +56,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
-          sudo apt-get install -y gcc-15 g++-15 gcov-15
+          sudo apt-get install -y gcc-15 g++-15
 
       - name: Set up Python 3.8 for gcovr
         uses: actions/setup-python@v4
