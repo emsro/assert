@@ -13,6 +13,8 @@
 namespace asrtio
 {
 
+cntr_sys::~cntr_sys() = default;
+
 void write_strm_field( std::ostream& os, enum asrt_strm_field_type_e ft, uint8_t*& p )
 {
         switch ( ft ) {

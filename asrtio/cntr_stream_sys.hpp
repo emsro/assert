@@ -45,7 +45,7 @@ struct cntr_sys
         virtual asrt_cntr_assm&       assembly()         = 0;
         virtual asrt_flat_tree const* collect_tree()     = 0;
         virtual asrt::stream_schemas  stream_take()      = 0;
-        virtual ~cntr_sys()                              = default;
+        virtual ~cntr_sys();
 };
 
 template < typename Transport >
