@@ -45,7 +45,7 @@ struct cntr_sys
         virtual asrt_cntr_assm&       assembly()         = 0;
         virtual asrt_flat_tree const* collect_tree()     = 0;
         virtual asrt::stream_schemas  stream_take()      = 0;
-        virtual ~cntr_sys();
+        virtual ~cntr_sys()                              = default;
 };
 
 template < typename Transport >
@@ -174,7 +174,7 @@ struct suite_reporter
         virtual void on_stream_data(
             std::string_view            name,
             asrt::stream_schemas const& schemas ) = 0;
-        virtual ~suite_reporter();
+        virtual ~suite_reporter()                 = default;
 };
 
 struct _cntr_assembly_exec_test

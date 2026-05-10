@@ -359,9 +359,13 @@ int main( int argc, char* argv[] )
                                 std::exit( 1 );
                         }
                 }
-                g_bar  = std::make_shared< pbar::terminal_progress >();
-                auto s = make_task( timeout, std::move( params ) ) | asrtio::complete_arena( ar );
-                t.emplace( std::move( s ).connect( final_receiver{ &idle } ) );
+                g_bar = std::make_shared< pbar::terminal_progress >();
+                // Construct in-place to avoid move-constructing op<R>, which
+                // derives from ecor::schedulable->ll_base<schedulable>. The
+                // ll_base move ctor calls derived() (CRTP downcast) on the
+                // partially-constructed target before its vptr is set, causing
+                // a UBSan -fsanitize=vptr crash.
+                t.emplace( ar, make_task( timeout, std::move( params ) ), final_receiver{ &idle } );
         };
 
         sub->callback( [&, opt] {
