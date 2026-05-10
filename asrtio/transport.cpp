@@ -131,34 +131,7 @@ bool apply_baud( int fd, uint32_t baud, struct termios& t, std::string& errmsg )
         return true;
 }
 
-#elif defined( __linux__ ) && defined( ASYNC_SPD_CUST )
-
-bool apply_baud( int fd, uint32_t baud, struct termios& t, std::string& errmsg )
-{
-        int bc = to_baud_constant( baud );
-        if ( bc == -1 ) {
-                // Custom baud via termios2 / BOTHER
-                struct termios2 t2;
-                if ( ioctl( fd, TCGETS2, &t2 ) == -1 ) {
-                        errmsg = std::string( "ioctl(TCGETS2) failed: " ) + strerror( errno );
-                        return false;
-                }
-                t2.c_cflag &= ~CBAUD;
-                t2.c_cflag |= BOTHER;
-                t2.c_ispeed = baud;
-                t2.c_ospeed = baud;
-                if ( ioctl( fd, TCSETS2, &t2 ) == -1 ) {
-                        errmsg = std::string( "ioctl(TCSETS2) failed: " ) + strerror( errno );
-                        return false;
-                }
-                return true;
-        }
-        cfsetispeed( &t, static_cast< speed_t >( bc ) );
-        cfsetospeed( &t, static_cast< speed_t >( bc ) );
-        return true;
-}
-
-#else
+#elif defined( __linux__ )
 
 bool apply_baud( int /*fd*/, uint32_t baud, struct termios& t, std::string& errmsg )
 {
