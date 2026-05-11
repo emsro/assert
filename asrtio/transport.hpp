@@ -95,7 +95,7 @@ struct tcp_transport
 
 struct serial_transport
 {
-        std::shared_ptr< uv_pipe_t > _pipe;
+        std::shared_ptr< uv_pipe_t > pipe;
 
         // Factory function — no exceptions.  Returns nullopt on failure;
         // errmsg is populated with a human-readable description.
@@ -104,9 +104,9 @@ struct serial_transport
             serial_config const& cfg,
             std::string&         errmsg );
 
-        uv_stream_t* stream() { return reinterpret_cast< uv_stream_t* >( _pipe.get() ); }
+        uv_stream_t* stream() { return reinterpret_cast< uv_stream_t* >( pipe.get() ); }
 
-        void close() { uv_close( reinterpret_cast< uv_handle_t* >( _pipe.get() ), nullptr ); }
+        void close() { uv_close( reinterpret_cast< uv_handle_t* >( pipe.get() ), nullptr ); }
 };
 
 }  // namespace asrtio

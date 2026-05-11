@@ -19,8 +19,10 @@ add_subdirectory(asrtio)
 
 include(CTest)
 
-enable_testing()
-add_subdirectory(test)
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(test)
+endif()
 
 # --- install / package config ---
 
