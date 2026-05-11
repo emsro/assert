@@ -6,16 +6,28 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(cmake/CPM.cmake)
 
-cpmaddpackage("gh:koniarik/ecor@0.2.3")
+set(_asrt_cxx_libraries asrtlpp asrtcpp asrtrpp asrtio)
+set(_asrt_all_libraries asrtl asrtc asrtr ${_asrt_cxx_libraries})
 
-add_subdirectory(asrtl)
-add_subdirectory(asrtc)
-add_subdirectory(asrtr)
+set(ASRT_LIBRARIES
+    "${_asrt_all_libraries}"
+    CACHE
+      STRING
+      "Semicolon-separated list of asrt sub-libraries to build (default: all).")
 
-add_subdirectory(asrtlpp)
-add_subdirectory(asrtcpp)
-add_subdirectory(asrtrpp)
-add_subdirectory(asrtio)
+# Only pull in ecor when at least one C++ wrapper library is requested.
+foreach(_lib IN LISTS _asrt_cxx_libraries)
+  if(_lib IN_LIST ASRT_LIBRARIES)
+    cpmaddpackage("gh:koniarik/ecor@0.2.3")
+    break()
+  endif()
+endforeach()
+
+foreach(_lib IN LISTS _asrt_all_libraries)
+  if(_lib IN_LIST ASRT_LIBRARIES)
+    add_subdirectory(${_lib})
+  endif()
+endforeach()
 
 include(CTest)
 
