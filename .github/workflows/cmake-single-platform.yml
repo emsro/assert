@@ -139,7 +139,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure (release)
-        run: cmake --preset release
+        run: cmake --preset release -DASRT_LIBRARIES="asrtl;asrtc;asrtr" -DBUILD_TESTING=OFF
 
       - name: Build (release)
         run: cmake --build --preset release
