@@ -167,7 +167,14 @@ task< void > run_test_suite(
                 unseen_keys.insert( key );
 
         for ( uint32_t i = 0; i < count; ++i ) {
-                auto [tid, name] = co_await cntr_query_test_info{ { sys.cntr(), i, timeout } };
+                // NOTE: Use explicit move out of the awaited tuple instead of a structured
+                // binding (`auto [tid, name] = co_await ...`). With GCC 15 coroutines, the
+                // hidden structured-binding holder occasionally fails to be destroyed at the
+                // end of an iteration in this loop, leaking the std::string it owns and
+                // tripping LeakSanitizer.
+                auto        info = co_await cntr_query_test_info{ { sys.cntr(), i, timeout } };
+                uint16_t    tid  = std::get< 0 >( info );
+                std::string name = std::move( std::get< 1 >( info ) );
 
                 unseen_keys.erase( name );
 
