@@ -466,18 +466,18 @@ static enum asrt_status push_results(struct asrt_record* rec)
 {
     struct coll_ctx* ctx = (struct coll_ctx*) rec->inpt->test_ptr;
 
-    /* busy — previous append still in flight */
+    /* busy — previous insert still in flight */
     if (asrt_collect_client_is_busy(ctx->collect))
         return ASRT_SUCCESS;
 
     switch (ctx->step) {
     case 0:
-        asrt_collect_client_append_object(
+        asrt_collect_client_insert_object(
             ctx->collect, ctx->collect->root_id, "result",
             &ctx->result_id, NULL, NULL);
         ctx->step = 1; break;
     case 1:
-        asrt_collect_client_append_u32(
+        asrt_collect_client_insert_u32(
             ctx->collect, ctx->result_id, "count", 42, NULL, NULL);
         ctx->step = 2; break;
     case 2:
@@ -492,9 +492,9 @@ static enum asrt_status push_results(struct asrt_record* rec)
 /* assm.collect is initialised by asrt::init(assm, ...) */
 
 flat_id root   = asrt::root_id(assm.collect);
-flat_id result = co_await asrt::append<asrt::obj>(assm.collect, root,   "result");
-                 co_await asrt::append<uint32_t >(assm.collect, result, "count", 42u);
-                 co_await asrt::append<float    >(assm.collect, result, "mean",  3.14f);
+flat_id result = co_await asrt::set<asrt::obj>(assm.collect, root,   "result");
+                 co_await asrt::set<uint32_t >(assm.collect, result, "count", 42u);
+                 co_await asrt::set<float    >(assm.collect, result, "mean",  3.14f);
 ```
 
 ---

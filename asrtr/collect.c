@@ -65,18 +65,18 @@ static enum asrt_status asrt_collect_client_recv( void* data, struct asrt_span b
 // Public API
 // ---------------------------------------------------------------------------
 
-static void asrt_collect_client_append_done( void* ptr, enum asrt_status st )
+static void asrt_collect_client_insert_done( void* ptr, enum asrt_status st )
 {
         struct asrt_collect_client* client = (struct asrt_collect_client*) ptr;
-        ASRT_ASSERT( client->state == ASRT_COLLECT_CLIENT_APPEND_SENT );
+        ASRT_ASSERT( client->state == ASRT_COLLECT_CLIENT_INSERT_SENT );
         if ( st == ASRT_SUCCESS ) {
                 client->state = ASRT_COLLECT_CLIENT_ACTIVE;
         } else {
-                ASRT_ERR_LOG( "asrt_collect_client", "append send failed" );
+                ASRT_ERR_LOG( "asrt_collect_client", "insert send failed" );
                 client->state = ASRT_COLLECT_CLIENT_ERROR;
         }
-        if ( client->append_done_cb )
-                client->append_done_cb( client->append_done_ptr, st );
+        if ( client->insert_done_cb )
+                client->insert_done_cb( client->insert_done_ptr, st );
 }
 
 static void asrt_collect_client_ready_ack_done( void* ptr, enum asrt_status st )
@@ -142,7 +142,7 @@ enum asrt_status asrt_collect_client_init(
         return ASRT_SUCCESS;
 }
 
-enum asrt_status asrt_collect_client_append(
+enum asrt_status asrt_collect_client_insert(
     struct asrt_collect_client*   client,
     asrt_flat_id                  parent_id,
     char const*                   key,
@@ -153,22 +153,22 @@ enum asrt_status asrt_collect_client_append(
 {
         if ( client->state != ASRT_COLLECT_CLIENT_ACTIVE ) {
                 enum asrt_status ret =
-                    client->state == ASRT_COLLECT_CLIENT_APPEND_SENT ? ASRT_BUSY_ERR : ASRT_ARG_ERR;
+                    client->state == ASRT_COLLECT_CLIENT_INSERT_SENT ? ASRT_BUSY_ERR : ASRT_ARG_ERR;
                 ASRT_ERR_LOG(
                     "asrt_collect_client",
-                    "append: called in unexpected state %d",
+                    "insert: called in unexpected state %d",
                     (int) client->state );
                 return ret;
         }
 
         asrt_flat_id node_id    = client->next_node_id++;
-        client->append_done_cb  = done_cb;
-        client->append_done_ptr = done_ptr;
-        client->state           = ASRT_COLLECT_CLIENT_APPEND_SENT;
+        client->insert_done_cb  = done_cb;
+        client->insert_done_ptr = done_ptr;
+        client->state           = ASRT_COLLECT_CLIENT_INSERT_SENT;
         asrt_send_enque(
             &client->node,
-            asrt_msg_rtoc_collect_append( &client->append_msg, parent_id, node_id, key, value ),
-            asrt_collect_client_append_done,
+            asrt_msg_rtoc_collect_append( &client->insert_msg, parent_id, node_id, key, value ),
+            asrt_collect_client_insert_done,
             client );
         if ( out_id )
                 *out_id = node_id;

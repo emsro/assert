@@ -39,10 +39,6 @@ endif()
 # --- install / package config ---
 
 # C libraries (asrtl, asrtc, asrtr) — no external dependencies
-install(
-  EXPORT asrtCTargets
-  NAMESPACE asrt::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrt)
 
 configure_package_config_file(
   cmake/asrtConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/asrtConfig.cmake
@@ -52,10 +48,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/asrtConfig.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrt)
 
 # C++ wrappers (asrtlpp, asrtcpp, asrtrpp) — require ecor
-install(
-  EXPORT asrtCxxTargets
-  NAMESPACE asrt::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrtCxx)
 
 configure_package_config_file(
   cmake/asrtCxxConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/asrtCxxConfig.cmake

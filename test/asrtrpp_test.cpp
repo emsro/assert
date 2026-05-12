@@ -1872,29 +1872,29 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_handshake" )
         CHECK_EQ( ASRT_COLLECT_MSG_READY_ACK, coll.data.front().data[0] );
 }
 
-TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
+TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_set_and_append_all_types" )
 {
         make_active();
 
         asrt::flat_id obj = 0;
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< asrt::obj >( cc, 0, "root", obj, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< asrt::obj >( cc, 0, "root", obj, {} ) );
         drain_send_queue( &sq, &coll );
         CHECK_NE( 0U, obj );
 
         asrt::flat_id arr = 0;
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< asrt::arr >( cc, obj, "items", arr, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< asrt::arr >( cc, obj, "items", arr, {} ) );
         drain_send_queue( &sq, &coll );
         CHECK_NE( 0U, arr );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< uint32_t >( cc, obj, "count", 42, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< uint32_t >( cc, obj, "count", 42, {} ) );
         drain_send_queue( &sq, &coll );
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< int32_t >( cc, obj, "offset", -7, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< int32_t >( cc, obj, "offset", -7, {} ) );
         drain_send_queue( &sq, &coll );
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< char const* >( cc, obj, "name", "hello", {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< char const* >( cc, obj, "name", "hello", {} ) );
         drain_send_queue( &sq, &coll );
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< bool >( cc, obj, "flag", true, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< bool >( cc, obj, "flag", true, {} ) );
         drain_send_queue( &sq, &coll );
-        CHECK_EQ( ASRT_SUCCESS, asrt::append< float >( cc, obj, "ratio", 3.14F, {} ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt::set< float >( cc, obj, "ratio", 3.14F, {} ) );
         drain_send_queue( &sq, &coll );
 
         // 1 object + 1 array + 5 scalars = 7 messages
@@ -1906,25 +1906,25 @@ TEST_CASE_FIXTURE( collect_cpp_ctx, "collect_cpp_append_all_types" )
 // ---------------------------------------------------------------------------
 namespace
 {
-asrt::task< void > cs_do_append_scalar(
+asrt::task< void > cs_do_set_scalar(
     asrt::task_ctx&,
     asrt_collect_client& cc,
     asrt::flat_id        parent )
 {
-        co_await asrt::append( cc, parent, "count", 42 );
-        co_await asrt::append( cc, parent, "offset", -7 );
-        co_await asrt::append( cc, parent, "name", "hello" );
-        co_await asrt::append( cc, parent, "flag", true );
-        co_await asrt::append( cc, parent, "ratio", 3.14F );
+        co_await asrt::set( cc, parent, "count", 42 );
+        co_await asrt::set( cc, parent, "offset", -7 );
+        co_await asrt::set( cc, parent, "name", "hello" );
+        co_await asrt::set( cc, parent, "flag", true );
+        co_await asrt::set( cc, parent, "ratio", 3.14F );
 }
 
 asrt::task< void > cs_do_append_tree( asrt::task_ctx&, asrt_collect_client& cc )
 {
-        auto root = co_await asrt::append< asrt::obj >( cc, 0, "root" );
-        auto arr  = co_await asrt::append< asrt::arr >( cc, root, "items" );
+        auto root = co_await asrt::set< asrt::obj >( cc, 0, "root" );
+        auto arr  = co_await asrt::set< asrt::arr >( cc, root, "items" );
         co_await asrt::append( cc, arr, uint32_t( 10 ) );
         co_await asrt::append( cc, arr, uint32_t( 20 ) );
-        co_await asrt::append( cc, root, "label", "test" );
+        co_await asrt::set( cc, root, "label", "test" );
 }
 
 struct collect_sender_ctx : collect_cpp_ctx
@@ -1957,11 +1957,11 @@ struct collect_sender_ctx : collect_cpp_ctx
         }
 };
 }  // namespace
-TEST_CASE_FIXTURE( collect_sender_ctx, "cs_append_scalars" )
+TEST_CASE_FIXTURE( collect_sender_ctx, "cs_set_scalars" )
 {
         make_active();
         auto state = run_task( [&]( asrt::task_ctx& ctx ) {
-                return cs_do_append_scalar( ctx, cc, 0 );
+                return cs_do_set_scalar( ctx, cc, 0 );
         } );
         CHECK_EQ( ASRT_TEST_PASS, state );
         CHECK_EQ( 5U, coll.data.size() );

@@ -2116,14 +2116,14 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_ready_handshake" )
         CHECK_EQ( ASRT_COLLECT_MSG_READY_ACK, msg.data[0] );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_sends_wire" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_sends_wire" )
 {
         make_active( 1U );
 
-        // append transitions to APPEND_SENT while the send is in flight
+        // insert transitions to INSERT_SENT while the send is in flight
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_u32( &client, 0, "alpha", 99, NULL, NULL ) );
-        CHECK_EQ( ASRT_COLLECT_CLIENT_APPEND_SENT, client.state );
+            ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, 0, "alpha", 99, NULL, NULL ) );
+        CHECK_EQ( ASRT_COLLECT_CLIENT_INSERT_SENT, client.state );
         drain_send_queue( &send_queue, &coll );
         CHECK_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
 
@@ -2138,9 +2138,9 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_sends_wire" )
         CHECK_EQ( std::string( "alpha" ), std::string( (char*) &msg.data[9] ) );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_before_active_returns_error" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_before_active_returns_error" )
 {
-        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, NULL, 1, NULL, NULL ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_insert_u32( &client, 0, NULL, 1, NULL, NULL ) );
 }
 
 TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_error_sets_fatal" )
@@ -2153,7 +2153,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_error_sets_fatal" )
         CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_after_error_returns_error" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_after_error_returns_error" )
 {
         make_active( 1U );
 
@@ -2161,7 +2161,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_after_error_r
         uint8_t buf[4];
         call_collect_client_recv( &client, buf, build_coll_error( buf, 0x01 ) );
 
-        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, NULL, 1, NULL, NULL ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_insert_u32( &client, 0, NULL, 1, NULL, NULL ) );
 }
 
 TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_ready_from_error_re_handshakes" )
@@ -2184,9 +2184,9 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_ready_from_error_re_
         CHECK_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
         CHECK_EQ( 99U, asrt_collect_client_root_id( &client ) );
 
-        // Append works again, node_id counter starts from next_node_id
+        // Insert works again, node_id counter starts from next_node_id
         coll.data.clear();
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, 0, "x", 7, NULL, NULL ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, 0, "x", 7, NULL, NULL ) );
         drain_send_queue( &send_queue, &coll );
         REQUIRE_EQ( 1U, coll.data.size() );
         assert_u32( 1U, coll.data.front().data.data() + 5 );  // node_id starts from 1
@@ -2216,7 +2216,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_tick_idle_is_noop" )
         CHECK( coll.data.empty() );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_called_on_success" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_done_cb_called_on_success" )
 {
         make_active( 1U );
 
@@ -2241,8 +2241,8 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
         asrt_flat_value val_x = { .type = ASRT_FLAT_STYPE_U32 };
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrt_collect_client_append( &client, 0, "x", &val_x, nullptr, fptr, &ctx ) );
-        CHECK_EQ( ASRT_COLLECT_CLIENT_APPEND_SENT, client.state );
+            asrt_collect_client_insert( &client, 0, "x", &val_x, nullptr, fptr, &ctx ) );
+        CHECK_EQ( ASRT_COLLECT_CLIENT_INSERT_SENT, client.state );
         CHECK_EQ( 0, called );  // not yet
 
         drain_send_queue( &send_queue, &coll );
@@ -2251,7 +2251,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
         CHECK_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_called_on_send_failure" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_done_cb_called_on_send_failure" )
 {
         make_active( 1U );
 
@@ -2271,7 +2271,7 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
         asrt_flat_value val_y = { .type = ASRT_FLAT_STYPE_U32 };
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrt_collect_client_append( &client, 0, "y", &val_y, nullptr, fptr, &ctx ) );
+            asrt_collect_client_insert( &client, 0, "y", &val_y, nullptr, fptr, &ctx ) );
 
         drain_send_queue_ex( &send_queue, &coll, ASRT_SEND_ERR );
         CHECK_EQ( 1, called );
@@ -2280,21 +2280,21 @@ TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_done_cb_calle
         CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 }
 
-TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_append_busy_while_in_flight" )
+TEST_CASE_FIXTURE( collect_client_ctx, "asrt_collect_client_insert_busy_while_in_flight" )
 {
         make_active( 1U );
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, 0, "a", 1, NULL, NULL ) );
-        CHECK_EQ( ASRT_COLLECT_CLIENT_APPEND_SENT, client.state );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, 0, "a", 1, NULL, NULL ) );
+        CHECK_EQ( ASRT_COLLECT_CLIENT_INSERT_SENT, client.state );
 
-        // second append while first is still in flight → BUSY
-        CHECK_EQ( ASRT_BUSY_ERR, asrt_collect_client_append_u32( &client, 0, "b", 2, NULL, NULL ) );
+        // second insert while first is still in flight → BUSY
+        CHECK_EQ( ASRT_BUSY_ERR, asrt_collect_client_insert_u32( &client, 0, "b", 2, NULL, NULL ) );
 
-        // after drain the slot is free → can append again
+        // after drain the slot is free → can insert again
         drain_send_queue( &send_queue, &coll );
         CHECK_EQ( ASRT_COLLECT_CLIENT_ACTIVE, client.state );
         coll.data.clear();
-        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_append_u32( &client, 0, "b", 2, NULL, NULL ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, 0, "b", 2, NULL, NULL ) );
         drain_send_queue( &send_queue, &coll );
         REQUIRE_EQ( 1U, coll.data.size() );
 }
