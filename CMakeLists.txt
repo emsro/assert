@@ -47,6 +47,11 @@ configure_package_config_file(
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/asrtConfig.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrt)
 
+install(
+  EXPORT asrtCTargets
+  NAMESPACE asrt::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrt)
+
 # C++ wrappers (asrtlpp, asrtcpp, asrtrpp) — require ecor
 
 configure_package_config_file(
@@ -55,3 +60,13 @@ configure_package_config_file(
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/asrtCxxConfig.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrtCxx)
+
+foreach(_lib IN LISTS _asrt_cxx_libraries)
+  if(_lib IN_LIST ASRT_LIBRARIES)
+    install(
+      EXPORT asrtCxxTargets
+      NAMESPACE asrt::
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asrtCxx)
+    break()
+  endif()
+endforeach()
