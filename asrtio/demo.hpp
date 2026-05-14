@@ -674,8 +674,8 @@ struct collect_demo_task : asrt::task_test
         {
                 auto root = asrt::root_id( cc );
                 auto obj  = co_await asrt::append< asrt::obj >( cc, root );
-                co_await asrt::append( cc, obj, "value", 42U );
-                co_await asrt::append( cc, obj, "tag", "demo" );
+                co_await asrt::set( cc, obj, "value", 42U );
+                co_await asrt::set( cc, obj, "tag", "demo" );
         }
 };
 
