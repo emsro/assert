@@ -49,7 +49,7 @@ struct rsim_assembly
         explicit rsim_assembly( uint32_t seed )
           : rng( seed )
         {
-                if ( asrt::init( &assm, "rsim", 100 ) != ASRT_SUCCESS ) {
+                if ( asrt::init( assm, "rsim", 100 ) != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
                 }
@@ -101,9 +101,9 @@ struct rsim_assembly
         {
                 tctx.tick();
                 auto now = uv_now( loop );
-                asrt::tick( &assm, now );
+                asrt::tick( assm, now );
 
-                while ( auto req = asrt::next( &assm.send_queue ) ) {
+                while ( auto req = asrt::next( assm.send_queue ) ) {
                         if ( disconnected ) {
                                 req.finish( ASRT_SEND_ERR );
                                 continue;

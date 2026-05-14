@@ -25,42 +25,42 @@ namespace asrt
 /// Initialise a collect server, linked after @p prev.  @p tree_block_cap and @p tree_node_cap
 /// set the capacity of the internal flat_tree storage.
 ASRT_NODISCARD inline status init(
-    ref< asrt_collect_server > srv,
-    asrt_node&                 prev,
-    asrt_allocator             alloc,
-    uint32_t                   tree_block_cap,
-    uint32_t                   tree_node_cap )
+    asrt_collect_server& srv,
+    asrt_node&           prev,
+    asrt_allocator       alloc,
+    uint32_t             tree_block_cap,
+    uint32_t             tree_node_cap )
 {
-        return asrt_collect_server_init( srv, &prev, alloc, tree_block_cap, tree_node_cap );
+        return asrt_collect_server_init( &srv, &prev, alloc, tree_block_cap, tree_node_cap );
 }
 
 /// Send a READY message to the reactor to start a collection session rooted at @p root_id.
 /// @p ack_cb fires once the reactor acknowledges or the operation times out.
 ASRT_NODISCARD inline status send_ready(
-    ref< asrt_collect_server >            srv,
+    asrt_collect_server&                  srv,
     flat_id                               root_id,
     callback< asrt_collect_ready_ack_cb > ack_cb,
     uint32_t                              timeout )
 {
-        return asrt_collect_server_send_ready( srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
+        return asrt_collect_server_send_ready( &srv, root_id, timeout, ack_cb.fn, ack_cb.ptr );
 }
 
 /// Access the flat_tree assembled from incoming APPEND messages.
-inline asrt_flat_tree const& tree( ref< asrt_collect_server > srv )
+inline asrt_flat_tree const& tree( asrt_collect_server& srv )
 {
-        return *asrt_collect_server_tree( srv );
+        return *asrt_collect_server_tree( &srv );
 }
 
 /// Return the next node ID the server will assign (useful for pre-allocating root IDs).
-ASRT_NODISCARD inline flat_id next_node_id( ref< asrt_collect_server > srv )
+ASRT_NODISCARD inline flat_id next_node_id( asrt_collect_server& srv )
 {
-        return srv->next_node_id;
+        return srv.next_node_id;
 }
 
 /// Free the flat_tree storage and all server resources.
-inline void deinit( ref< asrt_collect_server > srv )
+inline void deinit( asrt_collect_server& srv )
 {
-        asrt_collect_server_deinit( srv );
+        asrt_collect_server_deinit( &srv );
 }
 
 /// Context for collect_send_ready_sender: advertises the tree to the reactor.
@@ -99,12 +99,9 @@ using collect_send_ready_sender = ecor::sender_from< _collect_send_ready_ctx >;
 
 /// co_await send_ready(srv, root_id, timeout) — advertise the tree to the reactor;
 /// completes with void once the READY_ACK arrives.
-inline ecor::sender auto send_ready(
-    ref< asrt_collect_server > srv,
-    flat_id                    root_id,
-    uint32_t                   timeout )
+inline ecor::sender auto send_ready( asrt_collect_server& srv, flat_id root_id, uint32_t timeout )
 {
-        return collect_send_ready_sender{ { srv, root_id, timeout } };
+        return collect_send_ready_sender{ { &srv, root_id, timeout } };
 }
 
 }  // namespace asrt

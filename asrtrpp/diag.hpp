@@ -26,25 +26,25 @@ using status = asrt_status;
 /// Enqueue a diagnostic record from @p file:@p line with optional expression @p extra.
 /// Calls @p done_cb when the send completes.
 inline void rec_diag(
-    ref< asrt_diag_client >              d,
+    asrt_diag_client&                    d,
     char const*                          file,
     uint32_t                             line,
     char const*                          extra,
     callback< asrt_diag_record_done_cb > done_cb )
 {
-        asrt_diag_client_record( d, file, line, extra, done_cb.fn, done_cb.ptr );
+        asrt_diag_client_record( &d, file, line, extra, done_cb.fn, done_cb.ptr );
 }
 
 /// Initialise a diag client and link it into the channel chain after @p prev.
-ASRT_NODISCARD inline status init( ref< asrt_diag_client > d, asrt_node& prev )
+ASRT_NODISCARD inline status init( asrt_diag_client& d, asrt_node& prev )
 {
-        return asrt_diag_client_init( d, &prev );
+        return asrt_diag_client_init( &d, &prev );
 }
 
 /// Unlink and release the diag client.
-inline void deinit( ref< asrt_diag_client > d )
+inline void deinit( asrt_diag_client& d )
 {
-        asrt_diag_client_deinit( d );
+        asrt_diag_client_deinit( &d );
 }
 
 /// Context for diag_rec_sender: enqueues a diagnostic RECORD message.
@@ -84,12 +84,12 @@ using diag_rec_sender = ecor::sender_from< _diag_rec_ctx >;
 /// co_await rec_diag(d, file, line, extra) — enqueue a diagnostic record;
 /// completes with void once the send completes.
 inline ecor::sender auto rec_diag(
-    ref< asrt_diag_client > d,
-    char const*             file,
-    uint32_t                line,
-    char const*             extra )
+    asrt_diag_client& d,
+    char const*       file,
+    uint32_t          line,
+    char const*       extra )
 {
-        return diag_rec_sender{ { d, file, line, extra } };
+        return diag_rec_sender{ { &d, file, line, extra } };
 }
 
 #define ASRT_CO_REQUIRE( diag, rec, x )                                         \

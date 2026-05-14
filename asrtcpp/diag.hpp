@@ -31,26 +31,23 @@ struct diag_record_deleter
 };
 
 /// Initialise a diag server and link it into the channel chain after @p prev.
-ASRT_NODISCARD inline status init(
-    ref< asrt_diag_server > d,
-    asrt_node&              prev,
-    asrt_allocator          alloc )
+ASRT_NODISCARD inline status init( asrt_diag_server& d, asrt_node& prev, asrt_allocator alloc )
 {
-        return asrt_diag_server_init( d, &prev, alloc );
+        return asrt_diag_server_init( &d, &prev, alloc );
 }
 
 /// Remove and return the oldest buffered record as an owning unique_ptr.
 /// Returns an empty unique_ptr if no records are pending.
 ASRT_NODISCARD inline std::unique_ptr< diag_record, diag_record_deleter > take_record(
-    ref< asrt_diag_server > d )
+    asrt_diag_server& d )
 {
-        return { asrt_diag_server_take_record( d ), diag_record_deleter{ &d->alloc } };
+        return { asrt_diag_server_take_record( &d ), diag_record_deleter{ &d.alloc } };
 }
 
 /// Free all buffered records and server resources.
-inline void deinit( ref< asrt_diag_server > d )
+inline void deinit( asrt_diag_server& d )
 {
-        asrt_diag_server_deinit( d );
+        asrt_diag_server_deinit( &d );
 }
 
 

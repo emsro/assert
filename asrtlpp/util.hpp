@@ -83,29 +83,6 @@ ASRT_NODISCARD inline status recv( asrt_node& n, asrt_span buff )
         return asrt_chann_recv( &n, buff );
 }
 
-template < typename T >
-struct ref
-{
-        T& operator*() { return *_p; }
-        T* operator->() { return _p; }
-
-        operator T&() { return *_p; }
-        operator T*() { return _p; }
-
-        ref( T& t )
-          : _p( &t )
-        {
-        }
-        ref( T* t )
-          : _p( t )
-        {
-                ASRT_ASSERT( t != nullptr );
-        }
-
-private:
-        T* _p;
-};
-
 // ---------------------------------------------------------------------------
 // send_queue helper
 

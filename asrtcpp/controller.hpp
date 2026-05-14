@@ -26,69 +26,69 @@ using status = asrt_status;
 using result = asrt_result;
 
 /// Initialise a controller, wiring it to @p s for outgoing messages.
-ASRT_NODISCARD inline status init( ref< asrt_controller > c, asrt_send_req_list* s, allocator a )
+ASRT_NODISCARD inline status init( asrt_controller& c, asrt_send_req_list* s, allocator a )
 {
-        return asrt_cntr_init( c, s, a );
+        return asrt_cntr_init( &c, s, a );
 }
 
 /// Begin the protocol handshake; @p cb is invoked once the target responds or the operation times
 /// out.
 ASRT_NODISCARD inline status start(
-    ref< asrt_controller >         c,
+    asrt_controller&               c,
     callback< asrt_init_callback > cb,
     uint32_t                       timeout )
 {
-        return asrt_cntr_start( c, cb.fn, cb.ptr, timeout );
+        return asrt_cntr_start( &c, cb.fn, cb.ptr, timeout );
 }
 
 /// Returns true if the controller has no pending operation.
-ASRT_NODISCARD inline bool is_idle( ref< asrt_controller > c )
+ASRT_NODISCARD inline bool is_idle( asrt_controller& c )
 {
-        return asrt_cntr_idle( c ) > 0;
+        return asrt_cntr_idle( &c ) > 0;
 }
 
 /// Request the target description string; @p cb receives it on success.
 ASRT_NODISCARD inline status query_desc(
-    ref< asrt_controller >         c,
+    asrt_controller&               c,
     callback< asrt_desc_callback > cb,
     uint32_t                       timeout )
 {
-        return asrt_cntr_desc( c, cb.fn, cb.ptr, timeout );
+        return asrt_cntr_desc( &c, cb.fn, cb.ptr, timeout );
 }
 
 /// Request the number of tests registered on the target; @p cb receives the count.
 ASRT_NODISCARD inline status query_test_count(
-    ref< asrt_controller >               c,
+    asrt_controller&                     c,
     callback< asrt_test_count_callback > cb,
     uint32_t                             timeout )
 {
-        return asrt_cntr_test_count( c, cb.fn, cb.ptr, timeout );
+        return asrt_cntr_test_count( &c, cb.fn, cb.ptr, timeout );
 }
 
 /// Request name and metadata for test @p id; @p cb receives the info.
 ASRT_NODISCARD inline status query_test_info(
-    ref< asrt_controller >              c,
+    asrt_controller&                    c,
     uint16_t                            id,
     callback< asrt_test_info_callback > cb,
     uint32_t                            timeout )
 {
-        return asrt_cntr_test_info( c, id, cb.fn, cb.ptr, timeout );
+        return asrt_cntr_test_info( &c, id, cb.fn, cb.ptr, timeout );
 }
 
 /// Execute test @p id on the target; @p cb receives the pass/fail result.
 ASRT_NODISCARD inline status exec_test(
-    ref< asrt_controller >                c,
+    asrt_controller&                      c,
     uint16_t                              id,
     callback< asrt_test_result_callback > cb,
     uint32_t                              timeout )
 {
-        return asrt_cntr_test_exec( c, id, cb.fn, cb.ptr, timeout );
+        return asrt_cntr_test_exec( &c, id, cb.fn, cb.ptr, timeout );
 }
 
 /// Release all resources owned by the controller.
-inline void deinit( ref< asrt_controller > c )
+inline void deinit( asrt_controller& c )
 {
-        asrt_cntr_deinit( c );
+        asrt_cntr_deinit( &c );
 }
 
 // ---------------------------------------------------------------------------
@@ -265,35 +265,35 @@ struct _cntr_exec_test_ctx
 using cntr_exec_test_sender = ecor::sender_from< _cntr_exec_test_ctx >;
 
 /// co_await start(c, timeout) — performs the protocol handshake; completes with void on success.
-inline ecor::sender auto start( ref< asrt_controller > c, uint32_t timeout )
+inline ecor::sender auto start( asrt_controller& c, uint32_t timeout )
 {
-        return cntr_start_sender{ { c, timeout } };
+        return cntr_start_sender{ { &c, timeout } };
 }
 
 /// co_await query_desc(c, timeout) — fetches the target description; completes with std::string.
-inline ecor::sender auto query_desc( ref< asrt_controller > c, uint32_t timeout )
+inline ecor::sender auto query_desc( asrt_controller& c, uint32_t timeout )
 {
-        return cntr_query_desc_sender{ { c, timeout } };
+        return cntr_query_desc_sender{ { &c, timeout } };
 }
 
 /// co_await query_test_count(c, timeout) — fetches the number of registered tests; completes with
 /// uint16_t.
-inline ecor::sender auto query_test_count( ref< asrt_controller > c, uint32_t timeout )
+inline ecor::sender auto query_test_count( asrt_controller& c, uint32_t timeout )
 {
-        return cntr_query_test_count_sender{ { c, timeout } };
+        return cntr_query_test_count_sender{ { &c, timeout } };
 }
 
 /// co_await query_test_info(c, id, timeout) — fetches name for test id; completes with (uint16_t
 /// tid, std::string name).
-inline ecor::sender auto query_test_info( ref< asrt_controller > c, uint16_t id, uint32_t timeout )
+inline ecor::sender auto query_test_info( asrt_controller& c, uint16_t id, uint32_t timeout )
 {
-        return cntr_query_test_info_sender{ { c, id, timeout } };
+        return cntr_query_test_info_sender{ { &c, id, timeout } };
 }
 
 /// co_await exec_test(c, id, timeout) — executes test id; completes with asrt_result.
-inline ecor::sender auto exec_test( ref< asrt_controller > c, uint16_t id, uint32_t timeout )
+inline ecor::sender auto exec_test( asrt_controller& c, uint16_t id, uint32_t timeout )
 {
-        return cntr_exec_test_sender{ { c, id, timeout } };
+        return cntr_exec_test_sender{ { &c, id, timeout } };
 }
 
 }  // namespace asrt

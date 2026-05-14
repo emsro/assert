@@ -55,22 +55,22 @@ struct unit : asrt_test
 /// Initialise a reactor and wire it to @p req_l for outgoing messages.
 /// @p desc is a human-readable target description (borrowed).
 ASRT_NODISCARD inline enum asrt_status init(
-    ref< asrt_reactor > reac,
-    send_req_list&      req_l,
-    char const*         desc )
+    asrt_reactor&  reac,
+    send_req_list& req_l,
+    char const*    desc )
 {
-        return asrt_reactor_init( reac, &req_l, desc );
+        return asrt_reactor_init( &reac, &req_l, desc );
 }
 /// Append @p test to the reactor's test list.
-ASRT_NODISCARD inline enum asrt_status add_test( ref< asrt_reactor > reac, asrt_test& test )
+ASRT_NODISCARD inline enum asrt_status add_test( asrt_reactor& reac, asrt_test& test )
 {
-        return asrt_reactor_add_test( reac, &test );
+        return asrt_reactor_add_test( &reac, &test );
 }
 
 /// Unlink the reactor from the channel chain and release its resources.
-inline void deinit( ref< asrt_reactor > reac )
+inline void deinit( asrt_reactor& reac )
 {
-        asrt_reactor_deinit( reac );
+        asrt_reactor_deinit( &reac );
 }
 
 }  // namespace asrt
