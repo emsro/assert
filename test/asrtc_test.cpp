@@ -2517,29 +2517,29 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_multi_level_tree" )
         asrt::flat_id root, nums;
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrt_collect_client_append_object( &client, 0, NULL, &root, NULL, NULL ) );
+            asrt_collect_client_insert_object( &client, 0, NULL, &root, NULL, NULL ) );
         spin( 1 );
 
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrt_collect_client_append_array( &client, root, "nums", &nums, NULL, NULL ) );
+            asrt_collect_client_insert_array( &client, root, "nums", &nums, NULL, NULL ) );
         spin( 1 );
 
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 10, NULL, NULL ) );
+            ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, nums, NULL, 10, NULL, NULL ) );
         spin( 1 );
 
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_u32( &client, nums, NULL, 20, NULL, NULL ) );
+            ASRT_SUCCESS, asrt_collect_client_insert_u32( &client, nums, NULL, 20, NULL, NULL ) );
         spin( 1 );
 
         CHECK_EQ(
             ASRT_SUCCESS,
-            asrt_collect_client_append_str( &client, root, "name", "hello", NULL, NULL ) );
+            asrt_collect_client_insert_str( &client, root, "name", "hello", NULL, NULL ) );
         spin( 1 );
 
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_bool( &client, root, "flag", 1, NULL, NULL ) );
+            ASRT_SUCCESS, asrt_collect_client_insert_bool( &client, root, "flag", 1, NULL, NULL ) );
         spin( 1 );
 
         // Verify the tree built on the controller side
@@ -2583,7 +2583,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_duplicate_node_sends_
 
         // Append first node (parent=0 = virtual root)
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL, NULL, NULL ) );
+            ASRT_SUCCESS, asrt_collect_client_insert_object( &client, 0, NULL, NULL, NULL, NULL ) );
         spin( 1 );  // deliver append to server so node 1 is in the tree
 
         // The client auto-assigns node_ids starting at 1.  The second append
@@ -2615,7 +2615,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
 
         // Append one valid node (parent=0 = virtual root)
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_collect_client_append_object( &client, 0, NULL, NULL, NULL, NULL ) );
+            ASRT_SUCCESS, asrt_collect_client_insert_object( &client, 0, NULL, NULL, NULL, NULL ) );
         spin( 1 );  // deliver append to server so node 1 is in the tree
 
         // Force duplicate via raw message
@@ -2633,7 +2633,7 @@ TEST_CASE_FIXTURE( collect_loopback_ctx, "collect_loopback_append_after_error_re
         CHECK_EQ( ASRT_COLLECT_CLIENT_ERROR, client.state );
 
         // Further appends from the client should fail
-        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_append_u32( &client, 0, "y", 99, NULL, NULL ) );
+        CHECK_EQ( ASRT_ARG_ERR, asrt_collect_client_insert_u32( &client, 0, "y", 99, NULL, NULL ) );
 }
 
 // =====================================================================

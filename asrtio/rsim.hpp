@@ -18,6 +18,7 @@
 #include "../asrtrpp/collect.hpp"
 #include "../asrtrpp/diag.hpp"
 #include "../asrtrpp/param.hpp"
+#include "../asrtrpp/reac_assm.hpp"
 #include "../asrtrpp/reactor.hpp"
 #include "../asrtrpp/stream.hpp"
 #include "./demo.hpp"

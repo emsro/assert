@@ -196,112 +196,115 @@ struct stream_schema
                 uint8_t* p = _emit_buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
                 return asrt::emit( *_client, _schema_id, _emit_buf, emit_size, done_cb );
-                emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
-                {
-                        return asrt::emit( *_client, _schema_id, buf, emit_size, done_cb );
+        }
 
-                        static constexpr enum asrt_strm_field_type_e fields[] = {
-                            strm_field_traits< Ts >::tag... };
+        /// Emit from a pre-encoded buffer; used internally by stream_emit_sender.
+        ASRT_NODISCARD status
+        emit_raw( uint8_t const* buf, callback< asrt_stream_done_cb > done_cb )
+        {
+                return asrt::emit( *_client, _schema_id, buf, emit_size, done_cb );
+        }
 
-                private:
-                        asrt_stream_client* _client;
-                        uint8_t             _schema_id;
-                        uint8_t             _emit_buf[emit_size > 0 ? emit_size : 1];
+        ~stream_schema() = default;
+
+        static constexpr enum asrt_strm_field_type_e fields[] = { strm_field_traits< Ts >::tag... };
+
+private:
+        asrt_stream_client* _client;
+        uint8_t             _schema_id;
+        uint8_t             _emit_buf[emit_size > 0 ? emit_size : 1];
+};
+
+/// Context for stream_define_sender: registers a schema and returns it on completion.
+template < typename... Ts >
+struct _stream_define_ctx
+{
+        using completion_signatures = ecor::completion_signatures<
+            ecor::set_value_t( stream_schema< Ts... > ),
+            ecor::set_error_t( status ) >;
+
+        asrt_stream_client* client;
+        uint8_t             schema_id;
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                auto cb = +[]( void* ptr, enum asrt_status s ) {
+                        auto& o = *static_cast< OP* >( ptr );
+                        if ( s == ASRT_SUCCESS )
+                                o.receiver.set_value(
+                                    stream_schema< Ts... >{ *o.ctx.client, o.ctx.schema_id } );
+                        else
+                                o.receiver.set_error( s );
                 };
+                auto s = define(
+                    *client,
+                    schema_id,
+                    stream_schema< Ts... >::fields,
+                    sizeof...( Ts ),
+                    { cb, &op } );
+                if ( s != ASRT_SUCCESS )
+                        op.receiver.set_error( s );
+        }
+};
 
-                /// Context for stream_define_sender: registers a schema and returns it on
-                /// completion.
-                template < typename... Ts >
-                struct _stream_define_ctx
-                {
-                        using completion_signatures = ecor::completion_signatures<
-                            ecor::set_value_t( stream_schema< Ts... > ),
-                            ecor::set_error_t( status ) >;
+/// Sender for co_await define<Ts...>(client, schema_id).
+/// Registers a schema and completes with a stream_schema<Ts...> once the
+/// DEFINE message is acknowledged via done_cb.
+template < typename... Ts >
+using stream_define_sender = ecor::sender_from< _stream_define_ctx< Ts... > >;
 
-                        asrt_stream_client* client;
-                        uint8_t             schema_id;
+/// Define a stream schema.  Returns a sender that completes with a
+/// stream_schema<Ts...> once the DEFINE message has been acknowledged.
+template < typename... Ts >
+ecor::sender auto define( asrt_stream_client& client, uint8_t schema_id )
+{
+        return stream_define_sender< Ts... >{ { &client, schema_id } };
+}
 
-                        template < typename OP >
-                        void start( OP& op )
-                        {
-                                auto cb = +[]( void* ptr, enum asrt_status s ) {
-                                        auto& o = *static_cast< OP* >( ptr );
-                                        if ( s == ASRT_SUCCESS )
-                                                o.receiver.set_value( stream_schema< Ts... >{
-                                                    o.ctx.client, o.ctx.schema_id } );
-                                        else
-                                                o.receiver.set_error( s );
-                                };
-                                auto s = define(
-                                    *client,
-                                    schema_id,
-                                    stream_schema< Ts... >::fields,
-                                    sizeof...( Ts ),
-                                    { cb, &op } );
-                                if ( s != ASRT_SUCCESS )
-                                        op.receiver.set_error( s );
-                        }
+
+/// Context for stream_emit_sender: encodes args into buf and sends one DATA message.
+template < typename... Ts >
+struct _stream_emit_ctx
+{
+        using completion_signatures =
+            ecor::completion_signatures< ecor::set_value_t(), ecor::set_error_t( status ) >;
+
+        stream_schema< Ts... >* schema;
+        uint8_t                 buf[stream_schema< Ts... >::emit_size];
+
+        template < typename OP >
+        void start( OP& op )
+        {
+                auto cb = +[]( void* ptr, enum asrt_status s ) {
+                        auto& o = *static_cast< OP* >( ptr );
+                        if ( s == ASRT_SUCCESS )
+                                o.receiver.set_value();
+                        else
+                                o.receiver.set_error( s );
                 };
+                auto st = schema->emit_raw( buf, { cb, &op } );
+                if ( st != ASRT_SUCCESS )
+                        op.receiver.set_error( st );
+        }
+};
 
-                /// Sender for co_await define<Ts...>(client, schema_id).
-                /// Registers a schema and completes with a stream_schema<Ts...> once the
-                /// DEFINE message is acknowledged via done_cb.
-                template < typename... Ts >
-                using stream_define_sender = ecor::sender_from< _stream_define_ctx< Ts... > >;
+/// Sender for co_await emit(schema, args...).
+/// Encodes @p args into a fixed-size buffer and sends one DATA message,
+/// completing once done_cb fires.
+template < typename... Ts >
+using stream_emit_sender = ecor::sender_from< _stream_emit_ctx< Ts... > >;
 
-                /// Define a stream schema.  Returns a sender that completes with a
-                /// stream_schema<Ts...> once the DEFINE message has been acknowledged.
-                template < typename... Ts >
-                ecor::sender auto define( asrt_stream_client & client, uint8_t schema_id )
-                {
-                        return stream_define_sender< Ts... >{ { &client, schema_id } };
-                }
-
-
-                /// Context for stream_emit_sender: encodes args into buf and sends one DATA
-                /// message.
-                template < typename... Ts >
-                struct _stream_emit_ctx
-                {
-                        using completion_signatures = ecor::completion_signatures<
-                            ecor::set_value_t(),
-                            ecor::set_error_t( status ) >;
-
-                        stream_schema< Ts... >* schema;
-                        uint8_t                 buf[stream_schema< Ts... >::emit_size];
-
-                        template < typename OP >
-                        void start( OP& op )
-                        {
-                                auto cb = +[]( void* ptr, enum asrt_status s ) {
-                                        auto& o = *static_cast< OP* >( ptr );
-                                        if ( s == ASRT_SUCCESS )
-                                                o.receiver.set_value();
-                                        else
-                                                o.receiver.set_error( s );
-                                };
-                                auto st = schema->emit_raw( buf, { cb, &op } );
-                                if ( st != ASRT_SUCCESS )
-                                        op.receiver.set_error( st );
-                        }
-                };
-
-                /// Sender for co_await emit(schema, args...).
-                /// Encodes @p args into a fixed-size buffer and sends one DATA message,
-                /// completing once done_cb fires.
-                template < typename... Ts >
-                using stream_emit_sender = ecor::sender_from< _stream_emit_ctx< Ts... > >;
-
-                /// Emit one record.  Returns a sender that completes once the DATA message
-                /// has been sent.
-                template < typename... Ts >
-                ecor::sender auto emit( stream_schema< Ts... > & schema, Ts... args )
-                {
-                        _stream_emit_ctx< Ts... > ctx{ &schema, {} };
-                        uint8_t*                  p = ctx.buf;
-                        ( strm_field_traits< Ts >::encode( p, args ), ... );
-                        return stream_emit_sender< Ts... >{ std::move( ctx ) };
-                }
+/// Emit one record.  Returns a sender that completes once the DATA message
+/// has been sent.
+template < typename... Ts >
+ecor::sender auto emit( stream_schema< Ts... >& schema, Ts... args )
+{
+        _stream_emit_ctx< Ts... > ctx{ &schema, {} };
+        uint8_t*                  p = ctx.buf;
+        ( strm_field_traits< Ts >::encode( p, args ), ... );
+        return stream_emit_sender< Ts... >{ std::move( ctx ) };
+}
 
 
-        }  // namespace asrt
+}  // namespace asrt
