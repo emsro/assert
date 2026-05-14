@@ -49,7 +49,7 @@ struct rsim_assembly
         explicit rsim_assembly( uint32_t seed )
           : rng( seed )
         {
-                if ( asrt_reac_assm_init( &assm, "rsim", 100 ) != ASRT_SUCCESS ) {
+                if ( asrt::init( &assm, "rsim", 100 ) != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrtio", "Failed to initialize assembly" );
                         throw std::runtime_error( "Failed to initialize assembly" );
                 }
@@ -82,7 +82,7 @@ struct rsim_assembly
         void reg_demo( demo_spec spec )
         {
                 auto& t = demo_tests.emplace_back( std::move( spec ), assm.diag, assm.param, rng );
-                if ( add_test( assm.reactor, t ) != ASRT_SUCCESS )
+                if ( asrt::add_test( assm.reactor, t ) != ASRT_SUCCESS )
                         throw std::runtime_error( "add_test failed" );
         }
 
@@ -101,15 +101,15 @@ struct rsim_assembly
         {
                 tctx.tick();
                 auto now = uv_now( loop );
-                asrt_reac_assm_tick( &assm, now );
+                asrt::tick( &assm, now );
 
-                while ( auto* req = asrt_send_req_list_next( &assm.send_queue ) ) {
+                while ( auto req = asrt::next( &assm.send_queue ) ) {
                         if ( disconnected ) {
-                                asrt_send_req_list_done( &assm.send_queue, ASRT_SEND_ERR );
+                                req.finish( ASRT_SEND_ERR );
                                 continue;
                         }
                         auto st = rx.write( stream, req->chid, req->buff );
-                        asrt_send_req_list_done( &assm.send_queue, st );
+                        req.finish( st );
                 }
         }
 
