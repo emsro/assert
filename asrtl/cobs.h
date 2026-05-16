@@ -45,7 +45,7 @@ void asrt_cobs_encoder_iter( struct asrt_cobs_encoder* e, uint8_t b );
 
 /// Encodes entire buffer with COBS. Returns encoded length in `out->e - out->b`, or error status.
 /// Returns ASRT_SIZE_ERR if output buffer is insufficient during encoding.
-enum asrt_status asrt_cobs_encode_buffer( struct asrt_span in, struct asrt_span* out );
+enum asrt_status asrt_cobs_encode_buffer( struct asrt_rec_span const* in, struct asrt_span* out );
 
 /// Stateful COBS decoder. Maintains position within current code block.
 struct asrt_cobs_decoder

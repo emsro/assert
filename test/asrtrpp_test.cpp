@@ -340,9 +340,9 @@ void deliver_req( asrt_send_req_list* sq, asrt_node* peer_head )
                 uint8_t* p = flat;
                 memcpy( p, req->buff.b, (size_t) ( req->buff.e - req->buff.b ) );
                 p += req->buff.e - req->buff.b;
-                for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
-                        size_t sz = (size_t) ( req->buff.rest[i].e - req->buff.rest[i].b );
-                        memcpy( p, req->buff.rest[i].b, sz );
+                for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next ) {
+                        size_t sz = (size_t) ( s->e - s->b );
+                        memcpy( p, s->b, sz );
                         p += sz;
                 }
                 enum asrt_status st     = ASRT_SUCCESS;

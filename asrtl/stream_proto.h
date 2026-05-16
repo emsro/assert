@@ -120,7 +120,7 @@ static inline char const* asrt_strm_field_type_to_str( enum asrt_strm_field_type
 /// Header: [MSG_DEFINE, schema_id, field_count] followed by field_count tags.
 struct asrt_strm_define_msg
 {
-        struct asrt_span     field_span;
+        struct asrt_rec_span field_span;
         uint8_t              fields[255];
         uint8_t              hdr[3];
         struct asrt_send_req req;
@@ -138,12 +138,12 @@ static inline struct asrt_send_req* asrt_msg_rtoc_strm_define(
         msg->hdr[2] = (uint8_t) field_count;
         for ( uint16_t i = 0; i < field_count; i++ )
                 msg->fields[i] = (uint8_t) fields[i];
-        msg->field_span = ( struct asrt_span ){ .b = msg->fields, .e = msg->fields + field_count };
-        msg->req.buff   = ( struct asrt_span_span ){
-              .b          = msg->hdr,
-              .e          = msg->hdr + sizeof msg->hdr,
-              .rest       = &msg->field_span,
-              .rest_count = 1,
+        msg->field_span = ( struct asrt_rec_span ){
+            .b = msg->fields, .e = msg->fields + field_count, .next = NULL };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->field_span,
         };
         return &msg->req;
 }
@@ -152,7 +152,7 @@ static inline struct asrt_send_req* asrt_msg_rtoc_strm_define(
 /// Header: [MSG_DATA, schema_id] followed by raw record bytes.
 struct asrt_strm_data_msg
 {
-        struct asrt_span     data_span;
+        struct asrt_rec_span data_span;
         uint8_t              hdr[2];
         struct asrt_send_req req;
 };
@@ -163,15 +163,14 @@ static inline struct asrt_send_req* asrt_msg_rtoc_strm_data(
     uint8_t const*             data,
     uint16_t                   data_size )
 {
-        msg->hdr[0] = ASRT_STRM_MSG_DATA;
-        msg->hdr[1] = schema_id;
-        msg->data_span =
-            ( struct asrt_span ){ .b = (uint8_t*) data, .e = (uint8_t*) data + data_size };
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->hdr,
-            .e          = msg->hdr + sizeof msg->hdr,
-            .rest       = &msg->data_span,
-            .rest_count = 1,
+        msg->hdr[0]    = ASRT_STRM_MSG_DATA;
+        msg->hdr[1]    = schema_id;
+        msg->data_span = ( struct asrt_rec_span ){
+            .b = (uint8_t*) data, .e = (uint8_t*) data + data_size, .next = NULL };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->data_span,
         };
         return &msg->req;
 }
@@ -183,11 +182,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_strm_error(
 {
         msg->buff[0]  = ASRT_STRM_MSG_ERROR;
         msg->buff[1]  = error_code;
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + 2,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + 2,
+            .next = NULL,
         };
         return &msg->req;
 }

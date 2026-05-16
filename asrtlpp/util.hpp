@@ -33,7 +33,7 @@ using chann_id  = asrt_chann_id;
 using status    = asrt_status;
 using allocator = asrt_allocator;
 using span      = asrt_span;
-using span_span = asrt_span_span;
+using rec_span  = asrt_rec_span;
 template < typename T >
 using uptr = std::unique_ptr< T >;
 template < typename T >

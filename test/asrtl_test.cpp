@@ -499,10 +499,10 @@ TEST_CASE( "cobs_encode_buffer_success" )
         *enc.p++            = 0x00;
         size_t expected_len = enc.p - expected;
 
-        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_rec_span in     = { .b = raw, .e = raw + sizeof raw, .next = NULL };
+        struct asrt_span     out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( &in, &out_sp ) );
         CHECK_EQ( expected_len, (size_t) ( out_sp.e - out_sp.b ) );
         CHECK( memcmp( expected, out, expected_len ) == 0 );
 }
@@ -512,10 +512,10 @@ TEST_CASE( "cobs_encode_buffer_empty_input" )
         uint8_t raw[0];
         uint8_t out[16];
 
-        struct asrt_span in     = { .b = raw, .e = raw };
-        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_rec_span in     = { .b = raw, .e = raw, .next = NULL };
+        struct asrt_span     out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( &in, &out_sp ) );
         CHECK_EQ( 2, (int) ( out_sp.e - out_sp.b ) );
         CHECK_EQ( 0x01, out[0] );
         CHECK_EQ( 0x00, out[1] );
@@ -523,12 +523,12 @@ TEST_CASE( "cobs_encode_buffer_empty_input" )
 
 TEST_CASE( "cobs_encode_buffer_insufficient_space" )
 {
-        uint8_t          raw[] = { 0x11, 0x22, 0x33, 0x44 };
-        uint8_t          out[4];
-        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
+        uint8_t              raw[] = { 0x11, 0x22, 0x33, 0x44 };
+        uint8_t              out[4];
+        struct asrt_rec_span in     = { .b = raw, .e = raw + sizeof raw, .next = NULL };
+        struct asrt_span     out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRT_SIZE_ERR, asrt_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SIZE_ERR, asrt_cobs_encode_buffer( &in, &out_sp ) );
 }
 
 TEST_CASE( "cobs_encode_buffer_large_input" )
@@ -538,10 +538,10 @@ TEST_CASE( "cobs_encode_buffer_large_input" )
         for ( size_t i = 0; i < sizeof raw; ++i )
                 raw[i] = (uint8_t) ( i + 1 );
 
-        struct asrt_span in     = { .b = raw, .e = raw + sizeof raw };
-        struct asrt_span out_sp = { .b = out, .e = out + sizeof out };
+        struct asrt_rec_span in     = { .b = raw, .e = raw + sizeof raw, .next = NULL };
+        struct asrt_span     out_sp = { .b = out, .e = out + sizeof out };
 
-        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( in, &out_sp ) );
+        CHECK_EQ( ASRT_SUCCESS, asrt_cobs_encode_buffer( &in, &out_sp ) );
 
         struct asrt_cobs_decoder dec;
         uint8_t                  decoded[300];
@@ -998,12 +998,12 @@ TEST_CASE( "u8d4_to_u32_high_bit" )
 TEST_CASE( "cobs_encode_buffer_l11" )
 {
         // L11: Verify asrt_cobs_encode_buffer works correctly (out_ptr is dead code)
-        uint8_t          input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
-        uint8_t          output[32];
-        struct asrt_span in  = { .b = input, .e = input + sizeof input };
-        struct asrt_span out = { .b = output, .e = output + sizeof output };
+        uint8_t              input[] = { 0x11, 0x22, 0x00, 0x33, 0x44 };
+        uint8_t              output[32];
+        struct asrt_rec_span in  = { .b = input, .e = input + sizeof input, .next = NULL };
+        struct asrt_span     out = { .b = output, .e = output + sizeof output };
 
-        enum asrt_status st = asrt_cobs_encode_buffer( in, &out );
+        enum asrt_status st = asrt_cobs_encode_buffer( &in, &out );
 
         CHECK_EQ( ASRT_SUCCESS, st );
         CHECK_EQ( 7, (size_t) ( out.e - out.b ) );
@@ -2118,9 +2118,9 @@ static uint32_t strm_flatten( uint8_t* out, struct asrt_send_req const* req )
         size_t   n   = (size_t) ( req->buff.e - req->buff.b );
         memcpy( out + len, req->buff.b, n );
         len += (uint32_t) n;
-        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
-                n = (size_t) ( req->buff.rest[i].e - req->buff.rest[i].b );
-                memcpy( out + len, req->buff.rest[i].b, n );
+        for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next ) {
+                n = (size_t) ( s->e - s->b );
+                memcpy( out + len, s->b, n );
                 len += (uint32_t) n;
         }
         return len;
@@ -2437,7 +2437,8 @@ TEST_CASE( "collect_append_null_key_span_points_into_msg" )
 
         struct asrt_send_req* req = asrt_msg_rtoc_collect_append( &msg, 0, 1, /*key=*/NULL, &val );
 
-        // key span is rest[0]: must be exactly one byte wide and contain '\0'
-        CHECK_EQ( req->buff.rest[0].e, req->buff.rest[0].b + 1 );
-        CHECK_EQ( *req->buff.rest[0].b, (uint8_t) '\0' );
+        // key span is buff.next: must be exactly one byte wide and contain '\0'
+        REQUIRE_NE( req->buff.next, nullptr );
+        CHECK_EQ( req->buff.next->e, req->buff.next->b + 1 );
+        CHECK_EQ( *req->buff.next->b, (uint8_t) '\0' );
 }

@@ -47,19 +47,21 @@ void asrt_cobs_decoder_iter( struct asrt_cobs_decoder* d, uint8_t b, uint8_t** p
         }
 }
 
-enum asrt_status asrt_cobs_encode_buffer( struct asrt_span const in, struct asrt_span* out )
+enum asrt_status asrt_cobs_encode_buffer( struct asrt_rec_span const* in, struct asrt_span* out )
 {
-        ASRT_ASSERT( out && in.b && in.e && out->b && out->e );
-        ASRT_ASSERT( in.e >= in.b && out->e >= out->b );
+        ASRT_ASSERT( out && out->b && out->e );
+        ASRT_ASSERT( out->e >= out->b );
         uint8_t* out_end = out->e;
 
         struct asrt_cobs_encoder enc;
         asrt_cobs_encoder_init( &enc, out->b );
 
-        for ( uint8_t* p = in.b; p != in.e; ++p ) {
-                if ( enc.p + 1 >= out_end )  // iter may write 2 bytes when offset resets at 255
-                        return ASRT_SIZE_ERR;
-                asrt_cobs_encoder_iter( &enc, *p );
+        for ( struct asrt_rec_span const* seg = in; seg != NULL; seg = seg->next ) {
+                for ( uint8_t* p = seg->b; p != seg->e; ++p ) {
+                        if ( enc.p + 1 >= out_end )
+                                return ASRT_SIZE_ERR;
+                        asrt_cobs_encoder_iter( &enc, *p );
+                }
         }
 
         if ( enc.p >= out_end )

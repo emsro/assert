@@ -61,15 +61,15 @@ static std::vector< uint8_t > make_cobs_packet( uint16_t chid, std::vector< uint
         size_t raw_len = pp - raw;
 
         uint8_t out[1024];
-        struct asrt_span in_sp
+        struct asrt_rec_span in_sp
         {
-                .b = raw, .e = raw + raw_len
+                .b = raw, .e = raw + raw_len, .next = nullptr
         };
         struct asrt_span out_sp
         {
                 .b = out, .e = out + sizeof( out )
         };
-        REQUIRE( asrt_cobs_encode_buffer( in_sp, &out_sp ) == ASRT_SUCCESS );
+        REQUIRE( asrt_cobs_encode_buffer( &in_sp, &out_sp ) == ASRT_SUCCESS );
 
         std::vector< uint8_t > result( out_sp.b, out_sp.e );
         result.push_back( 0x00 );  // COBS frame terminator

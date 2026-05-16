@@ -48,11 +48,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_collect_ready(
         *p++       = ASRT_COLLECT_MSG_READY;
         asrt_add_u32( &p, root_id );
         asrt_add_u32( &p, next_node_id );
-        ready_msg->req.buff = ( struct asrt_span_span ){
-            .b          = ready_msg->buff,
-            .e          = ready_msg->buff + sizeof ready_msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        ready_msg->req.buff = ( struct asrt_rec_span ){
+            .b    = ready_msg->buff,
+            .e    = ready_msg->buff + sizeof ready_msg->buff,
+            .next = NULL,
         };
         return &ready_msg->req;
 }
@@ -61,11 +60,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_collect_ready_ack(
     struct asrt_u8d1msg* ready_ack_msg )
 {
         ready_ack_msg->buff[0]  = ASRT_COLLECT_MSG_READY_ACK;
-        ready_ack_msg->req.buff = ( struct asrt_span_span ){
-            .b          = ready_ack_msg->buff,
-            .e          = ready_ack_msg->buff + 1,
-            .rest       = NULL,
-            .rest_count = 0,
+        ready_ack_msg->req.buff = ( struct asrt_rec_span ){
+            .b    = ready_ack_msg->buff,
+            .e    = ready_ack_msg->buff + 1,
+            .next = NULL,
         };
         return &ready_ack_msg->req;
 }
@@ -73,7 +71,7 @@ static inline struct asrt_send_req* asrt_msg_rtoc_collect_ready_ack(
 struct asrt_collect_append_msg
 {
         uint8_t              val_buff[9];
-        struct asrt_span     span[3];
+        struct asrt_rec_span span[3];
         uint8_t              hdr[9];
         struct asrt_send_req req;
 };
@@ -92,41 +90,45 @@ static inline struct asrt_send_req* asrt_msg_rtoc_collect_append(
         uint8_t* vp = val_buf;
         *vp++       = (uint8_t) value->type;
 
-        struct asrt_span* key_span = &msg->span[0];
-        struct asrt_span* val_span = &msg->span[1];
+        struct asrt_rec_span* key_span = &msg->span[0];
+        struct asrt_rec_span* val_span = &msg->span[1];
 
-        uint32_t rest_count;
         if ( value->type == ASRT_FLAT_STYPE_STR ) {
                 // span[1] = type byte, span[2] = string bytes (including NUL)
                 size_t slen = strlen( value->data.s.str_val );
                 memcpy( msg->val_buff, val_buf, (size_t) ( vp - val_buf ) );
-                *val_span = ( struct asrt_span ){
-                    .b = msg->val_buff, .e = msg->val_buff + (size_t) ( vp - val_buf ) };
-                msg->span[2] = ( struct asrt_span ){
-                    .b = (uint8_t*) value->data.s.str_val,
-                    .e = (uint8_t*) value->data.s.str_val + slen + 1 };
-                rest_count = 3;
+                msg->span[2] = ( struct asrt_rec_span ){
+                    .b    = (uint8_t*) value->data.s.str_val,
+                    .e    = (uint8_t*) value->data.s.str_val + slen + 1,
+                    .next = NULL };
+                *val_span = ( struct asrt_rec_span ){
+                    .b    = msg->val_buff,
+                    .e    = msg->val_buff + (size_t) ( vp - val_buf ),
+                    .next = &msg->span[2] };
         } else if ( value->type == ASRT_FLAT_CTYPE_OBJECT || value->type == ASRT_FLAT_CTYPE_ARRAY ) {
                 memcpy( msg->val_buff, val_buf, (size_t) ( vp - val_buf ) );
-                *val_span = ( struct asrt_span ){
-                    .b = msg->val_buff, .e = msg->val_buff + (size_t) ( vp - val_buf ) };
-                rest_count = 2;
+                *val_span = ( struct asrt_rec_span ){
+                    .b    = msg->val_buff,
+                    .e    = msg->val_buff + (size_t) ( vp - val_buf ),
+                    .next = NULL };
         } else {
                 asrt_flat_value_write( &vp, *value );
                 memcpy( msg->val_buff, val_buf, (size_t) ( vp - val_buf ) );
-                *val_span = ( struct asrt_span ){
-                    .b = msg->val_buff, .e = msg->val_buff + (size_t) ( vp - val_buf ) };
-                rest_count = 2;
+                *val_span = ( struct asrt_rec_span ){
+                    .b    = msg->val_buff,
+                    .e    = msg->val_buff + (size_t) ( vp - val_buf ),
+                    .next = NULL };
         }
 
         // key: borrow caller's string (including NUL) or point at a static NUL byte
         if ( key ) {
                 size_t klen = strlen( key );
-                *key_span =
-                    ( struct asrt_span ){ .b = (uint8_t*) key, .e = (uint8_t*) key + klen + 1 };
+                *key_span   = ( struct asrt_rec_span ){
+                      .b = (uint8_t*) key, .e = (uint8_t*) key + klen + 1, .next = &msg->span[1] };
         } else {
                 static uint8_t const nul = '\0';
-                *key_span = ( struct asrt_span ){ .b = (uint8_t*) &nul, .e = (uint8_t*) &nul + 1 };
+                *key_span                = ( struct asrt_rec_span ){
+                                   .b = (uint8_t*) &nul, .e = (uint8_t*) &nul + 1, .next = &msg->span[1] };
         }
 
         // header: msg_id + parent_id + node_id
@@ -134,11 +136,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_collect_append(
         *h++       = ASRT_COLLECT_MSG_APPEND;
         asrt_add_u32( &h, parent_id );
         asrt_add_u32( &h, node_id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->hdr,
-            .e          = msg->hdr + sizeof msg->hdr,
-            .rest       = msg->span,
-            .rest_count = rest_count,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->span[0],
         };
         return &msg->req;
 }
@@ -150,11 +151,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_collect_error(
 {
         err_msg->buff[0]  = ASRT_COLLECT_MSG_ERROR;
         err_msg->buff[1]  = (uint8_t) error_code;
-        err_msg->req.buff = ( struct asrt_span_span ){
-            .b          = err_msg->buff,
-            .e          = err_msg->buff + sizeof err_msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        err_msg->req.buff = ( struct asrt_rec_span ){
+            .b    = err_msg->buff,
+            .e    = err_msg->buff + sizeof err_msg->buff,
+            .next = NULL,
         };
         return &err_msg->req;
 }

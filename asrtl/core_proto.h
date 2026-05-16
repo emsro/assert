@@ -37,11 +37,10 @@ static inline struct asrt_send_req* asrt_msg_u16( struct asrt_u8d2msg* msg, uint
 {
         uint8_t* p = msg->buff;
         asrt_add_u16( &p, val );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -57,11 +56,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_proto_version(
         asrt_add_u16( &p, major );
         asrt_add_u16( &p, minor );
         asrt_add_u16( &p, patch );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -72,7 +70,7 @@ static inline struct asrt_send_req* asrt_msg_ctor_proto_version( struct asrt_u8d
 
 struct asrt_core_desc_msg
 {
-        struct asrt_span     str_span;
+        struct asrt_rec_span str_span;
         uint8_t              hdr[2];
         struct asrt_send_req req;
 };
@@ -84,13 +82,15 @@ static inline struct asrt_send_req* asrt_msg_rtoc_desc(
 {
         uint8_t* h = msg->hdr;
         asrt_add_u16( &h, ASRT_MSG_DESC );
-        msg->str_span =
-            ( struct asrt_span ){ .b = (uint8_t*) desc, .e = (uint8_t*) desc + desc_size };
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->hdr,
-            .e          = msg->hdr + sizeof msg->hdr,
-            .rest       = &msg->str_span,
-            .rest_count = 1,
+        msg->str_span = ( struct asrt_rec_span ){
+            .b    = (uint8_t*) desc,
+            .e    = (uint8_t*) desc + desc_size,
+            .next = NULL,
+        };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->str_span,
         };
         return &msg->req;
 }
@@ -108,11 +108,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_test_count(
         asrt_add_u16( &p, ASRT_MSG_TEST_COUNT );
         asrt_add_u16( &p, count );
 
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -131,7 +130,7 @@ typedef uint8_t asrt_test_info_result;
 
 struct asrt_core_test_info_msg
 {
-        struct asrt_span     str_span;
+        struct asrt_rec_span str_span;
         uint8_t              hdr[5];
         struct asrt_send_req req;
 };
@@ -146,14 +145,16 @@ static inline struct asrt_send_req* asrt_msg_rtoc_test_info(
         uint8_t* h = msg->hdr;
         asrt_add_u16( &h, ASRT_MSG_TEST_INFO );
         asrt_add_u16( &h, id );
-        *h++ = (uint8_t) res;
-        msg->str_span =
-            ( struct asrt_span ){ .b = (uint8_t*) desc, .e = (uint8_t*) desc + desc_size };
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->hdr,
-            .e          = msg->hdr + sizeof msg->hdr,
-            .rest       = &msg->str_span,
-            .rest_count = 1,
+        *h++          = (uint8_t) res;
+        msg->str_span = ( struct asrt_rec_span ){
+            .b    = (uint8_t*) desc,
+            .e    = (uint8_t*) desc + desc_size,
+            .next = NULL,
+        };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->str_span,
         };
         return &msg->req;
 }
@@ -163,11 +164,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_test_info( struct asrt_u8d4msg
         uint8_t* p = msg->buff;
         asrt_add_u16( &p, ASRT_MSG_TEST_INFO );
         asrt_add_u16( &p, id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -182,11 +182,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_test_start(
         asrt_add_u16( &p, ASRT_MSG_TEST_START );
         asrt_add_u16( &p, test_id );
         asrt_add_u32( &p, run_id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -200,11 +199,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_test_start(
         asrt_add_u16( &p, ASRT_MSG_TEST_START );
         asrt_add_u16( &p, test_id );
         asrt_add_u32( &p, run_id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -228,11 +226,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_test_result(
         asrt_add_u16( &p, ASRT_MSG_TEST_RESULT );
         asrt_add_u32( &p, run_id );
         asrt_add_u16( &p, res );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }

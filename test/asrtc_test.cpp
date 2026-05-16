@@ -77,9 +77,9 @@ struct asrt_span flatten_req( uint8_t* buf, struct asrt_send_req const* req )
         uint8_t* p = buf;
         memcpy( p, req->buff.b, req->buff.e - req->buff.b );
         p += req->buff.e - req->buff.b;
-        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
-                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
-                memcpy( p, req->buff.rest[i].b, sz );
+        for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next ) {
+                size_t sz = (size_t) ( s->e - s->b );
+                memcpy( p, s->b, sz );
                 p += sz;
         }
         return ( struct asrt_span ){ .b = buf, .e = p };
@@ -1577,9 +1577,9 @@ struct server_client_base
                         uint8_t* p = flat;
                         memcpy( p, req->buff.b, req->buff.e - req->buff.b );
                         p += req->buff.e - req->buff.b;
-                        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
-                                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
-                                memcpy( p, req->buff.rest[i].b, sz );
+                        for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next ) {
+                                size_t sz = (size_t) ( s->e - s->b );
+                                memcpy( p, s->b, sz );
                                 p += sz;
                         }
                         auto st = asrt_chann_recv( to, ( struct asrt_span ){ .b = flat, .e = p } );
@@ -2020,9 +2020,9 @@ static uint8_t* build_collect_append(
         uint8_t* p = buf;
         memcpy( p, req->buff.b, req->buff.e - req->buff.b );
         p += req->buff.e - req->buff.b;
-        for ( uint32_t i = 0; i < req->buff.rest_count; i++ ) {
-                size_t sz = req->buff.rest[i].e - req->buff.rest[i].b;
-                memcpy( p, req->buff.rest[i].b, sz );
+        for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next ) {
+                size_t sz = (size_t) ( s->e - s->b );
+                memcpy( p, s->b, sz );
                 p += sz;
         }
         return p;

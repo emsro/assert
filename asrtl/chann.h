@@ -62,10 +62,10 @@ typedef void ( *asrt_send_done_cb )( void* ptr, enum asrt_status status );
 /// An outgoing message request placed in a module's send queue.
 struct asrt_send_req
 {
-        struct asrt_span_span buff;      ///< Message payload (scatter-gather).
-        asrt_chann_id         chid;      ///< Target channel ID, set by asrt_send_enque().
-        asrt_send_done_cb     done_cb;   ///< Completion callback, may be NULL.
-        void*                 done_ptr;  ///< Opaque context forwarded to done_cb.
+        struct asrt_rec_span buff;      ///< Message payload (scatter-gather).
+        asrt_chann_id        chid;      ///< Target channel ID, set by asrt_send_enque().
+        asrt_send_done_cb    done_cb;   ///< Completion callback, may be NULL.
+        void*                done_ptr;  ///< Opaque context forwarded to done_cb.
 
         struct asrt_send_req* next;  ///< Intrusive linked-list link.
 };

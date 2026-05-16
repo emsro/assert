@@ -52,39 +52,25 @@ struct cobs_node
         char const*                      module = "asrtio";
         std::function< void( ssize_t ) > on_error;
 
-        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt_span_span const& buff )
+        asrt::status write( uv_stream_t* client, asrt::chann_id id, asrt_rec_span const& buff )
             const
         {
-                uint8_t  buffer[1024];
-                uint8_t* p  = buffer + 8;  // offset for COBS encoding
-                uint8_t* pp = p;
-
-                auto copy_span = [&]( uint8_t const* b, uint8_t const* e ) -> bool {
-                        size_t len = (size_t) ( e - b );
-                        if ( (size_t) ( pp - p ) + len > sizeof( buffer ) - 8 ) {
-                                ASRT_ERR_LOG( module, "Buffer overflow in COBS encoding" );
-                                return false;
-                        }
-                        memcpy( pp, b, len );
-                        pp += len;
-                        return true;
-                };
-
-                size_t size = sizeof( asrt::chann_id );
+                uint8_t  hdr_buf[2];
+                uint8_t* pp = hdr_buf;
                 asrt_add_u16( &pp, id );
-                size += (size_t) ( buff.e - buff.b );
-                if ( !copy_span( buff.b, buff.e ) )
-                        return ASRT_SEND_ERR;
-                for ( uint32_t i = 0; i < buff.rest_count; i++ ) {
-                        size += (size_t) ( buff.rest[i].e - buff.rest[i].b );
-                        if ( !copy_span( buff.rest[i].b, buff.rest[i].e ) )
-                                return ASRT_SEND_ERR;
-                }
+
+                // Prepend the channel header as a leading node in the span chain.
+                struct asrt_rec_span hdr_span = {
+                    .b    = hdr_buf,
+                    .e    = hdr_buf + 2,
+                    .next = const_cast< struct asrt_rec_span* >( &buff ) };
+
+                uint8_t buffer[1024];
                 struct asrt_span sp
                 {
                         .b = buffer, .e = buffer + sizeof buffer
                 };
-                auto s = asrt_cobs_encode_buffer( { .b = p, .e = p + size }, &sp );
+                auto s = asrt_cobs_encode_buffer( &hdr_span, &sp );
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( module, "COBS encoding failed: %s", asrt_status_to_str( s ) );
                         return ASRT_SEND_ERR;
@@ -93,7 +79,10 @@ struct cobs_node
                 auto* data = new uint8_t[sp.e - sp.b];
                 memcpy( data, sp.b, sp.e - sp.b );
                 ASRT_DBG_LOG(
-                    module, "Sending to channel %u: %u bytes, total: %u", id, size, sp.e - sp.b );
+                    module,
+                    "Sending to channel %u: %zu bytes encoded",
+                    id,
+                    (size_t) ( sp.e - sp.b ) );
 
                 auto* req      = new uv_write_t{};
                 req->data      = data;

@@ -204,11 +204,8 @@ static enum asrt_status asrt_param_server_tick( struct asrt_param_server* param,
                         return ASRT_SUCCESS;
                 }
 
-                param->query_msg.buff = ( struct asrt_span_span ){
-                    .b          = param->enc_buff,
-                    .e          = param->enc_buff + out_len,
-                    .rest       = NULL,
-                    .rest_count = 0 };
+                param->query_msg.buff = ( struct asrt_rec_span ){
+                    .b = param->enc_buff, .e = param->enc_buff + out_len, .next = NULL };
                 asrt_send_enque( &param->node, &param->query_msg, NULL, NULL );
                 return ASRT_SUCCESS;
         }

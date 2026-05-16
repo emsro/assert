@@ -31,14 +31,14 @@ static inline uint8_t asrt_span_unfit_for( struct asrt_span const* buff, uint32_
         return (uint32_t) ( buff->e - buff->b ) < size ? 1U : 0U;
 }
 
-/// Scatter-gather buffer: a primary byte range [b, e) followed by @p rest_count additional spans.
+/// Linked-list scatter-gather buffer: each node covers a byte range [b, e) and
+/// chains to the next segment via @p next (NULL if last).
 /// Used to build multi-part messages without copying all segments into one buffer.
-struct asrt_span_span
+struct asrt_rec_span
 {
-        uint8_t*          b;           ///< Primary buffer start.
-        uint8_t*          e;           ///< Primary buffer one-past-the-end.
-        struct asrt_span* rest;        ///< Optional array of additional byte ranges.
-        uint32_t          rest_count;  ///< Number of entries in @p rest.
+        uint8_t*              b;     ///< Buffer start.
+        uint8_t*              e;     ///< Buffer one-past-the-end.
+        struct asrt_rec_span* next;  ///< Next segment, or NULL if last.
 };
 
 #ifdef __cplusplus

@@ -53,11 +53,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_param_ready(
         uint8_t* p = ready_msg->buff;
         *p++       = ASRT_PARAM_MSG_READY;
         asrt_add_u32( &p, root_id );
-        ready_msg->req.buff = ( struct asrt_span_span ){
-            .b          = ready_msg->buff,
-            .e          = p,
-            .rest       = NULL,
-            .rest_count = 0,
+        ready_msg->req.buff = ( struct asrt_rec_span ){
+            .b    = ready_msg->buff,
+            .e    = p,
+            .next = NULL,
         };
         return &ready_msg->req;
 }
@@ -69,11 +68,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_param_ready_ack(
         uint8_t* p = msg->buff;
         *p++       = ASRT_PARAM_MSG_READY_ACK;
         asrt_add_u32( &p, max_msg_size );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -85,11 +83,10 @@ static inline struct asrt_send_req* asrt_msg_rtoc_param_query(
         uint8_t* p = msg->buff;
         *p++       = ASRT_PARAM_MSG_QUERY;
         asrt_add_u32( &p, node_id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = msg->buff + sizeof msg->buff,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = msg->buff + sizeof msg->buff,
+            .next = NULL,
         };
         return &msg->req;
 }
@@ -97,7 +94,7 @@ static inline struct asrt_send_req* asrt_msg_rtoc_param_query(
 struct asrt_param_find_by_key_msg
 {
         uint8_t              nul;       // embedded NUL terminator for key
-        struct asrt_span     spans[2];  // [0] = key bytes, [1] = &nul
+        struct asrt_rec_span spans[2];  // [0] = key bytes, [1] = &nul
         uint8_t              hdr[5];    // msg_id + parent_id
         struct asrt_send_req req;
 };
@@ -112,13 +109,17 @@ static inline struct asrt_send_req* asrt_msg_rtoc_param_find_by_key(
         asrt_add_u32( &h, parent_id );
         size_t key_len = strlen( key );
         msg->nul       = '\0';
-        msg->spans[0]  = ( struct asrt_span ){ .b = (uint8_t*) key, .e = (uint8_t*) key + key_len };
-        msg->spans[1]  = ( struct asrt_span ){ .b = &msg->nul, .e = &msg->nul + 1 };
-        msg->req.buff  = ( struct asrt_span_span ){
-             .b          = msg->hdr,
-             .e          = msg->hdr + sizeof msg->hdr,
-             .rest       = msg->spans,
-             .rest_count = 2,
+        msg->spans[1] =
+            ( struct asrt_rec_span ){ .b = &msg->nul, .e = &msg->nul + 1, .next = NULL };
+        msg->spans[0] = ( struct asrt_rec_span ){
+            .b    = (uint8_t*) key,
+            .e    = (uint8_t*) key + key_len,
+            .next = &msg->spans[1],
+        };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->spans[0],
         };
         return &msg->req;
 }
@@ -132,11 +133,10 @@ static inline struct asrt_send_req* asrt_msg_ctor_param_error(
         *p++       = ASRT_PARAM_MSG_ERROR;
         *p++       = error_code;
         asrt_add_u32( &p, node_id );
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->buff,
-            .e          = p,
-            .rest       = NULL,
-            .rest_count = 0,
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->buff,
+            .e    = p,
+            .next = NULL,
         };
         return &msg->req;
 }

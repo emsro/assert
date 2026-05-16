@@ -63,8 +63,8 @@ static inline void drain_send_queue_ex(
                 struct collected_data p;
                 p.id = req->chid;
                 p.data.insert( p.data.end(), req->buff.b, req->buff.e );
-                for ( uint32_t i = 0; i < req->buff.rest_count; i++ )
-                        p.data.insert( p.data.end(), req->buff.rest[i].b, req->buff.rest[i].e );
+                for ( asrt_rec_span const* s = req->buff.next; s != nullptr; s = s->next )
+                        p.data.insert( p.data.end(), s->b, s->e );
                 coll->data.push_back( p );
 
                 if ( req->done_cb )

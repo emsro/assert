@@ -28,7 +28,7 @@ typedef uint8_t asrt_diag_message_id;
 
 struct asrt_diag_record_msg
 {
-        struct asrt_span     spans[2];  // [0] = file, [1] = extra (optional)
+        struct asrt_rec_span spans[2];  // [0] = file, [1] = extra (optional)
         uint8_t              hdr[6];
         struct asrt_send_req req;
 };
@@ -50,19 +50,17 @@ static inline struct asrt_send_req* asrt_msg_rtoc_diag_record(
         }
         *p++ = (uint8_t) file_len;
 
-        msg->spans[0] =
-            ( struct asrt_span ){ .b = (uint8_t*) file, .e = (uint8_t*) file + file_len };
-        uint32_t rest_count = 1;
-        if ( extra ) {
-                msg->spans[1] = ( struct asrt_span ){
-                    .b = (uint8_t*) extra, .e = (uint8_t*) extra + strlen( extra ) };
-                rest_count = 2;
-        }
-        msg->req.buff = ( struct asrt_span_span ){
-            .b          = msg->hdr,
-            .e          = msg->hdr + sizeof msg->hdr,
-            .rest       = msg->spans,
-            .rest_count = rest_count,
+        if ( extra )
+                msg->spans[1] = ( struct asrt_rec_span ){
+                    .b = (uint8_t*) extra, .e = (uint8_t*) extra + strlen( extra ), .next = NULL };
+        msg->spans[0] = ( struct asrt_rec_span ){
+            .b    = (uint8_t*) file,
+            .e    = (uint8_t*) file + file_len,
+            .next = extra ? &msg->spans[1] : NULL };
+        msg->req.buff = ( struct asrt_rec_span ){
+            .b    = msg->hdr,
+            .e    = msg->hdr + sizeof msg->hdr,
+            .next = &msg->spans[0],
         };
         return &msg->req;
 }
