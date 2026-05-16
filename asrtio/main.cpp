@@ -263,6 +263,7 @@ task< void > run_serial(
         if ( !transport ) {
                 ASRT_ERR_LOG( "asrtio", "Failed to open serial port: %s", errmsg.c_str() );
                 co_await ecor::just_error( ASRT_INIT_ERR );
+                co_return;
         }
         auto sys = arena.make< cntr_serial_sys >( std::move( *transport ), clk );
         sys->start();

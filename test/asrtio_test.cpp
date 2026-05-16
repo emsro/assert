@@ -2106,7 +2106,10 @@ static asrtio::task< void > suite_serial_coro(
 
         std::string errmsg;
         auto        transport = asrtio::serial_transport::open( loop, cfg, errmsg );
-        REQUIRE_MESSAGE( transport.has_value(), errmsg );
+        if ( !transport ) {
+                FAIL( errmsg );
+                co_return;
+        }
         auto sys = arena.make< asrtio::cntr_stream_sys< asrtio::serial_transport > >(
             std::move( *transport ), clk );
         sys->start();
