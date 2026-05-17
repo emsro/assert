@@ -191,6 +191,14 @@ inline void deinit( asrt_stream_client& client )
         asrt_stream_client_deinit( &client );
 }
 
+template < std::size_t N >
+struct _field_def_bytes_t
+{
+        uint8_t                  data[N > 0 ? N : 1]{};
+        constexpr std::size_t    size() const noexcept { return N; }
+        constexpr uint8_t const& operator[]( std::size_t i ) const noexcept { return data[i]; }
+};
+
 /// Compile-time typed stream schema.
 ///
 /// Constructed by stream_define_sender after a successful DEFINE.  Provides
@@ -269,17 +277,8 @@ struct stream_schema
         static constexpr std::size_t field_def_bytes_size =
             ( strm_field_traits< Ts >::field_def_size + ... );
         static constexpr auto field_def_bytes = []() constexpr {
-                struct Arr
-                {
-                        uint8_t data[field_def_bytes_size > 0 ? field_def_bytes_size : 1];
-                        constexpr std::size_t    size() const { return field_def_bytes_size; }
-                        constexpr uint8_t const& operator[]( std::size_t i ) const
-                        {
-                                return data[i];
-                        }
-                };
-                Arr      arr{};
-                uint8_t* p = arr.data;
+                _field_def_bytes_t< field_def_bytes_size > arr{};
+                uint8_t*                                   p = arr.data;
                 ( strm_field_traits< Ts >::encode_def( p ), ... );
                 return arr;
         }();
