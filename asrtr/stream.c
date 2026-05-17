@@ -50,22 +50,24 @@ static enum asrt_status asrt_stream_client_recv( void* data, struct asrt_span bu
 
 
 enum asrt_status asrt_stream_client_define(
-    struct asrt_stream_client*         client,
-    uint8_t                            schema_id,
-    enum asrt_strm_field_type_e const* fields,
-    uint8_t                            field_count,
-    asrt_stream_done_cb                done_cb,
-    void*                              done_cb_ptr )
+    struct asrt_stream_client* client,
+    uint8_t                    schema_id,
+    uint8_t const*             field_bytes,
+    uint16_t                   field_bytes_size,
+    uint8_t                    field_count,
+    asrt_stream_done_cb        done_cb,
+    void*                      done_cb_ptr )
 {
-        if ( !client || !fields || field_count == 0 )
+        if ( !client || !field_bytes || field_bytes_size == 0 || field_count == 0 )
                 return ASRT_ARG_ERR;
         if ( client->state != ASRT_STRM_IDLE )
                 return ASRT_BUSY_ERR;
 
         client->op.define = ( struct asrt_stream_pending_define ){
-            .schema_id   = schema_id,
-            .field_count = field_count,
-            .fields      = fields,
+            .schema_id        = schema_id,
+            .field_count      = field_count,
+            .field_bytes      = field_bytes,
+            .field_bytes_size = field_bytes_size,
         };
         client->done_cb     = done_cb;
         client->done_cb_ptr = done_cb_ptr;
@@ -134,7 +136,11 @@ static enum asrt_status asrt_stream_tick_define_send( struct asrt_stream_client*
 
         struct asrt_stream_pending_define* p   = &client->op.define;
         struct asrt_send_req*              req = asrt_msg_rtoc_strm_define(
-            &client->define_msg, p->schema_id, p->fields, p->field_count );
+            &client->define_msg,
+            p->schema_id,
+            p->field_bytes,
+            p->field_bytes_size,
+            p->field_count );
         asrt_send_enque( &client->node, req, asrt_stream_send_done, client );
         return ASRT_SUCCESS;
 }

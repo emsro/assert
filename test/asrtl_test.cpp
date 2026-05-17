@@ -2128,10 +2128,9 @@ static uint32_t strm_flatten( uint8_t* out, struct asrt_send_req const* req )
 
 TEST_CASE( "strm_proto: define serializes header and fields" )
 {
-        enum asrt_strm_field_type_e fields[] = {
-            ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT, ASRT_STRM_FIELD_I16 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT, ASRT_STRM_FIELD_I16 };
         struct asrt_strm_define_msg dmsg = {};
-        struct asrt_send_req*       req  = asrt_msg_rtoc_strm_define( &dmsg, 7, fields, 3 );
+        struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 7, fields, sizeof fields, 3 );
         REQUIRE_NE( req, nullptr );
         uint8_t  buf[64];
         uint32_t len = strm_flatten( buf, req );
@@ -2147,9 +2146,9 @@ TEST_CASE( "strm_proto: define serializes header and fields" )
 
 TEST_CASE( "strm_proto: define single field" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_BOOL };
+        uint8_t                     fields[] = { ASRT_STRM_FIELD_BOOL };
         struct asrt_strm_define_msg dmsg     = {};
-        struct asrt_send_req*       req      = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 1 );
+        struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, sizeof fields, 1 );
         REQUIRE_NE( req, nullptr );
         uint8_t  buf[64];
         uint32_t len = strm_flatten( buf, req );
@@ -2163,11 +2162,10 @@ TEST_CASE( "strm_proto: define single field" )
 
 TEST_CASE( "strm_proto: define rejects field_count > 255" )
 {
-        enum asrt_strm_field_type_e fields[1] = { ASRT_STRM_FIELD_U8 };
+        uint8_t                     fields[1] = { ASRT_STRM_FIELD_U8 };
         struct asrt_strm_define_msg dmsg      = {};
-        // field_count=256 is truncated to uint8_t=0 in old API, new API asserts/UB — skip
-        // invocation just verify that 0 field_count produces correct empty define
-        struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 0 );
+        // field_count=0 produces correct empty define
+        struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 0, 0 );
         REQUIRE_NE( req, nullptr );
         uint8_t  buf[64];
         uint32_t len = strm_flatten( buf, req );
@@ -2209,9 +2207,9 @@ TEST_CASE( "strm_proto: data with zero-length payload" )
 TEST_CASE( "strm_proto: define propagates callback error" )
 {
         // New API: no callback — verify msg encodes correctly (callback error test not applicable)
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t                     fields[] = { ASRT_STRM_FIELD_U8 };
         struct asrt_strm_define_msg dmsg     = {};
-        struct asrt_send_req*       req      = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, 1 );
+        struct asrt_send_req* req = asrt_msg_rtoc_strm_define( &dmsg, 0, fields, sizeof fields, 1 );
         CHECK_NE( req, nullptr );
 }
 

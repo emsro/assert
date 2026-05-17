@@ -1793,17 +1793,17 @@ TEST_CASE( "write_stream_csv: single u8 field" )
 {
         stub_fs fs;
 
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
-        uint8_t                     data[]   = { 42 };
-        asrt_stream_record          rec      = { .next = nullptr, .data = data };
-        asrt_stream_schema          sc       = {
-                           .schema_id   = 0,
-                           .field_count = 1,
-                           .record_size = 1,
-                           .fields      = fields,
-                           .first       = &rec,
-                           .last        = &rec,
-                           .count       = 1,
+        asrt_stream_field_desc fields[] = { { ASRT_STRM_FIELD_U8, 0, nullptr } };
+        uint8_t                data[]   = { 42 };
+        asrt_stream_record     rec      = { .next = nullptr, .data = data };
+        asrt_stream_schema     sc       = {
+                      .schema_id   = 0,
+                      .field_count = 1,
+                      .record_size = 1,
+                      .fields      = fields,
+                      .first       = &rec,
+                      .last        = &rec,
+                      .count       = 1,
         };
 
         asrtio::write_stream_csv( fs, "out/stream.0.csv", sc );
@@ -1816,9 +1816,12 @@ TEST_CASE( "write_stream_csv: multi-field u32,i8" )
 {
         stub_fs fs;
 
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32, ASRT_STRM_FIELD_I8 };
-        uint8_t                     data[5];
-        uint8_t*                    p = data;
+        asrt_stream_field_desc fields[] = {
+            { ASRT_STRM_FIELD_U32, 0, nullptr },
+            { ASRT_STRM_FIELD_I8, 0, nullptr },
+        };
+        uint8_t  data[5];
+        uint8_t* p = data;
         asrt_add_u32( &p, 1000 );
         *p++ = static_cast< uint8_t >( static_cast< int8_t >( -3 ) );
 
@@ -1843,11 +1846,11 @@ TEST_CASE( "write_stream_csv: multiple records" )
 {
         stub_fs fs;
 
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U16 };
-        uint8_t                     data1[2];
-        uint8_t                     data2[2];
-        uint8_t*                    p1 = data1;
-        uint8_t*                    p2 = data2;
+        asrt_stream_field_desc fields[] = { { ASRT_STRM_FIELD_U16, 0, nullptr } };
+        uint8_t                data1[2];
+        uint8_t                data2[2];
+        uint8_t*               p1 = data1;
+        uint8_t*               p2 = data2;
         asrt_add_u16( &p1, 100 );
         asrt_add_u16( &p2, 200 );
 
@@ -1873,15 +1876,15 @@ TEST_CASE( "write_stream_csv: empty schema (no records)" )
 {
         stub_fs fs;
 
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_BOOL };
-        asrt_stream_schema          sc       = {
-                           .schema_id   = 0,
-                           .field_count = 1,
-                           .record_size = 1,
-                           .fields      = fields,
-                           .first       = nullptr,
-                           .last        = nullptr,
-                           .count       = 0,
+        asrt_stream_field_desc fields[] = { { ASRT_STRM_FIELD_BOOL, 0, nullptr } };
+        asrt_stream_schema     sc       = {
+                      .schema_id   = 0,
+                      .field_count = 1,
+                      .record_size = 1,
+                      .fields      = fields,
+                      .first       = nullptr,
+                      .last        = nullptr,
+                      .count       = 0,
         };
 
         asrtio::write_stream_csv( fs, "empty.csv", sc );
@@ -1894,11 +1897,11 @@ TEST_CASE( "write_stream_csv: float field" )
 {
         stub_fs fs;
 
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_FLOAT };
-        uint8_t                     data[4];
-        uint8_t*                    p   = data;
-        float                       val = 3.14F;
-        uint32_t                    bits;
+        asrt_stream_field_desc fields[] = { { ASRT_STRM_FIELD_FLOAT, 0, nullptr } };
+        uint8_t                data[4];
+        uint8_t*               p   = data;
+        float                  val = 3.14F;
+        uint32_t               bits;
         std::memcpy( &bits, &val, 4 );
         asrt_add_u32( &p, bits );
 

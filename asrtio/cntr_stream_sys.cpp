@@ -13,6 +13,21 @@
 namespace asrtio
 {
 
+void write_strm_field( std::ostream& os, struct asrt_stream_field_desc const* desc, uint8_t*& p )
+{
+        if ( desc->type == ASRT_STRM_FIELD_ARRAY ) {
+                os << "[";
+                for ( uint16_t i = 0; i < desc->count; i++ ) {
+                        if ( i > 0 )
+                                os << ",";
+                        write_strm_field( os, desc->elem, p );
+                }
+                os << "]";
+                return;
+        }
+        write_strm_field( os, (enum asrt_strm_field_type_e) desc->type, p );
+}
+
 void write_strm_field( std::ostream& os, enum asrt_strm_field_type_e ft, uint8_t*& p )
 {
         switch ( ft ) {
@@ -72,7 +87,8 @@ void write_stream_csv(
         for ( uint8_t fi = 0; fi < sc.field_count; ++fi ) {
                 if ( fi > 0 )
                         os << ",";
-                os << asrt_strm_field_type_to_str( sc.fields[fi] );
+                os << asrt_strm_field_type_to_str(
+                    (enum asrt_strm_field_type_e) sc.fields[fi].type );
         }
         os << "\n";
         for ( auto* rec = sc.first; rec; rec = rec->next ) {
@@ -80,7 +96,7 @@ void write_stream_csv(
                 for ( uint8_t fi = 0; fi < sc.field_count; ++fi ) {
                         if ( fi > 0 )
                                 os << ",";
-                        write_strm_field( os, sc.fields[fi], p );
+                        write_strm_field( os, &sc.fields[fi], p );
                 }
                 os << "\n";
         }

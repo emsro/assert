@@ -2354,33 +2354,40 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_init: valid" )
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: null client" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_ARG_ERR, asrt_stream_client_define( nullptr, 1, fields, 1, nullptr, nullptr ) );
+            ASRT_ARG_ERR,
+            asrt_stream_client_define(
+                nullptr, 1, fields, sizeof( fields ), 1, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: null fields" )
 {
         CHECK_EQ(
-            ASRT_ARG_ERR, asrt_stream_client_define( &client, 1, nullptr, 1, nullptr, nullptr ) );
+            ASRT_ARG_ERR,
+            asrt_stream_client_define( &client, 1, nullptr, 0, 1, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: zero field_count" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_ARG_ERR, asrt_stream_client_define( &client, 1, fields, 0, nullptr, nullptr ) );
+            ASRT_ARG_ERR,
+            asrt_stream_client_define(
+                &client, 1, fields, sizeof( fields ), 0, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: valid sets DEFINE_SEND" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_U16 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_U16 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 5, fields, 2, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 5, fields, sizeof( fields ), 2, nullptr, nullptr ) );
         CHECK_EQ( ASRT_STRM_DEFINE_SEND, client.state );
         CHECK_EQ( 5, client.op.define.schema_id );
         CHECK_EQ( 2, client.op.define.field_count );
-        CHECK_EQ( fields, client.op.define.fields );
+        CHECK_EQ( fields, client.op.define.field_bytes );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: stores done_cb" )
@@ -2389,25 +2396,31 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: stores done_cb" )
         asrt_stream_done_cb cb     = []( void* p, enum asrt_status ) {
                 *static_cast< bool* >( p ) = true;
         };
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
-        CHECK_EQ( ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, cb, &called ) );
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            asrt_stream_client_define( &client, 0, fields, sizeof( fields ), 1, cb, &called ) );
         CHECK_EQ( cb, client.done_cb );
         CHECK_EQ( &called, client.done_cb_ptr );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: not idle returns BUSY_ERR" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         // Now in DEFINE_SEND, second define should fail
         CHECK_EQ(
-            ASRT_BUSY_ERR, asrt_stream_client_define( &client, 1, fields, 1, nullptr, nullptr ) );
+            ASRT_BUSY_ERR,
+            asrt_stream_client_define(
+                &client, 1, fields, sizeof( fields ), 1, nullptr, nullptr ) );
 }
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: BUSY for each non-idle state" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
 
         SUBCASE( "DEFINE_SEND" )
         {
@@ -2427,7 +2440,9 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_define: BUSY for each non-idle 
         }
 
         CHECK_EQ(
-            ASRT_BUSY_ERR, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_BUSY_ERR,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
 }
 
 // --- tick ---
@@ -2455,17 +2470,18 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: ERROR is noop" )
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND sends and sync-completes" )
 {
-        enum asrt_strm_field_type_e fields[]   = { ASRT_STRM_FIELD_U32, ASRT_STRM_FIELD_I8 };
-        bool                        done_fired = false;
-        asrt_status                 done_st    = ASRT_SIZE_ERR;
-        auto                        done_cb    = []( void* p, enum asrt_status s ) {
-                auto* pair = static_cast< std::pair< bool*, asrt_status* >* >( p );
+        uint8_t     fields[]   = { ASRT_STRM_FIELD_U32, ASRT_STRM_FIELD_I8 };
+        bool        done_fired = false;
+        asrt_status done_st    = ASRT_SIZE_ERR;
+        auto        done_cb    = []( void* p, enum asrt_status s ) {
+                auto* pair    = static_cast< std::pair< bool*, asrt_status* >* >( p );
                 *pair->first  = true;
                 *pair->second = s;
         };
         auto pair = std::make_pair( &done_fired, &done_st );
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 3, fields, 2, done_cb, &pair ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define( &client, 3, fields, sizeof( fields ), 2, done_cb, &pair ) );
 
         // Tick enqueues DEFINE message → state WAIT
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
@@ -2490,9 +2506,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND sends and syn
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND with deferred done" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         // Should be in WAIT, message enqueued but not yet drained
         CHECK_EQ( ASRT_STRM_WAIT, client.state );
@@ -2509,9 +2527,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND with deferred
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND send failure" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRT_STRM_WAIT, client.state );
         // Drain with error simulates send failure → state DONE with error send_status
@@ -2522,17 +2542,18 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DEFINE_SEND send failure"
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
-        bool                        cb_fired = false;
-        asrt_status                 cb_st    = ASRT_INTERNAL_ERR;
-        auto                        done_cb  = []( void* p, enum asrt_status s ) {
-                auto* pair = static_cast< std::pair< bool*, asrt_status* >* >( p );
+        uint8_t     fields[] = { ASRT_STRM_FIELD_U8 };
+        bool        cb_fired = false;
+        asrt_status cb_st    = ASRT_INTERNAL_ERR;
+        auto        done_cb  = []( void* p, enum asrt_status s ) {
+                auto* pair    = static_cast< std::pair< bool*, asrt_status* >* >( p );
                 *pair->first  = true;
                 *pair->second = s;
         };
         auto pair = std::make_pair( &cb_fired, &cb_st );
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, done_cb, &pair ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define( &client, 0, fields, sizeof( fields ), 1, done_cb, &pair ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRT_STRM_WAIT, client.state );
 
@@ -2549,9 +2570,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE fires user callback"
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_tick: DONE with NULL callback" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         drain();
         CHECK_EQ( ASRT_STRM_DONE, client.state );
@@ -2677,9 +2700,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_recv: unknown message id" )
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: send_done preserves ERROR state" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         CHECK_EQ( ASRT_STRM_WAIT, client.state );
 
@@ -2710,8 +2735,8 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: IDLE" )
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client_reset: DEFINE_SEND returns BUSY" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
-        asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr );
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
+        asrt_stream_client_define( &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr );
         CHECK_EQ( ASRT_BUSY_ERR, asrt_stream_client_reset( &client ) );
 }
 
@@ -2755,9 +2780,10 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: full define→tick cycle with 
         auto        cb        = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U16 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U16 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 2, fields, 1, cb, &cb_status ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define( &client, 2, fields, sizeof( fields ), 1, cb, &cb_status ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         drain();  // fires asrt_stream_send_done → ASRT_STRM_DONE
         CHECK_EQ( ASRT_STRM_DONE, client.state );
@@ -2780,9 +2806,11 @@ TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: full define→tick cycle with 
 
 TEST_CASE_FIXTURE( strm_client_ctx, "strm_client: define then record" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 1, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 1, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         CHECK_EQ( ASRT_SUCCESS, asrt_chann_tick( &client.node, 0 ) );
         drain();  // fires asrt_stream_send_done → ASRT_STRM_DONE
         CHECK_EQ( ASRT_STRM_DONE, client.state );

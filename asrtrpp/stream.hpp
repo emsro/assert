@@ -28,40 +28,55 @@ struct strm_field_traits;
 template <>
 struct strm_field_traits< uint8_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_U8;
-        static constexpr auto size = 1;
+        using value_type                            = uint8_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_U8;
+        static constexpr auto        size           = 1;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, uint8_t v ) { *p++ = v; }
 };
 
 template <>
 struct strm_field_traits< uint16_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_U16;
-        static constexpr auto size = 2;
+        using value_type                            = uint16_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_U16;
+        static constexpr auto        size           = 2;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, uint16_t v ) { asrt_add_u16( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< uint32_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_U32;
-        static constexpr auto size = 4;
+        using value_type                            = uint32_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_U32;
+        static constexpr auto        size           = 4;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, uint32_t v ) { asrt_add_u32( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< int8_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_I8;
-        static constexpr auto size = 1;
+        using value_type                            = int8_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_I8;
+        static constexpr auto        size           = 1;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void encode( uint8_t*& p, int8_t v ) { *p++ = static_cast< uint8_t >( v ); }
 };
 
 template <>
 struct strm_field_traits< int16_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_I16;
-        static constexpr auto size = 2;
+        using value_type                            = int16_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_I16;
+        static constexpr auto        size           = 2;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, int16_t v )
         {
                 asrt_add_u16( &p, static_cast< uint16_t >( v ) );
@@ -71,16 +86,22 @@ struct strm_field_traits< int16_t >
 template <>
 struct strm_field_traits< int32_t >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_I32;
-        static constexpr auto size = 4;
+        using value_type                            = int32_t;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_I32;
+        static constexpr auto        size           = 4;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, int32_t v ) { asrt_add_i32( &p, v ); }
 };
 
 template <>
 struct strm_field_traits< float >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_FLOAT;
-        static constexpr auto size = 4;
+        using value_type                            = float;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_FLOAT;
+        static constexpr auto        size           = 4;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, float v )
         {
                 uint32_t u;
@@ -92,9 +113,32 @@ struct strm_field_traits< float >
 template <>
 struct strm_field_traits< bool >
 {
-        static constexpr auto tag  = ASRT_STRM_FIELD_BOOL;
-        static constexpr auto size = 1;
+        using value_type                            = bool;
+        static constexpr auto        tag            = ASRT_STRM_FIELD_BOOL;
+        static constexpr auto        size           = 1;
+        static constexpr std::size_t field_def_size = 1;
+        static constexpr void encode_def( uint8_t*& p ) { *p++ = static_cast< uint8_t >( tag ); }
         static void           encode( uint8_t*& p, bool v ) { *p++ = v ? 1 : 0; }
+};
+
+template < typename T, std::size_t N >
+struct strm_field_traits< T[N] >
+{
+        using value_type = typename strm_field_traits< T >::value_type[N];
+        static constexpr std::size_t field_def_size = 3 + strm_field_traits< T >::field_def_size;
+        static constexpr std::size_t size           = N * strm_field_traits< T >::size;
+        static constexpr void        encode_def( uint8_t*& p )
+        {
+                *p++ = static_cast< uint8_t >( ASRT_STRM_FIELD_ARRAY );
+                *p++ = static_cast< uint8_t >( N >> 8 );
+                *p++ = static_cast< uint8_t >( N & 0xFF );
+                strm_field_traits< T >::encode_def( p );
+        }
+        static void encode( uint8_t*& p, value_type const& arr )
+        {
+                for ( auto const& v : arr )
+                        strm_field_traits< T >::encode( p, v );
+        }
 };
 
 /// Initialise a stream client and link it into the channel chain after @p prev.
@@ -103,17 +147,24 @@ ASRT_NODISCARD inline status init( asrt_stream_client& client, asrt_node& prev )
         return asrt_stream_client_init( &client, &prev );
 }
 
-/// Send a DEFINE message registering @p schema_id with the given @p fields.
+/// Send a DEFINE message registering @p schema_id with pre-encoded field bytes.
 /// @p done_cb fires once the send completes.
 ASRT_NODISCARD inline status define(
-    asrt_stream_client&                client,
-    uint8_t                            schema_id,
-    enum asrt_strm_field_type_e const* fields,
-    uint8_t                            field_count,
-    callback< asrt_stream_done_cb >    done_cb )
+    asrt_stream_client&             client,
+    uint8_t                         schema_id,
+    uint8_t const*                  field_bytes,
+    uint16_t                        field_bytes_size,
+    uint8_t                         field_count,
+    callback< asrt_stream_done_cb > done_cb )
 {
         return asrt_stream_client_define(
-            &client, schema_id, fields, field_count, done_cb.fn, done_cb.ptr );
+            &client,
+            schema_id,
+            field_bytes,
+            field_bytes_size,
+            field_count,
+            done_cb.fn,
+            done_cb.ptr );
 }
 /// Send one DATA record for @p schema_id.  @p data must be exactly @p data_size bytes.
 /// @p done_cb fires once the send completes.
@@ -158,7 +209,13 @@ struct stream_schema
           : _client( &client )
           , _schema_id( schema_id )
         {
-                auto s = define( *_client, _schema_id, fields, sizeof...( Ts ), done_cb );
+                auto s = define(
+                    *_client,
+                    _schema_id,
+                    field_def_bytes.data,
+                    static_cast< uint16_t >( field_def_bytes_size ),
+                    static_cast< uint8_t >( sizeof...( Ts ) ),
+                    done_cb );
                 if ( s != ASRT_SUCCESS ) {
                         ASRT_ERR_LOG( "asrt_stream_schema", "define failed" );
                         ASRT_ASSERT( false );
@@ -191,7 +248,9 @@ struct stream_schema
         }
 
         /// Encode @p args in-place and send a DATA message using the underlying emit function.
-        ASRT_NODISCARD status emit( Ts... args, callback< asrt_stream_done_cb > done_cb )
+        ASRT_NODISCARD status emit(
+            typename strm_field_traits< Ts >::value_type const&... args,
+            callback< asrt_stream_done_cb > done_cb )
         {
                 uint8_t* p = _emit_buf;
                 ( strm_field_traits< Ts >::encode( p, args ), ... );
@@ -207,7 +266,23 @@ struct stream_schema
 
         ~stream_schema() = default;
 
-        static constexpr enum asrt_strm_field_type_e fields[] = { strm_field_traits< Ts >::tag... };
+        static constexpr std::size_t field_def_bytes_size =
+            ( strm_field_traits< Ts >::field_def_size + ... );
+        static constexpr auto field_def_bytes = []() constexpr {
+                struct Arr
+                {
+                        uint8_t data[field_def_bytes_size > 0 ? field_def_bytes_size : 1];
+                        constexpr std::size_t    size() const { return field_def_bytes_size; }
+                        constexpr uint8_t const& operator[]( std::size_t i ) const
+                        {
+                                return data[i];
+                        }
+                };
+                Arr      arr{};
+                uint8_t* p = arr.data;
+                ( strm_field_traits< Ts >::encode_def( p ), ... );
+                return arr;
+        }();
 
 private:
         asrt_stream_client* _client;
@@ -240,8 +315,9 @@ struct _stream_define_ctx
                 auto s = define(
                     *client,
                     schema_id,
-                    stream_schema< Ts... >::fields,
-                    sizeof...( Ts ),
+                    stream_schema< Ts... >::field_def_bytes.data,
+                    static_cast< uint16_t >( stream_schema< Ts... >::field_def_bytes_size ),
+                    static_cast< uint8_t >( sizeof...( Ts ) ),
                     { cb, &op } );
                 if ( s != ASRT_SUCCESS )
                         op.receiver.set_error( s );
@@ -298,7 +374,9 @@ using stream_emit_sender = ecor::sender_from< _stream_emit_ctx< Ts... > >;
 /// Emit one record.  Returns a sender that completes once the DATA message
 /// has been sent.
 template < typename... Ts >
-ecor::sender auto emit( stream_schema< Ts... >& schema, Ts... args )
+ecor::sender auto emit(
+    stream_schema< Ts... >& schema,
+    typename strm_field_traits< Ts >::value_type const&... args )
 {
         _stream_emit_ctx< Ts... > ctx{ &schema, {} };
         uint8_t*                  p = ctx.buf;

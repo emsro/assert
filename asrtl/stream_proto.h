@@ -41,11 +41,16 @@ enum asrt_strm_field_type_e
         ASRT_STRM_FIELD_BOOL     = 0x08,
         ASRT_STRM_FIELD_LBRACKET = 0x09,  ///< Structural: open group (no wire data).
         ASRT_STRM_FIELD_RBRACKET = 0x0A,  ///< Structural: close group (no wire data).
+        /// Array field — followed by a u16 element count (big-endian) and then the
+        /// recursive field definition of the element type.  The wire size of an array
+        /// field is count × wire_size(element).  No wire data is emitted for the tag
+        /// itself; it is structural (DEFINE only).
+        ASRT_STRM_FIELD_ARRAY = 0x0B,
 };
 typedef uint8_t asrt_strm_field_type;
 
 /// Highest valid field type tag value.
-#define ASRT_STRM_FIELD_TAG_MAX 0x0A
+#define ASRT_STRM_FIELD_TAG_MAX 0x0B
 
 /// Error codes sent from controller to reactor.
 enum asrt_strm_err_e
@@ -82,6 +87,7 @@ static inline uint8_t asrt_strm_field_size( asrt_strm_field_type type_tag )
                 return 4;
         case ASRT_STRM_FIELD_LBRACKET:
         case ASRT_STRM_FIELD_RBRACKET:
+        case ASRT_STRM_FIELD_ARRAY:
         default:
                 return 0;
         }
@@ -111,35 +117,37 @@ static inline char const* asrt_strm_field_type_to_str( enum asrt_strm_field_type
                 return "[";
         case ASRT_STRM_FIELD_RBRACKET:
                 return "]";
+        case ASRT_STRM_FIELD_ARRAY:
+                return "array";
         default:
                 return "?";
         }
 }
 
 /// Send DEFINE message from reactor to controller.
-/// Header: [MSG_DEFINE, schema_id, field_count] followed by field_count tags.
+/// Header: [MSG_DEFINE, schema_id, field_count] followed by pre-encoded field bytes.
+/// The caller must keep `field_bytes` alive until the send completes.
 struct asrt_strm_define_msg
 {
         struct asrt_rec_span field_span;
-        uint8_t              fields[255];
         uint8_t              hdr[3];
         struct asrt_send_req req;
 };
 
 static inline struct asrt_send_req* asrt_msg_rtoc_strm_define(
-    struct asrt_strm_define_msg*       msg,
-    uint8_t                            schema_id,
-    enum asrt_strm_field_type_e const* fields,
-    uint16_t                           field_count )
+    struct asrt_strm_define_msg* msg,
+    uint8_t                      schema_id,
+    uint8_t const*               field_bytes,
+    uint16_t                     field_bytes_size,
+    uint8_t                      field_count )
 {
-        ASRT_ASSERT( field_count <= 255 );
-        msg->hdr[0] = ASRT_STRM_MSG_DEFINE;
-        msg->hdr[1] = schema_id;
-        msg->hdr[2] = (uint8_t) field_count;
-        for ( uint16_t i = 0; i < field_count; i++ )
-                msg->fields[i] = (uint8_t) fields[i];
+        msg->hdr[0]     = ASRT_STRM_MSG_DEFINE;
+        msg->hdr[1]     = schema_id;
+        msg->hdr[2]     = field_count;
         msg->field_span = ( struct asrt_rec_span ){
-            .b = msg->fields, .e = msg->fields + field_count, .next = NULL };
+            .b    = (uint8_t*) field_bytes,
+            .e    = (uint8_t*) field_bytes + field_bytes_size,
+            .next = NULL };
         msg->req.buff = ( struct asrt_rec_span ){
             .b    = msg->hdr,
             .e    = msg->hdr + sizeof msg->hdr,

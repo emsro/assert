@@ -23,16 +23,29 @@ extern "C" {
 
 #define ASRT_STREAM_MAX_SCHEMAS 255
 
+/// Descriptor for one field within a stream schema.
+///
+/// Scalars: @p type holds the scalar tag; @p count and @p elem are zero/NULL.
+/// Arrays:  @p type == ASRT_STRM_FIELD_ARRAY; @p count is the element count;
+///          @p elem points to a heap-allocated descriptor for the element type
+///          (which may itself be an array, enabling nesting).
+struct asrt_stream_field_desc
+{
+        asrt_strm_field_type           type;   ///< Field type tag.
+        uint16_t                       count;  ///< Element count (arrays only; 0 for scalars).
+        struct asrt_stream_field_desc* elem;  ///< Element descriptor (arrays only; NULL otherwise).
+};
+
 /// Descriptor for a defined schema.
 struct asrt_stream_schema
 {
-        uint8_t                      schema_id;    ///< Schema ID as defined by the reactor.
-        uint8_t                      field_count;  ///< Number of fields.
-        uint16_t                     record_size;  ///< Sum of field wire sizes.
-        enum asrt_strm_field_type_e* fields;       ///< Allocated array of field type tags.
-        struct asrt_stream_record*   first;        ///< Head of record linked list.
-        struct asrt_stream_record*   last;         ///< Tail of record linked list.
-        uint32_t                     count;        ///< Number of records in the list.
+        uint8_t                        schema_id;    ///< Schema ID as defined by the reactor.
+        uint8_t                        field_count;  ///< Number of top-level logical fields.
+        uint16_t                       record_size;  ///< Total wire size of one record in bytes.
+        struct asrt_stream_field_desc* fields;       ///< Allocated array of field descriptors.
+        struct asrt_stream_record*     first;        ///< Head of record linked list.
+        struct asrt_stream_record*     last;         ///< Tail of record linked list.
+        uint32_t                       count;        ///< Number of records in the list.
 };
 
 /// A single stored record with a separately allocated data buffer.

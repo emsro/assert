@@ -15,6 +15,19 @@
 #include <string.h>
 
 
+/// Recursively free the @p elem chain of a field descriptor.
+/// Does NOT free @p desc itself — the caller owns it (it lives in the
+/// flat @c schema->fields array).
+static void free_field_desc_children(
+    struct asrt_allocator*         alloc,
+    struct asrt_stream_field_desc* desc )
+{
+        if ( desc->elem ) {
+                free_field_desc_children( alloc, desc->elem );
+                asrt_free( alloc, (void**) &desc->elem );
+        }
+}
+
 static void asrt_stream_clear_schema(
     struct asrt_allocator*     alloc,
     struct asrt_stream_schema* schema )
@@ -29,9 +42,12 @@ static void asrt_stream_clear_schema(
                 rec = next;
         }
 
-        // Free fields array
-        if ( schema->fields )
+        // Free elem chains in every field descriptor, then the flat fields array
+        if ( schema->fields ) {
+                for ( uint8_t i = 0; i < schema->field_count; i++ )
+                        free_field_desc_children( alloc, &schema->fields[i] );
                 asrt_free( alloc, (void**) &schema->fields );
+        }
 }
 
 static void asrt_stream_free_schema(
@@ -42,6 +58,66 @@ static void asrt_stream_free_schema(
                 return;
         asrt_stream_clear_schema( alloc, schema );
         asrt_free( alloc, (void**) &schema );
+}
+
+/// Compute the wire size (bytes) of one instance of a field.
+/// For scalars this is just the tag size; for arrays it is count × elem_size.
+static uint16_t field_desc_size( struct asrt_stream_field_desc const* desc )
+{
+        if ( desc->type == ASRT_STRM_FIELD_ARRAY )
+                return (uint16_t) desc->count * field_desc_size( desc->elem );
+        return asrt_strm_field_size( desc->type );
+}
+
+/// Parse one recursive field definition from @p bytes (up to @p remaining
+/// bytes available), filling @p out.  Returns the number of bytes consumed
+/// on success, or 0 on any error (truncation, invalid tag, zero count, or
+/// alloc failure).  On failure all intermediate allocations are freed and
+/// @p out is left unmodified.
+static uint16_t parse_field_def(
+    struct asrt_allocator*         alloc,
+    uint8_t const*                 bytes,
+    uint16_t                       remaining,
+    struct asrt_stream_field_desc* out )
+{
+        if ( remaining < 1 )
+                return 0;
+
+        uint8_t tag = bytes[0];
+        if ( !asrt_strm_field_valid( tag ) )
+                return 0;
+
+        if ( tag == ASRT_STRM_FIELD_ARRAY ) {
+                // Need: tag(1) + count_hi(1) + count_lo(1) + at least one element byte
+                if ( remaining < 4 )
+                        return 0;
+
+                uint16_t count = ( (uint16_t) bytes[1] << 8 ) | bytes[2];
+                if ( count == 0 )
+                        return 0;
+
+                struct asrt_stream_field_desc* elem = asrt_alloc( alloc, sizeof( *elem ) );
+                if ( !elem )
+                        return 0;
+
+                *elem             = ( struct asrt_stream_field_desc ){ 0 };
+                uint16_t consumed = parse_field_def( alloc, bytes + 3, remaining - 3, elem );
+                if ( consumed == 0 ) {
+                        asrt_free( alloc, (void**) &elem );
+                        return 0;
+                }
+
+                out->type  = ASRT_STRM_FIELD_ARRAY;
+                out->count = count;
+                out->elem  = elem;
+                return (uint16_t) ( 3 + consumed );
+        }
+
+        // Scalar field
+        out->type  = (asrt_strm_field_type) tag;
+        out->count = 0;
+        out->elem  = NULL;
+        return 1;
 }
 
 static enum asrt_status asrt_stream_server_handle_define(
@@ -119,28 +195,21 @@ static enum asrt_status asrt_stream_server_handle_define(
         }
         memset( schema->fields, 0, (size_t) field_count * sizeof( *schema->fields ) );
 
-        // Parse each field: type_tag(1)
+        // Parse each field definition, supporting recursive ARRAY types.
         uint16_t record_size = 0;
-        if ( asrt_span_unfit_for( buff, field_count ) ) {
-                ASRT_ERR_LOG( "asrt_stream", "define: truncated field tags" );
-                asrt_free( &server->alloc, (void**) &schema->fields );
-                asrt_free( &server->alloc, (void**) &schema );
-                if ( asrt_send_is_req_used( server->node.send_queue, &server->err_msg.req ) )
-                        return ASRT_SUCCESS;
-                asrt_send_enque(
-                    &server->node,
-                    asrt_msg_ctor_strm_error( &server->err_msg, ASRT_STRM_ERR_INVALID_DEFINE ),
-                    NULL,
-                    NULL );
-                return ASRT_SUCCESS;
-        }
-
         for ( uint8_t i = 0; i < field_count; i++ ) {
-                uint8_t type_tag = *buff->b++;
+                uint16_t remaining = (uint16_t) ( buff->e - buff->b );
+                uint16_t consumed =
+                    parse_field_def( &server->alloc, buff->b, remaining, &schema->fields[i] );
 
-                if ( !asrt_strm_field_valid( type_tag ) ) {
+                if ( consumed == 0 ) {
                         ASRT_ERR_LOG(
-                            "asrt_stream", "define: bad type tag 0x%02x at field %u", type_tag, i );
+                            "asrt_stream",
+                            "define: invalid field definition at logical field %u",
+                            i );
+                        // Free any elem chains already allocated in fields[0..i]
+                        for ( uint8_t j = 0; j < field_count; j++ )
+                                free_field_desc_children( &server->alloc, &schema->fields[j] );
                         asrt_free( &server->alloc, (void**) &schema->fields );
                         asrt_free( &server->alloc, (void**) &schema );
                         if ( asrt_send_is_req_used(
@@ -155,8 +224,8 @@ static enum asrt_status asrt_stream_server_handle_define(
                         return ASRT_SUCCESS;
                 }
 
-                schema->fields[i] = type_tag;
-                record_size += asrt_strm_field_size( type_tag );
+                buff->b += consumed;
+                record_size = (uint16_t) ( record_size + field_desc_size( &schema->fields[i] ) );
         }
 
         schema->record_size       = record_size;

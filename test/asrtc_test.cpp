@@ -2705,6 +2705,27 @@ static enum asrt_status strm_deliver_data(
         return asrt_chann_recv( &server->node, sp );
 }
 
+/// Helper: build a DEFINE message from a raw field-definition byte sequence.
+/// @p field_count is the number of top-level logical fields (what goes in the
+/// protocol header).  @p field_bytes is the full encoded field definition
+/// sequence (which may include ARRAY tags followed by their u16 count and
+/// element type).
+static enum asrt_status strm_deliver_define_raw(
+    asrt_stream_server* server,
+    uint8_t             schema_id,
+    uint8_t             field_count,
+    uint8_t const*      field_bytes,
+    uint16_t            field_bytes_size )
+{
+        std::vector< uint8_t > buf;
+        buf.push_back( ASRT_STRM_MSG_DEFINE );
+        buf.push_back( schema_id );
+        buf.push_back( field_count );
+        buf.insert( buf.end(), field_bytes, field_bytes + field_bytes_size );
+        struct asrt_span sp = { .b = buf.data(), .e = buf.data() + buf.size() };
+        return asrt_chann_recv( &server->node, sp );
+}
+
 // --- init ---
 
 TEST_CASE( "strm_server_init: null server" )
@@ -2776,7 +2797,499 @@ TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: structural fields have 
         CHECK_EQ( 1, server.lookup[1]->record_size );
 }
 
-TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: truncated header" )
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array field uint32_t[5] record_size" )
+{
+        // Field definition: [ARRAY_TAG][0x00][0x05][U32_TAG]
+        // = 1 logical field, 5 uint32_t elements → record_size = 5×4 = 20
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x05,  // count = 5 (big-endian u16)
+            ASRT_STRM_FIELD_U32,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 1, server.lookup[0]->field_count );
+        CHECK_EQ( 20, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: nested array uint32_t[3][4] record_size" )
+{
+        // Field definition: [ARRAY, 0x00, 0x03, [ARRAY, 0x00, 0x04, U32]]
+        // = 1 logical field, 3 outer × 4 inner × 4 bytes = 48
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,  // outer: 3
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x04,  // inner: 4
+            ASRT_STRM_FIELD_U32,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 1, server.lookup[0]->field_count );
+        CHECK_EQ( 48, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array mixed with scalar fields" )
+{
+        // Schema: [U8, ARRAY(3 × U32), BOOL] → record_size = 1 + 12 + 1 = 14
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U32,
+            ASRT_STRM_FIELD_BOOL,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 3, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 3, server.lookup[0]->field_count );
+        CHECK_EQ( 14, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array with zero count rejected" )
+{
+        // count=0 is meaningless; server should send INVALID_DEFINE
+        uint8_t field_bytes[] = { ASRT_STRM_FIELD_ARRAY, 0x00, 0x00, ASRT_STRM_FIELD_U32 };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        drain();
+        REQUIRE_EQ( 1U, coll.data.size() );
+        CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
+        CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: truncated array tag rejected" )
+{
+        // ARRAY tag present but u16 count is cut off
+        uint8_t field_bytes[] = { ASRT_STRM_FIELD_ARRAY, 0x00 };  // missing count_lo and elem
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        drain();
+        REQUIRE_EQ( 1U, coll.data.size() );
+        CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
+        CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: array schema stores and retrieves record" )
+{
+        // Define schema: uint32_t[3] → record_size = 12
+        uint8_t field_bytes[] = { ASRT_STRM_FIELD_ARRAY, 0x00, 0x03, ASRT_STRM_FIELD_U32 };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 12, server.lookup[0]->record_size );
+
+        // Emit one record: [1,0,0,0, 2,0,0,0, 3,0,0,0] (big-endian u32 values 1,2,3)
+        uint8_t data[] = { 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3 };
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        auto* schema = server.lookup[0];
+        REQUIRE_EQ( 1U, schema->count );
+        REQUIRE_NE( nullptr, schema->first );
+        CHECK_EQ( 0, memcmp( schema->first->data, data, 12 ) );
+}
+
+// ---------------------------------------------------------------------------
+// Array define: more field configurations
+// ---------------------------------------------------------------------------
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array(4×u8) between two scalars" )
+{
+        // [I16, ARRAY(4×U8), U32] → record_size = 2+4+4 = 10, field_count = 3
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_I16,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x04,
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_U32,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 1, 3, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[1] );
+        CHECK_EQ( 3, server.lookup[1]->field_count );
+        CHECK_EQ( 10, server.lookup[1]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: single array(2×float)" )
+{
+        // [ARRAY(2×FLOAT)] → record_size = 2×4 = 8, field_count = 1
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_FLOAT,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 1, server.lookup[0]->field_count );
+        CHECK_EQ( 8, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: two adjacent arrays" )
+{
+        // [ARRAY(2×U32), ARRAY(3×U8)] → record_size = 8+3 = 11, field_count = 2
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_U32,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U8,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 2, 2, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[2] );
+        CHECK_EQ( 2, server.lookup[2]->field_count );
+        CHECK_EQ( 11, server.lookup[2]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: scalar array nested scalar" )
+{
+        // [U8, ARRAY(2×ARRAY(3×U8)), U16] → record_size = 1 + 2×3 + 2 = 9, field_count = 3
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_U16,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 3, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 3, server.lookup[0]->field_count );
+        CHECK_EQ( 9, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array count uses full u16 (256×u8)" )
+{
+        // count = 0x0100 = 256; tests big-endian u16 beyond a single byte
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x01,
+            0x00,
+            ASRT_STRM_FIELD_U8,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 1, server.lookup[0]->field_count );
+        CHECK_EQ( 256, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array count 1 (minimum)" )
+{
+        // ARRAY(1×U32) — count of 1 is valid; record_size = 4
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x01,
+            ASRT_STRM_FIELD_U32,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 4, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array of all integer types" )
+{
+        // [ARRAY(1×I8), ARRAY(1×I16), ARRAY(1×I32), ARRAY(1×U8), ARRAY(1×U16)]
+        // record_size = 1+2+4+1+2 = 10, field_count = 5
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY, 0x00, 0x01, ASRT_STRM_FIELD_I8,
+            ASRT_STRM_FIELD_ARRAY, 0x00, 0x01, ASRT_STRM_FIELD_I16,
+            ASRT_STRM_FIELD_ARRAY, 0x00, 0x01, ASRT_STRM_FIELD_I32,
+            ASRT_STRM_FIELD_ARRAY, 0x00, 0x01, ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_ARRAY, 0x00, 0x01, ASRT_STRM_FIELD_U16,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 5, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 5, server.lookup[0]->field_count );
+        CHECK_EQ( 10, server.lookup[0]->record_size );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_define: array element missing tag rejected" )
+{
+        // ARRAY tag + count present but no element tag follows
+        uint8_t field_bytes[] = { ASRT_STRM_FIELD_ARRAY, 0x00, 0x03 };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        drain();
+        REQUIRE_EQ( 1U, coll.data.size() );
+        CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
+        CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
+        coll.data.clear();
+}
+
+TEST_CASE_FIXTURE(
+    strm_server_ctx,
+    "strm_server_define: nested array with truncated inner count rejected" )
+{
+        // outer ARRAY tag + count OK, inner ARRAY tag present but count_lo cut off
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,  // missing count_lo and elem
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 1, field_bytes, sizeof field_bytes ) );
+        drain();
+        REQUIRE_EQ( 1U, coll.data.size() );
+        CHECK_EQ( ASRT_STRM_MSG_ERROR, coll.data[0].data[0] );
+        CHECK_EQ( ASRT_STRM_ERR_INVALID_DEFINE, coll.data[0].data[1] );
+        coll.data.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Array data: store and retrieve with various mixed schemas
+// ---------------------------------------------------------------------------
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: u8 + array(3×u16) + bool" )
+{
+        // Schema: [U8, ARRAY(3×U16), BOOL] → record_size = 1+6+1 = 8
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U16,
+            ASRT_STRM_FIELD_BOOL,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 3, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 8, server.lookup[0]->record_size );
+
+        // Record: u8=0x07, u16[0]=100, u16[1]=200, u16[2]=300, bool=1
+        uint8_t  data[8];
+        uint8_t* p = data;
+        *p++       = 0x07;
+        asrt_add_u16( &p, 100 );
+        asrt_add_u16( &p, 200 );
+        asrt_add_u16( &p, 300 );
+        *p++ = 0x01;
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        REQUIRE_EQ( 1U, server.lookup[0]->count );
+        CHECK_EQ( 0, memcmp( server.lookup[0]->first->data, data, 8 ) );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: array(2×u32) + i8" )
+{
+        // Schema: [ARRAY(2×U32), I8] → record_size = 8+1 = 9
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_U32,
+            ASRT_STRM_FIELD_I8,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 2, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 9, server.lookup[0]->record_size );
+
+        // Record: u32[0]=1000, u32[1]=2000, i8=-5
+        uint8_t  data[9];
+        uint8_t* p = data;
+        asrt_add_u32( &p, 1000 );
+        asrt_add_u32( &p, 2000 );
+        *p++ = static_cast< uint8_t >( static_cast< int8_t >( -5 ) );
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        REQUIRE_EQ( 1U, server.lookup[0]->count );
+        CHECK_EQ( 0, memcmp( server.lookup[0]->first->data, data, 9 ) );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: i32 + array(4×u8) + u16" )
+{
+        // Schema: [I32, ARRAY(4×U8), U16] → record_size = 4+4+2 = 10
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_I32,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x04,
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_U16,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 3, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 10, server.lookup[0]->record_size );
+
+        // Record: i32=-1, u8[4]={10,20,30,40}, u16=9999
+        uint8_t  data[10];
+        uint8_t* p = data;
+        asrt_add_i32( &p, -1 );
+        *p++ = 10;
+        *p++ = 20;
+        *p++ = 30;
+        *p++ = 40;
+        asrt_add_u16( &p, 9999 );
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        REQUIRE_EQ( 1U, server.lookup[0]->count );
+        CHECK_EQ( 0, memcmp( server.lookup[0]->first->data, data, 10 ) );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: two adjacent arrays" )
+{
+        // Schema: [ARRAY(2×U32), ARRAY(3×U8)] → record_size = 8+3 = 11
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_U32,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U8,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 2, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 11, server.lookup[0]->record_size );
+
+        // Record: u32[0]=0xDEAD, u32[1]=0xBEEF, u8[0..2]={1,2,3}
+        uint8_t  data[11];
+        uint8_t* p = data;
+        asrt_add_u32( &p, 0xDEAD );
+        asrt_add_u32( &p, 0xBEEF );
+        *p++ = 1;
+        *p++ = 2;
+        *p++ = 3;
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        REQUIRE_EQ( 1U, server.lookup[0]->count );
+        CHECK_EQ( 0, memcmp( server.lookup[0]->first->data, data, 11 ) );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: nested array(2×array(3×u8)) + u16" )
+{
+        // Schema: [ARRAY(2×ARRAY(3×U8)), U16] → record_size = 2×3 + 2 = 8
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x03,
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_U16,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 2, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 8, server.lookup[0]->record_size );
+
+        // Record: u8[2][3]={ {10,20,30},{40,50,60} }, u16=777
+        uint8_t  data[8];
+        uint8_t* p = data;
+        *p++       = 10;
+        *p++       = 20;
+        *p++       = 30;
+        *p++       = 40;
+        *p++       = 50;
+        *p++       = 60;
+        asrt_add_u16( &p, 777 );
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, data, sizeof data ) );
+
+        REQUIRE_EQ( 1U, server.lookup[0]->count );
+        CHECK_EQ( 0, memcmp( server.lookup[0]->first->data, data, 8 ) );
+}
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_data: multiple records with array schema" )
+{
+        // Schema: [U8, ARRAY(2×U16)] → record_size = 1+4 = 5
+        uint8_t field_bytes[] = {
+            ASRT_STRM_FIELD_U8,
+            ASRT_STRM_FIELD_ARRAY,
+            0x00,
+            0x02,
+            ASRT_STRM_FIELD_U16,
+        };
+        CHECK_EQ(
+            ASRT_SUCCESS,
+            strm_deliver_define_raw( &server, 0, 2, field_bytes, sizeof field_bytes ) );
+        REQUIRE_NE( nullptr, server.lookup[0] );
+        CHECK_EQ( 5, server.lookup[0]->record_size );
+
+        // Emit three records
+        uint8_t  rec0[5];
+        uint8_t* p0 = rec0;
+        *p0++       = 1;
+        asrt_add_u16( &p0, 100 );
+        asrt_add_u16( &p0, 200 );
+        uint8_t  rec1[5];
+        uint8_t* p1 = rec1;
+        *p1++       = 2;
+        asrt_add_u16( &p1, 300 );
+        asrt_add_u16( &p1, 400 );
+        uint8_t  rec2[5];
+        uint8_t* p2 = rec2;
+        *p2++       = 3;
+        asrt_add_u16( &p2, 500 );
+        asrt_add_u16( &p2, 600 );
+
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, rec0, 5 ) );
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, rec1, 5 ) );
+        CHECK_EQ( ASRT_SUCCESS, strm_deliver_data( &server, 0, rec2, 5 ) );
+
+        auto* schema = server.lookup[0];
+        REQUIRE_EQ( 3U, schema->count );
+        auto* r = schema->first;
+        REQUIRE_NE( nullptr, r );
+        CHECK_EQ( 0, memcmp( r->data, rec0, 5 ) );
+        r = r->next;
+        REQUIRE_NE( nullptr, r );
+        CHECK_EQ( 0, memcmp( r->data, rec1, 5 ) );
+        r = r->next;
+        REQUIRE_NE( nullptr, r );
+        CHECK_EQ( 0, memcmp( r->data, rec2, 5 ) );
+        CHECK_EQ( nullptr, r->next );
+}
+
+
+TEST_CASE_FIXTURE( strm_server_ctx, "strm_server_recv: minimal define packet" )
 {
         // Only message id, no schema_id or field_count
         uint8_t          buf[] = { ASRT_STRM_MSG_DEFINE };
@@ -3064,13 +3577,15 @@ struct strm_loopback_ctx : server_client_base< asrt_stream_server, asrt_stream_c
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema received" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT };
-        asrt_status                 done_st  = ASRT_INTERNAL_ERR;
-        auto                        done_cb  = []( void* p, enum asrt_status s ) {
+        uint8_t     fields[] = { ASRT_STRM_FIELD_U8, ASRT_STRM_FIELD_FLOAT };
+        asrt_status done_st  = ASRT_INTERNAL_ERR;
+        auto        done_cb  = []( void* p, enum asrt_status s ) {
                 *static_cast< asrt_status* >( p ) = s;
         };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 1, fields, 2, done_cb, &done_st ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 1, fields, sizeof( fields ), 2, done_cb, &done_st ) );
         client_tick( 1 );
         CHECK_EQ( ASRT_STRM_DONE, client.state );
         check_tick( &client, 2 );
@@ -3087,9 +3602,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define and verify schema r
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define + record + take" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
 
         for ( uint8_t i = 10; i < 13; i++ ) {
@@ -3115,16 +3632,20 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: define + record + take" )
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: duplicate define → error propagation" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U8 };
         // First define succeeds
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
         CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
         // Second define with same ID → controller sends ERROR → client enters ERROR
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
         CHECK_EQ( ASRT_STRM_ERROR, client.state );
         CHECK_EQ( ASRT_STRM_ERR_DUPLICATE_SCHEMA, client.err_code );
@@ -3132,9 +3653,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: duplicate define → error
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: data size mismatch → error" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };  // expects 4 bytes
+        uint8_t fields[] = { ASRT_STRM_FIELD_U32 };  // expects 4 bytes
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
 
         // Send 1 byte instead of 4 → server sends error → client enters ERROR
@@ -3148,9 +3671,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: data size mismatch → err
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejected" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
 
         // Force error
@@ -3167,9 +3692,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: record after error rejecte
 
 TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefine" )
 {
-        enum asrt_strm_field_type_e fields[] = { ASRT_STRM_FIELD_U32 };
+        uint8_t fields[] = { ASRT_STRM_FIELD_U32 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields, sizeof( fields ), 1, nullptr, nullptr ) );
         spin( 2 );
 
         // Force error
@@ -3184,9 +3711,11 @@ TEST_CASE_FIXTURE( strm_loopback_ctx, "strm_loopback: reset after error, redefin
 
         // Clear server and redefine
         asrt_stream_server_clear( &server );
-        enum asrt_strm_field_type_e fields2[] = { ASRT_STRM_FIELD_U8 };
+        uint8_t fields2[] = { ASRT_STRM_FIELD_U8 };
         CHECK_EQ(
-            ASRT_SUCCESS, asrt_stream_client_define( &client, 0, fields2, 1, nullptr, nullptr ) );
+            ASRT_SUCCESS,
+            asrt_stream_client_define(
+                &client, 0, fields2, sizeof( fields2 ), 1, nullptr, nullptr ) );
         spin( 2 );
         CHECK_EQ( ASRT_STRM_IDLE, client.state );
 
