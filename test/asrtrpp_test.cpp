@@ -2401,7 +2401,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: uint32_t[3] define + emit" )
 
         CHECK_EQ( 12U, schema_t::emit_size );
 
-        uint32_t vals[3] = { 10u, 20u, 30u };
+        uint32_t vals[3] = { 10U, 20U, 30U };
         CHECK_EQ( ASRT_SUCCESS, schema.emit( vals, {} ) );
         tick_client();
 
@@ -2414,9 +2414,9 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: uint32_t[3] define + emit" )
         asrt_u8d4_to_u32( rec->data + 0, &v0 );
         asrt_u8d4_to_u32( rec->data + 4, &v1 );
         asrt_u8d4_to_u32( rec->data + 8, &v2 );
-        CHECK_EQ( 10u, v0 );
-        CHECK_EQ( 20u, v1 );
-        CHECK_EQ( 30u, v2 );
+        CHECK_EQ( 10U, v0 );
+        CHECK_EQ( 20U, v1 );
+        CHECK_EQ( 30U, v2 );
 }
 
 TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: uint8_t + uint16_t[3] + bool" )
@@ -2427,7 +2427,7 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: uint8_t + uint16_t[3] + bool" )
 
         CHECK_EQ( 8U, schema_t::emit_size );  // 1 + 6 + 1
 
-        uint16_t uvs[3] = { 100u, 200u, 300u };
+        uint16_t uvs[3] = { 100U, 200U, 300U };
         CHECK_EQ( ASRT_SUCCESS, schema.emit( uint8_t( 0x42 ), uvs, bool( true ), {} ) );
         tick_client();
 
@@ -2441,9 +2441,9 @@ TEST_CASE_FIXTURE( strm_cpp_ctx, "strm_schema: uint8_t + uint16_t[3] + bool" )
         asrt_u8d2_to_u16( rec->data + 1, &a );
         asrt_u8d2_to_u16( rec->data + 3, &b );
         asrt_u8d2_to_u16( rec->data + 5, &c );
-        CHECK_EQ( 100u, a );
-        CHECK_EQ( 200u, b );
-        CHECK_EQ( 300u, c );
+        CHECK_EQ( 100U, a );
+        CHECK_EQ( 200U, b );
+        CHECK_EQ( 300U, c );
         CHECK_EQ( 1, rec->data[7] );
 }
 
